@@ -17,7 +17,9 @@
   "scripts": {
     "build": "tsc",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
-    "prepublishOnly": "npm run build && npm run test"
+    "prepublishOnly": "npm run build && npm run test",
+    "postinstall": "bash scripts/install-hooks.sh || true",
+    "install-hooks": "bash scripts/install-hooks.sh"
   },
   "keywords": [
     "typography",
