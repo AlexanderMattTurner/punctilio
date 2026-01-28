@@ -1,8 +1,8 @@
 # punctilio
 
-> *punctilio* (n.): a fine or petty point of conduct or procedure
+> *punctilio* (n.): a fine point of conduct or procedure
 
-Smart typography transformations for JavaScript/TypeScript. Converts ASCII punctuation to typographically correct Unicode characters.
+Smart typography transformations for JavaScript/TypeScript. Converts ASCII punctuation to typographically correct Unicode characters. Originally built for [my personal website](https://turntrout.com/design).
 
 ## Features
 
@@ -12,15 +12,15 @@ Smart typography transformations for JavaScript/TypeScript. Converts ASCII punct
 - **Minus signs**: `-5` → `−5` (proper Unicode minus)
 - **Handles edge cases**: contractions, possessives, nested quotes, year abbreviations ('99), "rock 'n' roll"
 
-## Why Another Typography Library?
+## Why another typography library?
 
-Existing solutions like SmartyPants struggle with:
+Existing solutions like [SmartyPants](https://daringfireball.net/projects/smartypants/) struggle with:
 
 - **Apostrophe ambiguity**: Is `'Twas` an opening quote or apostrophe? (It's an apostrophe)
 - **Cross-element text**: When quotes span `<em>"Hello</em> world"`, most libraries fail
 - **Context sensitivity**: `'99` (year) vs `'hello'` (quoted) vs `don't` (contraction)
 
-punctilio handles these through battle-tested regex patterns and an optional separator character for processing text that spans HTML elements.
+`punctilio` handles these through thorough regex patterns and an optional separator character for processing text that spans HTML elements.
 
 ## Installation
 
@@ -42,8 +42,8 @@ transform('"Hello," she said - "it\'s pages 1-5."')
 // → "Hello," she said—"it's pages 1–5."
 
 // Or use individual functions
-niceQuotes('"Hello," she said.')
-// → "Hello," she said.
+niceQuotes('"Hello", she said.')
+// → "Hello", she said.
 
 hyphenReplace('word - word')
 // → word—word
@@ -65,7 +65,7 @@ const result = transform(text, { separator: DEFAULT_SEPARATOR })
 // The separator is preserved; split on it to restore to your elements
 ```
 
-For a complete implementation showing how to use this with a HAST (HTML AST) tree, see the [`transformElement` function in TurnTrout.com](https://github.com/alexander-turner/TurnTrout.com/blob/main/quartz/plugins/transformers/formatting_improvement_html.ts).
+For a complete implementation showing how to use this with a HAST (HTML AST) tree, see the [`transformElement` function in TurnTrout.com](https://github.com/alexander-turner/TurnTrout.com/blob/main/quartz/plugins/transformers/formatting_improvement_html.ts). I explain the philosophy behind this algorithm.
 
 ## API
 
@@ -103,37 +103,6 @@ Converts month ranges only: `January-March` → `January–March`
 ### `minusReplace(text, options?)`
 
 Converts hyphens to minus signs in numerical contexts: `-5` → `−5`
-
-### Options
-
-All functions accept an optional `options` object:
-
-```typescript
-interface Options {
-  /**
-   * Boundary marker character for text spanning HTML elements.
-   * Default: "\uE000" (Unicode Private Use Area)
-   */
-  separator?: string
-}
-```
-
-### Constants
-
-- `DEFAULT_SEPARATOR`: The default separator character (`"\uE000"`)
-- `months`: Regex-ready string of month names for date range detection
-
-## Character Reference
-
-| Input | Output | Unicode | Name |
-|-------|--------|---------|------|
-| `"` | `"` | U+201C | Left double quotation mark |
-| `"` | `"` | U+201D | Right double quotation mark |
-| `'` | `'` | U+2018 | Left single quotation mark |
-| `'` | `'` | U+2019 | Right single quotation mark (apostrophe) |
-| `--` | `—` | U+2014 | Em dash |
-| `-` (range) | `–` | U+2013 | En dash |
-| `-` (negative) | `−` | U+2212 | Minus sign |
 
 ## License
 
