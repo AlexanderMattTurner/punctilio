@@ -25,9 +25,9 @@ Existing solutions like [SmartyPants](https://daringfireball.net/projects/smarty
 ## Installation
 
 ```bash
-npm install @alexander-turner/punctilio
+npm install punctilio
 # or
-pnpm add @alexander-turner/punctilio
+pnpm add punctilio
 ```
 
 ## Usage
@@ -35,7 +35,7 @@ pnpm add @alexander-turner/punctilio
 ### Basic
 
 ```typescript
-import { transform, niceQuotes, hyphenReplace } from '@alexander-turner/punctilio'
+import { transform, niceQuotes, hyphenReplace } from 'punctilio'
 
 // Apply all transformations
 transform('"Hello," she said - "it\'s pages 1-5."')
@@ -54,7 +54,7 @@ hyphenReplace('word - word')
 When processing text that spans multiple HTML elements, use a separator character to mark boundaries:
 
 ```typescript
-import { transform, DEFAULT_SEPARATOR } from '@alexander-turner/punctilio'
+import { transform, DEFAULT_SEPARATOR } from 'punctilio'
 
 // Your HTML: <p>"Hello <em>world</em>"</p>
 // Extract text with separator between elements:

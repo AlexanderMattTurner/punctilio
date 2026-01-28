@@ -1,5 +1,5 @@
 {
-  "name": "@alexander-turner/punctilio",
+  "name": "punctilio",
   "version": "0.1.0",
   "description": "Smart typography transformations: curly quotes, em-dashes, en-dashes, and more",
   "type": "module",
