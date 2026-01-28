@@ -65,7 +65,7 @@ const result = transform(text, { separator: DEFAULT_SEPARATOR })
 // The separator is preserved; split on it to restore to your elements
 ```
 
-For a complete implementation showing how to use this with a HAST (HTML AST) tree, see the [`transformElement` function in TurnTrout.com](https://github.com/alexander-turner/TurnTrout.com/blob/main/quartz/plugins/transformers/formatting_improvement_html.ts). I explain the philosophy behind this algorithm.
+For a complete implementation showing how to use this with a HAST (HTML AST) tree, see the [`transformElement` function in TurnTrout.com](https://github.com/alexander-turner/TurnTrout.com/blob/main/quartz/plugins/transformers/formatting_improvement_html.ts).
 
 ## API
 
