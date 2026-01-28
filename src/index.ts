@@ -18,9 +18,6 @@ export {
   type DashOptions,
 } from "./dashes.js"
 
-/**
- * Options for the combined transform function
- */
 export interface TransformOptions {
   /**
    * A boundary marker character used when transforming text that spans
