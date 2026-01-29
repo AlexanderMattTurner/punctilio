@@ -100,8 +100,8 @@ export function multiplication(text: string, options: SymbolOptions = {}): strin
   const tightPattern = new RegExp(`(\\d${chr}?)[xX*](${chr}?\\d)`, "g")
   text = text.replace(tightPattern, `$1${MULTIPLICATION}$2`)
 
-  // Trailing multiplier: 5x (followed by space or end, not letters or numbers)
-  const trailingPattern = new RegExp(`(\\d${chr}?)[xX*](?=${chr}?(?:\\s|$))`, "g")
+  // Trailing multiplier: 5x (followed by word boundary - space, punctuation, etc.)
+  const trailingPattern = new RegExp(`(\\d${chr}?)[xX*]\\b`, "g")
   text = text.replace(trailingPattern, `$1${MULTIPLICATION}`)
 
   return text

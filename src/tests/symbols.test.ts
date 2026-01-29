@@ -41,6 +41,13 @@ describe("multiplication", () => {
     ["3x", `3${UNICODE_SYMBOLS.MULTIPLICATION}`],
     ["5*3", `5${UNICODE_SYMBOLS.MULTIPLICATION}3`],
     ["Resolution: 1920x1080", `Resolution: 1920${UNICODE_SYMBOLS.MULTIPLICATION}1080`],
+    // Test trailing multiplier before punctuation (word boundary cases)
+    ['2x"', `2${UNICODE_SYMBOLS.MULTIPLICATION}"`],
+    ["2x'", `2${UNICODE_SYMBOLS.MULTIPLICATION}'`],
+    ["2x.", `2${UNICODE_SYMBOLS.MULTIPLICATION}.`],
+    ["2x,", `2${UNICODE_SYMBOLS.MULTIPLICATION},`],
+    ["2x!", `2${UNICODE_SYMBOLS.MULTIPLICATION}!`],
+    ["2x?", `2${UNICODE_SYMBOLS.MULTIPLICATION}?`],
     ["extra", "extra"],
     ["complex", "complex"],
     ["x-axis", "x-axis"],
