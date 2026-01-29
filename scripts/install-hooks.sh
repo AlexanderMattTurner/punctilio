@@ -23,6 +23,11 @@ for hook in "$HOOKS_DIR"/*; do
     # Make it executable
     chmod +x "$target"
     
+    # Remove extended attributes (macOS)
+    if command -v xattr &> /dev/null; then
+      xattr -c "$target" 2>/dev/null || true
+    fi
+    
     echo "✅ Installed $hook_name"
   fi
 done
