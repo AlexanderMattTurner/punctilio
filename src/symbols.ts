@@ -7,6 +7,8 @@
  * @module symbols
  */
 
+import { UNICODE_SYMBOLS, DEFAULT_SEPARATOR } from "./constants.js"
+
 export interface SymbolOptions {
   /**
    * Boundary marker character for text spanning HTML elements.
@@ -20,8 +22,6 @@ export interface SymbolOptions {
   includeArrows?: boolean
 }
 
-const DEFAULT_SEPARATOR = "\uE000"
-
 /**
  * Escapes special regex characters in a string.
  */
@@ -29,23 +29,24 @@ function escapeRegex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
 }
 
-// Unicode characters
-const ELLIPSIS = "\u2026" // …
-const MULTIPLICATION = "\u00D7" // ×
-const NOT_EQUAL = "\u2260" // ≠
-const PLUS_MINUS = "\u00B1" // ±
-const COPYRIGHT = "\u00A9" // ©
-const REGISTERED = "\u00AE" // ®
-const TRADEMARK = "\u2122" // ™
-const DEGREE = "\u00B0" // °
-const ARROW_RIGHT = "\u2192" // →
-const ARROW_LEFT = "\u2190" // ←
-const ARROW_LEFT_RIGHT = "\u2194" // ↔
-const APPROXIMATE = "\u2248" // ≈
-const LESS_EQUAL = "\u2264" // ≤
-const GREATER_EQUAL = "\u2265" // ≥
-const PRIME = "\u2032" // ′
-const DOUBLE_PRIME = "\u2033" // ″
+const {
+  ELLIPSIS,
+  MULTIPLICATION,
+  NOT_EQUAL,
+  PLUS_MINUS,
+  COPYRIGHT,
+  REGISTERED,
+  TRADEMARK,
+  DEGREE,
+  ARROW_RIGHT,
+  ARROW_LEFT,
+  ARROW_LEFT_RIGHT,
+  APPROXIMATE,
+  LESS_EQUAL,
+  GREATER_EQUAL,
+  PRIME,
+  DOUBLE_PRIME,
+} = UNICODE_SYMBOLS
 
 /**
  * Converts three periods to a proper ellipsis character.
@@ -59,11 +60,9 @@ const DOUBLE_PRIME = "\u2033" // ″
 export function ellipsis(text: string, options: SymbolOptions = {}): string {
   const chr = escapeRegex(options.separator ?? DEFAULT_SEPARATOR)
 
-  // Replace three periods with ellipsis, allowing for separator chars between
   const pattern = new RegExp(`\\.${chr}?\\.${chr}?\\.`, "g")
   text = text.replace(pattern, ELLIPSIS)
 
-  // Add space after ellipsis when followed by a word character
   text = text.replace(new RegExp(`${ELLIPSIS}(?=\\w)`, "gu"), `${ELLIPSIS} `)
 
   return text
@@ -124,20 +123,11 @@ export function multiplication(text: string, options: SymbolOptions = {}): strin
  * ```
  */
 export function mathSymbols(text: string): string {
-  // Not equal
   text = text.replace(/!=/g, NOT_EQUAL)
-
-  // Plus/minus
   text = text.replace(/\+\/-/g, PLUS_MINUS)
   text = text.replace(/\+-/g, PLUS_MINUS)
-
-  // Less than or equal
   text = text.replace(/<=/g, LESS_EQUAL)
-
-  // Greater than or equal
   text = text.replace(/>=/g, GREATER_EQUAL)
-
-  // Approximately equal
   text = text.replace(/~=/g, APPROXIMATE)
   text = text.replace(/=~/g, APPROXIMATE)
 
@@ -147,29 +137,10 @@ export function mathSymbols(text: string): string {
 /**
  * Converts ASCII representations of copyright, registered, and trademark
  * symbols to proper Unicode characters.
- *
- * Handles:
- * - "(c)" or "(C)" → "©"
- * - "(r)" or "(R)" → "®"
- * - "(tm)" or "(TM)" → "™"
- *
- * @example
- * ```ts
- * legalSymbols("Copyright (c) 2024 Acme Inc.")
- * // → "Copyright © 2024 Acme Inc."
- *
- * legalSymbols("Brand Name(tm)")
- * // → "Brand Name™"
- * ```
  */
 export function legalSymbols(text: string): string {
-  // Copyright - must be surrounded by word boundaries or spaces to avoid false matches
   text = text.replace(/\(c\)/gi, COPYRIGHT)
-
-  // Registered trademark
   text = text.replace(/\(r\)/gi, REGISTERED)
-
-  // Trademark
   text = text.replace(/\(tm\)/gi, TRADEMARK)
 
   return text
@@ -305,25 +276,24 @@ export function primeMarks(text: string, options: SymbolOptions = {}): string {
  */
 export function fractions(text: string): string {
   const fractionMap: Record<string, string> = {
-    "1/4": "\u00BC", // ¼
-    "1/2": "\u00BD", // ½
-    "3/4": "\u00BE", // ¾
-    "1/3": "\u2153", // ⅓
-    "2/3": "\u2154", // ⅔
-    "1/5": "\u2155", // ⅕
-    "2/5": "\u2156", // ⅖
-    "3/5": "\u2157", // ⅗
-    "4/5": "\u2158", // ⅘
-    "1/6": "\u2159", // ⅙
-    "5/6": "\u215A", // ⅚
-    "1/8": "\u215B", // ⅛
-    "3/8": "\u215C", // ⅜
-    "5/8": "\u215D", // ⅝
-    "7/8": "\u215E", // ⅞
+    "1/4": UNICODE_SYMBOLS.FRACTION_1_4,
+    "1/2": UNICODE_SYMBOLS.FRACTION_1_2,
+    "3/4": UNICODE_SYMBOLS.FRACTION_3_4,
+    "1/3": UNICODE_SYMBOLS.FRACTION_1_3,
+    "2/3": UNICODE_SYMBOLS.FRACTION_2_3,
+    "1/5": UNICODE_SYMBOLS.FRACTION_1_5,
+    "2/5": UNICODE_SYMBOLS.FRACTION_2_5,
+    "3/5": UNICODE_SYMBOLS.FRACTION_3_5,
+    "4/5": UNICODE_SYMBOLS.FRACTION_4_5,
+    "1/6": UNICODE_SYMBOLS.FRACTION_1_6,
+    "5/6": UNICODE_SYMBOLS.FRACTION_5_6,
+    "1/8": UNICODE_SYMBOLS.FRACTION_1_8,
+    "3/8": UNICODE_SYMBOLS.FRACTION_3_8,
+    "5/8": UNICODE_SYMBOLS.FRACTION_5_8,
+    "7/8": UNICODE_SYMBOLS.FRACTION_7_8,
   }
 
   for (const [ascii, unicode] of Object.entries(fractionMap)) {
-    // Match fraction at word boundaries, not inside numbers like "21/4"
     const pattern = new RegExp(`(?<!\\d)${ascii.replace("/", "\\/")}(?!\\d)`, "g")
     text = text.replace(pattern, unicode)
   }

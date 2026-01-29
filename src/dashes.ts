@@ -5,6 +5,8 @@
  * en-dashes, and minus signs based on context.
  */
 
+import { UNICODE_SYMBOLS, DEFAULT_SEPARATOR } from "./constants.js"
+
 export interface DashOptions {
   /**
    * A boundary marker character used when transforming text that spans
@@ -17,7 +19,7 @@ export interface DashOptions {
   separator?: string
 }
 
-const DEFAULT_SEPARATOR = "\uE000"
+const { EN_DASH, EM_DASH, MINUS } = UNICODE_SYMBOLS
 
 /**
  * List of month names (full and abbreviated) for date range detection
@@ -79,7 +81,7 @@ export function enDashNumberRange(text: string, options: DashOptions = {}): stri
       `\\b(?<![a-zA-Z.])((?:p\\.?|\\$)?\\d[\\d.,]*${chr}?)-(${chr}?\\$?\\d[\\d.,]*)(?!\\.\\d)\\b`,
       "g"
     ),
-    "$1–$2"
+    `$1${EN_DASH}$2`
   )
 }
 
@@ -104,7 +106,7 @@ export function enDashDateRange(text: string, options: DashOptions = {}): string
   const chr = options.separator ?? DEFAULT_SEPARATOR
   return text.replace(
     new RegExp(`\\b(${months}${chr}?)-(${chr}?(?:${months}))\\b`, "g"),
-    "$1–$2"
+    `$1${EN_DASH}$2`
   )
 }
 
@@ -130,7 +132,7 @@ export function enDashDateRange(text: string, options: DashOptions = {}): string
 export function minusReplace(text: string, options: DashOptions = {}): string {
   const chr = options.separator ?? DEFAULT_SEPARATOR
   const minusRegex = new RegExp(`(^|[\\s\\(${chr}""])-(\\s?\\d*\\.?\\d+)`, "gm")
-  return text.replaceAll(minusRegex, "$1−$2")
+  return text.replaceAll(minusRegex, `$1${MINUS}$2`)
 }
 
 /**
@@ -175,40 +177,32 @@ export function hyphenReplace(text: string, options: DashOptions = {}): string {
   //  Being right after chr is a sufficient condition for being an em
   //  dash, as it indicates the start of a new line
   const preDash = new RegExp(`((?<markerBeforeTwo>${chr}?)[ ]+|(?<markerBeforeThree>${chr}))`)
-  // Want eg " - " to be replaced with "—"
   const surroundedDash = new RegExp(
-    `(?<=[^\\s>]|^)${preDash.source}[~–—-]+[ ]*(?<markerAfter>${chr}?)([ ]+|$)`,
+    `(?<=[^\\s>]|^)${preDash.source}[~${EN_DASH}${EM_DASH}-]+[ ]*(?<markerAfter>${chr}?)([ ]+|$)`,
     "g"
   )
 
-  // Replace surrounded dashes with em dash
-  text = text.replace(surroundedDash, "$<markerBeforeTwo>$<markerBeforeThree>—$<markerAfter>")
+  text = text.replace(surroundedDash, `$<markerBeforeTwo>$<markerBeforeThree>${EM_DASH}$<markerAfter>`)
 
-  // "Since--as you know" should be "Since—as you know"
   const multipleDashInWords = new RegExp(
-    `(?<=[A-Za-z\\d])(?<markerBefore>${chr}?)[~–—-]{2,}(?<markerAfter>${chr}?)(?=[A-Za-z\\d ])`,
+    `(?<=[A-Za-z\\d])(?<markerBefore>${chr}?)[~${EN_DASH}${EM_DASH}-]{2,}(?<markerAfter>${chr}?)(?=[A-Za-z\\d ])`,
     "g"
   )
-  text = text.replace(multipleDashInWords, "$<markerBefore>—$<markerAfter>")
+  text = text.replace(multipleDashInWords, `$<markerBefore>${EM_DASH}$<markerAfter>`)
 
-  // Handle dashes at the start of a line
-  text = text.replace(new RegExp(`^(${chr})?[-]+ `, "gm"), "$1— ")
+  text = text.replace(new RegExp(`^(${chr})?[-]+ `, "gm"), `$1${EM_DASH} `)
 
-  // Create a regex for spaces around em dashes, allowing for optional spaces around the em dash
   const spacesAroundEM = new RegExp(
-    `(?<markerBefore>${chr}?)[ ]*—[ ]*(?<markerAfter>${chr}?)[ ]*`,
+    `(?<markerBefore>${chr}?)[ ]*${EM_DASH}[ ]*(?<markerAfter>${chr}?)[ ]*`,
     "g"
   )
-  // Remove spaces around em dashes
-  text = text.replace(spacesAroundEM, "$<markerBefore>—$<markerAfter>")
+  text = text.replace(spacesAroundEM, `$<markerBefore>${EM_DASH}$<markerAfter>`)
 
-  // Handle special case after quotation marks
   const postQuote = new RegExp(`(?<quote>[.!?]${chr}?['"'"]${chr}?|…)${spacesAroundEM.source}`, "g")
-  text = text.replace(postQuote, "$<quote> $<markerBefore>—$<markerAfter> ")
+  text = text.replace(postQuote, `$<quote> $<markerBefore>${EM_DASH}$<markerAfter> `)
 
-  // Handle em dashes at the start of a line
   const startOfLine = new RegExp(`^${spacesAroundEM.source}(?<after>[A-Z0-9])`, "gm")
-  text = text.replace(startOfLine, "$<markerBefore>—$<markerAfter> $<after>")
+  text = text.replace(startOfLine, `$<markerBefore>${EM_DASH}$<markerAfter> $<after>`)
 
   text = enDashNumberRange(text, options)
   text = enDashDateRange(text, options)
