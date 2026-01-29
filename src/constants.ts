@@ -57,3 +57,4 @@ export const UNICODE_SYMBOLS = {
  * Uses Unicode Private Use Area character U+E000.
  */
 export const DEFAULT_SEPARATOR = "\uE000"
+export const ESCAPED_DEFAULT_SEPARATOR = DEFAULT_SEPARATOR.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")

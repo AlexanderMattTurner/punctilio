@@ -7,7 +7,7 @@
  * @module symbols
  */
 
-import { UNICODE_SYMBOLS, DEFAULT_SEPARATOR } from "./constants.js"
+import { UNICODE_SYMBOLS, ESCAPED_DEFAULT_SEPARATOR } from "./constants.js"
 
 export interface SymbolOptions {
   /**
@@ -58,7 +58,9 @@ const {
  * ```
  */
 export function ellipsis(text: string, options: SymbolOptions = {}): string {
-  const chr = escapeRegex(options.separator ?? DEFAULT_SEPARATOR)
+  const chr = options.separator
+    ? escapeRegex(options.separator)
+    : ESCAPED_DEFAULT_SEPARATOR
 
   const pattern = new RegExp(`\\.${chr}?\\.${chr}?\\.`, "g")
   text = text.replace(pattern, ELLIPSIS)
@@ -86,7 +88,9 @@ export function ellipsis(text: string, options: SymbolOptions = {}): string {
  * ```
  */
 export function multiplication(text: string, options: SymbolOptions = {}): string {
-  const chr = escapeRegex(options.separator ?? DEFAULT_SEPARATOR)
+  const chr = options.separator
+    ? escapeRegex(options.separator)
+    : ESCAPED_DEFAULT_SEPARATOR
 
   // Dimensions with spaces: preserve spacing
   const loosePattern = new RegExp(`(\\d${chr}?)\\s+[xX*]\\s+(${chr}?\\d)`, "g")
@@ -106,13 +110,6 @@ export function multiplication(text: string, options: SymbolOptions = {}): strin
 /**
  * Converts ASCII mathematical symbols to proper Unicode equivalents.
  *
- * Handles:
- * - "!=" → "≠"
- * - "+-" or "+/-" → "±"
- * - "<=" → "≤"
- * - ">=" → "≥"
- * - "~=" or "=~" → "≈"
- *
  * @example
  * ```ts
  * mathSymbols("x != y and a <= b")
@@ -123,15 +120,14 @@ export function multiplication(text: string, options: SymbolOptions = {}): strin
  * ```
  */
 export function mathSymbols(text: string): string {
-  text = text.replace(/!=/g, NOT_EQUAL)
-  text = text.replace(/\+\/-/g, PLUS_MINUS)
-  text = text.replace(/\+-/g, PLUS_MINUS)
-  text = text.replace(/<=/g, LESS_EQUAL)
-  text = text.replace(/>=/g, GREATER_EQUAL)
-  text = text.replace(/~=/g, APPROXIMATE)
-  text = text.replace(/=~/g, APPROXIMATE)
-
   return text
+    .replace(/!=/g, NOT_EQUAL)
+    .replace(/\+\/-/g, PLUS_MINUS)
+    .replace(/\+-/g, PLUS_MINUS)
+    .replace(/<=/g, LESS_EQUAL)
+    .replace(/>=/g, GREATER_EQUAL)
+    .replace(/~=/g, APPROXIMATE)
+    .replace(/=~/g, APPROXIMATE)
 }
 
 /**
@@ -139,11 +135,10 @@ export function mathSymbols(text: string): string {
  * symbols to proper Unicode characters.
  */
 export function legalSymbols(text: string): string {
-  text = text.replace(/\(c\)/gi, COPYRIGHT)
-  text = text.replace(/\(r\)/gi, REGISTERED)
-  text = text.replace(/\(tm\)/gi, TRADEMARK)
-
   return text
+    .replace(/\(c\)/gi, COPYRIGHT)
+    .replace(/\(r\)/gi, REGISTERED)
+    .replace(/\(tm\)/gi, TRADEMARK)
 }
 
 /**
@@ -167,16 +162,28 @@ export function legalSymbols(text: string): string {
  * ```
  */
 export function arrows(text: string, options: SymbolOptions = {}): string {
-  const chr = escapeRegex(options.separator ?? DEFAULT_SEPARATOR)
+  const chr = options.separator
+    ? escapeRegex(options.separator)
+    : ESCAPED_DEFAULT_SEPARATOR
 
   // Bidirectional arrow first (to avoid partial matches)
-  text = text.replace(new RegExp(`<-{1,2}${chr}?>`, "g"), ARROW_LEFT_RIGHT)
+  // Matches <-> or <--> with optional separator, requires boundary context
+  text = text.replace(
+    new RegExp(`(?<=[\\s${chr}]|^)<-{1,2}${chr}?>(?=[\\s${chr}]|$)`, "g"),
+    ARROW_LEFT_RIGHT
+  )
 
-  // Right arrow
-  text = text.replace(new RegExp(`(?<=[\\s${chr}]|^)-{1,2}>(?=[\\s${chr}]|$)`, "g"), ARROW_RIGHT)
+  // Right arrow: -> or --> with boundary context
+  text = text.replace(
+    new RegExp(`(?<=[\\s${chr}]|^)-{1,2}>(?=[\\s${chr}]|$)`, "g"),
+    ARROW_RIGHT
+  )
 
-  // Left arrow
-  text = text.replace(new RegExp(`(?<=[\\s${chr}]|^)<-{1,2}(?=[\\s${chr}]|$)`, "g"), ARROW_LEFT)
+  // Left arrow: <- or <-- with boundary context
+  text = text.replace(
+    new RegExp(`(?<=[\\s${chr}]|^)<-{1,2}(?=[\\s${chr}]|$)`, "g"),
+    ARROW_LEFT
+  )
 
   return text
 }
@@ -200,13 +207,17 @@ export function arrows(text: string, options: SymbolOptions = {}): string {
  * // → "Water boils at 212 °F"
  * ```
  */
-export function degrees(text: string): string {
-  // Temperature with optional space before C or F
-  text = text.replace(/(\d+) ?([CF])\b/gi, (_, num, unit) => {
-    return `${num} ${DEGREE}${unit.toUpperCase()}`
-  })
+export function degrees(text: string, options: SymbolOptions = {}): string {
+  const chr = options.separator
+    ? escapeRegex(options.separator)
+    : ESCAPED_DEFAULT_SEPARATOR
 
-  return text
+  // Temperature with optional space before C or F
+  // Handles separator between digit and unit
+  return text.replace(
+    new RegExp(`(\\d${chr}?) ?([CF])\\b`, "gi"),
+    (_, num, unit) => `${num} ${DEGREE}${unit.toUpperCase()}`
+  )
 }
 
 /**
@@ -229,24 +240,29 @@ export function degrees(text: string): string {
  * ```
  */
 export function primeMarks(text: string, options: SymbolOptions = {}): string {
-  const chr = escapeRegex(options.separator ?? DEFAULT_SEPARATOR)
+  const chr = options.separator
+    ? escapeRegex(options.separator)
+    : ESCAPED_DEFAULT_SEPARATOR
 
-  // Single prime: digit followed by ' and then either digit, ", or end/space/punctuation
-  // This handles feet (5') and arcminutes (30')
+  // Single prime: Matches digit + optional separator + apostrophe
+  // Lookahead ensures it's followed by: another digit, double quote, end of string, or punctuation
+  // Examples: 5' (feet), 30' (arcminutes)
   const singlePrimePattern = new RegExp(
     `(\\d${chr}?)'(?=${chr}?(?:\\d|"|$|[\\s.,;:!?)]))`,
     "g"
   )
   text = text.replace(singlePrimePattern, `$1${PRIME}`)
 
-  // Double prime: Only match when it's clearly a measurement context
-  // Pattern 1: Feet-inches pattern (5'10" or 5′10")
+  // Double prime Pattern 1: Feet-inches pattern
+  // Matches: prime symbol + optional separator + digit + optional separator + double quote
+  // Examples: 5′10" or 5'10" → 5′10″
   const feetInchesPattern = new RegExp(`(${PRIME}${chr}?\\d${chr}?)"`, "g")
   text = text.replace(feetInchesPattern, `$1${DOUBLE_PRIME}`)
 
-  // Pattern 2: Standalone inches - match digit followed by " but NOT when it's a closing quote
-  // Use negative lookbehind to ensure there's no opening quote before the number
-  // This matches: 12" wide, but not: "Term 1"
+  // Double prime Pattern 2: Standalone inches
+  // Negative lookbehind: ensures no opening quote within 20 chars before the digit
+  // Negative lookahead: ensures not followed by word characters
+  // Matches: 12" wide ✓, but not: "Term 1" ✗
   const standaloneInchesPattern = new RegExp(
     `(?<!["\u201C]${chr}?[^"${chr}]{0,20})(\\d${chr}?)"(?!${chr}?[\\w])`,
     "g"
@@ -254,6 +270,28 @@ export function primeMarks(text: string, options: SymbolOptions = {}): string {
   text = text.replace(standaloneInchesPattern, `$1${DOUBLE_PRIME}`)
 
   return text
+}
+
+/**
+ * Map of ASCII fractions to Unicode fraction characters.
+ * Pre-computed to avoid repeated object allocation.
+ */
+const FRACTION_MAP: Record<string, string> = {
+  "1/4": UNICODE_SYMBOLS.FRACTION_1_4,
+  "1/2": UNICODE_SYMBOLS.FRACTION_1_2,
+  "3/4": UNICODE_SYMBOLS.FRACTION_3_4,
+  "1/3": UNICODE_SYMBOLS.FRACTION_1_3,
+  "2/3": UNICODE_SYMBOLS.FRACTION_2_3,
+  "1/5": UNICODE_SYMBOLS.FRACTION_1_5,
+  "2/5": UNICODE_SYMBOLS.FRACTION_2_5,
+  "3/5": UNICODE_SYMBOLS.FRACTION_3_5,
+  "4/5": UNICODE_SYMBOLS.FRACTION_4_5,
+  "1/6": UNICODE_SYMBOLS.FRACTION_1_6,
+  "5/6": UNICODE_SYMBOLS.FRACTION_5_6,
+  "1/8": UNICODE_SYMBOLS.FRACTION_1_8,
+  "3/8": UNICODE_SYMBOLS.FRACTION_3_8,
+  "5/8": UNICODE_SYMBOLS.FRACTION_5_8,
+  "7/8": UNICODE_SYMBOLS.FRACTION_7_8,
 }
 
 /**
@@ -274,28 +312,21 @@ export function primeMarks(text: string, options: SymbolOptions = {}): string {
  * // → "About ¾ complete"
  * ```
  */
-export function fractions(text: string): string {
-  const fractionMap: Record<string, string> = {
-    "1/4": UNICODE_SYMBOLS.FRACTION_1_4,
-    "1/2": UNICODE_SYMBOLS.FRACTION_1_2,
-    "3/4": UNICODE_SYMBOLS.FRACTION_3_4,
-    "1/3": UNICODE_SYMBOLS.FRACTION_1_3,
-    "2/3": UNICODE_SYMBOLS.FRACTION_2_3,
-    "1/5": UNICODE_SYMBOLS.FRACTION_1_5,
-    "2/5": UNICODE_SYMBOLS.FRACTION_2_5,
-    "3/5": UNICODE_SYMBOLS.FRACTION_3_5,
-    "4/5": UNICODE_SYMBOLS.FRACTION_4_5,
-    "1/6": UNICODE_SYMBOLS.FRACTION_1_6,
-    "5/6": UNICODE_SYMBOLS.FRACTION_5_6,
-    "1/8": UNICODE_SYMBOLS.FRACTION_1_8,
-    "3/8": UNICODE_SYMBOLS.FRACTION_3_8,
-    "5/8": UNICODE_SYMBOLS.FRACTION_5_8,
-    "7/8": UNICODE_SYMBOLS.FRACTION_7_8,
-  }
+export function fractions(text: string, options: SymbolOptions = {}): string {
+  const chr = options.separator
+    ? escapeRegex(options.separator)
+    : ESCAPED_DEFAULT_SEPARATOR
 
-  for (const [ascii, unicode] of Object.entries(fractionMap)) {
-    const pattern = new RegExp(`(?<!\\d)${ascii.replace("/", "\\/")}(?!\\d)`, "g")
-    text = text.replace(pattern, unicode)
+  for (const [ascii, unicode] of Object.entries(FRACTION_MAP)) {
+    // Negative lookbehind/lookahead: ensures fraction is not part of a larger number
+    // Named captures preserve separators before and after the slash
+    const [numerator, denominator] = ascii.split("/")
+    const pattern = new RegExp(
+      `(?<!\\d)${numerator}(?<sepBefore>${chr}?)/(?<sepAfter>${chr}?)${denominator}(?!\\d)`,
+      "g"
+    )
+    // Preserve separators around the fraction Unicode character
+    text = text.replace(pattern, `$<sepBefore>${unicode}$<sepAfter>`)
   }
 
   return text

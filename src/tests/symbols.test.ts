@@ -121,6 +121,13 @@ describe("degrees", () => {
   ])('converts "%s" to "%s"', (input, expected) => {
     expect(degrees(input)).toBe(expected)
   })
+
+  it("handles separator characters", () => {
+    const sep = "\uE000"
+    expect(degrees(`20${sep}C`, { separator: sep })).toBe(
+      `20${sep} ${UNICODE_SYMBOLS.DEGREE}C`
+    )
+  })
 })
 
 describe("primeMarks", () => {
@@ -170,6 +177,13 @@ describe("fractions", () => {
     ["5/9", "5/9"],
   ])('converts "%s" to "%s"', (input, expected) => {
     expect(fractions(input)).toBe(expected)
+  })
+
+  it("handles separator characters", () => {
+    const sep = "\uE000"
+    expect(fractions(`1${sep}/${sep}2`, { separator: sep })).toBe(
+      `${sep}${UNICODE_SYMBOLS.FRACTION_1_2}${sep}`
+    )
   })
 })
 
