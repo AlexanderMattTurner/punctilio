@@ -36,7 +36,7 @@ describe("ellipsis", () => {
 describe("multiplication", () => {
   it.each([
     ["5x5", "5\u00D75"],
-    ["10 x 20", "10\u00D720"],
+    ["10 x 20", "10 \u00D7 20"],
     ["10x20", "10\u00D720"],
     ["The room is 10x12 feet", "The room is 10\u00D712 feet"],
     ["2x speed", "2\u00D7 speed"],
@@ -195,6 +195,19 @@ describe("primeMarks", () => {
   it("handles coordinates with degrees", () => {
     expect(primeMarks("40° 44' 54\" N")).toBe("40° 44\u2032 54\u2033 N")
   })
+
+  it("does not convert closing quotes after numbers", () => {
+    // Issue: "Term 1". should not become "Term 1″."
+    expect(primeMarks('"Term 1".')).toBe('"Term 1".')
+    expect(primeMarks('"Number 5"')).toBe('"Number 5"')
+    expect(primeMarks('"Item 3", "Item 4"')).toBe('"Item 3", "Item 4"')
+  })
+
+  it("still converts standalone inches measurements", () => {
+    expect(primeMarks('12"')).toBe("12\u2033")
+    expect(primeMarks('The board is 12" wide')).toBe("The board is 12\u2033 wide")
+    expect(primeMarks('12" long')).toBe("12\u2033 long")
+  })
 })
 
 describe("fractions", () => {
@@ -207,29 +220,25 @@ describe("fractions", () => {
     ["Add 1/2 cup", "Add \u00BD cup"],
     ["About 3/4 done", "About \u00BE done"],
     ["1/8 teaspoon", "\u215B teaspoon"],
+    ["21/4", "21/4"],
+    ["page 1/25", "page 1/25"],
+    ["1/7", "1/7"],
+    ["5/9", "5/9"],
   ])('converts "%s" to "%s"', (input, expected) => {
     expect(fractions(input)).toBe(expected)
-  })
-
-  it("does not convert fractions within numbers", () => {
-    expect(fractions("21/4")).toBe("21/4")
-    expect(fractions("page 1/25")).toBe("page 1/25")
-  })
-
-  it("does not convert unsupported fractions", () => {
-    expect(fractions("1/7")).toBe("1/7")
-    expect(fractions("5/9")).toBe("5/9")
   })
 })
 
 describe("symbolTransform", () => {
-  it("applies all transforms in sequence", () => {
-    const input = "Wait... 5x5 != 20 (c) 2024"
-    const expected = "Wait\u2026 5\u00D75 \u2260 20 \u00A9 2024"
+  it.each([
+    ["Wait... 5x5 != 20 (c) 2024", "Wait\u2026 5\u00D75 \u2260 20 \u00A9 2024"],
+    ["-2 x 3", "-2 \u00D7 3"],
+    ["5 x 5", "5 \u00D7 5"],
+  ])('converts "%s" to "%s"', (input, expected) => {
     expect(symbolTransform(input)).toBe(expected)
   })
 
-  it("handles complex text", () => {
+  it("handles complex text with multiple symbols", () => {
     const input = "Product(tm) v2.0 - Size: 10x20 cm, tolerance +- 5%"
     const result = symbolTransform(input)
     expect(result).toContain("\u2122") // trademark
@@ -242,5 +251,13 @@ describe("symbolTransform", () => {
     const input = `5${sep}x${sep}5`
     const result = symbolTransform(input, { separator: sep })
     expect(result).toContain("\u00D7")
+  })
+
+  it("includes arrows by default", () => {
+    expect(symbolTransform("A -> B")).toBe("A \u2192 B")
+  })
+
+  it("can disable arrows with includeArrows: false", () => {
+    expect(symbolTransform("A -> B", { includeArrows: false })).toBe("A -> B")
   })
 })

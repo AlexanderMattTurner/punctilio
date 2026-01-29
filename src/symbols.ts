@@ -13,6 +13,11 @@ export interface SymbolOptions {
    * Default: "\uE000" (Unicode Private Use Area)
    */
   separator?: string
+  /**
+   * Whether to include arrow transformations (-> to →, etc.).
+   * Default: true
+   */
+  includeArrows?: boolean
 }
 
 const DEFAULT_SEPARATOR = "\uE000"
@@ -84,9 +89,13 @@ export function ellipsis(text: string, options: SymbolOptions = {}): string {
 export function multiplication(text: string, options: SymbolOptions = {}): string {
   const chr = escapeRegex(options.separator ?? DEFAULT_SEPARATOR)
 
-  // Dimensions: 5x5, 10 x 20, etc.
-  const dimensionPattern = new RegExp(`(\\d${chr}?) ?[xX*] ?(${chr}?\\d)`, "g")
-  text = text.replace(dimensionPattern, `$1${MULTIPLICATION}$2`)
+  // Dimensions with spaces: preserve spacing
+  const loosePattern = new RegExp(`(\\d${chr}?)\\s+[xX*]\\s+(${chr}?\\d)`, "g")
+  text = text.replace(loosePattern, `$1 ${MULTIPLICATION} $2`)
+
+  // Dimensions without spaces: keep tight
+  const tightPattern = new RegExp(`(\\d${chr}?)[xX*](${chr}?\\d)`, "g")
+  text = text.replace(tightPattern, `$1${MULTIPLICATION}$2`)
 
   // Trailing multiplier: 5x (followed by space or end, not letters or numbers)
   const trailingPattern = new RegExp(`(\\d${chr}?)[xX*](?=${chr}?(?:\\s|$))`, "g")
@@ -259,10 +268,19 @@ export function primeMarks(text: string, options: SymbolOptions = {}): string {
   )
   text = text.replace(singlePrimePattern, `$1${PRIME}`)
 
-  // Double prime: digit followed by "
-  // This handles inches (10") and arcseconds (15")
-  const doublePrimePattern = new RegExp(`(\\d${chr}?)"`, "g")
-  text = text.replace(doublePrimePattern, `$1${DOUBLE_PRIME}`)
+  // Double prime: Only match when it's clearly a measurement context
+  // Pattern 1: Feet-inches pattern (5'10" or 5′10")
+  const feetInchesPattern = new RegExp(`(${PRIME}${chr}?\\d${chr}?)"`, "g")
+  text = text.replace(feetInchesPattern, `$1${DOUBLE_PRIME}`)
+
+  // Pattern 2: Standalone inches - match digit followed by " but NOT when it's a closing quote
+  // Use negative lookbehind to ensure there's no opening quote before the number
+  // This matches: 12" wide, but not: "Term 1"
+  const standaloneInchesPattern = new RegExp(
+    `(?<!["\u201C]${chr}?[^"${chr}]{0,20})(\\d${chr}?)"(?!${chr}?[\\w])`,
+    "g"
+  )
+  text = text.replace(standaloneInchesPattern, `$1${DOUBLE_PRIME}`)
 
   return text
 }
@@ -337,6 +355,8 @@ export function symbolTransform(text: string, options: SymbolOptions = {}): stri
   text = multiplication(text, options)
   text = mathSymbols(text)
   text = legalSymbols(text)
-  text = arrows(text, options)
+  if (options.includeArrows !== false) {
+    text = arrows(text, options)
+  }
   return text
 }
