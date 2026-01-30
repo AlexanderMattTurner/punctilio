@@ -76,6 +76,11 @@ transform('Add 1/2 cup at 20 C', {
 // Disable symbol transforms if you only want quotes/dashes
 transform('5x5 = 25', { symbols: false })
 // → 5x5 = 25 (unchanged)
+
+// Punctuation style: american (default), british, or none
+transform('"Hello".', { punctuationStyle: 'american' }) // → "Hello."
+transform('"Hello."', { punctuationStyle: 'british' })  // → "Hello".
+transform('"Hello".', { punctuationStyle: 'none' })     // → "Hello".
 ```
 
 ### With HTML Element Boundaries
@@ -105,18 +110,15 @@ Applies all typography transformations. Options:
 - `symbols`: Include symbol transforms (default: `true`)
 - `fractions`: Convert common fractions like 1/2 → ½ (default: `false`)
 - `degrees`: Convert temperature notation like 20 C → 20 °C (default: `false`)
+- `punctuationStyle`: `"american"` (default) puts periods/commas inside quotes; `"british"` puts them outside; `"none"` leaves unchanged
 
 ### Quote Functions
 
 #### `niceQuotes(text, options?)`
 
-Converts straight quotes to curly quotes. Handles:
-- Opening/closing double quotes: `"` → `"` or `"`
-- Opening/closing single quotes: `'` → `'` or `'`
-- Contractions: `don't` → `don't`
-- Possessives: `dog's` → `dog's`
-- Year abbreviations: `'99` → `'99`
-- Special cases: `'n'` in "rock 'n' roll"
+Converts straight quotes to curly quotes. Options: `separator`, `punctuationStyle`.
+
+Handles: opening/closing quotes, contractions (`don't`), possessives (`dog's`), year abbreviations (`'99`), special cases (`'n'`).
 
 ### Dash Functions
 
