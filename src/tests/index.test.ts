@@ -77,6 +77,18 @@ describe("transform", () => {
       const result = transform(input, { degrees: true })
       expect(result).toContain(`${UNICODE_SYMBOLS.DEGREE}C`)
     })
+
+    it("does not apply superscript by default", () => {
+      const input = 'The 1st place winner'
+      const result = transform(input)
+      expect(result).toContain("1st")
+    })
+
+    it("applies superscript when enabled", () => {
+      const input = 'The 30th of June'
+      const result = transform(input, { superscript: true })
+      expect(result).toContain(`30${UNICODE_SYMBOLS.SUPERSCRIPT_TH}`)
+    })
   })
 
   describe("punctuationStyle option", () => {
