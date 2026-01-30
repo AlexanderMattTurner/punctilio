@@ -133,6 +133,12 @@ describe("enDashDateRange", () => {
     ["May-June", "May–June"],
     ["Sep-Nov", "Sep–Nov"],
     ["December-January", "December–January"],
+    ["October 2012 - December 2014", "October 2012 – December 2014"],
+    ["Oct 2012 - Dec 2014", "Oct 2012 – Dec 2014"],
+    ["January 2020 - March 2020", "January 2020 – March 2020"],
+    ["May 2019-June 2020", "May 2019–June 2020"],
+    ["Jan 2000 - Feb", "Jan 2000 – Feb"],
+    ["March - April 2025", "March – April 2025"],
   ])('should convert "%s" to "%s"', (input, expected) => {
     expect(enDashDateRange(input)).toBe(expected)
   })

@@ -60,12 +60,17 @@ export function enDashNumberRange(text: string, options: DashOptions = {}): stri
 
 /**
  * Replaces hyphens with en-dashes in month/date ranges.
+ * Supports formats like "January-March", "Jan-Mar", "February-April 2024",
+ * and "October 2012 - December 2014".
  */
 export function enDashDateRange(text: string, options: DashOptions = {}): string {
   const chr = options.separator ?? DEFAULT_SEPARATOR
   return text.replace(
-    new RegExp(`\\b(?<startMonth>${months}${chr}?)-(?<endMonth>${chr}?(?:${months}))\\b`, "g"),
-    `$<startMonth>${EN_DASH}$<endMonth>`
+    new RegExp(
+      `\\b(?<startMonth>${months})(?<startYear>${chr}? \\d{4})?(?<preDash>${chr}? ?)-(?<postDash> ?${chr}?)(?<endMonth>${months})(?<endYear> \\d{4})?\\b`,
+      "g"
+    ),
+    `$<startMonth>$<startYear>$<preDash>${EN_DASH}$<postDash>$<endMonth>$<endYear>`
   )
 }
 
