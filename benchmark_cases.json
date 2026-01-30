@@ -1,0 +1,146 @@
+{
+  "Double quotes - basic": [
+    ["\"This is a quote\", she said.", "\u201CThis is a quote,\u201D she said."],
+    ["She said, \"This is a quote.\"", "She said, \u201CThis is a quote.\u201D"],
+    ["\"Hello.\" Mary", "\u201CHello.\u201D Mary"]
+  ],
+  "Double quotes - multiple": [
+    ["\"I am\" so \"tired\" of \"these\" \"quotes\".", "\u201CI am\u201D so \u201Ctired\u201D of \u201Cthese\u201D \u201Cquotes.\u201D"]
+  ],
+  "Double quotes - with punctuation": [
+    ["\"This is a quote!\".", "\u201CThis is a quote!\u201D."],
+    ["\"world model\";", "\u201Cworld model\u201D;"],
+    ["(\"the best\")", "(\u201Cthe best\u201D)"]
+  ],
+  "Single quotes - basic": [
+    ["He said, 'Hi'", "He said, \u2018Hi\u2019"],
+    ["He wanted 'power.'", "He wanted \u2018power.\u2019"]
+  ],
+  "Contractions": [
+    ["I'd", "I\u2019d"],
+    ["don't", "don\u2019t"],
+    ["I'm not the best, haven't you heard?", "I\u2019m not the best, haven\u2019t you heard?"]
+  ],
+  "Apostrophe ambiguity - leading apostrophe": [
+    ["'SUP", "\u2019SUP"],
+    ["Rock 'n' Roll", "Rock \u2019n\u2019 Roll"],
+    ["I was born in '99", "I was born in \u201999"],
+    ["'99 tigers weren't a match", "\u201999 tigers weren\u2019t a match"]
+  ],
+  "Possessives": [
+    ["strategy s's return is good", "strategy s\u2019s return is good"]
+  ],
+  "Nested quotes": [
+    ["\"She said 'hello'\"", "\u201CShe said \u2018hello\u2019\u201D"],
+    ["\"'sup\"", "\u201C\u2019sup\u201D"]
+  ],
+  "Em dashes - basic": [
+    ["This is a - hyphen.", "This is a\u2014hyphen."],
+    ["word \u2014 word", "word\u2014word"]
+  ],
+  "Em dashes - double/triple": [
+    ["word ---", "word\u2014"],
+    ["Hi-- what do you think?", "Hi\u2014what do you think?"],
+    ["since--as you know", "since\u2014as you know"]
+  ],
+  "Number ranges - en dash": [
+    ["Pages 1-5", "Pages 1\u20135"],
+    ["2000-2020", "2000\u20132020"],
+    ["p.10-15", "p.10\u201315"]
+  ],
+  "Date ranges - en dash": [
+    ["January-March", "January\u2013March"],
+    ["Jan-Mar", "Jan\u2013Mar"]
+  ],
+  "Minus signs": [
+    ["-5", "\u22125"],
+    ["(-5)", "(\u22125)"],
+    ["The value is -10", "The value is \u221210"]
+  ],
+  "Compound words preserved": [
+    ["a browser- or OS-specific fashion", "a browser- or OS-specific fashion"],
+    ["well-known", "well-known"]
+  ],
+  "Ellipsis": [
+    ["Wait for it...", "Wait for it\u2026"],
+    ["Hmm... let me think", "Hmm\u2026 let me think"],
+    ["...", "\u2026"]
+  ],
+  "Ellipsis - preserve abbreviations": [
+    ["e.g.", "e.g."],
+    ["U.S.A.", "U.S.A."]
+  ],
+  "Multiplication": [
+    ["5x5", "5\u00D75"],
+    ["10 x 20", "10 \u00D7 20"],
+    ["Resolution: 1920x1080", "Resolution: 1920\u00D71080"]
+  ],
+  "Multiplication - preserve words": [
+    ["extra", "extra"],
+    ["complex", "complex"],
+    ["x-axis", "x-axis"]
+  ],
+  "Math symbols": [
+    ["x != y", "x \u2260 y"],
+    ["+-5", "\u00B15"],
+    ["a <= b", "a \u2264 b"],
+    ["x >= y", "x \u2265 y"],
+    ["~= 5", "\u2248 5"]
+  ],
+  "Legal symbols": [
+    ["Copyright (c) 2024", "Copyright \u00A9 2024"],
+    ["Brand(r)", "Brand\u00AE"],
+    ["Name(tm)", "Name\u2122"]
+  ],
+  "Arrows": [
+    ["A -> B", "A \u2192 B"],
+    ["A <- B", "A \u2190 B"],
+    ["A <-> B", "A \u2194 B"]
+  ],
+  "Arrows - preserve code patterns": [
+    ["function->call", "function->call"],
+    ["array[0]->value", "array[0]->value"]
+  ],
+  "Prime marks - feet/inches": [
+    ["5'10\"", "5\u203210\u2033"],
+    ["He is 6'2\" tall", "He is 6\u20322\u2033 tall"],
+    ["The board is 8' long", "The board is 8\u2032 long"]
+  ],
+  "Prime marks - coordinates": [
+    ["Location: 45\u00B0 30' 15\"", "Location: 45\u00B0 30\u2032 15\u2033"]
+  ],
+  "Degrees": [
+    ["20 C", "20 \u00B0C"],
+    ["68 F", "68 \u00B0F"],
+    ["Water boils at 100 C", "Water boils at 100 \u00B0C"]
+  ],
+  "Fractions": [
+    ["1/2", "\u00BD"],
+    ["1/4", "\u00BC"],
+    ["3/4", "\u00BE"]
+  ],
+  "Fractions - preserve non-standard": [
+    ["page 1/25", "page 1/25"],
+    ["1/7", "1/7"]
+  ],
+  "Superscripts - ordinals": [
+    ["1st", "1\u02E2\u1D57"],
+    ["2nd", "2\u207F\u1D48"],
+    ["3rd", "3\u02B3\u1D48"],
+    ["4th", "4\u1D57\u02B0"],
+    ["21st place", "21\u02E2\u1D57 place"],
+    ["The 100th anniversary", "The 100\u1D57\u02B0 anniversary"]
+  ],
+  "Ligatures - punctuation": [
+    ["What??", "What\u2047"],
+    ["Really?!", "Really\u2048"],
+    ["Wait!?", "Wait\u2049"]
+  ],
+  "German quotes": [
+    ["\"Guten Tag\"", "\u201EGuten Tag\u201C"],
+    ["'Hallo'", "\u201AHallo\u2018"]
+  ],
+  "French quotes": [
+    ["\"Bonjour\"", "\u00AB\u00A0Bonjour\u00A0\u00BB"]
+  ]
+}
