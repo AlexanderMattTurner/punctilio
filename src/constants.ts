@@ -51,6 +51,11 @@ export const UNICODE_SYMBOLS = {
   LEFT_SINGLE_QUOTE: "\u2018",
   RIGHT_SINGLE_QUOTE: "\u2019",
   NBSP: "\u00A0",
+  // Superscript ordinal suffixes
+  SUPERSCRIPT_ST: "\u02E2\u1D57", // ˢᵗ
+  SUPERSCRIPT_ND: "\u207F\u1D48", // ⁿᵈ
+  SUPERSCRIPT_RD: "\u02B3\u1D48", // ʳᵈ
+  SUPERSCRIPT_TH: "\u1D57\u02B0", // ᵗʰ
 } as const
 
 /**
