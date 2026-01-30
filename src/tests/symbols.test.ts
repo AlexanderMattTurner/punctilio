@@ -133,6 +133,16 @@ describe("degrees", () => {
     ["100 C", `100 ${UNICODE_SYMBOLS.DEGREE}C`],
     ["212F", `212 ${UNICODE_SYMBOLS.DEGREE}F`],
     ["-40 C", `-40 ${UNICODE_SYMBOLS.DEGREE}C`],
+    // Kelvin tests (no degree symbol per SI convention)
+    ["273 K", "273 K"],
+    ["273K", "273 K"],
+    ["0 K", "0 K"],
+    ["0K", "0 K"],
+    ["Absolute zero is 0K", "Absolute zero is 0 K"],
+    ["Water freezes at 273K", "Water freezes at 273 K"],
+    // Kelvin with punctuation
+    ["273K.", "273 K."],
+    ["0K!", "0 K!"],
   ])('converts "%s" to "%s"', (input, expected) => {
     expect(degrees(input)).toBe(expected)
   })

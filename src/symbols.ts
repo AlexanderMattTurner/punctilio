@@ -194,9 +194,11 @@ export function arrows(text: string, options: SymbolOptions = {}): string {
  * Handles:
  * - "20 C" or "20C" → "20 °C" (Celsius)
  * - "68 F" or "68F" → "68 °F" (Fahrenheit)
+ * - "273 K" or "273K" → "273 K" (Kelvin, no degree symbol per SI convention)
  *
- * Only matches when followed by C or F (case insensitive) to avoid
- * false positives.
+ * Only matches when followed by C, F, or K (case insensitive) to avoid
+ * false positives. Note: Kelvin is handled specially - it does not use
+ * the degree symbol per SI standards.
  *
  * @example
  * ```ts
@@ -205,6 +207,9 @@ export function arrows(text: string, options: SymbolOptions = {}): string {
  *
  * degrees("Water boils at 212F")
  * // → "Water boils at 212 °F"
+ *
+ * degrees("Absolute zero is 0K")
+ * // → "Absolute zero is 0 K"
  * ```
  */
 export function degrees(text: string, options: SymbolOptions = {}): string {
@@ -212,11 +217,18 @@ export function degrees(text: string, options: SymbolOptions = {}): string {
     ? escapeRegex(options.separator)
     : ESCAPED_DEFAULT_SEPARATOR
 
-  // Temperature with optional space before C or F
+  // Temperature with optional space before C, F, or K
   // Handles separator between digit and unit
   return text.replace(
-    new RegExp(`(\\d${chr}?) ?([CF])\\b`, "gi"),
-    (_, num, unit) => `${num} ${DEGREE}${unit.toUpperCase()}`
+    new RegExp(`(\\d${chr}?) ?([CFK])\\b`, "gi"),
+    (_, num, unit) => {
+      const upperUnit = unit.toUpperCase()
+      // Kelvin does not use degree symbol per SI convention
+      if (upperUnit === "K") {
+        return `${num} ${upperUnit}`
+      }
+      return `${num} ${DEGREE}${upperUnit}`
+    }
   )
 }
 

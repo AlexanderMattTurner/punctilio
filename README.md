@@ -32,6 +32,7 @@ Smart typography transformations for JavaScript/TypeScript. Converts ASCII punct
 | Fractions (optional) | 1/2 | ½ |
 | | 3/4 | ¾ |
 | Degrees (optional) | 20 C | 20 °C |
+| | 273 K | 273 K (no ° per SI) |
 
 **Handles edge cases**: contractions, possessives, nested quotes, year abbreviations ('99), "rock 'n' roll"
 
@@ -204,7 +205,7 @@ Converts common fractions: `1/2` → `½`, `1/4` → `¼`, `3/4` → `¾`, etc.
 
 #### `degrees(text)`
 
-Converts temperature notation: `20 C` → `20 °C`, `68 F` → `68 °F`
+Converts temperature notation: `20 C` → `20 °C`, `68 F` → `68 °F`, `273 K` → `273 K` (Kelvin has no degree symbol per SI convention)
 
 #### `symbolTransform(text, options?)`
 
