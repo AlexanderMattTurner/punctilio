@@ -93,16 +93,16 @@ export function multiplication(text: string, options: SymbolOptions = {}): strin
     : ESCAPED_DEFAULT_SEPARATOR
 
   // Dimensions with spaces: preserve spacing
-  const loosePattern = new RegExp(`(\\d${chr}?)\\s+[xX*]\\s+(${chr}?\\d)`, "g")
-  text = text.replace(loosePattern, `$1 ${MULTIPLICATION} $2`)
+  const loosePattern = new RegExp(`(?<leftNum>\\d${chr}?)\\s+[xX*]\\s+(?<rightNum>${chr}?\\d)`, "g")
+  text = text.replace(loosePattern, `$<leftNum> ${MULTIPLICATION} $<rightNum>`)
 
   // Dimensions without spaces: keep tight
-  const tightPattern = new RegExp(`(\\d${chr}?)[xX*](${chr}?\\d)`, "g")
-  text = text.replace(tightPattern, `$1${MULTIPLICATION}$2`)
+  const tightPattern = new RegExp(`(?<leftNum>\\d${chr}?)[xX*](?<rightNum>${chr}?\\d)`, "g")
+  text = text.replace(tightPattern, `$<leftNum>${MULTIPLICATION}$<rightNum>`)
 
   // Trailing multiplier: 5x (followed by word boundary - space, punctuation, etc.)
-  const trailingPattern = new RegExp(`(\\d${chr}?)[xX*]\\b`, "g")
-  text = text.replace(trailingPattern, `$1${MULTIPLICATION}`)
+  const trailingPattern = new RegExp(`(?<num>\\d${chr}?)[xX*]\\b`, "g")
+  text = text.replace(trailingPattern, `$<num>${MULTIPLICATION}`)
 
   return text
 }
@@ -215,7 +215,7 @@ export function degrees(text: string, options: SymbolOptions = {}): string {
   // Temperature with optional space before C or F
   // Handles separator between digit and unit
   return text.replace(
-    new RegExp(`(\\d${chr}?) ?([CF])\\b`, "gi"),
+    new RegExp(`(?<num>\\d${chr}?) ?(?<unit>[CF])\\b`, "gi"),
     (_, num, unit) => `${num} ${DEGREE}${unit.toUpperCase()}`
   )
 }
@@ -248,26 +248,26 @@ export function primeMarks(text: string, options: SymbolOptions = {}): string {
   // Lookahead ensures it's followed by: another digit, double quote, end of string, or punctuation
   // Examples: 5' (feet), 30' (arcminutes)
   const singlePrimePattern = new RegExp(
-    `(\\d${chr}?)'(?=${chr}?(?:\\d|"|$|[\\s.,;:!?)]))`,
+    `(?<numWithSep>\\d${chr}?)'(?=${chr}?(?:\\d|"|$|[\\s.,;:!?)]))`,
     "g"
   )
-  text = text.replace(singlePrimePattern, `$1${PRIME}`)
+  text = text.replace(singlePrimePattern, `$<numWithSep>${PRIME}`)
 
   // Double prime Pattern 1: Feet-inches pattern
   // Matches: prime symbol + optional separator + digit + optional separator + double quote
   // Examples: 5′10" or 5'10" → 5′10″
-  const feetInchesPattern = new RegExp(`(${PRIME}${chr}?\\d${chr}?)"`, "g")
-  text = text.replace(feetInchesPattern, `$1${DOUBLE_PRIME}`)
+  const feetInchesPattern = new RegExp(`(?<primeAndNum>${PRIME}${chr}?\\d${chr}?)"`, "g")
+  text = text.replace(feetInchesPattern, `$<primeAndNum>${DOUBLE_PRIME}`)
 
   // Double prime Pattern 2: Standalone inches
   // Negative lookbehind: ensures no opening quote within 20 chars before the digit
   // Negative lookahead: ensures not followed by word characters
   // Matches: 12" wide ✓, but not: "Term 1" ✗
   const standaloneInchesPattern = new RegExp(
-    `(?<!["\u201C]${chr}?[^"${chr}]{0,20})(\\d${chr}?)"(?!${chr}?[\\w])`,
+    `(?<!["\u201C]${chr}?[^"${chr}]{0,20})(?<numWithSep>\\d${chr}?)"(?!${chr}?[\\w])`,
     "g"
   )
-  text = text.replace(standaloneInchesPattern, `$1${DOUBLE_PRIME}`)
+  text = text.replace(standaloneInchesPattern, `$<numWithSep>${DOUBLE_PRIME}`)
 
   return text
 }
