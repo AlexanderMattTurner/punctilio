@@ -6,19 +6,34 @@ Smart typography transformations for JavaScript/TypeScript. Converts ASCII punct
 
 ## Features
 
-- **Smart quotes**: `"straight"` → `"curly"` and `'apostrophes'` → `'apostrophes'`
-- **Em dashes**: `word - word` or `word--word` → `word—word`
-- **En dashes**: `1-5` → `1–5` (number ranges), `January-March` → `January–March` (date ranges)
-- **Minus signs**: `-5` → `−5` (proper Unicode minus)
-- **Ellipsis**: `...` → `…`
-- **Multiplication**: `5x5` → `5×5`, `3*4` → `3×4`
-- **Math symbols**: `!=` → `≠`, `+-` → `±`, `<=` → `≤`, `>=` → `≥`, `~=` → `≈`
-- **Legal symbols**: `(c)` → `©`, `(r)` → `®`, `(tm)` → `™`
-- **Arrows**: `->` → `→`, `<-` → `←`, `<->` → `↔`
-- **Prime marks**: `5'10"` → `5′10″` (feet/inches, arcminutes/arcseconds)
-- **Fractions** (optional): `1/2` → `½`, `3/4` → `¾`
-- **Degrees** (optional): `20 C` → `20 °C`
-- **Handles edge cases**: contractions, possessives, nested quotes, year abbreviations ('99), "rock 'n' roll"
+| **Feature** | **Before** | **After** |
+|---------|--------|-------|
+| Smart quotes | "straight" | “curly” |
+| | 'apostrophes' | ‘apostrophes’ |
+| Em dashes | wait - why did you | wait—why did you |
+| En dashes | 1-5 | 1–5 |
+| | January-March | January–March |
+| Minus signs | -5 | −5 (proper Unicode minus) |
+| Ellipsis | ... | … |
+| Multiplication | 5x5 | 5×5 |
+| | 3*4 | 3×4 |
+| Math symbols | != | ≠ |
+| | +- | ± |
+| | <= | ≤ |
+| | >= | ≥ |
+| | ~= | ≈ |
+| Legal symbols | (c) | © |
+| | (r) | ® |
+| | (tm) | ™ |
+| Arrows | -> | → |
+| | <- | ← |
+| | <-> | ↔ |
+| Prime marks | 5'10" | 5′10″ |
+| Fractions (optional) | 1/2 | ½ |
+| | 3/4 | ¾ |
+| Degrees (optional) | 20 C | 20 °C |
+
+**Handles edge cases**: contractions, possessives, nested quotes, year abbreviations ('99), "rock 'n' roll"
 
 ## Why another typography library?
 
