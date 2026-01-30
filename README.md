@@ -49,6 +49,36 @@ Existing solutions like [SmartyPants](https://daringfireball.net/projects/smarty
 
 `punctilio` handles these through thorough regex patterns and an optional separator character for processing text that spans HTML elements.
 
+## Comparison with alternatives
+
+Tested against [smartypants](https://www.npmjs.com/package/smartypants), [tipograph](https://www.npmjs.com/package/tipograph), and [smartquotes](https://www.npmjs.com/package/smartquotes):
+
+| Feature | Example | punctilio | smartypants | tipograph | smartquotes |
+|---------|---------|-----------|-------------|-----------|-------------|
+| Smart quotes | "hello" → "hello" | ✓ | ✓ | ✓ | ✓ |
+| Contractions | don't → don't | ✓ | ✓ | ✓ | ✓ |
+| Leading apostrophe | 'twas → 'twas | ✓ | ✗ | ✗ | ✓ |
+| Em dash | word--word → word—word | ✓ | ✓ | ✗ | ✗ |
+| En dash (ranges) | 1-5 → 1–5 | ✓ | ✗ | ✓ | ✗ |
+| Minus sign | -5 → −5 | ✓ | ✗ | ✓ | ✗ |
+| Ellipsis | ... → … | ✓ | ✓ | ✓ | ✗ |
+| Multiplication | 5x5 → 5×5 | ✓ | ✗ | ✗ | ✗ |
+| Math symbols | != ≤ ≥ ± | ✓ | ✗ | ✓ | ✗ |
+| Legal symbols | © ® ™ | ✓ | ✗ | © only | ✗ |
+| Arrows | -> → → | ✓ | ✗ | ✓ | ✗ |
+| Prime marks | 5'10" → 5′10″ | ✓ | ✗ | ✓ | ✓ |
+| Degrees | 20 C → 20 °C | ✓ | ✗ | ✗ | ✗ |
+| Fractions | 1/2 → ½ | ✓ | ✗ | ✗ | ✗ |
+| Space collapse | a    b → a b | ✓ | ✗ | ✓ | ✗ |
+| Localization | American/British | ✓ | ✗ | ✗ | ✗ |
+
+**Features competitors offer that punctilio doesn't:**
+
+| Feature | Example | Package |
+|---------|---------|---------|
+| Punctuation ligatures | ?? → ⁇, ?! → ⁈ | tipograph |
+| Non-English quotes | "hi" → „hi" (German) | tipograph |
+
 ## Installation
 
 ```bash
@@ -132,6 +162,7 @@ Applies all typography transformations. Options:
 - `symbols`: Include symbol transforms (default: `true`)
 - `fractions`: Convert common fractions like 1/2 → ½ (default: `false`)
 - `degrees`: Convert temperature notation like 20 C → 20 °C (default: `false`)
+- `collapseSpaces`: Collapse multiple spaces into one (default: `true`)
 - `punctuationStyle`: `"american"` (default) puts periods/commas inside quotes; `"british"` puts them outside; `"none"` leaves unchanged
 - `dashStyle`: `"american"` (default) uses unspaced em dash (—); `"british"` uses spaced en dash ( – ); `"none"` skips dash conversion
 
@@ -209,6 +240,10 @@ Converts common fractions: `1/2` → `½`, `1/4` → `¼`, `3/4` → `¾`, etc.
 #### `degrees(text)`
 
 Converts temperature notation: `20 C` → `20 °C`, `68 F` → `68 °F`
+
+#### `collapseSpaces(text)`
+
+Collapses multiple consecutive spaces (including non-breaking spaces) into one.
 
 #### `symbolTransform(text, options?)`
 
