@@ -11,6 +11,20 @@ Benchmark of punctilio vs competitors on 70 test cases.
 | smartquotes | 31/70 (44%) |
 | smartypants | 30/70 (43%) |
 
+**Caveat**: This uses punctilio's expected outputs as ground truth. Some cases have multiple valid interpretations (see below).
+
+## Ambiguous Cases (style choices, not correctness)
+
+| Case | punctilio choice | Alternative |
+|------|------------------|-------------|
+| `'SUP` | `'SUP` (apostrophe) | `'SUP` (opening quote) |
+| `Rock 'n' Roll` | `'n'` (both apostrophes) | `'n'` (quoted word) |
+| `"'sup"` | `"'sup"` (apostrophe) | `"'sup"` (nested quote) |
+| `word — word` | `word—word` (closed) | `word — word` (open/British) |
+| `---` | `—` (em dash) | `—-` or `— ` (various) |
+
+For these ~5 cases, competitors using different conventions aren't "wrong."
+
 ## Feature Comparison
 
 | Situation | punctilio | smartypants | tipograph | smartquotes |
