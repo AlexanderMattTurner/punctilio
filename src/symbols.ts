@@ -46,6 +46,7 @@ const {
   GREATER_EQUAL,
   PRIME,
   DOUBLE_PRIME,
+  NBSP,
 } = UNICODE_SYMBOLS
 
 /**
@@ -62,8 +63,12 @@ export function ellipsis(text: string, options: SymbolOptions = {}): string {
     ? escapeRegex(options.separator)
     : ESCAPED_DEFAULT_SEPARATOR
 
-  const pattern = new RegExp(`\\.${chr}?\\.${chr}?\\.`, "g")
-  text = text.replace(pattern, ELLIPSIS)
+  // Capture groups preserve separators: .(sep1)?.(sep2)?.
+  const pattern = new RegExp(`\\.(${chr})?\\.(${chr})?\\.`, "g")
+  text = text.replace(pattern, (_match, sep1, sep2) => {
+    // Preserve separators by appending them after the ellipsis
+    return ELLIPSIS + (sep1 || "") + (sep2 || "")
+  })
 
   text = text.replace(new RegExp(`${ELLIPSIS}(?=\\w)`, "gu"), `${ELLIPSIS} `)
 
@@ -93,16 +98,16 @@ export function multiplication(text: string, options: SymbolOptions = {}): strin
     : ESCAPED_DEFAULT_SEPARATOR
 
   // Dimensions with spaces: preserve spacing
-  const loosePattern = new RegExp(`(\\d${chr}?)\\s+[xX*]\\s+(${chr}?\\d)`, "g")
-  text = text.replace(loosePattern, `$1 ${MULTIPLICATION} $2`)
+  const loosePattern = new RegExp(`(?<leftNum>\\d${chr}?)\\s+[xX*]\\s+(?<rightNum>${chr}?\\d)`, "g")
+  text = text.replace(loosePattern, `$<leftNum> ${MULTIPLICATION} $<rightNum>`)
 
   // Dimensions without spaces: keep tight
-  const tightPattern = new RegExp(`(\\d${chr}?)[xX*](${chr}?\\d)`, "g")
-  text = text.replace(tightPattern, `$1${MULTIPLICATION}$2`)
+  const tightPattern = new RegExp(`(?<leftNum>\\d${chr}?)[xX*](?<rightNum>${chr}?\\d)`, "g")
+  text = text.replace(tightPattern, `$<leftNum>${MULTIPLICATION}$<rightNum>`)
 
   // Trailing multiplier: 5x (followed by word boundary - space, punctuation, etc.)
-  const trailingPattern = new RegExp(`(\\d${chr}?)[xX*]\\b`, "g")
-  text = text.replace(trailingPattern, `$1${MULTIPLICATION}`)
+  const trailingPattern = new RegExp(`(?<num>\\d${chr}?)[xX*]\\b`, "g")
+  text = text.replace(trailingPattern, `$<num>${MULTIPLICATION}`)
 
   return text
 }
@@ -215,7 +220,7 @@ export function degrees(text: string, options: SymbolOptions = {}): string {
   // Temperature with optional space before C or F
   // Handles separator between digit and unit
   return text.replace(
-    new RegExp(`(\\d${chr}?) ?([CF])\\b`, "gi"),
+    new RegExp(`(?<num>\\d${chr}?) ?(?<unit>[CF])\\b`, "gi"),
     (_, num, unit) => `${num} ${DEGREE}${unit.toUpperCase()}`
   )
 }
@@ -248,26 +253,26 @@ export function primeMarks(text: string, options: SymbolOptions = {}): string {
   // Lookahead ensures it's followed by: another digit, double quote, end of string, or punctuation
   // Examples: 5' (feet), 30' (arcminutes)
   const singlePrimePattern = new RegExp(
-    `(\\d${chr}?)'(?=${chr}?(?:\\d|"|$|[\\s.,;:!?)]))`,
+    `(?<numWithSep>\\d${chr}?)'(?=${chr}?(?:\\d|"|$|[\\s.,;:!?)]))`,
     "g"
   )
-  text = text.replace(singlePrimePattern, `$1${PRIME}`)
+  text = text.replace(singlePrimePattern, `$<numWithSep>${PRIME}`)
 
   // Double prime Pattern 1: Feet-inches pattern
   // Matches: prime symbol + optional separator + digit + optional separator + double quote
   // Examples: 5′10" or 5'10" → 5′10″
-  const feetInchesPattern = new RegExp(`(${PRIME}${chr}?\\d${chr}?)"`, "g")
-  text = text.replace(feetInchesPattern, `$1${DOUBLE_PRIME}`)
+  const feetInchesPattern = new RegExp(`(?<primeAndNum>${PRIME}${chr}?\\d${chr}?)"`, "g")
+  text = text.replace(feetInchesPattern, `$<primeAndNum>${DOUBLE_PRIME}`)
 
   // Double prime Pattern 2: Standalone inches
   // Negative lookbehind: ensures no opening quote within 20 chars before the digit
   // Negative lookahead: ensures not followed by word characters
   // Matches: 12" wide ✓, but not: "Term 1" ✗
   const standaloneInchesPattern = new RegExp(
-    `(?<!["\u201C]${chr}?[^"${chr}]{0,20})(\\d${chr}?)"(?!${chr}?[\\w])`,
+    `(?<!["\u201C]${chr}?[^"${chr}]{0,20})(?<numWithSep>\\d${chr}?)"(?!${chr}?[\\w])`,
     "g"
   )
-  text = text.replace(standaloneInchesPattern, `$1${DOUBLE_PRIME}`)
+  text = text.replace(standaloneInchesPattern, `$<numWithSep>${DOUBLE_PRIME}`)
 
   return text
 }
@@ -330,6 +335,28 @@ export function fractions(text: string, options: SymbolOptions = {}): string {
   }
 
   return text
+}
+
+/**
+ * Collapses multiple consecutive spaces (including non-breaking spaces) into a single space.
+ *
+ * When multiple spaces or non-breaking spaces appear in sequence, this function
+ * keeps only the first space character, preserving its type.
+ *
+ * @example
+ * ```ts
+ * collapseSpaces("hello  world")
+ * // → "hello world"
+ *
+ * collapseSpaces("foo\u00A0\u00A0bar")  // two nbsp
+ * // → "foo\u00A0bar"  // single nbsp
+ *
+ * collapseSpaces("a \u00A0b")  // space followed by nbsp
+ * // → "a b"  // keeps the first (regular space)
+ * ```
+ */
+export function collapseSpaces(text: string): string {
+  return text.replace(new RegExp(`(?<first>[ ${NBSP}])[ ${NBSP}]+`, "g"), "$<first>")
 }
 
 /**

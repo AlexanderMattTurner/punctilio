@@ -7,9 +7,10 @@ import {
   degrees,
   primeMarks,
   fractions,
+  collapseSpaces,
   symbolTransform,
 } from "../symbols.js"
-import { UNICODE_SYMBOLS } from "../constants.js"
+import { UNICODE_SYMBOLS, DEFAULT_SEPARATOR } from "../constants.js"
 
 describe("ellipsis", () => {
   it.each([
@@ -18,7 +19,6 @@ describe("ellipsis", () => {
     ["...", UNICODE_SYMBOLS.ELLIPSIS],
     ["Hello...world", `Hello${UNICODE_SYMBOLS.ELLIPSIS} world`],
     ["End of sentence...", `End of sentence${UNICODE_SYMBOLS.ELLIPSIS}`],
-    // Test ellipsis before punctuation
     ['..."', `${UNICODE_SYMBOLS.ELLIPSIS}"`],
     ["...!", `${UNICODE_SYMBOLS.ELLIPSIS}!`],
     ["...?", `${UNICODE_SYMBOLS.ELLIPSIS}?`],
@@ -29,9 +29,14 @@ describe("ellipsis", () => {
     expect(ellipsis(input)).toBe(expected)
   })
 
-  it("handles separator characters", () => {
-    const sep = "\uE000"
-    expect(ellipsis(`.${sep}.${sep}.`, { separator: sep })).toBe(UNICODE_SYMBOLS.ELLIPSIS)
+  it.each([
+    ["between all dots", `.${DEFAULT_SEPARATOR}.${DEFAULT_SEPARATOR}.`, `${UNICODE_SYMBOLS.ELLIPSIS}${DEFAULT_SEPARATOR}${DEFAULT_SEPARATOR}`],
+    ["after ellipsis", `...${DEFAULT_SEPARATOR}`, `${UNICODE_SYMBOLS.ELLIPSIS}${DEFAULT_SEPARATOR}`],
+    ["after first dot", `.${DEFAULT_SEPARATOR}..`, `${UNICODE_SYMBOLS.ELLIPSIS}${DEFAULT_SEPARATOR}`],
+    ["after second dot", `..${DEFAULT_SEPARATOR}.`, `${UNICODE_SYMBOLS.ELLIPSIS}${DEFAULT_SEPARATOR}`],
+  ])("preserves separators: %s", (_desc, input, expected) => {
+    const result = ellipsis(input, { separator: DEFAULT_SEPARATOR })
+    expect(result).toBe(expected)
   })
 })
 
@@ -203,6 +208,42 @@ describe("fractions", () => {
     expect(fractions(`1${sep}/${sep}2`, { separator: sep })).toBe(
       `${sep}${UNICODE_SYMBOLS.FRACTION_1_2}${sep}`
     )
+  })
+})
+
+describe("collapseSpaces", () => {
+  const { NBSP } = UNICODE_SYMBOLS
+
+  it.each([
+    // Multiple regular spaces
+    ["hello  world", "hello world"],
+    ["a   b", "a b"],
+    ["x    y", "x y"],
+    // Multiple nbsp
+    [`foo${NBSP}${NBSP}bar`, `foo${NBSP}bar`],
+    [`a${NBSP}${NBSP}${NBSP}b`, `a${NBSP}b`],
+    // Mixed: space followed by nbsp (keeps space)
+    [`a ${NBSP}b`, "a b"],
+    [`x  ${NBSP}y`, "x y"],
+    // Mixed: nbsp followed by space (keeps nbsp)
+    [`a${NBSP} b`, `a${NBSP}b`],
+    [`x${NBSP}  y`, `x${NBSP}y`],
+    // Mixed sequences
+    [`a ${NBSP} b`, "a b"],
+    [`x${NBSP} ${NBSP}y`, `x${NBSP}y`],
+    // Single spaces unchanged
+    ["hello world", "hello world"],
+    [`foo${NBSP}bar`, `foo${NBSP}bar`],
+    // Multiple groups of spaces
+    ["a  b  c", "a b c"],
+    [`x${NBSP}${NBSP}y  z`, `x${NBSP}y z`],
+    // Edge cases
+    ["", ""],
+    ["  ", " "],
+    [`${NBSP}${NBSP}`, NBSP],
+    ["no spaces", "no spaces"],
+  ])('converts "%s" to "%s"', (input, expected) => {
+    expect(collapseSpaces(input)).toBe(expected)
   })
 })
 

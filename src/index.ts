@@ -29,6 +29,7 @@ export {
   degrees,
   fractions,
   primeMarks,
+  collapseSpaces,
   symbolTransform,
   type SymbolOptions,
 } from "./symbols.js"
@@ -49,6 +50,41 @@ export interface TransformOptions {
    * Default: true
    */
   symbols?: boolean
+
+  /**
+   * Whether to collapse multiple consecutive spaces (including non-breaking
+   * spaces) into a single space. Keeps the first space in the sequence.
+   *
+   * - `true` (default): "hello  world" → "hello world"
+   * - `false`: Preserve multiple spaces
+   *
+   * Default: true
+   */
+  collapseSpaces?: boolean
+
+  /**
+   * How to handle punctuation placement around quotation marks.
+   *
+   * - `"american"` (default): Periods and commas go inside quotes
+   *   Example: "Hello." and "Hello,"
+   * - `"british"`: Periods and commas go outside quotes
+   *   Example: "Hello". and "Hello",
+   * - `"none"`: Don't modify punctuation placement
+   *
+   * Default: "american"
+   */
+  punctuationStyle?: PunctuationStyle
+
+  /**
+   * How to style parenthetical dashes.
+   *
+   * - `"american"` (default): Unspaced em dash (word—word)
+   * - `"british"`: Spaced en dash (word – word)
+   * - `"none"`: Don't convert parenthetical dashes
+   *
+   * Default: "american"
+   */
+  dashStyle?: DashStyle
 
   /**
    * Whether to include fraction transforms (1/2 → ½)
@@ -89,7 +125,12 @@ export interface TransformOptions {
 
 import { niceQuotes } from "./quotes.js"
 import { hyphenReplace } from "./dashes.js"
-import { symbolTransform, fractions as fractionsTransform, degrees as degreesTransform, primeMarks } from "./symbols.js"
+import { symbolTransform, fractions as fractionsTransform, degrees as degreesTransform, primeMarks, collapseSpaces as collapseSpacesTransform } from "./symbols.js"
+import { assertSeparatorCountPreserved } from "./utils.js"
+import { DEFAULT_SEPARATOR } from "./constants.js"
+
+export { assertSeparatorCountPreserved, countSeparators } from "./utils.js"
+export { DEFAULT_SEPARATOR } from "./constants.js"
 
 /**
  * Applies all typography transformations: smart quotes, proper dashes,
@@ -100,8 +141,9 @@ import { symbolTransform, fractions as fractionsTransform, degrees as degreesTra
  * 2. primeMarks (feet/inches, arcminutes/arcseconds)
  * 3. niceQuotes (smart quotes)
  * 4. symbolTransform (ellipses, multiplication, math symbols, legal symbols, arrows)
- * 5. fractions (optional, disabled by default)
- * 6. degrees (optional, disabled by default)
+ * 5. collapseSpaces (collapses multiple spaces into one)
+ * 6. fractions (disabled by default)
+ * 7. degrees (disabled by default)
  *
  * @param text - The text to transform
  * @param options - Configuration options
@@ -122,7 +164,9 @@ import { symbolTransform, fractions as fractionsTransform, degrees as degreesTra
  * ```
  */
 export function transform(text: string, options: TransformOptions = {}): string {
-  const { symbols = true, fractions = false, degrees = false, ...separatorOpts } = options
+  const separator = options.separator ?? DEFAULT_SEPARATOR
+  const original = text
+  const { symbols = true, fractions = false, degrees = false, collapseSpaces = true, ...separatorOpts } = options
 
   text = hyphenReplace(text, separatorOpts)
   text = primeMarks(text, separatorOpts)
@@ -140,11 +184,11 @@ export function transform(text: string, options: TransformOptions = {}): string 
     text = degreesTransform(text)
   }
 
+  if (collapseSpaces) {
+    text = collapseSpacesTransform(text)
+  }
+
+  assertSeparatorCountPreserved(original, text, separator, "transform")
+
   return text
 }
-
-/**
- * Default separator character for boundary marking.
- * Uses Unicode Private Use Area character U+E000.
- */
-export const DEFAULT_SEPARATOR = "\uE000"
