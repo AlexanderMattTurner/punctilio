@@ -8,7 +8,8 @@
  * @packageDocumentation
  */
 
-export { niceQuotes, type QuoteOptions } from "./quotes.js"
+export { niceQuotes, type QuoteOptions, type PunctuationStyle } from "./quotes.js"
+import type { PunctuationStyle } from "./quotes.js"
 export {
   hyphenReplace,
   enDashNumberRange,
@@ -16,7 +17,9 @@ export {
   minusReplace,
   months,
   type DashOptions,
+  type DashStyle,
 } from "./dashes.js"
+import type { DashStyle } from "./dashes.js"
 export {
   ellipsis,
   multiplication,
@@ -58,6 +61,30 @@ export interface TransformOptions {
    * Default: false (can be aggressive)
    */
   degrees?: boolean
+
+  /**
+   * How to handle punctuation placement around quotation marks.
+   *
+   * - `"american"` (default): Periods and commas go inside quotes
+   *   Example: "Hello." and "Hello,"
+   * - `"british"`: Periods and commas go outside quotes
+   *   Example: "Hello". and "Hello",
+   * - `"none"`: Don't modify punctuation placement
+   *
+   * Default: "american"
+   */
+  punctuationStyle?: PunctuationStyle
+
+  /**
+   * How to style parenthetical dashes.
+   *
+   * - `"american"` (default): Unspaced em dash (word—word)
+   * - `"british"`: Spaced en dash (word – word)
+   * - `"none"`: Don't convert parenthetical dashes
+   *
+   * Default: "american"
+   */
+  dashStyle?: DashStyle
 }
 
 import { niceQuotes } from "./quotes.js"

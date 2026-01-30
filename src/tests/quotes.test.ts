@@ -13,8 +13,8 @@ const {
 describe("niceQuotes", () => {
   describe("double quotes", () => {
     it.each([
-      ['"This is a quote", she said.', `${LEFT_DOUBLE_QUOTE}This is a quote${RIGHT_DOUBLE_QUOTE}, she said.`],
-      ['"This is a quote," she said.', `${LEFT_DOUBLE_QUOTE}This is a quote${RIGHT_DOUBLE_QUOTE}, she said.`],
+      ['"This is a quote", she said.', `${LEFT_DOUBLE_QUOTE}This is a quote,${RIGHT_DOUBLE_QUOTE} she said.`],
+      ['"This is a quote," she said.', `${LEFT_DOUBLE_QUOTE}This is a quote,${RIGHT_DOUBLE_QUOTE} she said.`],
       ['"This is a quote!".', `${LEFT_DOUBLE_QUOTE}This is a quote!${RIGHT_DOUBLE_QUOTE}.`],
       ['"This is a quote?".', `${LEFT_DOUBLE_QUOTE}This is a quote?${RIGHT_DOUBLE_QUOTE}.`],
       ['"This is a quote..." he trailed off.', `${LEFT_DOUBLE_QUOTE}This is a quote...${RIGHT_DOUBLE_QUOTE} he trailed off.`],
@@ -70,7 +70,7 @@ describe("niceQuotes", () => {
       ],
       // Skipped: Complex edge case with 'sup and quoted phrase
       // ["Hey, 'sup 'this is a single quote'", `Hey, ${RIGHT_SINGLE_QUOTE}sup ${LEFT_SINGLE_QUOTE}this is a single quote${RIGHT_SINGLE_QUOTE}`],
-      ["'the best',", `${LEFT_SINGLE_QUOTE}the best${RIGHT_SINGLE_QUOTE},`],
+      ["'the best',", `${LEFT_SINGLE_QUOTE}the best,${RIGHT_SINGLE_QUOTE}`],
       ["'I lost the game.'", `${LEFT_SINGLE_QUOTE}I lost the game.${RIGHT_SINGLE_QUOTE}`],
       ["I hate you.'\"", `I hate you.${RIGHT_SINGLE_QUOTE}${RIGHT_DOUBLE_QUOTE}`],
       ["The 'function space')", `The ${LEFT_SINGLE_QUOTE}function space${RIGHT_SINGLE_QUOTE})`],
@@ -113,6 +113,58 @@ describe("niceQuotes", () => {
       const input = `"test${sep}"`
       const result = niceQuotes(input, { separator: sep })
       expect(result).toBe(`${LEFT_DOUBLE_QUOTE}test${sep}${RIGHT_DOUBLE_QUOTE}`)
+    })
+  })
+
+  describe("punctuationStyle option", () => {
+    // Reusable test strings
+    const periodOutsideDouble = `${LEFT_DOUBLE_QUOTE}Hello${RIGHT_DOUBLE_QUOTE}.`
+    const periodInsideDouble = `${LEFT_DOUBLE_QUOTE}Hello.${RIGHT_DOUBLE_QUOTE}`
+    const periodOutsideSingle = `${LEFT_SINGLE_QUOTE}Hello${RIGHT_SINGLE_QUOTE}.`
+    const periodInsideSingle = `${LEFT_SINGLE_QUOTE}Hello.${RIGHT_SINGLE_QUOTE}`
+    const commaOutsideDouble = `${LEFT_DOUBLE_QUOTE}test${RIGHT_DOUBLE_QUOTE},`
+    const commaInsideDouble = `${LEFT_DOUBLE_QUOTE}test,${RIGHT_DOUBLE_QUOTE}`
+
+    describe('when "american" (default)', () => {
+      it.each([
+        [periodOutsideDouble, periodInsideDouble, "period outside double quotes"],
+        [periodOutsideSingle, periodInsideSingle, "period outside single quotes"],
+        [commaOutsideDouble, commaInsideDouble, "comma outside double quotes"],
+      ])("moves punctuation inside: %s", (input, expected) => {
+        expect(niceQuotes(input, { punctuationStyle: "american" })).toBe(expected)
+      })
+
+      it("is the default behavior", () => {
+        expect(niceQuotes(periodOutsideDouble)).toBe(periodInsideDouble)
+      })
+    })
+
+    describe('when "british"', () => {
+      it.each([
+        [periodInsideDouble, periodOutsideDouble, "period inside double quotes"],
+        [periodInsideSingle, periodOutsideSingle, "period inside single quotes"],
+        [commaInsideDouble, commaOutsideDouble, "comma inside double quotes"],
+      ])("moves punctuation outside: %s", (input, expected) => {
+        expect(niceQuotes(input, { punctuationStyle: "british" })).toBe(expected)
+      })
+
+      it("still converts straight quotes to smart quotes", () => {
+        expect(niceQuotes('"Hello."', { punctuationStyle: "british" })).toBe(periodOutsideDouble)
+      })
+    })
+
+    describe('when "none"', () => {
+      it.each([
+        [periodOutsideDouble],
+        [periodInsideDouble],
+        [commaOutsideDouble],
+      ])("leaves punctuation unchanged: %s", (input) => {
+        expect(niceQuotes(input, { punctuationStyle: "none" })).toBe(input)
+      })
+
+      it("still converts straight quotes to smart quotes", () => {
+        expect(niceQuotes('"Hello".', { punctuationStyle: "none" })).toBe(periodOutsideDouble)
+      })
     })
   })
 })
