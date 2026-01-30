@@ -54,7 +54,15 @@ transform(text, {
 
 ## Why punctilio?
 
-Other libraries fail on edge cases: `'Twas` (apostrophe, not open quote), `'99` (year), `rock 'n' roll`.
+Other libraries fail on edge cases:
+
+| Input | smartypants | punctilio |
+|-------|-------------|-----------|
+| `'Twas the night` | 'Twas the night | 'Twas the night |
+| `the '99 season` | the '99 season | the '99 season |
+| `rock 'n' roll` | rock 'n' roll | rock 'n' roll |
+
+The `'` in these should be apostrophes ('), not opening quotes (').
 
 | Feature | punctilio | smartypants | tipograph | smartquotes |
 |---------|-----------|-------------|-----------|-------------|
