@@ -65,9 +65,11 @@ By running [`benchmark.mjs`](./benchmark.mjs), I graded all libraries on a subse
 | Ligatures | ?? → ⁇ | ✗ | ✓ | ✗ | ✗ |
 | Non-English quotes | „Hallo" (German) | ✗ | ✓ | ✗ | ✗ |
 
-I chose not to implement punctuation ligatures as they have poor font support and add visual complexity. I don’t have a personal reason to use non-English localization, but others are welcome to make a pull request.
+I don’t have a personal reason to use non-English localization, but others are welcome to make a pull request.
 
 ## Options
+
+`punctilio` doesn’t enable all transformations by default. Fractions and degrees tend to match too aggressively (getting the degrees correct requires semantic meaning), while superscript letters have spotty font support—this README’s font doesn't even support the example superscript!
 
 ```typescript
 transform(text, {
