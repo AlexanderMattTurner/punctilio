@@ -52,7 +52,7 @@ RESPONSE=$(curl -s https://api.anthropic.com/v1/messages \
   -d "$(jq -n \
     --arg prompt "$PROMPT" \
     '{
-      model: "claude-sonnet-4-20250514",
+      model: "claude-haiku-4-0",
       max_tokens: 10,
       messages: [{role: "user", content: $prompt}]
     }')")
