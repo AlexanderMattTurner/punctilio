@@ -44,23 +44,14 @@ export interface QuoteOptions {
   punctuationStyle?: PunctuationStyle
 }
 
-/**
- * Converts standard quotes to typographic smart quotes.
- *
- * @param text - The text to transform
- * @param options - Configuration options
- * @returns The text with smart quotes
- */
-export function niceQuotes(text: string, options: QuoteOptions = {}): string {
-  const chr = options.separator ?? DEFAULT_SEPARATOR
-  const punctuationStyle = options.punctuationStyle ?? "american"
-
+/** Convert straight single quotes to curly quotes and apostrophes */
+function convertSingleQuotes(text: string, sep: string): string {
   const afterEndingSinglePatterns = `\\s\\.!?;,\\)${EM_DASH}\\-\\]"`
-  const afterEndingSingle = `(?=${chr}?(?:s${chr}?)?(?:[${afterEndingSinglePatterns}]|$))`
+  const afterEndingSingle = `(?=${sep}?(?:s${sep}?)?(?:[${afterEndingSinglePatterns}]|$))`
   const endingSingle = `(?<=[^\\s${LEFT_DOUBLE_QUOTE}'])[']${afterEndingSingle}`
   text = text.replace(new RegExp(endingSingle, "gm"), RIGHT_SINGLE_QUOTE)
 
-  const contraction = `(?<=[A-Za-z])['${RIGHT_SINGLE_QUOTE}](?=${chr}?[a-zA-Z])`
+  const contraction = `(?<=[A-Za-z])['${RIGHT_SINGLE_QUOTE}](?=${sep}?[a-zA-Z])`
   text = text.replace(new RegExp(contraction, "gm"), RIGHT_SINGLE_QUOTE)
 
   const apostropheWhitelist = `(?=n${RIGHT_SINGLE_QUOTE} )`
@@ -71,56 +62,79 @@ export function niceQuotes(text: string, options: QuoteOptions = {}): string {
   )
   text = text.replace(apostropheRegex, RIGHT_SINGLE_QUOTE)
 
-  const beginningSingle = `((?:^|[\\s${LEFT_DOUBLE_QUOTE}${RIGHT_DOUBLE_QUOTE}\\-\\(])${chr}?)['](?=${chr}?\\S)`
+  const beginningSingle = `((?:^|[\\s${LEFT_DOUBLE_QUOTE}${RIGHT_DOUBLE_QUOTE}\\-\\(])${sep}?)['](?=${sep}?\\S)`
   text = text.replace(new RegExp(beginningSingle, "gm"), `$1${LEFT_SINGLE_QUOTE}`)
 
+  return text
+}
+
+/** Convert straight double quotes to curly quotes */
+function convertDoubleQuotes(text: string, sep: string): string {
   const beginningDouble = new RegExp(
-    `(?<=^|[\\s\\(\\/\\[\\{\\-${EM_DASH}${chr}])(?<beforeChr>${chr}?)["](?<afterChr>(${chr}[ .,])|(?=${chr}?\\.{3}|${chr}?[^\\s\\)\\${EM_DASH},!?${chr};:.\\}]))`,
+    `(?<=^|[\\s\\(\\/\\[\\{\\-${EM_DASH}${sep}])(?<beforeChr>${sep}?)["](?<afterChr>(${sep}[ .,])|(?=${sep}?\\.{3}|${sep}?[^\\s\\)\\${EM_DASH},!?${sep};:.\\}]))`,
     "gm"
   )
   text = text.replace(beginningDouble, `$<beforeChr>${LEFT_DOUBLE_QUOTE}$<afterChr>`)
 
-  text = text.replace(new RegExp(`(?<=\\{)(${chr}? )?["]`, "g"), `$1${LEFT_DOUBLE_QUOTE}`)
+  text = text.replace(new RegExp(`(?<=\\{)(${sep}? )?["]`, "g"), `$1${LEFT_DOUBLE_QUOTE}`)
 
-  const endingDouble = `([^\\s\\(])["](${chr}?)(?=${chr}|[\\s/\\).,;${EM_DASH}:\\-\\}!?s]|$)`
+  const endingDouble = `([^\\s\\(])["](${sep}?)(?=${sep}|[\\s/\\).,;${EM_DASH}:\\-\\}!?s]|$)`
   text = text.replace(new RegExp(endingDouble, "g"), `$1${RIGHT_DOUBLE_QUOTE}$2`)
 
-  text = text.replace(new RegExp(`["](${chr}?)$`, "g"), `${RIGHT_DOUBLE_QUOTE}$1`)
+  text = text.replace(new RegExp(`["](${sep}?)$`, "g"), `${RIGHT_DOUBLE_QUOTE}$1`)
   text = text.replace(new RegExp(`'(?=${RIGHT_DOUBLE_QUOTE})`, "gu"), RIGHT_SINGLE_QUOTE)
 
-  // Punctuation style handling
-  if (punctuationStyle === "american") {
-    // American: Move periods and commas inside closing quotes
+  return text
+}
+
+/** Apply American or British punctuation style */
+function applyPunctuationStyle(text: string, sep: string, style: PunctuationStyle): string {
+  if (style === "american") {
     // Period outside → inside: "Hello". → "Hello."
     const periodOutsideRegex = new RegExp(
-      `(?<![!?:\\.${ELLIPSIS}])(${chr}?)([${RIGHT_SINGLE_QUOTE}${RIGHT_DOUBLE_QUOTE}])(${chr}?)(?!\\.\\.\\.)\\.`,
+      `(?<![!?:\\.${ELLIPSIS}])(${sep}?)([${RIGHT_SINGLE_QUOTE}${RIGHT_DOUBLE_QUOTE}])(${sep}?)(?!\\.\\.\\.)\\.`,
       "g"
     )
     text = text.replace(periodOutsideRegex, "$1.$2$3")
 
     // Comma outside → inside: "Hello", → "Hello,"
     const commaOutsideRegex = new RegExp(
-      `(${chr}?)([${RIGHT_SINGLE_QUOTE}${RIGHT_DOUBLE_QUOTE}])(${chr}?),`,
+      `(${sep}?)([${RIGHT_SINGLE_QUOTE}${RIGHT_DOUBLE_QUOTE}])(${sep}?),`,
       "g"
     )
     text = text.replace(commaOutsideRegex, "$1,$2$3")
-  } else if (punctuationStyle === "british") {
-    // British: Move periods and commas outside closing quotes
+  } else if (style === "british") {
     // Period inside → outside: "Hello." → "Hello".
     const periodInsideRegex = new RegExp(
-      `(?<![!?:\\.${ELLIPSIS}])(${chr}?)\\.(${chr}?)([${RIGHT_SINGLE_QUOTE}${RIGHT_DOUBLE_QUOTE}])`,
+      `(?<![!?:\\.${ELLIPSIS}])(${sep}?)\\.(${sep}?)([${RIGHT_SINGLE_QUOTE}${RIGHT_DOUBLE_QUOTE}])`,
       "g"
     )
     text = text.replace(periodInsideRegex, "$1$2$3.")
 
     // Comma inside → outside: "Hello," → "Hello",
     const commaInsideRegex = new RegExp(
-      `(?<![!?]),(${chr}?[${RIGHT_DOUBLE_QUOTE}${RIGHT_SINGLE_QUOTE}])`,
+      `(?<![!?]),(${sep}?[${RIGHT_DOUBLE_QUOTE}${RIGHT_SINGLE_QUOTE}])`,
       "g"
     )
     text = text.replace(commaInsideRegex, "$1,")
   }
-  // "none": don't modify punctuation
+  return text
+}
+
+/**
+ * Converts standard quotes to typographic smart quotes.
+ *
+ * @param text - The text to transform
+ * @param options - Configuration options
+ * @returns The text with smart quotes
+ */
+export function niceQuotes(text: string, options: QuoteOptions = {}): string {
+  const sep = options.separator ?? DEFAULT_SEPARATOR
+  const punctuationStyle = options.punctuationStyle ?? "american"
+
+  text = convertSingleQuotes(text, sep)
+  text = convertDoubleQuotes(text, sep)
+  text = applyPunctuationStyle(text, sep, punctuationStyle)
 
   return text
 }
