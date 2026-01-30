@@ -47,6 +47,10 @@ const {
   PRIME,
   DOUBLE_PRIME,
   NBSP,
+  SUPERSCRIPT_ST,
+  SUPERSCRIPT_ND,
+  SUPERSCRIPT_RD,
+  SUPERSCRIPT_TH,
 } = UNICODE_SYMBOLS
 
 /**
@@ -335,6 +339,54 @@ export function fractions(text: string, options: SymbolOptions = {}): string {
   }
 
   return text
+}
+
+/**
+ * Map of ordinal suffixes to their Unicode superscript equivalents.
+ */
+const ORDINAL_MAP: Record<string, string> = {
+  st: SUPERSCRIPT_ST,
+  nd: SUPERSCRIPT_ND,
+  rd: SUPERSCRIPT_RD,
+  th: SUPERSCRIPT_TH,
+}
+
+/**
+ * Converts ordinal suffixes to Unicode superscript characters.
+ *
+ * Handles ordinal numbers like:
+ * - "1st" → "1ˢᵗ"
+ * - "2nd" → "2ⁿᵈ"
+ * - "3rd" → "3ʳᵈ"
+ * - "4th" → "4ᵗʰ"
+ *
+ * Works with any number ending in appropriate suffixes (21st, 42nd, 103rd, etc.)
+ *
+ * @example
+ * ```ts
+ * superscript("The 1st place winner")
+ * // → "The 1ˢᵗ place winner"
+ *
+ * superscript("Born on the 30th of June")
+ * // → "Born on the 30ᵗʰ of June"
+ * ```
+ */
+export function superscript(text: string, options: SymbolOptions = {}): string {
+  const chr = options.separator
+    ? escapeRegex(options.separator)
+    : ESCAPED_DEFAULT_SEPARATOR
+
+  // Match number + optional separator + ordinal suffix at word boundary
+  // Use case-insensitive matching for the suffix
+  const pattern = new RegExp(
+    `(?<num>\\d${chr}?)(?<suffix>st|nd|rd|th)\\b`,
+    "gi"
+  )
+
+  return text.replace(pattern, (_match, num, suffix) => {
+    const superscriptSuffix = ORDINAL_MAP[suffix.toLowerCase()]
+    return num + superscriptSuffix
+  })
 }
 
 /**

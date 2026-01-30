@@ -8,6 +8,7 @@ import {
   primeMarks,
   fractions,
   collapseSpaces,
+  superscript,
   symbolTransform,
 } from "../symbols.js"
 import { UNICODE_SYMBOLS, DEFAULT_SEPARATOR } from "../constants.js"
@@ -244,6 +245,49 @@ describe("collapseSpaces", () => {
     ["no spaces", "no spaces"],
   ])('converts "%s" to "%s"', (input, expected) => {
     expect(collapseSpaces(input)).toBe(expected)
+  })
+})
+
+describe("superscript", () => {
+  it.each([
+    // Basic ordinals
+    ["1st", `1${UNICODE_SYMBOLS.SUPERSCRIPT_ST}`],
+    ["2nd", `2${UNICODE_SYMBOLS.SUPERSCRIPT_ND}`],
+    ["3rd", `3${UNICODE_SYMBOLS.SUPERSCRIPT_RD}`],
+    ["4th", `4${UNICODE_SYMBOLS.SUPERSCRIPT_TH}`],
+    // Larger numbers
+    ["21st", `21${UNICODE_SYMBOLS.SUPERSCRIPT_ST}`],
+    ["22nd", `22${UNICODE_SYMBOLS.SUPERSCRIPT_ND}`],
+    ["23rd", `23${UNICODE_SYMBOLS.SUPERSCRIPT_RD}`],
+    ["30th", `30${UNICODE_SYMBOLS.SUPERSCRIPT_TH}`],
+    ["100th", `100${UNICODE_SYMBOLS.SUPERSCRIPT_TH}`],
+    // In sentences
+    ["The 1st place winner", `The 1${UNICODE_SYMBOLS.SUPERSCRIPT_ST} place winner`],
+    ["Born on the 30th of June", `Born on the 30${UNICODE_SYMBOLS.SUPERSCRIPT_TH} of June`],
+    ["The 21st century", `The 21${UNICODE_SYMBOLS.SUPERSCRIPT_ST} century`],
+    // Before punctuation
+    ["1st.", `1${UNICODE_SYMBOLS.SUPERSCRIPT_ST}.`],
+    ["2nd,", `2${UNICODE_SYMBOLS.SUPERSCRIPT_ND},`],
+    ["3rd!", `3${UNICODE_SYMBOLS.SUPERSCRIPT_RD}!`],
+    // Case insensitive
+    ["1ST", `1${UNICODE_SYMBOLS.SUPERSCRIPT_ST}`],
+    ["2ND", `2${UNICODE_SYMBOLS.SUPERSCRIPT_ND}`],
+    ["3RD", `3${UNICODE_SYMBOLS.SUPERSCRIPT_RD}`],
+    ["4TH", `4${UNICODE_SYMBOLS.SUPERSCRIPT_TH}`],
+    // Should not match non-ordinal text
+    ["first", "first"],
+    ["stand", "stand"],
+    ["thunder", "thunder"],
+    ["rand", "rand"],
+  ])('converts "%s" to "%s"', (input, expected) => {
+    expect(superscript(input)).toBe(expected)
+  })
+
+  it("handles separator characters", () => {
+    const sep = "\uE000"
+    expect(superscript(`30${sep}th`, { separator: sep })).toBe(
+      `30${sep}${UNICODE_SYMBOLS.SUPERSCRIPT_TH}`
+    )
   })
 })
 
