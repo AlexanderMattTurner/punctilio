@@ -45,9 +45,9 @@ I tested `punctilio` 0.4 against [`smartypants`](https://www.npmjs.com/package/s
 
 | Input | `smartypants` | `punctilio` |
 |-------|-------------------|---------|
-| ’Twas the night | ‘Twas the night ✗ | ’Twas the night ✓ |
-| the ’99 season | the ’99 season ✗ | the ’99 season ✓ |
-| rock ’n’ roll | rock ‘n’ roll ✗ | rock ’n’ roll ✓ |
+| 'Twas the night | ‘Twas the night ✗ | ’Twas the night ✓ |
+| the '99 season | the ‘99 season ✗ | the ’99 season ✓ |
+| rock 'n' roll | rock ‘n’ roll ✗ | rock ’n’ roll ✓ |
 
 By running [`benchmark.mjs`](./benchmark.mjs), I graded all libraries on a subset of [my unit tests](./src/tests/), selected to represent a wide range of features. 
 
@@ -60,26 +60,26 @@ By running [`benchmark.mjs`](./benchmark.mjs), I graded all libraries on a subse
 
 | Feature | Example | `smartypants` | `tipograph` | `smartquotes` | `punctilio` |
 |---------|---------|---------------|-------------|---------------|-------------|
-| Smart quotes | `"hello"` → “hello” | ✓ | ✓ | ✓ | ✓ |
-| Leading apostrophe | `'Twas` → ’Twas | ✗ | ✗ | ✓ | ✓ |
-| Em dash | `--` → — | ✓ | ✗ | ✗ | ✓ |
-| En dash (ranges) | `1-5` → 1–5 | ✗ | ✓ | ✗ | ✓ |
-| Minus sign | `-5` → −5 | ✗ | ✓ | ✗ | ✓ |
-| Ellipsis | `...` → … | ✓ | ✓ | ✗ | ✓ |
-| Multiplication | `5x5` → 5×5 | ✗ | ✗ | ✗ | ✓ |
-| Math symbols | `!=` → ≠ | ✗ | ✓ | ✗ | ✓ |
-| Legal symbols | `(c)` → © | ✗ | © only | ✗ | ✓ |
-| Arrows | `->` → → | ✗ | ✓ | ✗ | ✓ |
-| Prime marks | `5'10"` → 5′10″ | ✗ | ✓ | ✓ | ✓ |
-| Degrees | `20 C` → 20 °C | ✗ | ✗ | ✗ | ✓ |
-| Fractions | `1/2` → ½ | ✗ | ✗ | ✗ | ✓ |
-| Superscripts | `1st` → 1ˢᵗ | ✗ | ✗ | ✗ | ✓ |
+| Smart quotes | "hello" → “hello” | ✓ | ✓ | ✓ | ✓ |
+| Leading apostrophe | 'Twas → ’Twas | ✗ | ✗ | ✓ | ✓ |
+| Em dash | -- → — | ✓ | ✗ | ✗ | ✓ |
+| En dash (ranges) | 1-5 → 1–5 | ✗ | ✓ | ✗ | ✓ |
+| Minus sign | -5 → −5 | ✗ | ✓ | ✗ | ✓ |
+| Ellipsis | ... → … | ✓ | ✓ | ✗ | ✓ |
+| Multiplication | 5x5 → 5×5 | ✗ | ✗ | ✗ | ✓ |
+| Math symbols | != → ≠ | ✗ | ✓ | ✗ | ✓ |
+| Legal symbols | (c) → © | ✗ | © only | ✗ | ✓ |
+| Arrows | -> → → | ✗ | ✓ | ✗ | ✓ |
+| Prime marks | 5'10" → 5′10″ | ✗ | ✓ | ✓ | ✓ |
+| Degrees | 20 C → 20 °C | ✗ | ✗ | ✗ | ✓ |
+| Fractions | 1/2 → ½ | ✗ | ✗ | ✗ | ✓ |
+| Superscripts | 1st → 1ˢᵗ | ✗ | ✗ | ✗ | ✓ |
 | Localization | American/British | ✗ | ✗ | ✗ | ✓ |
 
 ### What other packages offer that `punctilio` doesn’t
 
 `tipograph` supports:
-- Punctuation ligatures (`??` → `⁇`, `?!` → `⁈`)
-- Non-English quote styles (German „", French «»)
+- Punctuation ligatures (?? → ⁇, ?! → ⁈)
+- Non-English quote styles (German „“, French «»)
 
 I chose not to implement punctuation ligatures as they have poor font support and add visual complexity. I don’t have a personal reason to use non-English localization, but others are welcome to make a pull request.
