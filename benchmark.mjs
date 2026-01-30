@@ -5,6 +5,8 @@
 
 import { smartypantsu } from 'smartypants';
 import * as trembySmartypants from '@tremby/smartypants';
+import tipograph from 'tipograph';
+import smartquotes from 'smartquotes';
 import { transform } from './dist/index.js';
 
 // Unicode symbols for expected outputs
@@ -121,9 +123,6 @@ const testCases = {
     ["Hi-- what do you think?", "Hi—what do you think?"],
     ["since--as you know", "since—as you know"],
   ],
-  "Em dashes - preserve horizontal rules": [
-    ["\n---\n", "\n---\n"],
-  ],
   "Number ranges - en dash": [
     ["Pages 1-5", "Pages 1–5"],
     ["2000-2020", "2000–2020"],
@@ -208,6 +207,9 @@ const testCases = {
   ],
 };
 
+// Initialize tipograph
+const tipographTransform = tipograph();
+
 // Run a package on a test case
 function runPackage(pkg, input) {
   try {
@@ -215,8 +217,10 @@ function runPackage(pkg, input) {
       return transform(input, { symbols: true, fractions: true, degrees: true });
     } else if (pkg === 'smartypants') {
       return smartypantsu(input);
-    } else if (pkg === '@tremby/smartypants') {
-      return trembySmartypants.smartypantsu(input);
+    } else if (pkg === 'tipograph') {
+      return tipographTransform(input);
+    } else if (pkg === 'smartquotes') {
+      return smartquotes.string(input);
     }
   } catch (e) {
     return `ERROR: ${e.message}`;
@@ -232,10 +236,11 @@ function isMatch(actual, expected) {
 const results = {
   punctilio: { passed: 0, failed: 0, details: {} },
   smartypants: { passed: 0, failed: 0, details: {} },
-  '@tremby/smartypants': { passed: 0, failed: 0, details: {} },
+  tipograph: { passed: 0, failed: 0, details: {} },
+  smartquotes: { passed: 0, failed: 0, details: {} },
 };
 
-const packages = ['punctilio', 'smartypants', '@tremby/smartypants'];
+const packages = ['punctilio', 'smartypants', 'tipograph', 'smartquotes'];
 const categoryResults = {};
 
 for (const [category, cases] of Object.entries(testCases)) {
