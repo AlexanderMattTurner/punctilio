@@ -13,8 +13,8 @@ const {
 describe("niceQuotes", () => {
   describe("double quotes", () => {
     it.each([
-      ['"This is a quote", she said.', `${LEFT_DOUBLE_QUOTE}This is a quote${RIGHT_DOUBLE_QUOTE}, she said.`],
-      ['"This is a quote," she said.', `${LEFT_DOUBLE_QUOTE}This is a quote${RIGHT_DOUBLE_QUOTE}, she said.`],
+      ['"This is a quote", she said.', `${LEFT_DOUBLE_QUOTE}This is a quote,${RIGHT_DOUBLE_QUOTE} she said.`],
+      ['"This is a quote," she said.', `${LEFT_DOUBLE_QUOTE}This is a quote,${RIGHT_DOUBLE_QUOTE} she said.`],
       ['"This is a quote!".', `${LEFT_DOUBLE_QUOTE}This is a quote!${RIGHT_DOUBLE_QUOTE}.`],
       ['"This is a quote?".', `${LEFT_DOUBLE_QUOTE}This is a quote?${RIGHT_DOUBLE_QUOTE}.`],
       ['"This is a quote..." he trailed off.', `${LEFT_DOUBLE_QUOTE}This is a quote...${RIGHT_DOUBLE_QUOTE} he trailed off.`],
@@ -70,7 +70,7 @@ describe("niceQuotes", () => {
       ],
       // Skipped: Complex edge case with 'sup and quoted phrase
       // ["Hey, 'sup 'this is a single quote'", `Hey, ${RIGHT_SINGLE_QUOTE}sup ${LEFT_SINGLE_QUOTE}this is a single quote${RIGHT_SINGLE_QUOTE}`],
-      ["'the best',", `${LEFT_SINGLE_QUOTE}the best${RIGHT_SINGLE_QUOTE},`],
+      ["'the best',", `${LEFT_SINGLE_QUOTE}the best,${RIGHT_SINGLE_QUOTE}`],
       ["'I lost the game.'", `${LEFT_SINGLE_QUOTE}I lost the game.${RIGHT_SINGLE_QUOTE}`],
       ["I hate you.'\"", `I hate you.${RIGHT_SINGLE_QUOTE}${RIGHT_DOUBLE_QUOTE}`],
       ["The 'function space')", `The ${LEFT_SINGLE_QUOTE}function space${RIGHT_SINGLE_QUOTE})`],
@@ -116,25 +116,24 @@ describe("niceQuotes", () => {
     })
   })
 
-  describe("punctuationInsideQuotes option", () => {
-    describe("when true (default, American English)", () => {
+  describe("punctuationStyle option", () => {
+    describe('when "american" (default)', () => {
       it("moves periods inside double quotes", () => {
         const input = `${LEFT_DOUBLE_QUOTE}Hello${RIGHT_DOUBLE_QUOTE}.`
-        const result = niceQuotes(input, { punctuationInsideQuotes: true })
+        const result = niceQuotes(input, { punctuationStyle: "american" })
         expect(result).toBe(`${LEFT_DOUBLE_QUOTE}Hello.${RIGHT_DOUBLE_QUOTE}`)
       })
 
       it("moves periods inside single quotes", () => {
         const input = `${LEFT_SINGLE_QUOTE}Hello${RIGHT_SINGLE_QUOTE}.`
-        const result = niceQuotes(input, { punctuationInsideQuotes: true })
+        const result = niceQuotes(input, { punctuationStyle: "american" })
         expect(result).toBe(`${LEFT_SINGLE_QUOTE}Hello.${RIGHT_SINGLE_QUOTE}`)
       })
 
-      it("moves commas after closing quotes", () => {
-        // Note: The comma regex moves commas that precede closing quotes to after them
-        const input = `${LEFT_DOUBLE_QUOTE}test,${RIGHT_DOUBLE_QUOTE}`
-        const result = niceQuotes(input, { punctuationInsideQuotes: true })
-        expect(result).toBe(`${LEFT_DOUBLE_QUOTE}test${RIGHT_DOUBLE_QUOTE},`)
+      it("moves commas inside quotes", () => {
+        const input = `${LEFT_DOUBLE_QUOTE}test${RIGHT_DOUBLE_QUOTE},`
+        const result = niceQuotes(input, { punctuationStyle: "american" })
+        expect(result).toBe(`${LEFT_DOUBLE_QUOTE}test,${RIGHT_DOUBLE_QUOTE}`)
       })
 
       it("is the default behavior", () => {
@@ -144,28 +143,54 @@ describe("niceQuotes", () => {
       })
     })
 
-    describe("when false (British English)", () => {
-      it("leaves periods outside double quotes", () => {
-        const input = `${LEFT_DOUBLE_QUOTE}Hello${RIGHT_DOUBLE_QUOTE}.`
-        const result = niceQuotes(input, { punctuationInsideQuotes: false })
+    describe('when "british"', () => {
+      it("moves periods outside double quotes", () => {
+        const input = `${LEFT_DOUBLE_QUOTE}Hello.${RIGHT_DOUBLE_QUOTE}`
+        const result = niceQuotes(input, { punctuationStyle: "british" })
         expect(result).toBe(`${LEFT_DOUBLE_QUOTE}Hello${RIGHT_DOUBLE_QUOTE}.`)
       })
 
-      it("leaves periods outside single quotes", () => {
-        const input = `${LEFT_SINGLE_QUOTE}Hello${RIGHT_SINGLE_QUOTE}.`
-        const result = niceQuotes(input, { punctuationInsideQuotes: false })
+      it("moves periods outside single quotes", () => {
+        const input = `${LEFT_SINGLE_QUOTE}Hello.${RIGHT_SINGLE_QUOTE}`
+        const result = niceQuotes(input, { punctuationStyle: "british" })
         expect(result).toBe(`${LEFT_SINGLE_QUOTE}Hello${RIGHT_SINGLE_QUOTE}.`)
       })
 
-      it("leaves commas outside quotes", () => {
-        const input = `,${LEFT_DOUBLE_QUOTE}test${RIGHT_DOUBLE_QUOTE}`
-        const result = niceQuotes(input, { punctuationInsideQuotes: false })
-        expect(result).toBe(`,${LEFT_DOUBLE_QUOTE}test${RIGHT_DOUBLE_QUOTE}`)
+      it("moves commas outside quotes", () => {
+        const input = `${LEFT_DOUBLE_QUOTE}test,${RIGHT_DOUBLE_QUOTE}`
+        const result = niceQuotes(input, { punctuationStyle: "british" })
+        expect(result).toBe(`${LEFT_DOUBLE_QUOTE}test${RIGHT_DOUBLE_QUOTE},`)
+      })
+
+      it("still converts straight quotes to smart quotes", () => {
+        const input = '"Hello."'
+        const result = niceQuotes(input, { punctuationStyle: "british" })
+        expect(result).toBe(`${LEFT_DOUBLE_QUOTE}Hello${RIGHT_DOUBLE_QUOTE}.`)
+      })
+    })
+
+    describe('when "none"', () => {
+      it("leaves periods outside quotes unchanged", () => {
+        const input = `${LEFT_DOUBLE_QUOTE}Hello${RIGHT_DOUBLE_QUOTE}.`
+        const result = niceQuotes(input, { punctuationStyle: "none" })
+        expect(result).toBe(`${LEFT_DOUBLE_QUOTE}Hello${RIGHT_DOUBLE_QUOTE}.`)
+      })
+
+      it("leaves periods inside quotes unchanged", () => {
+        const input = `${LEFT_DOUBLE_QUOTE}Hello.${RIGHT_DOUBLE_QUOTE}`
+        const result = niceQuotes(input, { punctuationStyle: "none" })
+        expect(result).toBe(`${LEFT_DOUBLE_QUOTE}Hello.${RIGHT_DOUBLE_QUOTE}`)
+      })
+
+      it("leaves commas unchanged", () => {
+        const input = `${LEFT_DOUBLE_QUOTE}test${RIGHT_DOUBLE_QUOTE},`
+        const result = niceQuotes(input, { punctuationStyle: "none" })
+        expect(result).toBe(`${LEFT_DOUBLE_QUOTE}test${RIGHT_DOUBLE_QUOTE},`)
       })
 
       it("still converts straight quotes to smart quotes", () => {
         const input = '"Hello".'
-        const result = niceQuotes(input, { punctuationInsideQuotes: false })
+        const result = niceQuotes(input, { punctuationStyle: "none" })
         expect(result).toBe(`${LEFT_DOUBLE_QUOTE}Hello${RIGHT_DOUBLE_QUOTE}.`)
       })
     })

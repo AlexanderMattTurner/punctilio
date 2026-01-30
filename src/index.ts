@@ -8,7 +8,7 @@
  * @packageDocumentation
  */
 
-export { niceQuotes, type QuoteOptions } from "./quotes.js"
+export { niceQuotes, type QuoteOptions, type PunctuationStyle } from "./quotes.js"
 export {
   hyphenReplace,
   enDashNumberRange,
@@ -60,18 +60,17 @@ export interface TransformOptions {
   degrees?: boolean
 
   /**
-   * Whether to adjust punctuation placement around quotation marks.
+   * How to handle punctuation placement around quotation marks.
    *
-   * When `true` (default):
-   * - Periods after closing quotes are moved inside: "Hello". → "Hello."
-   * - Commas before closing quotes are moved outside: "Hello," → "Hello",
+   * - `"american"` (default): Periods and commas go inside quotes
+   *   Example: "Hello." and "Hello,"
+   * - `"british"`: Periods and commas go outside quotes
+   *   Example: "Hello". and "Hello",
+   * - `"none"`: Don't modify punctuation placement
    *
-   * When `false`:
-   * - Punctuation positions are left unchanged
-   *
-   * Default: true
+   * Default: "american"
    */
-  punctuationInsideQuotes?: boolean
+  punctuationStyle?: "american" | "british" | "none"
 }
 
 import { niceQuotes } from "./quotes.js"

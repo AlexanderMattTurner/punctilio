@@ -16,7 +16,7 @@ const {
 describe("transform", () => {
   it("applies both quote and dash transformations", () => {
     const input = '"Hello," she said - "it\'s pages 1-5."'
-    const expected = `${LEFT_DOUBLE_QUOTE}Hello${RIGHT_DOUBLE_QUOTE}, she said${EM_DASH}${LEFT_DOUBLE_QUOTE}it${RIGHT_SINGLE_QUOTE}s pages 1${EN_DASH}5.${RIGHT_DOUBLE_QUOTE}`
+    const expected = `${LEFT_DOUBLE_QUOTE}Hello,${RIGHT_DOUBLE_QUOTE} she said${EM_DASH}${LEFT_DOUBLE_QUOTE}it${RIGHT_SINGLE_QUOTE}s pages 1${EN_DASH}5.${RIGHT_DOUBLE_QUOTE}`
     expect(transform(input)).toBe(expected)
   })
 
@@ -78,16 +78,22 @@ describe("transform", () => {
     })
   })
 
-  describe("punctuationInsideQuotes option", () => {
+  describe("punctuationStyle option", () => {
     it("moves punctuation inside quotes by default (American English)", () => {
       const input = '"Hello".'
       const result = transform(input)
       expect(result).toBe(`${LEFT_DOUBLE_QUOTE}Hello.${RIGHT_DOUBLE_QUOTE}`)
     })
 
-    it("keeps punctuation outside quotes when disabled (British English)", () => {
+    it("moves punctuation outside quotes with british style", () => {
+      const input = '"Hello."'
+      const result = transform(input, { punctuationStyle: "british" })
+      expect(result).toBe(`${LEFT_DOUBLE_QUOTE}Hello${RIGHT_DOUBLE_QUOTE}.`)
+    })
+
+    it("leaves punctuation unchanged with none", () => {
       const input = '"Hello".'
-      const result = transform(input, { punctuationInsideQuotes: false })
+      const result = transform(input, { punctuationStyle: "none" })
       expect(result).toBe(`${LEFT_DOUBLE_QUOTE}Hello${RIGHT_DOUBLE_QUOTE}.`)
     })
   })
