@@ -38,10 +38,10 @@ By running [`benchmark.mjs`](./benchmark.mjs), I graded all libraries on a subse
 
 | Package | Score |
 |---------|-------|
-| `punctilio` | 76/76 (100%) |
-| `tipograph` | 42/76 (55%) |
-| `smartquotes` | 30/76 (39%) |
-| `smartypants` | 29/76 (38%) |
+| `punctilio` | 76/82 (93%) |
+| `tipograph` | 48/82 (59%) |
+| `smartquotes` | 30/82 (37%) |
+| `smartypants` | 28/82 (34%) |
 
 | Feature | Example | `smartypants` | `tipograph` | `smartquotes` | `punctilio` |
 |---------|---------|---------------|-------------|---------------|-------------|
@@ -60,12 +60,8 @@ By running [`benchmark.mjs`](./benchmark.mjs), I graded all libraries on a subse
 | Fractions | 1/2 → ½ | ✗ | ✗ | ✗ | ✓ |
 | Superscripts | 1st → 1ˢᵗ | ✗ | ✗ | ✗ | ✓ |
 | Localization | American/British | ✗ | ✗ | ✗ | ✓ |
-
-### What other packages offer that `punctilio` doesn’t
-
-`tipograph` supports:
-- Punctuation ligatures (?? → ⁇, ?! → ⁈)
-- Non-English quote styles (German „“, French «»)
+| Ligatures | ?? → ⁇ | ✗ | ✓ | ✗ | ✗ |
+| Non-English quotes | „Hallo" (German) | ✗ | ✓ | ✗ | ✗ |
 
 I chose not to implement punctuation ligatures as they have poor font support and add visual complexity. I don’t have a personal reason to use non-English localization, but others are welcome to make a pull request.
 
