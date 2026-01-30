@@ -9,7 +9,7 @@ import {
   fractions,
   symbolTransform,
 } from "../symbols.js"
-import { UNICODE_SYMBOLS } from "../constants.js"
+import { UNICODE_SYMBOLS, DEFAULT_SEPARATOR } from "../constants.js"
 
 describe("ellipsis", () => {
   it.each([
@@ -18,7 +18,6 @@ describe("ellipsis", () => {
     ["...", UNICODE_SYMBOLS.ELLIPSIS],
     ["Hello...world", `Hello${UNICODE_SYMBOLS.ELLIPSIS} world`],
     ["End of sentence...", `End of sentence${UNICODE_SYMBOLS.ELLIPSIS}`],
-    // Test ellipsis before punctuation
     ['..."', `${UNICODE_SYMBOLS.ELLIPSIS}"`],
     ["...!", `${UNICODE_SYMBOLS.ELLIPSIS}!`],
     ["...?", `${UNICODE_SYMBOLS.ELLIPSIS}?`],
@@ -29,13 +28,13 @@ describe("ellipsis", () => {
     expect(ellipsis(input)).toBe(expected)
   })
 
-  it("preserves separator characters", () => {
-    const sep = "\uE000"
-    // Separators should be preserved after the ellipsis
-    expect(ellipsis(`.${sep}.${sep}.`, { separator: sep })).toBe(`${UNICODE_SYMBOLS.ELLIPSIS}${sep}${sep}`)
-    expect(ellipsis(`...${sep}`, { separator: sep })).toBe(`${UNICODE_SYMBOLS.ELLIPSIS}${sep}`)
-    expect(ellipsis(`.${sep}..`, { separator: sep })).toBe(`${UNICODE_SYMBOLS.ELLIPSIS}${sep}`)
-    expect(ellipsis(`..${sep}.`, { separator: sep })).toBe(`${UNICODE_SYMBOLS.ELLIPSIS}${sep}`)
+  it.each([
+    ["between all dots", `.${DEFAULT_SEPARATOR}.${DEFAULT_SEPARATOR}.`, `${UNICODE_SYMBOLS.ELLIPSIS}${DEFAULT_SEPARATOR}${DEFAULT_SEPARATOR}`],
+    ["after ellipsis", `...${DEFAULT_SEPARATOR}`, `${UNICODE_SYMBOLS.ELLIPSIS}${DEFAULT_SEPARATOR}`],
+    ["after first dot", `.${DEFAULT_SEPARATOR}..`, `${UNICODE_SYMBOLS.ELLIPSIS}${DEFAULT_SEPARATOR}`],
+    ["after second dot", `..${DEFAULT_SEPARATOR}.`, `${UNICODE_SYMBOLS.ELLIPSIS}${DEFAULT_SEPARATOR}`],
+  ])("preserves separators: %s", (_desc, input, expected) => {
+    expect(ellipsis(input, { separator: DEFAULT_SEPARATOR })).toBe(expected)
   })
 })
 
