@@ -15,28 +15,12 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Auto Version Bump with Claude
-        uses: anthropics/claude-code-action@v1
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          prompt: |
-            Analyze the changes and determine the appropriate semantic version bump.
+          node-version: '20'
 
-            Rules:
-            - MAJOR: Breaking changes (API changes, removed features, incompatible changes)
-            - MINOR: New features, new exports, new options (backwards compatible)
-            - PATCH: Bug fixes, documentation, refactoring, performance improvements
-
-            Steps:
-            1. Check git log to see recent commits and what changed
-            2. Read the current version from package.json
-            3. Determine the appropriate bump level (major/minor/patch)
-            4. Update the "version" field in package.json with the new version
-            5. Commit the change with message: "chore: bump version to X.Y.Z"
-            6. Push the commit
-
-            Important:
-            - Only bump the version, don't change anything else
-            - If the most recent commit is already a version bump (message starts with "chore: bump version"), do nothing
-            - Use standard semver format (X.Y.Z)
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+      - name: Auto Version Bump
+        run: bash scripts/version-bump.sh
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
