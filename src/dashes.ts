@@ -38,54 +38,14 @@ const { EN_DASH, EM_DASH, MINUS } = UNICODE_SYMBOLS
  * List of month names (full and abbreviated) for date range detection
  */
 export const months = [
-  "January",
-  "February",
-  "March",
-  "April",
-  "May",
-  "June",
-  "July",
-  "August",
-  "September",
-  "October",
-  "November",
-  "December",
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "May",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dec",
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
 ].join("|")
 
 /**
  * Replaces hyphens with en-dashes in number ranges.
- *
- * Handles:
- * - Simple ranges: "1-5" → "1–5"
- * - Page numbers: "p.206-207" → "p.206–207"
- * - Dollar amounts: "$100-$200" → "$100–$200"
- * - Comma-formatted numbers: "1,000-2,000" → "1,000–2,000"
- *
- * Does NOT replace:
- * - Spaced ranges: "1 - 5" (ambiguous, could be subtraction)
- * - Version numbers with decimals: "1.5-1.8"
- *
- * @param text - The text to transform
- * @param options - Configuration options
- * @returns The text with en-dashes in number ranges
- *
- * @example
- * ```ts
- * enDashNumberRange("pages 10-15")
- * // → "pages 10–15"
- * ```
  */
 export function enDashNumberRange(text: string, options: DashOptions = {}): string {
   const chr = options.separator ?? DEFAULT_SEPARATOR
@@ -100,20 +60,6 @@ export function enDashNumberRange(text: string, options: DashOptions = {}): stri
 
 /**
  * Replaces hyphens with en-dashes in month/date ranges.
- *
- * Handles full and abbreviated month names:
- * - "January-March" → "January–March"
- * - "Jan-Mar" → "Jan–Mar"
- *
- * @param text - The text to transform
- * @param options - Configuration options
- * @returns The text with en-dashes in date ranges
- *
- * @example
- * ```ts
- * enDashDateRange("January-March 2024")
- * // → "January–March 2024"
- * ```
  */
 export function enDashDateRange(text: string, options: DashOptions = {}): string {
   const chr = options.separator ?? DEFAULT_SEPARATOR
@@ -125,22 +71,6 @@ export function enDashDateRange(text: string, options: DashOptions = {}): string
 
 /**
  * Replaces hyphens with proper minus signs (−) in numerical contexts.
- *
- * Handles negative numbers at:
- * - Start of string/line
- * - After whitespace
- * - After opening parenthesis
- * - After opening quote
- *
- * @param text - The text to transform
- * @param options - Configuration options
- * @returns The text with minus signs
- *
- * @example
- * ```ts
- * minusReplace("The temperature was -5 degrees")
- * // → "The temperature was −5 degrees"
- * ```
  */
 export function minusReplace(text: string, options: DashOptions = {}): string {
   const chr = options.separator ?? DEFAULT_SEPARATOR
@@ -148,87 +78,71 @@ export function minusReplace(text: string, options: DashOptions = {}): string {
   return text.replaceAll(minusRegex, `$1${MINUS}$2`)
 }
 
+/** Convert surrounded dashes and multiple dashes to em/en dashes */
+function convertParentheticalDashes(text: string, sep: string, style: DashStyle): string {
+  if (style === "none") return text
+
+  const dash = style === "british" ? EN_DASH : EM_DASH
+  const spaced = style === "british"
+
+  // Handle dashes with potential spaces
+  const preDash = new RegExp(`((?<markerBeforeTwo>${sep}?)[ ]+|(?<markerBeforeThree>${sep}))`)
+  const surroundedDash = new RegExp(
+    `(?<=[^\\s>]|^)${preDash.source}[~${EN_DASH}${EM_DASH}-]+[ ]*(?<markerAfter>${sep}?)([ ]+|$)`,
+    "g"
+  )
+  const replacement = spaced
+    ? `$<markerBeforeTwo>$<markerBeforeThree> ${dash} $<markerAfter>`
+    : `$<markerBeforeTwo>$<markerBeforeThree>${dash}$<markerAfter>`
+  text = text.replace(surroundedDash, replacement)
+
+  // Handle multiple dashes within words (e.g., since--as)
+  const multipleDashInWords = new RegExp(
+    `(?<=[A-Za-z\\d])(?<markerBefore>${sep}?)[~${EN_DASH}${EM_DASH}-]{2,}(?<markerAfter>${sep}?)(?=[A-Za-z\\d ])`,
+    "g"
+  )
+  const multiReplacement = spaced
+    ? `$<markerBefore> ${dash} $<markerAfter>`
+    : `$<markerBefore>${dash}$<markerAfter>`
+  text = text.replace(multipleDashInWords, multiReplacement)
+
+  // Handle dashes at start of line
+  text = text.replace(new RegExp(`^(${sep})?[-]+ `, "gm"), `$1${dash} `)
+
+  return text
+}
+
+/** Normalize spacing around em dashes for American style */
+function normalizeEmDashSpacing(text: string, sep: string): string {
+  const spacesAroundEM = new RegExp(
+    `(?<markerBefore>${sep}?)[ ]*${EM_DASH}[ ]*(?<markerAfter>${sep}?)[ ]*`,
+    "g"
+  )
+  text = text.replace(spacesAroundEM, `$<markerBefore>${EM_DASH}$<markerAfter>`)
+
+  // Add space after em dash following quotation marks
+  const postQuote = new RegExp(`(?<quote>[.!?]${sep}?['"'"]${sep}?|…)${spacesAroundEM.source}`, "g")
+  text = text.replace(postQuote, `$<quote> $<markerBefore>${EM_DASH}$<markerAfter> `)
+
+  // Preserve space after em dash at start of line
+  const startOfLine = new RegExp(`^${spacesAroundEM.source}(?<after>[A-Z0-9])`, "gm")
+  text = text.replace(startOfLine, `$<markerBefore>${EM_DASH}$<markerAfter> $<after>`)
+
+  return text
+}
+
 /**
  * Comprehensive dash replacement for typographic correctness.
- *
- * Applies multiple transformations:
- * 1. Converts hyphens to minus signs in numerical contexts
- * 2. Converts surrounded dashes (- or --) to em-dashes (—)
- * 3. Removes spaces around em-dashes (per modern style)
- * 4. Preserves space after em-dash at start of line
- * 5. Adds space after em-dash following quotation marks
- * 6. Converts number ranges to en-dashes (1-5 → 1–5)
- * 7. Converts date ranges to en-dashes (Jan-Mar → Jan–Mar)
- *
- * Does NOT modify:
- * - Horizontal rules (---)
- * - Compound modifiers (well-known, browser-specific)
- * - Hyphens in quoted blockquotes ("> - item")
- *
- * @param text - The text to transform
- * @param options - Configuration options
- * @returns The text with proper dashes
- *
- * @example
- * ```ts
- * hyphenReplace("This is a - test")
- * // → "This is a—test"
- *
- * hyphenReplace("Since--as you know")
- * // → "Since—as you know"
- *
- * hyphenReplace("Pages 1-5")
- * // → "Pages 1–5"
- * ```
  */
 export function hyphenReplace(text: string, options: DashOptions = {}): string {
-  const chr = options.separator ?? DEFAULT_SEPARATOR
+  const sep = options.separator ?? DEFAULT_SEPARATOR
   const dashStyle = options.dashStyle ?? "american"
 
   text = minusReplace(text, options)
+  text = convertParentheticalDashes(text, sep, dashStyle)
 
-  if (dashStyle !== "none") {
-    // Determine which dash to use based on style
-    const dash = dashStyle === "british" ? EN_DASH : EM_DASH
-    const spaced = dashStyle === "british"
-
-    // Handle dashes with potential spaces and optional marker character
-    const preDash = new RegExp(`((?<markerBeforeTwo>${chr}?)[ ]+|(?<markerBeforeThree>${chr}))`)
-    const surroundedDash = new RegExp(
-      `(?<=[^\\s>]|^)${preDash.source}[~${EN_DASH}${EM_DASH}-]+[ ]*(?<markerAfter>${chr}?)([ ]+|$)`,
-      "g"
-    )
-
-    const replacement = spaced
-      ? `$<markerBeforeTwo>$<markerBeforeThree> ${dash} $<markerAfter>`
-      : `$<markerBeforeTwo>$<markerBeforeThree>${dash}$<markerAfter>`
-    text = text.replace(surroundedDash, replacement)
-
-    const multipleDashInWords = new RegExp(
-      `(?<=[A-Za-z\\d])(?<markerBefore>${chr}?)[~${EN_DASH}${EM_DASH}-]{2,}(?<markerAfter>${chr}?)(?=[A-Za-z\\d ])`,
-      "g"
-    )
-    const multiReplacement = spaced
-      ? `$<markerBefore> ${dash} $<markerAfter>`
-      : `$<markerBefore>${dash}$<markerAfter>`
-    text = text.replace(multipleDashInWords, multiReplacement)
-
-    text = text.replace(new RegExp(`^(${chr})?[-]+ `, "gm"), `$1${dash} `)
-
-    if (!spaced) {
-      // American style: remove spaces around em dashes
-      const spacesAroundEM = new RegExp(
-        `(?<markerBefore>${chr}?)[ ]*${EM_DASH}[ ]*(?<markerAfter>${chr}?)[ ]*`,
-        "g"
-      )
-      text = text.replace(spacesAroundEM, `$<markerBefore>${EM_DASH}$<markerAfter>`)
-
-      const postQuote = new RegExp(`(?<quote>[.!?]${chr}?['"'"]${chr}?|…)${spacesAroundEM.source}`, "g")
-      text = text.replace(postQuote, `$<quote> $<markerBefore>${EM_DASH}$<markerAfter> `)
-
-      const startOfLine = new RegExp(`^${spacesAroundEM.source}(?<after>[A-Z0-9])`, "gm")
-      text = text.replace(startOfLine, `$<markerBefore>${EM_DASH}$<markerAfter> $<after>`)
-    }
+  if (dashStyle === "american") {
+    text = normalizeEmDashSpacing(text, sep)
   }
 
   text = enDashNumberRange(text, options)
