@@ -54,15 +54,17 @@ transform(text, {
 
 ## Why punctilio?
 
-Other libraries fail on edge cases:
+I built this for [my website](https://turntrout.com). I wrote a comprehensive test suite covering edge cases I encountered, then later benchmarked how existing libraries would have performed. They don't do well:
 
-| Input | smartypants | punctilio |
-|-------|-------------|-----------|
-| `'Twas the night` | 'Twas the night | 'Twas the night |
-| `the '99 season` | the '99 season | the '99 season |
-| `rock 'n' roll` | rock 'n' roll | rock 'n' roll |
+| Input | smartypants output | Correct |
+|-------|-------------------|---------|
+| `'Twas the night` | 'Twas the night | ✗ |
+| `the '99 season` | the '99 season | ✗ |
+| `rock 'n' roll` | rock 'n' roll | ✗ |
 
 The `'` in these should be apostrophes ('), not opening quotes (').
+
+### Feature comparison
 
 | Feature | punctilio | smartypants | tipograph | smartquotes |
 |---------|-----------|-------------|-----------|-------------|
@@ -82,6 +84,14 @@ The `'` in these should be apostrophes ('), not opening quotes (').
 | Localization | ✓ | ✗ | ✗ | ✗ |
 
 [Benchmark source](./benchmark.mjs) · [Test suite](./src/tests/)
+
+### What others offer that punctilio doesn't
+
+**tipograph** supports:
+- Punctuation ligatures (`??` → `⁇`, `?!` → `⁈`)
+- Non-English quote styles (German „", French «»)
+
+I chose not to implement ligatures—they have poor font support and add visual complexity without clear benefit. Non-English localization is on the roadmap.
 
 ## License
 
