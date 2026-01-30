@@ -1,8 +1,6 @@
-# punctilio
+> *punctilio* (n.): precise observance of formalities.
 
-> *punctilio* (n.): a fine point of conduct or procedure
-
-Smart typography for JavaScript. Converts ASCII punctuation to proper Unicode.
+The best typography package.
 
 ```typescript
 import { transform } from 'punctilio'
@@ -11,62 +9,53 @@ transform('"It\'s a beautiful thing, the destruction of words..." -- 1984')
 // → "It's a beautiful thing, the destruction of words…" — 1984
 ```
 
+[![Test](https://github.com/alexander-turner/punctilio/actions/workflows/test.yml/badge.svg)](https://github.com/alexander-turner/punctilio/actions/workflows/test.yml)
+[![Lint](https://github.com/alexander-turner/punctilio/actions/workflows/lint.yml/badge.svg)](https://github.com/alexander-turner/punctilio/actions/workflows/lint.yml)
+[![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen)](https://github.com/alexander-turner/punctilio)
+ 
+
 ## Install
 
 ```bash
 npm install punctilio
 ```
 
-## What it does
-
-| Before | After |
-|--------|-------|
-| "hello" | "hello" |
-| don't | don't |
-| word--word | word—word |
-| 1-5 | 1–5 |
-| -5 | −5 |
-| ... | … |
-| 5x5 | 5×5 |
-| != <= >= | ≠ ≤ ≥ |
-| (c) (r) (tm) | © ® ™ |
-| -> <- | → ← |
-| 5'10" | 5′10″ |
-
 ## Options
 
 ```typescript
 transform(text, {
-  // Style
   punctuationStyle: 'american' | 'british' | 'none',  // default: 'american'
   dashStyle: 'american' | 'british' | 'none',         // default: 'american'
 
-  // Features
   symbols: true,         // math, legal, arrows
+  collapseSpaces: true,  // normalize whitespace
   fractions: false,      // 1/2 → ½
   degrees: false,        // 20 C → 20 °C
-  collapseSpaces: true,  // normalize whitespace
 })
 ```
 
-**American** (default): `"Hello,"` and `word—word`
-**British**: `"Hello",` and `word – word`
-
 ## Why punctilio?
 
-I built this for [my website](https://turntrout.com). I wrote a comprehensive test suite covering edge cases I encountered, then later benchmarked how existing libraries would have performed. They don't do well:
-
-| Input | smartypants output | Correct |
-|-------|-------------------|---------|
-| `'Twas the night` | 'Twas the night | ✗ |
-| `the '99 season` | the '99 season | ✗ |
-| `rock 'n' roll` | rock 'n' roll | ✗ |
-
-The `'` in these should be apostrophes ('), not opening quotes (').
+As far as I can tell, punctilio is the most reliable and feature-complete. I built punctilio for [my website](https://turntrout.com/design). I wrote and sharpened the core regexes sporadically over several months, exhaustively testing edge cases. 
 
 ### Feature comparison
 
-On January 30th, 2025, I tested against [smartypants](https://www.npmjs.com/package/smartypants) 0.2.2, [tipograph](https://www.npmjs.com/package/tipograph) 0.7.4, and [smartquotes](https://www.npmjs.com/package/smartquotes) 2.3.2:
+I tested punctilio 0.4 against [smartypants](https://www.npmjs.com/package/smartypants) 0.2.2, [tipograph](https://www.npmjs.com/package/tipograph) 0.7.4, and [smartquotes](https://www.npmjs.com/package/smartquotes) 2.3.2. Other libraries have spotty feature coverage and inconsistent impact on text. For example, `smartypants` ignores leading apostrophes:
+
+| Input | smartypants  | punctilio |
+|-------|-------------------|---------|
+| 'Twas the night | ‘Twas the night ✗ | ’Twas the night  ✓  |
+| the '99 season | the ’99 season ✗ | the ’99 season ✓  |
+| rock 'n' roll | rock ‘n’ roll ✗ | rock ’n’ roll  ✓  |
+
+By running [`benchmark.mjs`](./benchmark.mjs), I graded all libraries on a subset of [my unit tests](./src/tests/), selected to represent a wide range of features. 
+
+| Package | Score |
+|---------|-------|
+| punctilio | 70/70 (100%) |
+| tipograph | 42/70 (60%) |
+| smartquotes | 30/70 (43%) |
+| smartypants | 29/70 (41%) |
 
 | Feature | smartypants | tipograph | smartquotes | punctilio |
 |---------|-------------|-----------|-------------|-----------|
@@ -85,16 +74,10 @@ On January 30th, 2025, I tested against [smartypants](https://www.npmjs.com/pack
 | Fractions | ✗ | ✗ | ✗ | ✓ |
 | Localization | ✗ | ✗ | ✗ | ✓ |
 
-[Benchmark source](./benchmark.mjs) · [Test suite](./src/tests/)
+### What other packages offer that punctilio doesn't
 
-### What others offer that punctilio doesn't
-
-**tipograph** supports:
+tipograph supports:
 - Punctuation ligatures (`??` → `⁇`, `?!` → `⁈`)
 - Non-English quote styles (German „", French «»)
 
-I chose not to implement ligatures—they have poor font support and add visual complexity without clear benefit. Non-English localization is on the roadmap.
-
-## License
-
-MIT
+I chose not to implement punctuation ligatures as they have poor font support and add visual complexity. I don't have a personal reason to use non-English localization, but others are welcome to make a pull request.
