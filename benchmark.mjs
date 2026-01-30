@@ -10,7 +10,6 @@
  */
 
 import { smartypantsu } from 'smartypants';
-import { smartypantsu as trembySmartypants } from '@tremby/smartypants';
 import tipograph from 'tipograph';
 import smartquotes from 'smartquotes';
 import { transform } from './dist/index.js';
@@ -296,11 +295,8 @@ function runPackage(pkg, input, category = '', options = {}) {
       // punctilio with all features enabled
       return transform(input, { symbols: true, fractions: true, degrees: true, superscript: true, ...options });
     } else if (pkg === 'smartypants') {
-      // smartypants (othree) with mode "2" for better dash support (-- = en-dash, --- = em-dash)
+      // smartypants with mode "2" for better dash support (-- = en-dash, --- = em-dash)
       return smartypantsu(input, "2");
-    } else if (pkg === '@tremby/smartypants') {
-      // @tremby/smartypants with mode "2" for better dash support
-      return trembySmartypants(input, "2");
     } else if (pkg === 'tipograph') {
       // tipograph with language-appropriate configuration
       const tipographFn = getTipographForCategory(category);
@@ -322,12 +318,11 @@ function isMatch(actual, expected) {
 const results = {
   punctilio: { passed: 0, failed: 0, details: {} },
   smartypants: { passed: 0, failed: 0, details: {} },
-  '@tremby/smartypants': { passed: 0, failed: 0, details: {} },
   tipograph: { passed: 0, failed: 0, details: {} },
   smartquotes: { passed: 0, failed: 0, details: {} },
 };
 
-const packages = ['punctilio', 'smartypants', '@tremby/smartypants', 'tipograph', 'smartquotes'];
+const packages = ['punctilio', 'smartypants', 'tipograph', 'smartquotes'];
 const categoryResults = {};
 
 for (const [category, cases] of Object.entries(testCases)) {
