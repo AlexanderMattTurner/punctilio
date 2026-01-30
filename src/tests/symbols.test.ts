@@ -29,9 +29,13 @@ describe("ellipsis", () => {
     expect(ellipsis(input)).toBe(expected)
   })
 
-  it("handles separator characters", () => {
+  it("preserves separator characters", () => {
     const sep = "\uE000"
-    expect(ellipsis(`.${sep}.${sep}.`, { separator: sep })).toBe(UNICODE_SYMBOLS.ELLIPSIS)
+    // Separators should be preserved after the ellipsis
+    expect(ellipsis(`.${sep}.${sep}.`, { separator: sep })).toBe(`${UNICODE_SYMBOLS.ELLIPSIS}${sep}${sep}`)
+    expect(ellipsis(`...${sep}`, { separator: sep })).toBe(`${UNICODE_SYMBOLS.ELLIPSIS}${sep}`)
+    expect(ellipsis(`.${sep}..`, { separator: sep })).toBe(`${UNICODE_SYMBOLS.ELLIPSIS}${sep}`)
+    expect(ellipsis(`..${sep}.`, { separator: sep })).toBe(`${UNICODE_SYMBOLS.ELLIPSIS}${sep}`)
   })
 })
 

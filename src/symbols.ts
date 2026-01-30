@@ -62,8 +62,12 @@ export function ellipsis(text: string, options: SymbolOptions = {}): string {
     ? escapeRegex(options.separator)
     : ESCAPED_DEFAULT_SEPARATOR
 
-  const pattern = new RegExp(`\\.${chr}?\\.${chr}?\\.`, "g")
-  text = text.replace(pattern, ELLIPSIS)
+  // Capture groups preserve separators: .(sep1)?.(sep2)?.
+  const pattern = new RegExp(`\\.(${chr})?\\.(${chr})?\\.`, "g")
+  text = text.replace(pattern, (_match, sep1, sep2) => {
+    // Preserve separators by appending them after the ellipsis
+    return ELLIPSIS + (sep1 || "") + (sep2 || "")
+  })
 
   text = text.replace(new RegExp(`${ELLIPSIS}(?=\\w)`, "gu"), `${ELLIPSIS} `)
 
