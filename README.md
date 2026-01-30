@@ -29,7 +29,7 @@ As far as I can tell, `punctilio` is the most reliable and feature-complete. I b
 I tested `punctilio` 0.4 against [`smartypants`](https://www.npmjs.com/package/smartypants) 0.2.2, [`tipograph`](https://www.npmjs.com/package/tipograph) 0.7.4, and [`smartquotes`](https://www.npmjs.com/package/smartquotes) 2.3.2. Other libraries have spotty feature coverage and inconsistent impact on text. For example, `smartypants` ignores leading apostrophes:
 
 | Input | `smartypants` | `punctilio` |
-|-------|-------------------|---------|
+|------:|:-----------------:|:-------:|
 | 'Twas the night | ‘Twas the night ✗ | ’Twas the night ✓ |
 | the '99 season | the ‘99 season ✗ | the ’99 season ✓ |
 | rock 'n' roll | rock ‘n’ roll ✗ | rock ’n’ roll ✓ |
@@ -37,14 +37,14 @@ I tested `punctilio` 0.4 against [`smartypants`](https://www.npmjs.com/package/s
 By running [`benchmark.mjs`](./benchmark.mjs), I graded all libraries on a subset of [my unit tests](./src/tests/), selected to represent a wide range of features. 
 
 | Package | Score |
-|---------|-------|
+|--------:|:------|
 | `punctilio` | 76/82 (93%) |
 | `tipograph` | 48/82 (59%) |
 | `smartquotes` | 30/82 (37%) |
 | `smartypants` | 28/82 (34%) |
 
 | Feature | Example | `smartypants` | `tipograph` | `smartquotes` | `punctilio` |
-|---------|:-------:|:-------:|:-------:|:-------:|:-------:|
+|--------:|:-------:|:-------:|:-------:|:-------:|:-------:|
 | Smart quotes | "hello" → “hello” | ✓ | ✓ | ✓ | ✓ |
 | Leading apostrophe | 'Twas → ’Twas | ✗ | ✗ | ✓ | ✓ |
 | Em dash | -- → — | ✓ | ✗ | ✗ | ✓ |
