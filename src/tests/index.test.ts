@@ -77,4 +77,18 @@ describe("transform", () => {
       expect(result).toContain(`${UNICODE_SYMBOLS.DEGREE}C`)
     })
   })
+
+  describe("punctuationInsideQuotes option", () => {
+    it("moves punctuation inside quotes by default (American English)", () => {
+      const input = '"Hello".'
+      const result = transform(input)
+      expect(result).toBe(`${LEFT_DOUBLE_QUOTE}Hello.${RIGHT_DOUBLE_QUOTE}`)
+    })
+
+    it("keeps punctuation outside quotes when disabled (British English)", () => {
+      const input = '"Hello".'
+      const result = transform(input, { punctuationInsideQuotes: false })
+      expect(result).toBe(`${LEFT_DOUBLE_QUOTE}Hello${RIGHT_DOUBLE_QUOTE}.`)
+    })
+  })
 })

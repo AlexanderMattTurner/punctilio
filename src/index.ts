@@ -58,6 +58,20 @@ export interface TransformOptions {
    * Default: false (can be aggressive)
    */
   degrees?: boolean
+
+  /**
+   * Whether to adjust punctuation placement around quotation marks.
+   *
+   * When `true` (default):
+   * - Periods after closing quotes are moved inside: "Hello". → "Hello."
+   * - Commas before closing quotes are moved outside: "Hello," → "Hello",
+   *
+   * When `false`:
+   * - Punctuation positions are left unchanged
+   *
+   * Default: true
+   */
+  punctuationInsideQuotes?: boolean
 }
 
 import { niceQuotes } from "./quotes.js"

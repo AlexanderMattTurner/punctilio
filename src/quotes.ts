@@ -27,6 +27,20 @@ export interface QuoteOptions {
    * Default: "\uE000" (Unicode Private Use Area)
    */
   separator?: string
+
+  /**
+   * Whether to adjust punctuation placement around quotation marks.
+   *
+   * When `true` (default):
+   * - Periods after closing quotes are moved inside: "Hello". → "Hello."
+   * - Commas before closing quotes are moved outside: "Hello," → "Hello",
+   *
+   * When `false`:
+   * - Punctuation positions are left unchanged
+   *
+   * Default: true
+   */
+  punctuationInsideQuotes?: boolean
 }
 
 /**
@@ -38,6 +52,7 @@ export interface QuoteOptions {
  */
 export function niceQuotes(text: string, options: QuoteOptions = {}): string {
   const chr = options.separator ?? DEFAULT_SEPARATOR
+  const punctuationInsideQuotes = options.punctuationInsideQuotes ?? true
 
   const afterEndingSinglePatterns = `\\s\\.!?;,\\)${EM_DASH}\\-\\]"`
   const afterEndingSingle = `(?=${chr}?(?:s${chr}?)?(?:[${afterEndingSinglePatterns}]|$))`
@@ -72,14 +87,19 @@ export function niceQuotes(text: string, options: QuoteOptions = {}): string {
   text = text.replace(new RegExp(`["](${chr}?)$`, "g"), `${RIGHT_DOUBLE_QUOTE}$1`)
   text = text.replace(new RegExp(`'(?=${RIGHT_DOUBLE_QUOTE})`, "gu"), RIGHT_SINGLE_QUOTE)
 
-  const periodRegex = new RegExp(
-    `(?<![!?:\\.${ELLIPSIS}])(${chr}?)([${RIGHT_SINGLE_QUOTE}${RIGHT_DOUBLE_QUOTE}])(${chr}?)(?!\\.\\.\\.)\\.`,
-    "g"
-  )
-  text = text.replace(periodRegex, "$1.$2$3")
+  // American English punctuation style:
+  // - Periods outside quotes are moved inside: "Hello". → "Hello."
+  // - Commas inside quotes are moved outside: "Hello," → "Hello",
+  if (punctuationInsideQuotes) {
+    const periodRegex = new RegExp(
+      `(?<![!?:\\.${ELLIPSIS}])(${chr}?)([${RIGHT_SINGLE_QUOTE}${RIGHT_DOUBLE_QUOTE}])(${chr}?)(?!\\.\\.\\.)\\.`,
+      "g"
+    )
+    text = text.replace(periodRegex, "$1.$2$3")
 
-  const commaRegex = new RegExp(`(?<![!?]),(${chr}?[${RIGHT_DOUBLE_QUOTE}${RIGHT_SINGLE_QUOTE}])`, "g")
-  text = text.replace(commaRegex, "$1,")
+    const commaRegex = new RegExp(`(?<![!?]),(${chr}?[${RIGHT_DOUBLE_QUOTE}${RIGHT_SINGLE_QUOTE}])`, "g")
+    text = text.replace(commaRegex, "$1,")
+  }
 
   return text
 }
