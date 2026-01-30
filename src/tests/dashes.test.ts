@@ -157,6 +157,17 @@ describe("enDashDateRange", () => {
     })
   })
 
+  describe("none style (preserve spacing)", () => {
+    it.each([
+      ["January-March", "January–March"],
+      ["January - March", "January – March"],
+      ["October 2012 - December 2014", "October 2012 – December 2014"],
+      ["Oct 2012-Dec 2014", "Oct 2012–Dec 2014"],
+    ])('should convert "%s" to "%s"', (input, expected) => {
+      expect(enDashDateRange(input, { dashStyle: "none" })).toBe(expected)
+    })
+  })
+
   it("should not convert non-month words", () => {
     expect(enDashDateRange("hello-world")).toBe("hello-world")
     expect(enDashDateRange("Mon-Fri")).toBe("Mon-Fri") // Days, not months
