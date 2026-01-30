@@ -16,7 +16,7 @@ const {
 describe("transform", () => {
   it("applies both quote and dash transformations", () => {
     const input = '"Hello," she said - "it\'s pages 1-5."'
-    const expected = `${LEFT_DOUBLE_QUOTE}Hello${RIGHT_DOUBLE_QUOTE}, she said${EM_DASH}${LEFT_DOUBLE_QUOTE}it${RIGHT_SINGLE_QUOTE}s pages 1${EN_DASH}5.${RIGHT_DOUBLE_QUOTE}`
+    const expected = `${LEFT_DOUBLE_QUOTE}Hello,${RIGHT_DOUBLE_QUOTE} she said${EM_DASH}${LEFT_DOUBLE_QUOTE}it${RIGHT_SINGLE_QUOTE}s pages 1${EN_DASH}5.${RIGHT_DOUBLE_QUOTE}`
     expect(transform(input)).toBe(expected)
   })
 
@@ -75,6 +75,19 @@ describe("transform", () => {
       const input = 'Temperature: 20 C'
       const result = transform(input, { degrees: true })
       expect(result).toContain(`${UNICODE_SYMBOLS.DEGREE}C`)
+    })
+  })
+
+  describe("punctuationStyle option", () => {
+    const periodOutside = `${LEFT_DOUBLE_QUOTE}Hello${RIGHT_DOUBLE_QUOTE}.`
+    const periodInside = `${LEFT_DOUBLE_QUOTE}Hello.${RIGHT_DOUBLE_QUOTE}`
+
+    it.each([
+      ['"Hello".', undefined, periodInside, "american (default)"],
+      ['"Hello."', "british", periodOutside, "british"],
+      ['"Hello".', "none", periodOutside, "none"],
+    ] as const)("handles %s with %s style", (input, style, expected) => {
+      expect(transform(input, style ? { punctuationStyle: style } : {})).toBe(expected)
     })
   })
 })

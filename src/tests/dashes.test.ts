@@ -160,3 +160,50 @@ describe("minusReplace", () => {
     expect(minusReplace("re-read")).toBe("re-read")
   })
 })
+
+describe("dashStyle option", () => {
+  describe('when "american" (default)', () => {
+    it.each([
+      ["word - word", "word—word"],
+      ["word -- word", "word—word"],
+      ["since--as you know", "since—as you know"],
+    ])("uses unspaced em dash: %s", (input, expected) => {
+      expect(hyphenReplace(input, { dashStyle: "american" })).toBe(expected)
+    })
+
+    it("is the default behavior", () => {
+      expect(hyphenReplace("word - word")).toBe("word—word")
+    })
+  })
+
+  describe('when "british"', () => {
+    it.each([
+      ["word - word", "word – word"],
+      ["word -- word", "word – word"],
+      ["since--as you know", "since – as you know"],
+    ])("uses spaced en dash: %s", (input, expected) => {
+      expect(hyphenReplace(input, { dashStyle: "british" })).toBe(expected)
+    })
+
+    it("still converts number ranges to en dashes", () => {
+      expect(hyphenReplace("pages 1-5", { dashStyle: "british" })).toBe("pages 1–5")
+    })
+  })
+
+  describe('when "none"', () => {
+    it.each([
+      ["word - word"],
+      ["word -- word"],
+    ])("leaves parenthetical dashes unchanged: %s", (input) => {
+      expect(hyphenReplace(input, { dashStyle: "none" })).toBe(input)
+    })
+
+    it("still converts number ranges", () => {
+      expect(hyphenReplace("pages 1-5", { dashStyle: "none" })).toBe("pages 1–5")
+    })
+
+    it("still converts minus signs", () => {
+      expect(hyphenReplace("-5", { dashStyle: "none" })).toBe("−5")
+    })
+  })
+})

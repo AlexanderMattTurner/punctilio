@@ -78,7 +78,7 @@ const {
 const testCases = {
   // === QUOTES ===
   "Double quotes - basic": [
-    ['"This is a quote", she said.', `${LDQ}This is a quote${RDQ}, she said.`],
+    ['"This is a quote", she said.', `${LDQ}This is a quote,${RDQ} she said.`],  // American: comma inside
     ['She said, "This is a quote."', `She said, ${LDQ}This is a quote.${RDQ}`],
     ['"Hello." Mary', `${LDQ}Hello.${RDQ} Mary`],
   ],
@@ -211,10 +211,10 @@ const testCases = {
 const tipographTransform = tipograph();
 
 // Run a package on a test case
-function runPackage(pkg, input) {
+function runPackage(pkg, input, options = {}) {
   try {
     if (pkg === 'punctilio') {
-      return transform(input, { symbols: true, fractions: true, degrees: true });
+      return transform(input, { symbols: true, fractions: true, degrees: true, ...options });
     } else if (pkg === 'smartypants') {
       return smartypantsu(input);
     } else if (pkg === 'tipograph') {

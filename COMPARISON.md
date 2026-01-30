@@ -70,11 +70,26 @@ Most feature-rich competitor. Has math symbols, arrows, prime marks, and unique 
 ### smartquotes
 Focused on quotes + prime marks. Handles `5'10"` correctly but fails on Rock 'n' Roll. No symbol support.
 
+## punctilio 0.3 Localization Options
+
+```typescript
+transform(text, {
+  punctuationStyle: "american" | "british" | "none",  // comma/period placement
+  dashStyle: "american" | "british" | "none"          // em dash vs spaced en dash
+})
+```
+
+| Style | Punctuation | Dashes |
+|-------|-------------|--------|
+| American (default) | `"Hello,"` (inside) | `word—word` (unspaced em) |
+| British | `"Hello",` (outside) | `word – word` (spaced en) |
+| None | no change | no change |
+
 ## What competitors have that punctilio doesn't
 
 | Feature | Available in |
 |---------|--------------|
 | Multiple space collapse | tipograph |
 | Punctuation ligatures (`⁇ ⁈ ⁉`) | tipograph |
-| Language-aware quotes (German, Czech, etc.) | tipograph |
+| Non-English quote styles (German „", Czech „") | tipograph |
 | Exclamation collapse (`!!` → `!`) | tipograph |
