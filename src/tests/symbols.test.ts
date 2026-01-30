@@ -18,6 +18,10 @@ describe("ellipsis", () => {
     ["...", UNICODE_SYMBOLS.ELLIPSIS],
     ["Hello...world", `Hello${UNICODE_SYMBOLS.ELLIPSIS} world`],
     ["End of sentence...", `End of sentence${UNICODE_SYMBOLS.ELLIPSIS}`],
+    // Test ellipsis before punctuation
+    ['..."', `${UNICODE_SYMBOLS.ELLIPSIS}"`],
+    ["...!", `${UNICODE_SYMBOLS.ELLIPSIS}!`],
+    ["...?", `${UNICODE_SYMBOLS.ELLIPSIS}?`],
     ["e.g.", "e.g."],
     ["U.S.A.", "U.S.A."],
     ["a.b", "a.b"],
@@ -120,6 +124,10 @@ describe("degrees", () => {
     ["68F", `68 ${UNICODE_SYMBOLS.DEGREE}F`],
     ["Water boils at 100 C", `Water boils at 100 ${UNICODE_SYMBOLS.DEGREE}C`],
     ["Room temperature: 72F", `Room temperature: 72 ${UNICODE_SYMBOLS.DEGREE}F`],
+    // Test degrees before punctuation (word boundary cases)
+    ["20C.", `20 ${UNICODE_SYMBOLS.DEGREE}C.`],
+    ["68F!", `68 ${UNICODE_SYMBOLS.DEGREE}F!`],
+    ["100C,", `100 ${UNICODE_SYMBOLS.DEGREE}C,`],
     ["20 km", "20 km"],
     ["Section C", "Section C"],
     ["100 C", `100 ${UNICODE_SYMBOLS.DEGREE}C`],
@@ -178,6 +186,10 @@ describe("fractions", () => {
     ["Add 1/2 cup", `Add ${UNICODE_SYMBOLS.FRACTION_1_2} cup`],
     ["About 3/4 done", `About ${UNICODE_SYMBOLS.FRACTION_3_4} done`],
     ["1/8 teaspoon", `${UNICODE_SYMBOLS.FRACTION_1_8} teaspoon`],
+    // Test fractions before punctuation
+    ["1/2.", `${UNICODE_SYMBOLS.FRACTION_1_2}.`],
+    ["3/4!", `${UNICODE_SYMBOLS.FRACTION_3_4}!`],
+    ["1/4,", `${UNICODE_SYMBOLS.FRACTION_1_4},`],
     ["21/4", "21/4"],
     ["page 1/25", "page 1/25"],
     ["1/7", "1/7"],
