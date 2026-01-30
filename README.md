@@ -1,6 +1,6 @@
 > *punctilio* (n.): precise observance of formalities.
 
-The best typography package.
+The best typography package for English.
 
 ```typescript
 import { transform } from 'punctilio'
@@ -26,7 +26,9 @@ As far as I can tell, `punctilio` is the most reliable and feature-complete. I b
 
 ### Feature comparison
 
-I tested `punctilio` 0.4 against [`smartypants`](https://www.npmjs.com/package/smartypants) 0.2.2, [`tipograph`](https://www.npmjs.com/package/tipograph) 0.7.4, and [`smartquotes`](https://www.npmjs.com/package/smartquotes) 2.3.2. Other libraries have spotty feature coverage and inconsistent impact on text. For example, `smartypants` ignores leading apostrophes:
+I tested `punctilio` 0.4 against [`smartypants`](https://www.npmjs.com/package/smartypants) 0.2.2, [`tipograph`](https://www.npmjs.com/package/tipograph) 0.7.4, and [`smartquotes`](https://www.npmjs.com/package/smartquotes) 2.3.2.[^python] These other packages have spotty feature coverage and inconsistent impact on text. For example, `smartypants` ignores leading apostrophes:
+
+[^python]: The Python libraries I found were closely related to the JavaScript packages, so I don’t include Python tests. 
 
 | Input | `smartypants` | `punctilio` |
 |:-----:|:-----------------:|:-------:|
