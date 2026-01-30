@@ -36,48 +36,48 @@ transform(text, {
 
 ## Why punctilio?
 
-As far as I can tell, punctilio is the most reliable and feature-complete. I built punctilio for [my website](https://turntrout.com/design). I wrote and sharpened the core regexes sporadically over several months, exhaustively testing edge cases. 
+As far as I can tell, `punctilio` is the most reliable and feature-complete. I built `punctilio` for [my website](https://turntrout.com/design). I wrote and sharpened the core regexes sporadically over several months, exhaustively testing edge cases. 
 
 ### Feature comparison
 
-I tested punctilio 0.4 against [smartypants](https://www.npmjs.com/package/smartypants) 0.2.2, [tipograph](https://www.npmjs.com/package/tipograph) 0.7.4, and [smartquotes](https://www.npmjs.com/package/smartquotes) 2.3.2. Other libraries have spotty feature coverage and inconsistent impact on text. For example, `smartypants` ignores leading apostrophes:
+I tested `punctilio` 0.4 against [`smartypants`](https://www.npmjs.com/package/smartypants) 0.2.2, [`tipograph`](https://www.npmjs.com/package/tipograph) 0.7.4, and [`smartquotes`](https://www.npmjs.com/package/smartquotes) 2.3.2. Other libraries have spotty feature coverage and inconsistent impact on text. For example, `smartypants` ignores leading apostrophes:
 
-| Input | smartypants  | punctilio |
+| Input | `smartypants` | `punctilio` |
 |-------|-------------------|---------|
-| 'Twas the night | ‘Twas the night ✗ | ’Twas the night  ✓  |
-| the '99 season | the ’99 season ✗ | the ’99 season ✓  |
-| rock 'n' roll | rock ‘n’ roll ✗ | rock ’n’ roll  ✓  |
+| ’Twas the night | ‘Twas the night ✗ | ’Twas the night ✓ |
+| the ’99 season | the ’99 season ✗ | the ’99 season ✓ |
+| rock ’n’ roll | rock ‘n’ roll ✗ | rock ’n’ roll ✓ |
 
 By running [`benchmark.mjs`](./benchmark.mjs), I graded all libraries on a subset of [my unit tests](./src/tests/), selected to represent a wide range of features. 
 
 | Package | Score |
 |---------|-------|
-| punctilio | 70/70 (100%) |
-| tipograph | 42/70 (60%) |
-| smartquotes | 30/70 (43%) |
-| smartypants | 29/70 (41%) |
+| `punctilio` | 70/70 (100%) |
+| `tipograph` | 42/70 (60%) |
+| `smartquotes` | 30/70 (43%) |
+| `smartypants` | 29/70 (41%) |
 
-| Feature | smartypants | tipograph | smartquotes | punctilio |
-|---------|-------------|-----------|-------------|-----------|
-| Smart quotes | ✓ | ✓ | ✓ | ✓ |
-| Leading apostrophe | ✗ | ✗ | ✓ | ✓ |
-| Em dash | ✓ | ✗ | ✗ | ✓ |
-| En dash (ranges) | ✗ | ✓ | ✗ | ✓ |
-| Minus sign | ✗ | ✓ | ✗ | ✓ |
-| Ellipsis | ✓ | ✓ | ✗ | ✓ |
-| Multiplication | ✗ | ✗ | ✗ | ✓ |
-| Math symbols | ✗ | ✓ | ✗ | ✓ |
-| Legal symbols | ✗ | © only | ✗ | ✓ |
-| Arrows | ✗ | ✓ | ✗ | ✓ |
-| Prime marks | ✗ | ✓ | ✓ | ✓ |
-| Degrees | ✗ | ✗ | ✗ | ✓ |
-| Fractions | ✗ | ✗ | ✗ | ✓ |
-| Localization | ✗ | ✗ | ✗ | ✓ |
+| Feature | Example | `smartypants` | `tipograph` | `smartquotes` | `punctilio` |
+|---------|---------|---------------|-------------|---------------|-------------|
+| Smart quotes | `"hello"` → “hello” | ✓ | ✓ | ✓ | ✓ |
+| Leading apostrophe | `'Twas` → ’Twas | ✗ | ✗ | ✓ | ✓ |
+| Em dash | `--` → — | ✓ | ✗ | ✗ | ✓ |
+| En dash (ranges) | `1-5` → 1–5 | ✗ | ✓ | ✗ | ✓ |
+| Minus sign | `-5` → −5 | ✗ | ✓ | ✗ | ✓ |
+| Ellipsis | `...` → … | ✓ | ✓ | ✗ | ✓ |
+| Multiplication | `5x5` → 5×5 | ✗ | ✗ | ✗ | ✓ |
+| Math symbols | `!=` → ≠ | ✗ | ✓ | ✗ | ✓ |
+| Legal symbols | `(c)` → © | ✗ | © only | ✗ | ✓ |
+| Arrows | `->` → → | ✗ | ✓ | ✗ | ✓ |
+| Prime marks | `5'10"` → 5′10″ | ✗ | ✓ | ✓ | ✓ |
+| Degrees | `20 C` → 20 °C | ✗ | ✗ | ✗ | ✓ |
+| Fractions | `1/2` → ½ | ✗ | ✗ | ✗ | ✓ |
+| Localization | American/British | ✗ | ✗ | ✗ | ✓ |
 
-### What other packages offer that punctilio doesn't
+### What other packages offer that `punctilio` doesn’t
 
-tipograph supports:
+`tipograph` supports:
 - Punctuation ligatures (`??` → `⁇`, `?!` → `⁈`)
 - Non-English quote styles (German „", French «»)
 
-I chose not to implement punctuation ligatures as they have poor font support and add visual complexity. I don't have a personal reason to use non-English localization, but others are welcome to make a pull request.
+I chose not to implement punctuation ligatures as they have poor font support and add visual complexity. I don’t have a personal reason to use non-English localization, but others are welcome to make a pull request.
