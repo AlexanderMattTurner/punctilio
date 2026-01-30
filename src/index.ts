@@ -90,6 +90,11 @@ export interface TransformOptions {
 import { niceQuotes } from "./quotes.js"
 import { hyphenReplace } from "./dashes.js"
 import { symbolTransform, fractions as fractionsTransform, degrees as degreesTransform, primeMarks } from "./symbols.js"
+import { assertSeparatorCountPreserved } from "./utils.js"
+import { DEFAULT_SEPARATOR } from "./constants.js"
+
+export { assertSeparatorCountPreserved, countSeparators } from "./utils.js"
+export { DEFAULT_SEPARATOR } from "./constants.js"
 
 /**
  * Applies all typography transformations: smart quotes, proper dashes,
@@ -122,6 +127,8 @@ import { symbolTransform, fractions as fractionsTransform, degrees as degreesTra
  * ```
  */
 export function transform(text: string, options: TransformOptions = {}): string {
+  const separator = options.separator ?? DEFAULT_SEPARATOR
+  const original = text
   const { symbols = true, fractions = false, degrees = false, ...separatorOpts } = options
 
   text = hyphenReplace(text, separatorOpts)
@@ -140,11 +147,7 @@ export function transform(text: string, options: TransformOptions = {}): string 
     text = degreesTransform(text)
   }
 
+  assertSeparatorCountPreserved(original, text, separator, "transform")
+
   return text
 }
-
-/**
- * Default separator character for boundary marking.
- * Uses Unicode Private Use Area character U+E000.
- */
-export const DEFAULT_SEPARATOR = "\uE000"
