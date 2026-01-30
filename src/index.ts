@@ -9,6 +9,7 @@
  */
 
 export { niceQuotes, type QuoteOptions, type PunctuationStyle } from "./quotes.js"
+import type { PunctuationStyle } from "./quotes.js"
 export {
   hyphenReplace,
   enDashNumberRange,
@@ -70,7 +71,7 @@ export interface TransformOptions {
    *
    * Default: "american"
    */
-  punctuationStyle?: "american" | "british" | "none"
+  punctuationStyle?: PunctuationStyle
 }
 
 import { niceQuotes } from "./quotes.js"
