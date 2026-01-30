@@ -55,25 +55,5 @@ describe("assertSeparatorCountPreserved", () => {
         expect(() => assertSeparatorCountPreserved(original, transformed)).not.toThrow()
       }
     })
-
-    it('uses "transform" as default name', () => {
-      expect(() => assertSeparatorCountPreserved(`a${DEFAULT_SEPARATOR}b`, "ab"))
-        .toThrow(/^transform altered/)
-    })
-  })
-
-  describe("error message formatting", () => {
-    it("includes original and transformed text", () => {
-      expect(() => assertSeparatorCountPreserved(`hello${DEFAULT_SEPARATOR}world`, "helloworld", DEFAULT_SEPARATOR, "test"))
-        .toThrow(/Original:.*hello.*Transformed:.*helloworld/)
-    })
-
-    it.each([
-      ["truncates long strings", `${DEFAULT_SEPARATOR}${"x".repeat(150)}`, "x".repeat(150), /\.\.\./],
-      ["does not truncate short strings", `${DEFAULT_SEPARATOR}${"x".repeat(50)}`, "x".repeat(50), /^(?!.*\.\.\.)/],
-    ])("%s", (_desc, original, transformed, pattern) => {
-      expect(() => assertSeparatorCountPreserved(original, transformed, DEFAULT_SEPARATOR, "test"))
-        .toThrow(pattern)
-    })
   })
 })

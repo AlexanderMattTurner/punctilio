@@ -34,7 +34,8 @@ describe("ellipsis", () => {
     ["after first dot", `.${DEFAULT_SEPARATOR}..`, `${UNICODE_SYMBOLS.ELLIPSIS}${DEFAULT_SEPARATOR}`],
     ["after second dot", `..${DEFAULT_SEPARATOR}.`, `${UNICODE_SYMBOLS.ELLIPSIS}${DEFAULT_SEPARATOR}`],
   ])("preserves separators: %s", (_desc, input, expected) => {
-    expect(ellipsis(input, { separator: DEFAULT_SEPARATOR })).toBe(expected)
+    const result = ellipsis(input, { separator: DEFAULT_SEPARATOR })
+    expect(result).toBe(expected)
   })
 })
 

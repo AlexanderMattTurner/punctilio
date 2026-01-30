@@ -92,15 +92,13 @@ describe("transform", () => {
   })
 
   describe("separator preservation", () => {
-    const S = DEFAULT_SEPARATOR
-
     it.each([
-      [`Wait.${S}.${S}. for it`, 2],
-      [`"Hello${S}" - ${S}she${S} said`, 3],
-      [`.${S}.${S}.`, 2],
+      [`Wait.${DEFAULT_SEPARATOR}.${DEFAULT_SEPARATOR}. for it`, 2],
+      [`"Hello${DEFAULT_SEPARATOR}" - ${DEFAULT_SEPARATOR}she${DEFAULT_SEPARATOR} said`, 3],
+      [`.${DEFAULT_SEPARATOR}.${DEFAULT_SEPARATOR}.`, 2],
     ])('preserves %i separators in "%s"', (input, expectedCount) => {
-      expect(() => transform(input, { separator: S })).not.toThrow()
-      expect(countSeparators(transform(input, { separator: S }), S)).toBe(expectedCount)
+      expect(() => transform(input, { separator: DEFAULT_SEPARATOR })).not.toThrow()
+      expect(countSeparators(transform(input, { separator: DEFAULT_SEPARATOR }), DEFAULT_SEPARATOR)).toBe(expectedCount)
     })
   })
 })

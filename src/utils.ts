@@ -6,9 +6,6 @@
 
 import { DEFAULT_SEPARATOR } from "./constants.js"
 
-/**
- * Counts occurrences of a separator character in a string.
- */
 export function countSeparators(text: string, separator: string = DEFAULT_SEPARATOR): number {
   let count = 0
   for (const char of text) {
@@ -36,10 +33,8 @@ export function assertSeparatorCountPreserved(
   const originalCount = countSeparators(original, separator)
   const transformedCount = countSeparators(transformed, separator)
   if (originalCount !== transformedCount) {
-    const truncate = (s: string) => s.length > 100 ? s.slice(0, 100) + "..." : s
     throw new Error(
-      `${transformName} altered separator count: expected ${originalCount}, got ${transformedCount}. ` +
-      `Original: "${truncate(original)}", Transformed: "${truncate(transformed)}"`
+      `${transformName} altered separator count: expected ${originalCount}, got ${transformedCount}`
     )
   }
 }

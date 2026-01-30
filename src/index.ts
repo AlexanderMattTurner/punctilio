@@ -147,7 +147,6 @@ export function transform(text: string, options: TransformOptions = {}): string 
     text = degreesTransform(text)
   }
 
-  // Validate separator count is preserved
   assertSeparatorCountPreserved(original, text, separator, "transform")
 
   return text
