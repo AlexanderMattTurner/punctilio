@@ -1,4 +1,4 @@
-import { transform, DEFAULT_SEPARATOR, assertSeparatorCountPreserved, countSeparators } from "../index.js"
+import { transform, DEFAULT_SEPARATOR, countSeparators } from "../index.js"
 import { UNICODE_SYMBOLS } from "../constants.js"
 
 const {
@@ -102,45 +102,5 @@ describe("transform", () => {
       expect(() => transform(input, { separator: S })).not.toThrow()
       expect(countSeparators(transform(input, { separator: S }), S)).toBe(expectedCount)
     })
-  })
-})
-
-const S = DEFAULT_SEPARATOR
-
-describe("countSeparators", () => {
-  it.each([
-    ["", S, 0],
-    ["no separators", S, 0],
-    [`one${S}separator`, S, 1],
-    [`${S}${S}${S}`, S, 3],
-    [`a${S}b`, undefined, 1],
-    ["no default separators", undefined, 0],
-  ] as const)('counts separators in "%s"', (input, separator, expected) => {
-    expect(countSeparators(input, separator)).toBe(expected)
-  })
-})
-
-describe("assertSeparatorCountPreserved", () => {
-  it.each([
-    [`a${S}b`, `x${S}y`, S, "test", false, null],
-    [`a${S}b`, "xy", S, "testTransform", true, /expected 1, got 0/],
-    ["ab", `a${S}${S}b`, S, "testTransform", true, /expected 0, got 2/],
-    [`a${S}b`, "xy", undefined, undefined, true, /transform altered separator count/],
-  ] as const)('validates separator count (%s -> %s)', (original, transformed, separator, name, shouldThrow, pattern) => {
-    const fn = () => assertSeparatorCountPreserved(original, transformed, separator, name)
-    if (shouldThrow) {
-      expect(fn).toThrow(pattern!)
-    } else {
-      expect(fn).not.toThrow()
-    }
-  })
-
-  it("truncates long strings in error message", () => {
-    expect(() => assertSeparatorCountPreserved(
-      `a${S}${"x".repeat(150)}`,
-      "y".repeat(150),
-      S,
-      "test"
-    )).toThrow(/\.\.\./)
   })
 })

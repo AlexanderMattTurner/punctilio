@@ -90,9 +90,11 @@ export interface TransformOptions {
 import { niceQuotes } from "./quotes.js"
 import { hyphenReplace } from "./dashes.js"
 import { symbolTransform, fractions as fractionsTransform, degrees as degreesTransform, primeMarks } from "./symbols.js"
-import { assertSeparatorCountPreserved, DEFAULT_SEPARATOR } from "./constants.js"
+import { assertSeparatorCountPreserved } from "./utils.js"
+import { DEFAULT_SEPARATOR } from "./constants.js"
 
-export { assertSeparatorCountPreserved, countSeparators, DEFAULT_SEPARATOR } from "./constants.js"
+export { assertSeparatorCountPreserved, countSeparators } from "./utils.js"
+export { DEFAULT_SEPARATOR } from "./constants.js"
 
 /**
  * Applies all typography transformations: smart quotes, proper dashes,
