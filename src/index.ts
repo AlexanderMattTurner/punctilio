@@ -29,6 +29,7 @@ export {
   degrees,
   fractions,
   primeMarks,
+  collapseSpaces,
   symbolTransform,
   type SymbolOptions,
 } from "./symbols.js"
@@ -85,11 +86,22 @@ export interface TransformOptions {
    * Default: "american"
    */
   dashStyle?: DashStyle
+
+  /**
+   * Whether to collapse multiple consecutive spaces (including non-breaking
+   * spaces) into a single space. Keeps the first space in the sequence.
+   *
+   * - `true` (default): "hello  world" → "hello world"
+   * - `false`: Preserve multiple spaces
+   *
+   * Default: true
+   */
+  collapseSpaces?: boolean
 }
 
 import { niceQuotes } from "./quotes.js"
 import { hyphenReplace } from "./dashes.js"
-import { symbolTransform, fractions as fractionsTransform, degrees as degreesTransform, primeMarks } from "./symbols.js"
+import { symbolTransform, fractions as fractionsTransform, degrees as degreesTransform, primeMarks, collapseSpaces as collapseSpacesTransform } from "./symbols.js"
 
 /**
  * Applies all typography transformations: smart quotes, proper dashes,
@@ -102,6 +114,7 @@ import { symbolTransform, fractions as fractionsTransform, degrees as degreesTra
  * 4. symbolTransform (ellipses, multiplication, math symbols, legal symbols, arrows)
  * 5. fractions (optional, disabled by default)
  * 6. degrees (optional, disabled by default)
+ * 7. collapseSpaces (collapses multiple spaces into one, enabled by default)
  *
  * @param text - The text to transform
  * @param options - Configuration options
@@ -122,7 +135,7 @@ import { symbolTransform, fractions as fractionsTransform, degrees as degreesTra
  * ```
  */
 export function transform(text: string, options: TransformOptions = {}): string {
-  const { symbols = true, fractions = false, degrees = false, ...separatorOpts } = options
+  const { symbols = true, fractions = false, degrees = false, collapseSpaces = true, ...separatorOpts } = options
 
   text = hyphenReplace(text, separatorOpts)
   text = primeMarks(text, separatorOpts)
@@ -138,6 +151,10 @@ export function transform(text: string, options: TransformOptions = {}): string 
 
   if (degrees) {
     text = degreesTransform(text)
+  }
+
+  if (collapseSpaces) {
+    text = collapseSpacesTransform(text)
   }
 
   return text

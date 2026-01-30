@@ -50,6 +50,7 @@ export const UNICODE_SYMBOLS = {
   RIGHT_DOUBLE_QUOTE: "\u201D",
   LEFT_SINGLE_QUOTE: "\u2018",
   RIGHT_SINGLE_QUOTE: "\u2019",
+  NBSP: "\u00A0",
 } as const
 
 /**

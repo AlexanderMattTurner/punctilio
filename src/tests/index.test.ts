@@ -11,6 +11,7 @@ const {
   MULTIPLICATION,
   NOT_EQUAL,
   COPYRIGHT,
+  NBSP,
 } = UNICODE_SYMBOLS
 
 describe("transform", () => {
@@ -88,6 +89,44 @@ describe("transform", () => {
       ['"Hello".', "none", periodOutside, "none"],
     ] as const)("handles %s with %s style", (input, style, expected) => {
       expect(transform(input, style ? { punctuationStyle: style } : {})).toBe(expected)
+    })
+  })
+
+  describe("collapseSpaces option", () => {
+    it("collapses multiple spaces by default", () => {
+      const input = "hello  world"
+      const result = transform(input)
+      expect(result).toBe("hello world")
+    })
+
+    it("collapses multiple nbsp by default", () => {
+      const input = `foo${NBSP}${NBSP}bar`
+      const result = transform(input)
+      expect(result).toBe(`foo${NBSP}bar`)
+    })
+
+    it("collapses mixed spaces keeping first (space then nbsp)", () => {
+      const input = `a ${NBSP}b`
+      const result = transform(input)
+      expect(result).toBe("a b")
+    })
+
+    it("collapses mixed spaces keeping first (nbsp then space)", () => {
+      const input = `a${NBSP} b`
+      const result = transform(input)
+      expect(result).toBe(`a${NBSP}b`)
+    })
+
+    it("can disable space collapsing", () => {
+      const input = "hello  world"
+      const result = transform(input, { collapseSpaces: false })
+      expect(result).toBe("hello  world")
+    })
+
+    it("preserves nbsp when collapseSpaces is disabled", () => {
+      const input = `foo${NBSP}${NBSP}bar`
+      const result = transform(input, { collapseSpaces: false })
+      expect(result).toBe(`foo${NBSP}${NBSP}bar`)
     })
   })
 })

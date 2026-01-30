@@ -46,6 +46,7 @@ const {
   GREATER_EQUAL,
   PRIME,
   DOUBLE_PRIME,
+  NBSP,
 } = UNICODE_SYMBOLS
 
 /**
@@ -330,6 +331,30 @@ export function fractions(text: string, options: SymbolOptions = {}): string {
   }
 
   return text
+}
+
+/**
+ * Collapses multiple consecutive spaces (including non-breaking spaces) into a single space.
+ *
+ * When multiple spaces or non-breaking spaces appear in sequence, this function
+ * keeps only the first space character, preserving its type.
+ *
+ * @example
+ * ```ts
+ * collapseSpaces("hello  world")
+ * // → "hello world"
+ *
+ * collapseSpaces("foo\u00A0\u00A0bar")  // two nbsp
+ * // → "foo\u00A0bar"  // single nbsp
+ *
+ * collapseSpaces("a \u00A0b")  // space followed by nbsp
+ * // → "a b"  // keeps the first (regular space)
+ * ```
+ */
+export function collapseSpaces(text: string): string {
+  // Match first space (regular or nbsp) followed by one or more additional spaces
+  // Keep only the first space character
+  return text.replace(/([ \u00A0])[ \u00A0]+/g, "$1")
 }
 
 /**
