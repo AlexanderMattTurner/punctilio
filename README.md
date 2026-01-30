@@ -62,7 +62,7 @@ By running [`benchmark.mjs`](./benchmark.mjs), I graded all libraries on a subse
 | Fractions | 1/2 → ½ | ✗ | ✗ | ✗ | ✓ |
 | Superscripts | 1st → 1ˢᵗ | ✗ | ✗ | ✗ | ✓ |
 | Localization | American/British | ✗ | ✗ | ✗ | ✓ |
-| Ligatures | ?? → ⁇ | ✗ | ✓ | ✗ | ✗ |
+| Ligatures | ?? → ⁇ | ✗ | ✓ | ✗ | ✓ |
 | Non-English quotes | „Hallo" (German) | ✗ | ✓ | ✗ | ✗ |
 
 I don’t have a personal reason to use non-English localization, but others are welcome to make a pull request.
@@ -81,5 +81,6 @@ transform(text, {
   fractions: false,      // 1/2 → ½
   degrees: false,        // 20 C → 20 °C
   superscript: false,    // 1st → 1ˢᵗ
+  ligatures: false,      // ?? → ⁇, ?! → ⁈, !? → ⁉, !! → ‼
 })
 ```

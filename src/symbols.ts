@@ -51,6 +51,10 @@ const {
   SUPERSCRIPT_ND,
   SUPERSCRIPT_RD,
   SUPERSCRIPT_TH,
+  DOUBLE_QUESTION,
+  QUESTION_EXCLAMATION,
+  EXCLAMATION_QUESTION,
+  DOUBLE_EXCLAMATION,
 } = UNICODE_SYMBOLS
 
 /**
@@ -409,6 +413,68 @@ export function superscript(text: string, options: SymbolOptions = {}): string {
  */
 export function collapseSpaces(text: string): string {
   return text.replace(new RegExp(`(?<first>[ ${NBSP}])[ ${NBSP}]+`, "g"), "$<first>")
+}
+
+/**
+ * Converts repeated punctuation marks to Unicode ligature characters.
+ *
+ * Handles:
+ * - "??" → "⁇" (double question mark)
+ * - "?!" → "⁈" (question exclamation mark)
+ * - "!?" → "⁉" (exclamation question mark)
+ * - "!!" → "‼" (double exclamation mark)
+ *
+ * Note: These ligatures have poor font support, so this function is
+ * disabled by default.
+ *
+ * @example
+ * ```ts
+ * punctuationLigatures("What??")
+ * // → "What⁇"
+ *
+ * punctuationLigatures("Really?!")
+ * // → "Really⁈"
+ *
+ * punctuationLigatures("No way!?")
+ * // → "No way⁉"
+ *
+ * punctuationLigatures("Wow!!")
+ * // → "Wow‼"
+ * ```
+ */
+export function punctuationLigatures(text: string, options: SymbolOptions = {}): string {
+  const chr = options.separator
+    ? escapeRegex(options.separator)
+    : ESCAPED_DEFAULT_SEPARATOR
+
+  // Order matters: handle mixed punctuation first, then repeated
+  // Each pattern captures any separator between the two characters and preserves it
+
+  // ?! → ⁈ (question exclamation mark)
+  text = text.replace(
+    new RegExp(`\\?(${chr})?!`, "g"),
+    (_match, sep) => QUESTION_EXCLAMATION + (sep || "")
+  )
+
+  // !? → ⁉ (exclamation question mark)
+  text = text.replace(
+    new RegExp(`!(${chr})?\\?`, "g"),
+    (_match, sep) => EXCLAMATION_QUESTION + (sep || "")
+  )
+
+  // ?? → ⁇ (double question mark)
+  text = text.replace(
+    new RegExp(`\\?(${chr})?\\?`, "g"),
+    (_match, sep) => DOUBLE_QUESTION + (sep || "")
+  )
+
+  // !! → ‼ (double exclamation mark)
+  text = text.replace(
+    new RegExp(`!(${chr})?!`, "g"),
+    (_match, sep) => DOUBLE_EXCLAMATION + (sep || "")
+  )
+
+  return text
 }
 
 /**

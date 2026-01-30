@@ -56,6 +56,11 @@ export const UNICODE_SYMBOLS = {
   SUPERSCRIPT_ND: "\u207F\u1D48", // ⁿᵈ
   SUPERSCRIPT_RD: "\u02B3\u1D48", // ʳᵈ
   SUPERSCRIPT_TH: "\u1D57\u02B0", // ᵗʰ
+  // Punctuation ligatures
+  DOUBLE_QUESTION: "\u2047", // ⁇
+  QUESTION_EXCLAMATION: "\u2048", // ⁈
+  EXCLAMATION_QUESTION: "\u2049", // ⁉
+  DOUBLE_EXCLAMATION: "\u203C", // ‼
 } as const
 
 /**

@@ -89,6 +89,22 @@ describe("transform", () => {
       const result = transform(input, { superscript: true })
       expect(result).toContain(`30${UNICODE_SYMBOLS.SUPERSCRIPT_TH}`)
     })
+
+    it("does not apply ligatures by default", () => {
+      const input = 'What?? Really?!'
+      const result = transform(input)
+      expect(result).toContain("??")
+      expect(result).toContain("?!")
+    })
+
+    it("applies ligatures when enabled", () => {
+      const input = 'What?? Really?! No way!? Wow!!'
+      const result = transform(input, { ligatures: true })
+      expect(result).toContain(UNICODE_SYMBOLS.DOUBLE_QUESTION)
+      expect(result).toContain(UNICODE_SYMBOLS.QUESTION_EXCLAMATION)
+      expect(result).toContain(UNICODE_SYMBOLS.EXCLAMATION_QUESTION)
+      expect(result).toContain(UNICODE_SYMBOLS.DOUBLE_EXCLAMATION)
+    })
   })
 
   describe("punctuationStyle option", () => {

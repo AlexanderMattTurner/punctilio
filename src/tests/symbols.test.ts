@@ -9,6 +9,7 @@ import {
   fractions,
   collapseSpaces,
   superscript,
+  punctuationLigatures,
   symbolTransform,
 } from "../symbols.js"
 import { UNICODE_SYMBOLS, DEFAULT_SEPARATOR } from "../constants.js"
@@ -288,6 +289,57 @@ describe("superscript", () => {
     expect(superscript(`30${sep}th`, { separator: sep })).toBe(
       `30${sep}${UNICODE_SYMBOLS.SUPERSCRIPT_TH}`
     )
+  })
+})
+
+describe("punctuationLigatures", () => {
+  it.each([
+    // Double question mark
+    ["What??", `What${UNICODE_SYMBOLS.DOUBLE_QUESTION}`],
+    ["Really??", `Really${UNICODE_SYMBOLS.DOUBLE_QUESTION}`],
+    ["??", UNICODE_SYMBOLS.DOUBLE_QUESTION],
+    // Question exclamation mark
+    ["Really?!", `Really${UNICODE_SYMBOLS.QUESTION_EXCLAMATION}`],
+    ["What?!", `What${UNICODE_SYMBOLS.QUESTION_EXCLAMATION}`],
+    ["?!", UNICODE_SYMBOLS.QUESTION_EXCLAMATION],
+    // Exclamation question mark
+    ["No way!?", `No way${UNICODE_SYMBOLS.EXCLAMATION_QUESTION}`],
+    ["What!?", `What${UNICODE_SYMBOLS.EXCLAMATION_QUESTION}`],
+    ["!?", UNICODE_SYMBOLS.EXCLAMATION_QUESTION],
+    // Double exclamation mark
+    ["Wow!!", `Wow${UNICODE_SYMBOLS.DOUBLE_EXCLAMATION}`],
+    ["Amazing!!", `Amazing${UNICODE_SYMBOLS.DOUBLE_EXCLAMATION}`],
+    ["!!", UNICODE_SYMBOLS.DOUBLE_EXCLAMATION],
+    // Single punctuation unchanged
+    ["What?", "What?"],
+    ["Wow!", "Wow!"],
+    // Text without punctuation unchanged
+    ["Hello world", "Hello world"],
+  ])('converts "%s" to "%s"', (input, expected) => {
+    expect(punctuationLigatures(input)).toBe(expected)
+  })
+
+  it("handles separator characters", () => {
+    const sep = "\uE000"
+    // Separator between punctuation marks should be preserved after the ligature
+    expect(punctuationLigatures(`?${sep}?`, { separator: sep })).toBe(
+      `${UNICODE_SYMBOLS.DOUBLE_QUESTION}${sep}`
+    )
+    expect(punctuationLigatures(`?${sep}!`, { separator: sep })).toBe(
+      `${UNICODE_SYMBOLS.QUESTION_EXCLAMATION}${sep}`
+    )
+    expect(punctuationLigatures(`!${sep}?`, { separator: sep })).toBe(
+      `${UNICODE_SYMBOLS.EXCLAMATION_QUESTION}${sep}`
+    )
+    expect(punctuationLigatures(`!${sep}!`, { separator: sep })).toBe(
+      `${UNICODE_SYMBOLS.DOUBLE_EXCLAMATION}${sep}`
+    )
+  })
+
+  it("handles multiple ligatures in same text", () => {
+    const input = "What?? Really?! No way!? Wow!!"
+    const expected = `What${UNICODE_SYMBOLS.DOUBLE_QUESTION} Really${UNICODE_SYMBOLS.QUESTION_EXCLAMATION} No way${UNICODE_SYMBOLS.EXCLAMATION_QUESTION} Wow${UNICODE_SYMBOLS.DOUBLE_EXCLAMATION}`
+    expect(punctuationLigatures(input)).toBe(expected)
   })
 })
 
