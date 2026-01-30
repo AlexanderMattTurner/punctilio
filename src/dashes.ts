@@ -51,10 +51,10 @@ export function enDashNumberRange(text: string, options: DashOptions = {}): stri
   const chr = options.separator ?? DEFAULT_SEPARATOR
   return text.replace(
     new RegExp(
-      `\\b(?<![a-zA-Z.])((?:p\\.?|\\$)?\\d[\\d.,]*${chr}?)-(${chr}?\\$?\\d[\\d.,]*)(?!\\.\\d)\\b`,
+      `\\b(?<![a-zA-Z.])(?<startNum>(?:p\\.?|\\$)?\\d[\\d.,]*${chr}?)-(?<endNum>${chr}?\\$?\\d[\\d.,]*)(?!\\.\\d)\\b`,
       "g"
     ),
-    `$1${EN_DASH}$2`
+    `$<startNum>${EN_DASH}$<endNum>`
   )
 }
 
@@ -64,8 +64,8 @@ export function enDashNumberRange(text: string, options: DashOptions = {}): stri
 export function enDashDateRange(text: string, options: DashOptions = {}): string {
   const chr = options.separator ?? DEFAULT_SEPARATOR
   return text.replace(
-    new RegExp(`\\b(${months}${chr}?)-(${chr}?(?:${months}))\\b`, "g"),
-    `$1${EN_DASH}$2`
+    new RegExp(`\\b(?<startMonth>${months}${chr}?)-(?<endMonth>${chr}?(?:${months}))\\b`, "g"),
+    `$<startMonth>${EN_DASH}$<endMonth>`
   )
 }
 
@@ -74,8 +74,8 @@ export function enDashDateRange(text: string, options: DashOptions = {}): string
  */
 export function minusReplace(text: string, options: DashOptions = {}): string {
   const chr = options.separator ?? DEFAULT_SEPARATOR
-  const minusRegex = new RegExp(`(^|[\\s\\(${chr}""])-(\\s?\\d*\\.?\\d+)`, "gm")
-  return text.replaceAll(minusRegex, `$1${MINUS}$2`)
+  const minusRegex = new RegExp(`(?<beforeMinus>^|[\\s\\(${chr}""])-(?<number>\\s?\\d*\\.?\\d+)`, "gm")
+  return text.replaceAll(minusRegex, `$<beforeMinus>${MINUS}$<number>`)
 }
 
 /** Convert surrounded dashes and multiple dashes to em/en dashes */
@@ -86,9 +86,9 @@ function convertParentheticalDashes(text: string, sep: string, style: DashStyle)
   const spaced = style === "british"
 
   // Handle dashes with potential spaces
-  const preDash = new RegExp(`((?<markerBeforeTwo>${sep}?)[ ]+|(?<markerBeforeThree>${sep}))`)
+  const preDash = new RegExp(`(?:(?<markerBeforeTwo>${sep}?)[ ]+|(?<markerBeforeThree>${sep}))`)
   const surroundedDash = new RegExp(
-    `(?<=[^\\s>]|^)${preDash.source}[~${EN_DASH}${EM_DASH}-]+[ ]*(?<markerAfter>${sep}?)([ ]+|$)`,
+    `(?<=[^\\s>]|^)${preDash.source}[~${EN_DASH}${EM_DASH}-]+[ ]*(?<markerAfter>${sep}?)(?<trailingSpace>[ ]+|$)`,
     "g"
   )
   const replacement = spaced
@@ -107,7 +107,7 @@ function convertParentheticalDashes(text: string, sep: string, style: DashStyle)
   text = text.replace(multipleDashInWords, multiReplacement)
 
   // Handle dashes at start of line
-  text = text.replace(new RegExp(`^(${sep})?[-]+ `, "gm"), `$1${dash} `)
+  text = text.replace(new RegExp(`^(?<sepStart>${sep})?[-]+ `, "gm"), `$<sepStart>${dash} `)
 
   return text
 }
