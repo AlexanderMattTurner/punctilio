@@ -1,10 +1,16 @@
 /**
  * Benchmark punctilio against competitor packages.
  * Run: node benchmark.mjs
+ *
+ * FAIRNESS NOTE: This benchmark tests packages with their optimal configurations
+ * where possible. It includes tests derived from both punctilio's feature set
+ * AND features that competitors excel at (ligatures, non-English quotes).
+ * For a fair comparison, see the category breakdown which shows where each
+ * package has strengths.
  */
 
 import { smartypantsu } from 'smartypants';
-import * as trembySmartypants from '@tremby/smartypants';
+import { smartypantsu as trembySmartypants } from '@tremby/smartypants';
 import tipograph from 'tipograph';
 import smartquotes from 'smartquotes';
 import { transform } from './dist/index.js';
@@ -44,6 +50,18 @@ const UNICODE_SYMBOLS = {
   RIGHT_DOUBLE_QUOTE: "\u201D",
   LEFT_SINGLE_QUOTE: "\u2018",
   RIGHT_SINGLE_QUOTE: "\u2019",
+  // Ligatures (tipograph strength)
+  DOUBLE_QUESTION: "\u2047",  // ⁇
+  QUESTION_EXCLAMATION: "\u2048",  // ⁈
+  EXCLAMATION_QUESTION: "\u2049",  // ⁉
+  // German quotes (tipograph strength)
+  GERMAN_LEFT_DOUBLE: "\u201E",  // „
+  GERMAN_RIGHT_DOUBLE: "\u201C",  // " (same as English left)
+  GERMAN_LEFT_SINGLE: "\u201A",  // ‚
+  GERMAN_RIGHT_SINGLE: "\u2018",  // ' (same as English left)
+  // French quotes (tipograph strength)
+  FRENCH_LEFT_DOUBLE: "\u00AB",  // «
+  FRENCH_RIGHT_DOUBLE: "\u00BB",  // »
 };
 
 const {
@@ -80,6 +98,17 @@ const {
   APPROXIMATE,
   LESS_EQUAL,
   GREATER_EQUAL,
+  // Ligatures
+  DOUBLE_QUESTION,
+  QUESTION_EXCLAMATION,
+  EXCLAMATION_QUESTION,
+  // Non-English quotes
+  GERMAN_LEFT_DOUBLE: GLD,
+  GERMAN_RIGHT_DOUBLE: GRD,
+  GERMAN_LEFT_SINGLE: GLS,
+  GERMAN_RIGHT_SINGLE: GRS,
+  FRENCH_LEFT_DOUBLE: FLD,
+  FRENCH_RIGHT_DOUBLE: FRD,
 } = UNICODE_SYMBOLS;
 
 // Test cases from punctilio's test suite, organized by category
@@ -221,20 +250,61 @@ const testCases = {
     ["21st place", `21${SUPERSCRIPT_ST} place`],
     ["The 100th anniversary", `The 100${SUPERSCRIPT_TH} anniversary`],
   ],
+
+  // === COMPETITOR STRENGTH TESTS ===
+  // These tests are derived from features that competitors excel at,
+  // included for fairness to show where punctilio has gaps.
+
+  // Ligatures (tipograph strength - punctilio doesn't support these)
+  "Ligatures - punctuation": [
+    ["What??", `What${DOUBLE_QUESTION}`],
+    ["Really?!", `Really${QUESTION_EXCLAMATION}`],
+    ["Wait!?", `Wait${EXCLAMATION_QUESTION}`],
+  ],
+
+  // Non-English quote styles (tipograph strength - punctilio doesn't support these)
+  "German quotes": [
+    ['"Guten Tag"', `${GLD}Guten Tag${GRD}`],
+    ["'Hallo'", `${GLS}Hallo${GRS}`],
+  ],
+  // Note: French typography uses non-breaking spaces inside guillemets
+  "French quotes": [
+    ['"Bonjour"', `${FLD}\u00A0Bonjour\u00A0${FRD}`],
+  ],
 };
 
-// Initialize tipograph
-const tipographTransform = tipograph();
+// Initialize tipograph with different configurations for fair testing
+// Default English configuration
+const tipographEnglish = tipograph({ language: 'english' });
+// German configuration for German quote tests
+const tipographGerman = tipograph({ language: 'german' });
+// French configuration for French quote tests
+const tipographFrench = tipograph({ language: 'french' });
+
+// Determine which tipograph config to use based on category
+function getTipographForCategory(category) {
+  if (category.includes('German')) return tipographGerman;
+  if (category.includes('French')) return tipographFrench;
+  return tipographEnglish;
+}
 
 // Run a package on a test case
-function runPackage(pkg, input, options = {}) {
+// Note: Each package is configured with its optimal settings for fair comparison
+function runPackage(pkg, input, category = '', options = {}) {
   try {
     if (pkg === 'punctilio') {
+      // punctilio with all features enabled
       return transform(input, { symbols: true, fractions: true, degrees: true, superscript: true, ...options });
     } else if (pkg === 'smartypants') {
-      return smartypantsu(input);
+      // smartypants (othree) with mode "2" for better dash support (-- = en-dash, --- = em-dash)
+      return smartypantsu(input, "2");
+    } else if (pkg === '@tremby/smartypants') {
+      // @tremby/smartypants with mode "2" for better dash support
+      return trembySmartypants(input, "2");
     } else if (pkg === 'tipograph') {
-      return tipographTransform(input);
+      // tipograph with language-appropriate configuration
+      const tipographFn = getTipographForCategory(category);
+      return tipographFn(input);
     } else if (pkg === 'smartquotes') {
       return smartquotes.string(input);
     }
@@ -252,11 +322,12 @@ function isMatch(actual, expected) {
 const results = {
   punctilio: { passed: 0, failed: 0, details: {} },
   smartypants: { passed: 0, failed: 0, details: {} },
+  '@tremby/smartypants': { passed: 0, failed: 0, details: {} },
   tipograph: { passed: 0, failed: 0, details: {} },
   smartquotes: { passed: 0, failed: 0, details: {} },
 };
 
-const packages = ['punctilio', 'smartypants', 'tipograph', 'smartquotes'];
+const packages = ['punctilio', 'smartypants', '@tremby/smartypants', 'tipograph', 'smartquotes'];
 const categoryResults = {};
 
 for (const [category, cases] of Object.entries(testCases)) {
@@ -268,7 +339,7 @@ for (const [category, cases] of Object.entries(testCases)) {
 
   for (const [input, expected] of cases) {
     for (const pkg of packages) {
-      const actual = runPackage(pkg, input);
+      const actual = runPackage(pkg, input, category);
       const passed = isMatch(actual, expected);
 
       if (passed) {
