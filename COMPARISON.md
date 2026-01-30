@@ -1,6 +1,6 @@
 # Typography Library Comparison
 
-Benchmark of punctilio 0.3 vs competitors on 70 test cases.
+Benchmark of punctilio 0.4 vs competitors on 70 test cases.
 
 ## Scores
 
@@ -33,14 +33,16 @@ Benchmark of punctilio 0.3 vs competitors on 70 test cases.
 | Prime marks | 5'10" → 5′10″ | ✓ | ✗ | ✓ | ✓ |
 | Degrees | 20 C → 20 °C | ✓ | ✗ | ✗ | ✗ |
 | Fractions | 1/2 → ½ | ✓ | ✗ | ✗ | ✗ |
-| **Total** | | **18/18** | **4/18** | **12/18** | **5/18** |
+| Space collapse | a    b → a b | ✓ | ✗ | ✓ | ✗ |
+| **Total** | | **19/19** | **4/19** | **13/19** | **5/19** |
 
-## Localization (punctilio 0.3)
+## Localization (punctilio 0.3+)
 
 ```typescript
 transform(text, {
   punctuationStyle: "american" | "british" | "none",
-  dashStyle: "american" | "british" | "none"
+  dashStyle: "american" | "british" | "none",
+  collapseSpaces: true | false  // new in 0.4
 })
 ```
 
@@ -54,5 +56,4 @@ transform(text, {
 | Feature | Example | Package |
 |---------|---------|---------|
 | Punctuation ligatures | ?? → ⁇ | tipograph |
-| Space collapse | a    b → a b | tipograph |
 | Non-English quotes | "hi" → „hi" | tipograph |
