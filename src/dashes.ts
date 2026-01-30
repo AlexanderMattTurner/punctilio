@@ -60,13 +60,44 @@ export function enDashNumberRange(text: string, options: DashOptions = {}): stri
 
 /**
  * Replaces hyphens with en-dashes in month/date ranges.
+ * Supports formats like "January-March", "Jan-Mar", "February-April 2024",
+ * and "October 2012 - December 2014".
+ *
+ * Spacing around the en-dash is controlled by dashStyle:
+ * - "american" (default): No spaces (October 2012–December 2014)
+ * - "british": Spaced (October 2012 – December 2014)
+ * - "none": Preserve original spacing
  */
 export function enDashDateRange(text: string, options: DashOptions = {}): string {
   const chr = options.separator ?? DEFAULT_SEPARATOR
-  return text.replace(
-    new RegExp(`\\b(?<startMonth>${months}${chr}?)-(?<endMonth>${chr}?(?:${months}))\\b`, "g"),
-    `$<startMonth>${EN_DASH}$<endMonth>`
+  const dashStyle = options.dashStyle ?? "american"
+
+  const startPattern = `(?<startMonth>${months})(?<startYear>${chr}? \\d{4})?(?<preSep>${chr}?)`
+  const endPattern = `(?<postSep>${chr}?)(?<endMonth>${months})(?<endYear> \\d{4})?`
+  const dateRangeRegex = new RegExp(
+    `\\b${startPattern}(?<preSpace> ?)-(?<postSpace> ?)${endPattern}\\b`,
+    "g"
   )
+
+  return text.replace(dateRangeRegex, (...args) => {
+    const groups = args.at(-1) as Record<string, string>
+    const { startMonth, startYear = "", preSep, postSep, endMonth, endYear = "", preSpace, postSpace } = groups
+
+    let pre: string, post: string
+    if (dashStyle === "british") {
+      pre = " "
+      post = " "
+    } else if (dashStyle === "none") {
+      pre = preSpace
+      post = postSpace
+    } else {
+      // american (default)
+      pre = ""
+      post = ""
+    }
+
+    return `${startMonth}${startYear}${preSep}${pre}${EN_DASH}${post}${postSep}${endMonth}${endYear}`
+  })
 }
 
 /**
