@@ -6,7 +6,7 @@ echo "🔍 Running pre-push checks..."
 
 # Run tests
 echo "🧪 Running tests..."
-npm test
+pnpm test
 
 if [ $? -ne 0 ]; then
   echo "❌ Tests failed. Push aborted."
@@ -48,7 +48,7 @@ fi
 
 # Build the package
 echo "🔨 Building package..."
-npm run build
+pnpm run build
 
 if [ $? -ne 0 ]; then
   echo "❌ Build failed. Push aborted."
@@ -57,7 +57,7 @@ fi
 
 # Publish to npm
 echo "📤 Publishing to npm..."
-npm publish --access public
+pnpm publish --access public 
 
 if [ $? -ne 0 ]; then
   echo "❌ Publish failed. Push aborted."
