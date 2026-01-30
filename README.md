@@ -65,8 +65,6 @@ By running [`benchmark.mjs`](./benchmark.mjs), I graded all libraries on a subse
 | `@tremby/smartypants` | 29/82 (35.4%) |
 | `smartypants` | 28/82 (34.1%) |
 
-**Note:** `punctilio` scores 92.7% (not 100%) because the benchmark now includes tests for ligatures and non-English quotes—features that `tipograph` excels at but `punctilio` doesn't support.
-
 | Feature | Example | `smartypants` | `@tremby/smartypants` | `tipograph` | `smartquotes` | `punctilio` |
 |---------|---------|---------------|----------------------|-------------|---------------|-------------|
 | Smart quotes | "hello" → "hello" | ✓ | ✓ | ✓ | ✓ | ✓ |
