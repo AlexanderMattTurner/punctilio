@@ -79,22 +79,15 @@ describe("transform", () => {
   })
 
   describe("punctuationStyle option", () => {
-    it("moves punctuation inside quotes by default (American English)", () => {
-      const input = '"Hello".'
-      const result = transform(input)
-      expect(result).toBe(`${LEFT_DOUBLE_QUOTE}Hello.${RIGHT_DOUBLE_QUOTE}`)
-    })
+    const periodOutside = `${LEFT_DOUBLE_QUOTE}Hello${RIGHT_DOUBLE_QUOTE}.`
+    const periodInside = `${LEFT_DOUBLE_QUOTE}Hello.${RIGHT_DOUBLE_QUOTE}`
 
-    it("moves punctuation outside quotes with british style", () => {
-      const input = '"Hello."'
-      const result = transform(input, { punctuationStyle: "british" })
-      expect(result).toBe(`${LEFT_DOUBLE_QUOTE}Hello${RIGHT_DOUBLE_QUOTE}.`)
-    })
-
-    it("leaves punctuation unchanged with none", () => {
-      const input = '"Hello".'
-      const result = transform(input, { punctuationStyle: "none" })
-      expect(result).toBe(`${LEFT_DOUBLE_QUOTE}Hello${RIGHT_DOUBLE_QUOTE}.`)
+    it.each([
+      ['"Hello".', undefined, periodInside, "american (default)"],
+      ['"Hello."', "british", periodOutside, "british"],
+      ['"Hello".', "none", periodOutside, "none"],
+    ] as const)("handles %s with %s style", (input, style, expected) => {
+      expect(transform(input, style ? { punctuationStyle: style } : {})).toBe(expected)
     })
   })
 })
