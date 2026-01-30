@@ -126,15 +126,46 @@ describe("enDashNumberRange", () => {
 })
 
 describe("enDashDateRange", () => {
-  it.each([
-    ["January-March", "January–March"],
-    ["Jan-Mar", "Jan–Mar"],
-    ["February-April 2024", "February–April 2024"],
-    ["May-June", "May–June"],
-    ["Sep-Nov", "Sep–Nov"],
-    ["December-January", "December–January"],
-  ])('should convert "%s" to "%s"', (input, expected) => {
-    expect(enDashDateRange(input)).toBe(expected)
+  describe("american style (default, unspaced)", () => {
+    it.each([
+      ["January-March", "January–March"],
+      ["Jan-Mar", "Jan–Mar"],
+      ["February-April 2024", "February–April 2024"],
+      ["May-June", "May–June"],
+      ["Sep-Nov", "Sep–Nov"],
+      ["December-January", "December–January"],
+      ["October 2012 - December 2014", "October 2012–December 2014"],
+      ["Oct 2012 - Dec 2014", "Oct 2012–Dec 2014"],
+      ["January 2020 - March 2020", "January 2020–March 2020"],
+      ["May 2019-June 2020", "May 2019–June 2020"],
+      ["Jan 2000 - Feb", "Jan 2000–Feb"],
+      ["March - April 2025", "March–April 2025"],
+    ])('should convert "%s" to "%s"', (input, expected) => {
+      expect(enDashDateRange(input)).toBe(expected)
+    })
+  })
+
+  describe("british style (spaced)", () => {
+    it.each([
+      ["January-March", "January – March"],
+      ["Jan-Mar", "Jan – Mar"],
+      ["October 2012 - December 2014", "October 2012 – December 2014"],
+      ["Oct 2012 - Dec 2014", "Oct 2012 – Dec 2014"],
+      ["May 2019-June 2020", "May 2019 – June 2020"],
+    ])('should convert "%s" to "%s"', (input, expected) => {
+      expect(enDashDateRange(input, { dashStyle: "british" })).toBe(expected)
+    })
+  })
+
+  describe("none style (preserve spacing)", () => {
+    it.each([
+      ["January-March", "January–March"],
+      ["January - March", "January – March"],
+      ["October 2012 - December 2014", "October 2012 – December 2014"],
+      ["Oct 2012-Dec 2014", "Oct 2012–Dec 2014"],
+    ])('should convert "%s" to "%s"', (input, expected) => {
+      expect(enDashDateRange(input, { dashStyle: "none" })).toBe(expected)
+    })
   })
 
   it("should not convert non-month words", () => {
