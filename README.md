@@ -1,5 +1,9 @@
 # punctilio
 
+[![Test](https://github.com/alexander-turner/punctilio/actions/workflows/test.yml/badge.svg)](https://github.com/alexander-turner/punctilio/actions/workflows/test.yml)
+[![Lint](https://github.com/alexander-turner/punctilio/actions/workflows/lint.yml/badge.svg)](https://github.com/alexander-turner/punctilio/actions/workflows/lint.yml)
+[![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen)](https://github.com/alexander-turner/punctilio)
+
 > *punctilio* (n.): a fine point of conduct or procedure
 
 Smart typography transformations for JavaScript/TypeScript. Converts ASCII punctuation to typographically correct Unicode characters. Originally built for [my personal website](https://turntrout.com/design).
