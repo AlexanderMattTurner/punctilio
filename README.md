@@ -66,7 +66,7 @@ The `'` in these should be apostrophes ('), not opening quotes (').
 
 ### Feature comparison
 
-Tested against [smartypants](https://www.npmjs.com/package/smartypants) 0.2.2, [tipograph](https://www.npmjs.com/package/tipograph) 0.7.4, and [smartquotes](https://www.npmjs.com/package/smartquotes) 2.3.2:
+On January 30th, 2025, I tested against [smartypants](https://www.npmjs.com/package/smartypants) 0.2.2, [tipograph](https://www.npmjs.com/package/tipograph) 0.7.4, and [smartquotes](https://www.npmjs.com/package/smartquotes) 2.3.2:
 
 | Feature | punctilio | smartypants | tipograph | smartquotes |
 |---------|-----------|-------------|-----------|-------------|
