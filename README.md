@@ -78,10 +78,4 @@ By running [`benchmark.mjs`](./benchmark.mjs), I graded all libraries on a subse
 | Ligatures | ?? → ⁇ | ✗ | ✓ | ✗ | ✗ |
 | Non-English quotes | „Hallo" (German) | ✗ | ✓ | ✗ | ✗ |
 
-### What other packages offer that `punctilio` doesn’t
-
-`tipograph` supports:
-- Punctuation ligatures (?? → ⁇, ?! → ⁈)
-- Non-English quote styles (German „“, French «»)
-
 I chose not to implement punctuation ligatures as they have poor font support and add visual complexity. I don’t have a personal reason to use non-English localization, but others are welcome to make a pull request.
