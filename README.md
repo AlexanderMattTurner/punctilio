@@ -53,10 +53,10 @@ By running [`benchmark.mjs`](./benchmark.mjs), I graded all libraries on a subse
 
 | Package | Score |
 |---------|-------|
-| `punctilio` | 70/70 (100%) |
-| `tipograph` | 42/70 (60%) |
-| `smartquotes` | 30/70 (43%) |
-| `smartypants` | 29/70 (41%) |
+| `punctilio` | 76/76 (100%) |
+| `tipograph` | 42/76 (55%) |
+| `smartquotes` | 30/76 (39%) |
+| `smartypants` | 29/76 (38%) |
 
 | Feature | Example | `smartypants` | `tipograph` | `smartquotes` | `punctilio` |
 |---------|---------|---------------|-------------|---------------|-------------|

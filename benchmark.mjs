@@ -33,6 +33,10 @@ const UNICODE_SYMBOLS = {
   FRACTION_1_3: "\u2153",
   FRACTION_2_3: "\u2154",
   FRACTION_1_8: "\u215B",
+  SUPERSCRIPT_ST: "\u02E2\u1D57",
+  SUPERSCRIPT_ND: "\u207F\u1D48",
+  SUPERSCRIPT_RD: "\u02B3\u1D48",
+  SUPERSCRIPT_TH: "\u1D57\u02B0",
   EM_DASH: "\u2014",
   EN_DASH: "\u2013",
   MINUS: "\u2212",
@@ -68,6 +72,10 @@ const {
   FRACTION_1_3,
   FRACTION_2_3,
   FRACTION_1_8,
+  SUPERSCRIPT_ST,
+  SUPERSCRIPT_ND,
+  SUPERSCRIPT_RD,
+  SUPERSCRIPT_TH,
   MINUS,
   APPROXIMATE,
   LESS_EQUAL,
@@ -205,6 +213,14 @@ const testCases = {
     ["page 1/25", "page 1/25"],
     ["1/7", "1/7"],
   ],
+  "Superscripts - ordinals": [
+    ["1st", `1${SUPERSCRIPT_ST}`],
+    ["2nd", `2${SUPERSCRIPT_ND}`],
+    ["3rd", `3${SUPERSCRIPT_RD}`],
+    ["4th", `4${SUPERSCRIPT_TH}`],
+    ["21st place", `21${SUPERSCRIPT_ST} place`],
+    ["The 100th anniversary", `The 100${SUPERSCRIPT_TH} anniversary`],
+  ],
 };
 
 // Initialize tipograph
@@ -214,7 +230,7 @@ const tipographTransform = tipograph();
 function runPackage(pkg, input, options = {}) {
   try {
     if (pkg === 'punctilio') {
-      return transform(input, { symbols: true, fractions: true, degrees: true, ...options });
+      return transform(input, { symbols: true, fractions: true, degrees: true, superscript: true, ...options });
     } else if (pkg === 'smartypants') {
       return smartypantsu(input);
     } else if (pkg === 'tipograph') {
