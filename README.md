@@ -44,7 +44,7 @@ By running [`benchmark.mjs`](./benchmark.mjs), I graded all libraries on a subse
 | `smartypants` | 28/82 (34%) |
 
 | Feature | Example | `smartypants` | `tipograph` | `smartquotes` | `punctilio` |
-|---------|---------|---------------|-------------|---------------|-------------|
+|---------|:-------:|:-------:|:-------:|:-------:|:-------:|
 | Smart quotes | "hello" → “hello” | ✓ | ✓ | ✓ | ✓ |
 | Leading apostrophe | 'Twas → ’Twas | ✗ | ✗ | ✓ | ✓ |
 | Em dash | -- → — | ✓ | ✗ | ✗ | ✓ |
