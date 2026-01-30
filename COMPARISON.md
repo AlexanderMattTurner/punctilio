@@ -13,27 +13,27 @@ Benchmark of punctilio 0.3 vs competitors on 70 test cases.
 
 ## Feature Matrix
 
-| Feature | punctilio | smartypants | tipograph | smartquotes |
-|---------|-----------|-------------|-----------|-------------|
-| Smart quotes | ✓ | ✓ | ✓ | ✓ |
-| Contractions | ✓ | ✓ | ✓ | ✓ |
-| Leading apostrophe | ✓ | ✗ | ✗ | ✓ |
-| Em dash | ✓ | ✓ | ✗ | ✗ |
-| En dash (ranges) | ✓ | ✗ | ✓ | ✗ |
-| Minus sign | ✓ | ✗ | ✓ | ✗ |
-| Ellipsis | ✓ | ✓ | ✓ | ✗ |
-| Multiplication × | ✓ | ✗ | ✗ | ✗ |
-| Math ≠ | ✓ | ✗ | ✓ | ✗ |
-| Math ≤ ≥ | ✓ | ✗ | ✓ | ✗ |
-| Math ± | ✓ | ✗ | ✓ | ✗ |
-| Copyright © | ✓ | ✗ | ✓ | ✗ |
-| Registered ® | ✓ | ✗ | ✓ | ✗ |
-| Trademark ™ | ✓ | ✗ | ✓ | ✗ |
-| Arrows → | ✓ | ✗ | ✓ | ✗ |
-| Prime marks ′″ | ✓ | ✗ | ✓ | ✓ |
-| Degrees ° | ✓ | ✗ | ✗ | ✗ |
-| Fractions ½ | ✓ | ✗ | ✗ | ✗ |
-| **Total** | **18/18** | **4/18** | **12/18** | **5/18** |
+| Feature | Example | punctilio | smartypants | tipograph | smartquotes |
+|---------|---------|-----------|-------------|-----------|-------------|
+| Smart quotes | `"hello"` → `"hello"` | ✓ | ✓ | ✓ | ✓ |
+| Contractions | `don't` → `don't` | ✓ | ✓ | ✓ | ✓ |
+| Leading apostrophe | `'twas` → `'twas` | ✓ | ✗ | ✗ | ✓ |
+| Em dash | `word--word` → `word—word` | ✓ | ✓ | ✗ | ✗ |
+| En dash (ranges) | `1-5` → `1–5` | ✓ | ✗ | ✓ | ✗ |
+| Minus sign | `-5` → `−5` | ✓ | ✗ | ✓ | ✗ |
+| Ellipsis | `...` → `…` | ✓ | ✓ | ✓ | ✗ |
+| Multiplication | `5x5` → `5×5` | ✓ | ✗ | ✗ | ✗ |
+| Not equal | `!=` → `≠` | ✓ | ✗ | ✓ | ✗ |
+| Comparison | `<=` → `≤` | ✓ | ✗ | ✓ | ✗ |
+| Plus-minus | `+-5` → `±5` | ✓ | ✗ | ✓ | ✗ |
+| Copyright | `(c)` → `©` | ✓ | ✗ | ✓ | ✗ |
+| Registered | `(r)` → `®` | ✓ | ✗ | ✗ | ✗ |
+| Trademark | `(tm)` → `™` | ✓ | ✗ | ✗ | ✗ |
+| Arrows | `->` → `→` | ✓ | ✗ | ✓ | ✗ |
+| Prime marks | `5'10"` → `5′10″` | ✓ | ✗ | ✓ | ✓ |
+| Degrees | `20 C` → `20 °C` | ✓ | ✗ | ✗ | ✗ |
+| Fractions | `1/2` → `½` | ✓ | ✗ | ✗ | ✗ |
+| **Total** | | **18/18** | **4/18** | **12/18** | **5/18** |
 
 ## Localization (punctilio 0.3)
 
@@ -46,22 +46,13 @@ transform(text, {
 
 | Style | Punctuation | Dashes |
 |-------|-------------|--------|
-| American (default) | `"Hello,"` | `word—word` |
-| British | `"Hello",` | `word – word` |
-
-## Ambiguous Cases
-
-These vary by style guide—not correctness:
-
-| Input | American | British |
-|-------|----------|---------|
-| `"Hi", she said` | `"Hi," she said` | `"Hi", she said` |
-| `word - word` | `word—word` | `word – word` |
+| American | `"Hi",` → `"Hi,"` | `a - b` → `a—b` |
+| British | `"Hi",` → `"Hi",` | `a - b` → `a – b` |
 
 ## What competitors offer that punctilio doesn't
 
-| Feature | Package |
-|---------|---------|
-| Punctuation ligatures `⁇ ⁈` | tipograph |
-| Multiple space collapse | tipograph |
-| Non-English quotes `„" «»` | tipograph |
+| Feature | Example | Package |
+|---------|---------|---------|
+| Punctuation ligatures | `??` → `⁇` | tipograph |
+| Space collapse | `a    b` → `a b` | tipograph |
+| Non-English quotes | `"hi"` → `„hi"` | tipograph |
