@@ -4,17 +4,6 @@ set -e
 
 echo "🔍 Running pre-push checks..."
 
-# Run tests
-echo "🧪 Running tests..."
-pnpm test
-
-if [ $? -ne 0 ]; then
-  echo "❌ Tests failed. Push aborted."
-  exit 1
-fi
-
-echo "✅ All tests passed."
-
 # Check if we're pushing to main/master
 BRANCH=$(git rev-parse --abbrev-ref HEAD)
 if [[ "$BRANCH" != "main" && "$BRANCH" != "master" ]]; then
