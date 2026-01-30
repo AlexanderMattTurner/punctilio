@@ -2,16 +2,22 @@
 
 > *punctilio* (n.): a fine point of conduct or procedure
 
-Smart typography for JavaScript. Converts ASCII punctuation to proper Unicode.
+The best typography package for JavaScript. Converts ASCII punctuation to proper Unicode.
 
 ```typescript
 import { transform } from 'punctilio'
 
 transform('"Don\'t stop", she said - "it\'s 1-5 pages..."')
-// → "Don't stop," she said—"it's 1–5 pages…"
+// → “Don't stop,” she said—“it’s 1–5 pages…”
 ```
 
+[![Test](https://github.com/alexander-turner/punctilio/actions/workflows/test.yml/badge.svg)](https://github.com/alexander-turner/punctilio/actions/workflows/test.yml)
+[![Lint](https://github.com/alexander-turner/punctilio/actions/workflows/lint.yml/badge.svg)](https://github.com/alexander-turner/punctilio/actions/workflows/lint.yml)
+[![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen)](https://github.com/alexander-turner/punctilio)
+ 
+
 ## Install
+
 
 ```bash
 npm install punctilio
@@ -37,15 +43,13 @@ npm install punctilio
 
 ```typescript
 transform(text, {
-  // Style
   punctuationStyle: 'american' | 'british' | 'none',  // default: 'american'
   dashStyle: 'american' | 'british' | 'none',         // default: 'american'
 
-  // Features
   symbols: true,         // math, legal, arrows
+  collapseSpaces: true,  // normalize whitespace
   fractions: false,      // 1/2 → ½
   degrees: false,        // 20 C → 20 °C
-  collapseSpaces: true,  // normalize whitespace
 })
 ```
 
@@ -54,15 +58,15 @@ transform(text, {
 
 ## Why punctilio?
 
-I built this for [my website](https://turntrout.com). I wrote a comprehensive test suite covering edge cases I encountered, then later benchmarked how existing libraries would have performed. They don't do well:
+I built punctilio for [my website](https://turntrout.com/design). I wrote and sharpened the regexes over the course of months, exhaustively testing edge cases. 
 
-| Input | smartypants output | Correct |
+As I'm making this package publicly available, I benchmarked how existing libraries would have performed. They don't do well:
+
+| Input | smartypants  | punctilio |
 |-------|-------------------|---------|
-| `'Twas the night` | 'Twas the night | ✗ |
-| `the '99 season` | the '99 season | ✗ |
-| `rock 'n' roll` | rock 'n' roll | ✗ |
-
-The `'` in these should be apostrophes ('), not opening quotes (').
+| 'Twas the night | ‘Twas the night ✗ | ’Twas the night  ✓  |
+| the '99 season | the ’99 season ✗ | the **’**99 season ✓  |
+| rock 'n' roll | rock ‘n’ roll ✗ | rock **’**n’ roll  ✓  |
 
 ### Feature comparison
 
@@ -85,14 +89,10 @@ The `'` in these should be apostrophes ('), not opening quotes (').
 
 [Benchmark source](./benchmark.mjs) · [Test suite](./src/tests/)
 
-### What others offer that punctilio doesn't
+### What other packages offer that punctilio doesn't
 
 **tipograph** supports:
 - Punctuation ligatures (`??` → `⁇`, `?!` → `⁈`)
 - Non-English quote styles (German „", French «»)
 
-I chose not to implement ligatures—they have poor font support and add visual complexity without clear benefit. Non-English localization is on the roadmap.
-
-## License
-
-MIT
+I chose not to implement punctuation ligatures as they have poor font support and add visual complexity without clear benefit. I don't have a personal reason to use non-English localization, but others are welcome to make a pull request.
