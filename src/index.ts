@@ -17,7 +17,9 @@ export {
   minusReplace,
   months,
   type DashOptions,
+  type DashStyle,
 } from "./dashes.js"
+import type { DashStyle } from "./dashes.js"
 export {
   ellipsis,
   multiplication,
@@ -72,6 +74,17 @@ export interface TransformOptions {
    * Default: "american"
    */
   punctuationStyle?: PunctuationStyle
+
+  /**
+   * How to style parenthetical dashes.
+   *
+   * - `"american"` (default): Unspaced em dash (word—word)
+   * - `"british"`: Spaced en dash (word – word)
+   * - `"none"`: Don't convert parenthetical dashes
+   *
+   * Default: "american"
+   */
+  dashStyle?: DashStyle
 }
 
 import { niceQuotes } from "./quotes.js"

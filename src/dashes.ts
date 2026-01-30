@@ -7,6 +7,8 @@
 
 import { UNICODE_SYMBOLS, DEFAULT_SEPARATOR } from "./constants.js"
 
+export type DashStyle = "american" | "british" | "none"
+
 export interface DashOptions {
   /**
    * A boundary marker character used when transforming text that spans
@@ -17,6 +19,17 @@ export interface DashOptions {
    * Default: "\uE000" (Unicode Private Use Area)
    */
   separator?: string
+
+  /**
+   * How to style parenthetical dashes.
+   *
+   * - `"american"` (default): Unspaced em dash (word—word)
+   * - `"british"`: Spaced en dash (word – word)
+   * - `"none"`: Don't convert parenthetical dashes
+   *
+   * Default: "american"
+   */
+  dashStyle?: DashStyle
 }
 
 const { EN_DASH, EM_DASH, MINUS } = UNICODE_SYMBOLS
@@ -170,39 +183,53 @@ export function minusReplace(text: string, options: DashOptions = {}): string {
  */
 export function hyphenReplace(text: string, options: DashOptions = {}): string {
   const chr = options.separator ?? DEFAULT_SEPARATOR
+  const dashStyle = options.dashStyle ?? "american"
 
   text = minusReplace(text, options)
 
-  // Handle dashes with potential spaces and optional marker character
-  //  Being right after chr is a sufficient condition for being an em
-  //  dash, as it indicates the start of a new line
-  const preDash = new RegExp(`((?<markerBeforeTwo>${chr}?)[ ]+|(?<markerBeforeThree>${chr}))`)
-  const surroundedDash = new RegExp(
-    `(?<=[^\\s>]|^)${preDash.source}[~${EN_DASH}${EM_DASH}-]+[ ]*(?<markerAfter>${chr}?)([ ]+|$)`,
-    "g"
-  )
+  if (dashStyle !== "none") {
+    // Determine which dash to use based on style
+    const dash = dashStyle === "british" ? EN_DASH : EM_DASH
+    const spaced = dashStyle === "british"
 
-  text = text.replace(surroundedDash, `$<markerBeforeTwo>$<markerBeforeThree>${EM_DASH}$<markerAfter>`)
+    // Handle dashes with potential spaces and optional marker character
+    const preDash = new RegExp(`((?<markerBeforeTwo>${chr}?)[ ]+|(?<markerBeforeThree>${chr}))`)
+    const surroundedDash = new RegExp(
+      `(?<=[^\\s>]|^)${preDash.source}[~${EN_DASH}${EM_DASH}-]+[ ]*(?<markerAfter>${chr}?)([ ]+|$)`,
+      "g"
+    )
 
-  const multipleDashInWords = new RegExp(
-    `(?<=[A-Za-z\\d])(?<markerBefore>${chr}?)[~${EN_DASH}${EM_DASH}-]{2,}(?<markerAfter>${chr}?)(?=[A-Za-z\\d ])`,
-    "g"
-  )
-  text = text.replace(multipleDashInWords, `$<markerBefore>${EM_DASH}$<markerAfter>`)
+    const replacement = spaced
+      ? `$<markerBeforeTwo>$<markerBeforeThree> ${dash} $<markerAfter>`
+      : `$<markerBeforeTwo>$<markerBeforeThree>${dash}$<markerAfter>`
+    text = text.replace(surroundedDash, replacement)
 
-  text = text.replace(new RegExp(`^(${chr})?[-]+ `, "gm"), `$1${EM_DASH} `)
+    const multipleDashInWords = new RegExp(
+      `(?<=[A-Za-z\\d])(?<markerBefore>${chr}?)[~${EN_DASH}${EM_DASH}-]{2,}(?<markerAfter>${chr}?)(?=[A-Za-z\\d ])`,
+      "g"
+    )
+    const multiReplacement = spaced
+      ? `$<markerBefore> ${dash} $<markerAfter>`
+      : `$<markerBefore>${dash}$<markerAfter>`
+    text = text.replace(multipleDashInWords, multiReplacement)
 
-  const spacesAroundEM = new RegExp(
-    `(?<markerBefore>${chr}?)[ ]*${EM_DASH}[ ]*(?<markerAfter>${chr}?)[ ]*`,
-    "g"
-  )
-  text = text.replace(spacesAroundEM, `$<markerBefore>${EM_DASH}$<markerAfter>`)
+    text = text.replace(new RegExp(`^(${chr})?[-]+ `, "gm"), `$1${dash} `)
 
-  const postQuote = new RegExp(`(?<quote>[.!?]${chr}?['"'"]${chr}?|…)${spacesAroundEM.source}`, "g")
-  text = text.replace(postQuote, `$<quote> $<markerBefore>${EM_DASH}$<markerAfter> `)
+    if (!spaced) {
+      // American style: remove spaces around em dashes
+      const spacesAroundEM = new RegExp(
+        `(?<markerBefore>${chr}?)[ ]*${EM_DASH}[ ]*(?<markerAfter>${chr}?)[ ]*`,
+        "g"
+      )
+      text = text.replace(spacesAroundEM, `$<markerBefore>${EM_DASH}$<markerAfter>`)
 
-  const startOfLine = new RegExp(`^${spacesAroundEM.source}(?<after>[A-Z0-9])`, "gm")
-  text = text.replace(startOfLine, `$<markerBefore>${EM_DASH}$<markerAfter> $<after>`)
+      const postQuote = new RegExp(`(?<quote>[.!?]${chr}?['"'"]${chr}?|…)${spacesAroundEM.source}`, "g")
+      text = text.replace(postQuote, `$<quote> $<markerBefore>${EM_DASH}$<markerAfter> `)
+
+      const startOfLine = new RegExp(`^${spacesAroundEM.source}(?<after>[A-Z0-9])`, "gm")
+      text = text.replace(startOfLine, `$<markerBefore>${EM_DASH}$<markerAfter> $<after>`)
+    }
+  }
 
   text = enDashNumberRange(text, options)
   text = enDashDateRange(text, options)

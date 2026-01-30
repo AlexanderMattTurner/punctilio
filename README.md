@@ -80,7 +80,10 @@ transform('5x5 = 25', { symbols: false })
 // Punctuation style: american (default), british, or none
 transform('"Hello".', { punctuationStyle: 'american' }) // → "Hello."
 transform('"Hello."', { punctuationStyle: 'british' })  // → "Hello".
-transform('"Hello".', { punctuationStyle: 'none' })     // → "Hello".
+
+// Dash style: american (default), british, or none
+transform('word - word', { dashStyle: 'american' }) // → word—word
+transform('word - word', { dashStyle: 'british' })  // → word – word
 ```
 
 ### With HTML Element Boundaries
@@ -111,6 +114,7 @@ Applies all typography transformations. Options:
 - `fractions`: Convert common fractions like 1/2 → ½ (default: `false`)
 - `degrees`: Convert temperature notation like 20 C → 20 °C (default: `false`)
 - `punctuationStyle`: `"american"` (default) puts periods/commas inside quotes; `"british"` puts them outside; `"none"` leaves unchanged
+- `dashStyle`: `"american"` (default) uses unspaced em dash (—); `"british"` uses spaced en dash ( – ); `"none"` skips dash conversion
 
 ### Quote Functions
 
@@ -124,12 +128,9 @@ Handles: opening/closing quotes, contractions (`don't`), possessives (`dog's`), 
 
 #### `hyphenReplace(text, options?)`
 
-Converts hyphens to proper dashes. Handles:
-- Em dashes: `word - word` → `word—word`
-- En dashes for number ranges: `1-5` → `1–5`
-- En dashes for date ranges: `Jan-Mar` → `Jan–Mar`
-- Minus signs: `-5` → `−5`
-- Preserves: horizontal rules (`---`), compound words (`well-known`)
+Converts hyphens to proper dashes. Options: `separator`, `dashStyle`.
+
+Handles: em dashes (`word - word` → `word—word`), en dashes for ranges (`1-5` → `1–5`, `Jan-Mar` → `Jan–Mar`), minus signs (`-5` → `−5`). Preserves horizontal rules and compound words.
 
 #### `enDashNumberRange(text, options?)`
 
