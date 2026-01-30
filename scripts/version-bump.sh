@@ -1,7 +1,5 @@
 #!/bin/bash
-# Auto version bump based on commit messages
-# Uses conventional commit patterns to determine bump level
-
+# Auto version bump using Claude API to analyze commits
 set -e
 
 # Get the most recent commit message
@@ -17,33 +15,63 @@ fi
 CURRENT_VERSION=$(node -p "require('./package.json').version")
 echo "Current version: $CURRENT_VERSION"
 
-# Parse version components
-IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
-
-# Analyze commits since last version bump to determine bump level
-# Look at commits since last "chore: bump version" commit
+# Get commits since last version bump
 LAST_BUMP_COMMIT=$(git log --oneline --grep="^chore: bump version" -1 --format="%H" 2>/dev/null || echo "")
 
 if [ -n "$LAST_BUMP_COMMIT" ]; then
-  COMMITS=$(git log "$LAST_BUMP_COMMIT"..HEAD --pretty=%B --no-merges)
+  COMMITS=$(git log "$LAST_BUMP_COMMIT"..HEAD --pretty=format:"- %s" --no-merges)
+  DIFF_STAT=$(git diff --stat "$LAST_BUMP_COMMIT"..HEAD 2>/dev/null || echo "Unable to get diff")
 else
-  # If no previous bump commit, just look at the last commit
-  COMMITS=$(git log -1 --pretty=%B --no-merges)
+  COMMITS=$(git log -1 --pretty=format:"- %s" --no-merges)
+  DIFF_STAT=$(git show --stat HEAD 2>/dev/null || echo "Unable to get diff")
 fi
 
-# Determine bump level based on commit patterns
-BUMP="patch"
+echo "Commits to analyze:"
+echo "$COMMITS"
 
-# Check for breaking changes (MAJOR)
-if echo "$COMMITS" | grep -qiE "(BREAKING CHANGE|^feat!:|^fix!:|breaking:)"; then
-  BUMP="major"
-# Check for new features (MINOR)
-elif echo "$COMMITS" | grep -qiE "^feat(\(.+\))?:"; then
-  BUMP="minor"
-# Check for new exports, new options, new functionality
-elif echo "$COMMITS" | grep -qiE "(new feature|new export|new option|add.*feature)"; then
-  BUMP="minor"
+# Call Claude API to determine version bump
+PROMPT="You are analyzing commits for a semantic version bump. Current version: $CURRENT_VERSION
+
+Recent commits:
+$COMMITS
+
+Changes summary:
+$DIFF_STAT
+
+Rules:
+- MAJOR: Breaking changes (API changes, removed features, incompatible changes)
+- MINOR: New features, new exports, new options (backwards compatible)
+- PATCH: Bug fixes, documentation, refactoring, performance improvements
+
+Respond with ONLY one word: major, minor, or patch"
+
+RESPONSE=$(curl -s https://api.anthropic.com/v1/messages \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: $ANTHROPIC_API_KEY" \
+  -H "anthropic-version: 2023-06-01" \
+  -d "$(jq -n \
+    --arg prompt "$PROMPT" \
+    '{
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 10,
+      messages: [{role: "user", content: $prompt}]
+    }')")
+
+# Extract the bump level from Claude's response
+BUMP=$(echo "$RESPONSE" | jq -r '.content[0].text' | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')
+
+# Validate response
+if [[ "$BUMP" != "major" && "$BUMP" != "minor" && "$BUMP" != "patch" ]]; then
+  echo "Unexpected response from Claude: $BUMP"
+  echo "Full response: $RESPONSE"
+  echo "Defaulting to patch"
+  BUMP="patch"
 fi
+
+echo "Claude determined bump level: $BUMP"
+
+# Parse version components
+IFS='.' read -r MAJOR MINOR PATCH_NUM <<< "$CURRENT_VERSION"
 
 # Calculate new version
 case $BUMP in
@@ -54,11 +82,10 @@ case $BUMP in
     NEW_VERSION="${MAJOR}.$((MINOR + 1)).0"
     ;;
   patch)
-    NEW_VERSION="${MAJOR}.${MINOR}.$((PATCH + 1))"
+    NEW_VERSION="${MAJOR}.${MINOR}.$((PATCH_NUM + 1))"
     ;;
 esac
 
-echo "Bump level: $BUMP"
 echo "New version: $NEW_VERSION"
 
 # Update package.json using node to preserve formatting
