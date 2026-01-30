@@ -6,7 +6,7 @@ The best typography package.
 import { transform } from 'punctilio'
 
 transform('"It\'s a beautiful thing, the destruction of words..." -- 1984')
-// → "It's a beautiful thing, the destruction of words…" — 1984
+// → “It’s a beautiful thing, the destruction of words…” — 1984
 ```
 
 [![Test](https://github.com/alexander-turner/punctilio/actions/workflows/test.yml/badge.svg)](https://github.com/alexander-turner/punctilio/actions/workflows/test.yml)
@@ -18,21 +18,6 @@ transform('"It\'s a beautiful thing, the destruction of words..." -- 1984')
 
 ```bash
 npm install punctilio
-```
-
-## Options
-
-```typescript
-transform(text, {
-  punctuationStyle: 'american' | 'british' | 'none',  // default: 'american'
-  dashStyle: 'american' | 'british' | 'none',         // default: 'american'
-
-  symbols: true,         // math, legal, arrows
-  collapseSpaces: true,  // normalize whitespace
-  fractions: false,      // 1/2 → ½
-  degrees: false,        // 20 C → 20 °C
-  superscript: false,    // 1st → 1ˢᵗ
-})
 ```
 
 ## Why punctilio?
@@ -83,3 +68,18 @@ By running [`benchmark.mjs`](./benchmark.mjs), I graded all libraries on a subse
 - Non-English quote styles (German „“, French «»)
 
 I chose not to implement punctuation ligatures as they have poor font support and add visual complexity. I don’t have a personal reason to use non-English localization, but others are welcome to make a pull request.
+
+## Options
+
+```typescript
+transform(text, {
+  punctuationStyle: 'american' | 'british' | 'none',  // default: 'american'
+  dashStyle: 'american' | 'british' | 'none',         // default: 'american'
+
+  symbols: true,         // math, legal, arrows
+  collapseSpaces: true,  // normalize whitespace
+  fractions: false,      // 1/2 → ½
+  degrees: false,        // 20 C → 20 °C
+  superscript: false,    // 1st → 1ˢᵗ
+})
+```
