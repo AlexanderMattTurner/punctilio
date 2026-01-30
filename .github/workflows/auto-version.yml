@@ -41,4 +41,4 @@ jobs:
             - If the version was already bumped in this PR, don't bump again
             - Use standard semver format (X.Y.Z)
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
