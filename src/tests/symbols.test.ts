@@ -12,8 +12,6 @@ import {
 } from "../symbols.js"
 import { UNICODE_SYMBOLS } from "../constants.js"
 
-const NBSP = UNICODE_SYMBOLS.NBSP
-
 describe("ellipsis", () => {
   it.each([
     ["Wait for it...", `Wait for it${UNICODE_SYMBOLS.ELLIPSIS}`],
@@ -210,6 +208,8 @@ describe("fractions", () => {
 })
 
 describe("collapseSpaces", () => {
+  const { NBSP } = UNICODE_SYMBOLS
+
   it.each([
     // Multiple regular spaces
     ["hello  world", "hello world"],

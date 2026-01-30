@@ -352,9 +352,7 @@ export function fractions(text: string, options: SymbolOptions = {}): string {
  * ```
  */
 export function collapseSpaces(text: string): string {
-  // Match first space (regular or nbsp) followed by one or more additional spaces
-  // Keep only the first space character
-  return text.replace(/([ \u00A0])[ \u00A0]+/g, "$1")
+  return text.replace(new RegExp(`(?<first>[ ${NBSP}])[ ${NBSP}]+`, "g"), "$<first>")
 }
 
 /**

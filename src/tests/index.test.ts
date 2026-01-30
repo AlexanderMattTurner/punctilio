@@ -93,40 +93,20 @@ describe("transform", () => {
   })
 
   describe("collapseSpaces option", () => {
-    it("collapses multiple spaces by default", () => {
-      const input = "hello  world"
-      const result = transform(input)
-      expect(result).toBe("hello world")
+    it.each([
+      ["hello  world", "hello world", "multiple spaces"],
+      [`foo${NBSP}${NBSP}bar`, `foo${NBSP}bar`, "multiple nbsp"],
+      [`a ${NBSP}b`, "a b", "space then nbsp keeps space"],
+      [`a${NBSP} b`, `a${NBSP}b`, "nbsp then space keeps nbsp"],
+    ])("collapses %s by default", (input, expected) => {
+      expect(transform(input)).toBe(expected)
     })
 
-    it("collapses multiple nbsp by default", () => {
-      const input = `foo${NBSP}${NBSP}bar`
-      const result = transform(input)
-      expect(result).toBe(`foo${NBSP}bar`)
-    })
-
-    it("collapses mixed spaces keeping first (space then nbsp)", () => {
-      const input = `a ${NBSP}b`
-      const result = transform(input)
-      expect(result).toBe("a b")
-    })
-
-    it("collapses mixed spaces keeping first (nbsp then space)", () => {
-      const input = `a${NBSP} b`
-      const result = transform(input)
-      expect(result).toBe(`a${NBSP}b`)
-    })
-
-    it("can disable space collapsing", () => {
-      const input = "hello  world"
-      const result = transform(input, { collapseSpaces: false })
-      expect(result).toBe("hello  world")
-    })
-
-    it("preserves nbsp when collapseSpaces is disabled", () => {
-      const input = `foo${NBSP}${NBSP}bar`
-      const result = transform(input, { collapseSpaces: false })
-      expect(result).toBe(`foo${NBSP}${NBSP}bar`)
+    it.each([
+      ["hello  world", "hello  world", "multiple spaces"],
+      [`foo${NBSP}${NBSP}bar`, `foo${NBSP}${NBSP}bar`, "multiple nbsp"],
+    ])("preserves %s when disabled", (input, expected) => {
+      expect(transform(input, { collapseSpaces: false })).toBe(expected)
     })
   })
 })

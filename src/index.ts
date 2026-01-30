@@ -52,16 +52,15 @@ export interface TransformOptions {
   symbols?: boolean
 
   /**
-   * Whether to include fraction transforms (1/2 → ½)
-   * Default: false (can be aggressive)
+   * Whether to collapse multiple consecutive spaces (including non-breaking
+   * spaces) into a single space. Keeps the first space in the sequence.
+   *
+   * - `true` (default): "hello  world" → "hello world"
+   * - `false`: Preserve multiple spaces
+   *
+   * Default: true
    */
-  fractions?: boolean
-
-  /**
-   * Whether to include degree symbol transforms (20 C → 20 °C)
-   * Default: false (can be aggressive)
-   */
-  degrees?: boolean
+  collapseSpaces?: boolean
 
   /**
    * How to handle punctuation placement around quotation marks.
@@ -88,15 +87,16 @@ export interface TransformOptions {
   dashStyle?: DashStyle
 
   /**
-   * Whether to collapse multiple consecutive spaces (including non-breaking
-   * spaces) into a single space. Keeps the first space in the sequence.
-   *
-   * - `true` (default): "hello  world" → "hello world"
-   * - `false`: Preserve multiple spaces
-   *
-   * Default: true
+   * Whether to include fraction transforms (1/2 → ½)
+   * Default: false (can be aggressive)
    */
-  collapseSpaces?: boolean
+  fractions?: boolean
+
+  /**
+   * Whether to include degree symbol transforms (20 C → 20 °C)
+   * Default: false (can be aggressive)
+   */
+  degrees?: boolean
 }
 
 import { niceQuotes } from "./quotes.js"
@@ -112,9 +112,9 @@ import { symbolTransform, fractions as fractionsTransform, degrees as degreesTra
  * 2. primeMarks (feet/inches, arcminutes/arcseconds)
  * 3. niceQuotes (smart quotes)
  * 4. symbolTransform (ellipses, multiplication, math symbols, legal symbols, arrows)
- * 5. fractions (optional, disabled by default)
- * 6. degrees (optional, disabled by default)
- * 7. collapseSpaces (collapses multiple spaces into one, enabled by default)
+ * 5. collapseSpaces (collapses multiple spaces into one)
+ * 6. fractions (disabled by default)
+ * 7. degrees (disabled by default)
  *
  * @param text - The text to transform
  * @param options - Configuration options
