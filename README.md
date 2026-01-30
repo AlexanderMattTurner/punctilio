@@ -31,6 +31,7 @@ transform(text, {
   collapseSpaces: true,  // normalize whitespace
   fractions: false,      // 1/2 → ½
   degrees: false,        // 20 C → 20 °C
+  superscript: false,    // 1st → 1ˢᵗ
 })
 ```
 
@@ -72,6 +73,7 @@ By running [`benchmark.mjs`](./benchmark.mjs), I graded all libraries on a subse
 | Prime marks | `5'10"` → 5′10″ | ✗ | ✓ | ✓ | ✓ |
 | Degrees | `20 C` → 20 °C | ✗ | ✗ | ✗ | ✓ |
 | Fractions | `1/2` → ½ | ✗ | ✗ | ✗ | ✓ |
+| Superscripts | `1st` → 1ˢᵗ | ✗ | ✗ | ✗ | ✓ |
 | Localization | American/British | ✗ | ✗ | ✗ | ✓ |
 
 ### What other packages offer that `punctilio` doesn’t
