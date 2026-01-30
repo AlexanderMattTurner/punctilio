@@ -7,6 +7,7 @@ import {
   degrees,
   primeMarks,
   fractions,
+  collapseSpaces,
   symbolTransform,
 } from "../symbols.js"
 import { UNICODE_SYMBOLS, DEFAULT_SEPARATOR } from "../constants.js"
@@ -207,6 +208,42 @@ describe("fractions", () => {
     expect(fractions(`1${sep}/${sep}2`, { separator: sep })).toBe(
       `${sep}${UNICODE_SYMBOLS.FRACTION_1_2}${sep}`
     )
+  })
+})
+
+describe("collapseSpaces", () => {
+  const { NBSP } = UNICODE_SYMBOLS
+
+  it.each([
+    // Multiple regular spaces
+    ["hello  world", "hello world"],
+    ["a   b", "a b"],
+    ["x    y", "x y"],
+    // Multiple nbsp
+    [`foo${NBSP}${NBSP}bar`, `foo${NBSP}bar`],
+    [`a${NBSP}${NBSP}${NBSP}b`, `a${NBSP}b`],
+    // Mixed: space followed by nbsp (keeps space)
+    [`a ${NBSP}b`, "a b"],
+    [`x  ${NBSP}y`, "x y"],
+    // Mixed: nbsp followed by space (keeps nbsp)
+    [`a${NBSP} b`, `a${NBSP}b`],
+    [`x${NBSP}  y`, `x${NBSP}y`],
+    // Mixed sequences
+    [`a ${NBSP} b`, "a b"],
+    [`x${NBSP} ${NBSP}y`, `x${NBSP}y`],
+    // Single spaces unchanged
+    ["hello world", "hello world"],
+    [`foo${NBSP}bar`, `foo${NBSP}bar`],
+    // Multiple groups of spaces
+    ["a  b  c", "a b c"],
+    [`x${NBSP}${NBSP}y  z`, `x${NBSP}y z`],
+    // Edge cases
+    ["", ""],
+    ["  ", " "],
+    [`${NBSP}${NBSP}`, NBSP],
+    ["no spaces", "no spaces"],
+  ])('converts "%s" to "%s"', (input, expected) => {
+    expect(collapseSpaces(input)).toBe(expected)
   })
 })
 

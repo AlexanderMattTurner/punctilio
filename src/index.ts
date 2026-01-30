@@ -29,6 +29,7 @@ export {
   degrees,
   fractions,
   primeMarks,
+  collapseSpaces,
   symbolTransform,
   type SymbolOptions,
 } from "./symbols.js"
@@ -51,16 +52,15 @@ export interface TransformOptions {
   symbols?: boolean
 
   /**
-   * Whether to include fraction transforms (1/2 → ½)
-   * Default: false (can be aggressive)
+   * Whether to collapse multiple consecutive spaces (including non-breaking
+   * spaces) into a single space. Keeps the first space in the sequence.
+   *
+   * - `true` (default): "hello  world" → "hello world"
+   * - `false`: Preserve multiple spaces
+   *
+   * Default: true
    */
-  fractions?: boolean
-
-  /**
-   * Whether to include degree symbol transforms (20 C → 20 °C)
-   * Default: false (can be aggressive)
-   */
-  degrees?: boolean
+  collapseSpaces?: boolean
 
   /**
    * How to handle punctuation placement around quotation marks.
@@ -85,11 +85,23 @@ export interface TransformOptions {
    * Default: "american"
    */
   dashStyle?: DashStyle
+
+  /**
+   * Whether to include fraction transforms (1/2 → ½)
+   * Default: false (can be aggressive)
+   */
+  fractions?: boolean
+
+  /**
+   * Whether to include degree symbol transforms (20 C → 20 °C)
+   * Default: false (can be aggressive)
+   */
+  degrees?: boolean
 }
 
 import { niceQuotes } from "./quotes.js"
 import { hyphenReplace } from "./dashes.js"
-import { symbolTransform, fractions as fractionsTransform, degrees as degreesTransform, primeMarks } from "./symbols.js"
+import { symbolTransform, fractions as fractionsTransform, degrees as degreesTransform, primeMarks, collapseSpaces as collapseSpacesTransform } from "./symbols.js"
 import { assertSeparatorCountPreserved } from "./utils.js"
 import { DEFAULT_SEPARATOR } from "./constants.js"
 
@@ -105,8 +117,9 @@ export { DEFAULT_SEPARATOR } from "./constants.js"
  * 2. primeMarks (feet/inches, arcminutes/arcseconds)
  * 3. niceQuotes (smart quotes)
  * 4. symbolTransform (ellipses, multiplication, math symbols, legal symbols, arrows)
- * 5. fractions (optional, disabled by default)
- * 6. degrees (optional, disabled by default)
+ * 5. collapseSpaces (collapses multiple spaces into one)
+ * 6. fractions (disabled by default)
+ * 7. degrees (disabled by default)
  *
  * @param text - The text to transform
  * @param options - Configuration options
@@ -129,7 +142,7 @@ export { DEFAULT_SEPARATOR } from "./constants.js"
 export function transform(text: string, options: TransformOptions = {}): string {
   const separator = options.separator ?? DEFAULT_SEPARATOR
   const original = text
-  const { symbols = true, fractions = false, degrees = false, ...separatorOpts } = options
+  const { symbols = true, fractions = false, degrees = false, collapseSpaces = true, ...separatorOpts } = options
 
   text = hyphenReplace(text, separatorOpts)
   text = primeMarks(text, separatorOpts)
@@ -145,6 +158,10 @@ export function transform(text: string, options: TransformOptions = {}): string 
 
   if (degrees) {
     text = degreesTransform(text)
+  }
+
+  if (collapseSpaces) {
+    text = collapseSpacesTransform(text)
   }
 
   assertSeparatorCountPreserved(original, text, separator, "transform")
