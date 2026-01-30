@@ -10,7 +10,7 @@ import {
   collapseSpaces,
   symbolTransform,
 } from "../symbols.js"
-import { UNICODE_SYMBOLS } from "../constants.js"
+import { UNICODE_SYMBOLS, DEFAULT_SEPARATOR } from "../constants.js"
 
 describe("ellipsis", () => {
   it.each([
@@ -19,7 +19,6 @@ describe("ellipsis", () => {
     ["...", UNICODE_SYMBOLS.ELLIPSIS],
     ["Hello...world", `Hello${UNICODE_SYMBOLS.ELLIPSIS} world`],
     ["End of sentence...", `End of sentence${UNICODE_SYMBOLS.ELLIPSIS}`],
-    // Test ellipsis before punctuation
     ['..."', `${UNICODE_SYMBOLS.ELLIPSIS}"`],
     ["...!", `${UNICODE_SYMBOLS.ELLIPSIS}!`],
     ["...?", `${UNICODE_SYMBOLS.ELLIPSIS}?`],
@@ -30,9 +29,14 @@ describe("ellipsis", () => {
     expect(ellipsis(input)).toBe(expected)
   })
 
-  it("handles separator characters", () => {
-    const sep = "\uE000"
-    expect(ellipsis(`.${sep}.${sep}.`, { separator: sep })).toBe(UNICODE_SYMBOLS.ELLIPSIS)
+  it.each([
+    ["between all dots", `.${DEFAULT_SEPARATOR}.${DEFAULT_SEPARATOR}.`, `${UNICODE_SYMBOLS.ELLIPSIS}${DEFAULT_SEPARATOR}${DEFAULT_SEPARATOR}`],
+    ["after ellipsis", `...${DEFAULT_SEPARATOR}`, `${UNICODE_SYMBOLS.ELLIPSIS}${DEFAULT_SEPARATOR}`],
+    ["after first dot", `.${DEFAULT_SEPARATOR}..`, `${UNICODE_SYMBOLS.ELLIPSIS}${DEFAULT_SEPARATOR}`],
+    ["after second dot", `..${DEFAULT_SEPARATOR}.`, `${UNICODE_SYMBOLS.ELLIPSIS}${DEFAULT_SEPARATOR}`],
+  ])("preserves separators: %s", (_desc, input, expected) => {
+    const result = ellipsis(input, { separator: DEFAULT_SEPARATOR })
+    expect(result).toBe(expected)
   })
 })
 

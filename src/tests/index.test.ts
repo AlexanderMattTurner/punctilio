@@ -1,4 +1,4 @@
-import { transform, DEFAULT_SEPARATOR } from "../index.js"
+import { transform, DEFAULT_SEPARATOR, countSeparators } from "../index.js"
 import { UNICODE_SYMBOLS } from "../constants.js"
 
 const {
@@ -107,6 +107,17 @@ describe("transform", () => {
       [`foo${NBSP}${NBSP}bar`, `foo${NBSP}${NBSP}bar`, "multiple nbsp"],
     ])("preserves %s when disabled", (input, expected) => {
       expect(transform(input, { collapseSpaces: false })).toBe(expected)
+    })
+  })
+
+  describe("separator preservation", () => {
+    it.each([
+      [`Wait.${DEFAULT_SEPARATOR}.${DEFAULT_SEPARATOR}. for it`, 2],
+      [`"Hello${DEFAULT_SEPARATOR}" - ${DEFAULT_SEPARATOR}she${DEFAULT_SEPARATOR} said`, 3],
+      [`.${DEFAULT_SEPARATOR}.${DEFAULT_SEPARATOR}.`, 2],
+    ])('preserves %i separators in "%s"', (input, expectedCount) => {
+      expect(() => transform(input, { separator: DEFAULT_SEPARATOR })).not.toThrow()
+      expect(countSeparators(transform(input, { separator: DEFAULT_SEPARATOR }), DEFAULT_SEPARATOR)).toBe(expectedCount)
     })
   })
 })
