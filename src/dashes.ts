@@ -56,8 +56,8 @@ export const months = [
  * Uses marker-aware boundaries to avoid false matches when separators
  * appear between word characters.
  *
- * Allows trailing multiplier suffixes (x, k, b, t, m) which are common
- * in ranges like "1-10x" (1x to 10x magnification).
+ * Allows suffixes which are common in numerical ranges 
+ * like "1-10x" (1x to 10x magnification).
  */
 export function enDashNumberRange(text: string, options: DashOptions = {}): string {
   const chr = options.separator
