@@ -5,9 +5,16 @@
  * en-dashes, and minus signs based on context.
  */
 
-import { UNICODE_SYMBOLS, DEFAULT_SEPARATOR } from "./constants.js"
+import { UNICODE_SYMBOLS, DEFAULT_SEPARATOR, ESCAPED_DEFAULT_SEPARATOR, wordBoundaryStart, wordBoundaryEnd } from "./constants.js"
 
 export type DashStyle = "american" | "british" | "none"
+
+/**
+ * Escapes special regex characters in a string.
+ */
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+}
 
 export interface DashOptions {
   /**
@@ -46,12 +53,18 @@ export const months = [
 
 /**
  * Replaces hyphens with en-dashes in number ranges.
+ * Uses marker-aware boundaries to avoid false matches when separators
+ * appear between word characters.
  */
 export function enDashNumberRange(text: string, options: DashOptions = {}): string {
-  const chr = options.separator ?? DEFAULT_SEPARATOR
+  const chr = options.separator
+    ? escapeRegex(options.separator)
+    : ESCAPED_DEFAULT_SEPARATOR
+  const wb = wordBoundaryStart(chr)
+  const wbe = wordBoundaryEnd(chr)
   return text.replace(
     new RegExp(
-      `\\b(?<![a-zA-Z.])(?<startNum>(?:p\\.?|\\$)?\\d[\\d.,]*${chr}?)-(?<endNum>${chr}?\\$?\\d[\\d.,]*)(?!\\.\\d)\\b`,
+      `${wb}(?<![a-zA-Z.])(?<startNum>(?:p\\.?|\\$)?\\d[\\d.,]*${chr}?)-(?<endNum>${chr}?\\$?\\d[\\d.,]*)(?!\\.\\d)${wbe}`,
       "g"
     ),
     `$<startNum>${EN_DASH}$<endNum>`
@@ -67,15 +80,22 @@ export function enDashNumberRange(text: string, options: DashOptions = {}): stri
  * - "american" (default): No spaces (October 2012–December 2014)
  * - "british": Spaced (October 2012 – December 2014)
  * - "none": Preserve original spacing
+ *
+ * Uses marker-aware boundaries to avoid false matches when separators
+ * appear between word characters.
  */
 export function enDashDateRange(text: string, options: DashOptions = {}): string {
-  const chr = options.separator ?? DEFAULT_SEPARATOR
+  const chr = options.separator
+    ? escapeRegex(options.separator)
+    : ESCAPED_DEFAULT_SEPARATOR
   const dashStyle = options.dashStyle ?? "american"
+  const wb = wordBoundaryStart(chr)
+  const wbe = wordBoundaryEnd(chr)
 
   const startPattern = `(?<startMonth>${months})(?<startYear>${chr}? \\d{4})?(?<preSep>${chr}?)`
   const endPattern = `(?<postSep>${chr}?)(?<endMonth>${months})(?<endYear> \\d{4})?`
   const dateRangeRegex = new RegExp(
-    `\\b${startPattern}(?<preSpace> ?)-(?<postSpace> ?)${endPattern}\\b`,
+    `${wb}${startPattern}(?<preSpace> ?)-(?<postSpace> ?)${endPattern}${wbe}`,
     "g"
   )
 

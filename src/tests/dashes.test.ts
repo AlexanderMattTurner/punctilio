@@ -1,4 +1,5 @@
 import { hyphenReplace, enDashNumberRange, enDashDateRange, minusReplace } from "../dashes.js"
+import { DEFAULT_SEPARATOR } from "../constants.js"
 
 describe("hyphenReplace", () => {
   describe("em dashes from surrounded hyphens", () => {
@@ -123,6 +124,20 @@ describe("enDashNumberRange", () => {
   ])('should convert "%s" to "%s"', (input, expected) => {
     expect(enDashNumberRange(input)).toBe(expected)
   })
+
+  describe("marker robustness", () => {
+    // Tests that separators don't create false word boundaries
+    const sep = DEFAULT_SEPARATOR
+
+    it.each([
+      // [description, input, expected]
+      ["false leading boundary", `x${sep}1-10`, `x${sep}1-10`], // "x1-10" - should NOT convert
+      ["false trailing boundary", `1-10${sep}x`, `1-10${sep}x`], // "1-10x" - should NOT convert
+      ["valid boundaries with space", `pages ${sep}1-10${sep} total`, `pages ${sep}1–10${sep} total`], // should convert
+    ])("handles %s", (_desc, input, expected) => {
+      expect(enDashNumberRange(input, { separator: sep })).toBe(expected)
+    })
+  })
 })
 
 describe("enDashDateRange", () => {
@@ -171,6 +186,20 @@ describe("enDashDateRange", () => {
   it("should not convert non-month words", () => {
     expect(enDashDateRange("hello-world")).toBe("hello-world")
     expect(enDashDateRange("Mon-Fri")).toBe("Mon-Fri") // Days, not months
+  })
+
+  describe("marker robustness", () => {
+    // Tests that separators don't create false word boundaries
+    const sep = DEFAULT_SEPARATOR
+
+    it.each([
+      // [description, input, expected]
+      ["false leading boundary", `x${sep}January-March`, `x${sep}January-March`], // "xJanuary-March" - should NOT convert
+      ["false trailing boundary", `January-March${sep}x`, `January-March${sep}x`], // "January-Marchx" - should NOT convert
+      ["valid boundaries with space", `from ${sep}January-March${sep} period`, `from ${sep}January–March${sep} period`], // should convert
+    ])("handles %s", (_desc, input, expected) => {
+      expect(enDashDateRange(input, { separator: sep })).toBe(expected)
+    })
   })
 })
 
