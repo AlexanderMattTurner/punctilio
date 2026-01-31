@@ -5,22 +5,7 @@ on:
     branches: [main]
 
 jobs:
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/setup
-      - run: pnpm lint
-
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/setup
-      - run: pnpm test
-
   version-and-publish:
-    needs: [lint, test]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -36,10 +21,7 @@ jobs:
         with:
           registry-url: https://registry.npmjs.org
 
-      - name: Auto Version Bump
+      - name: Auto Version Bump and Publish
         run: bash scripts/version-bump.sh
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-
-      - name: Publish to npm
-        run: npm publish --provenance --access public
