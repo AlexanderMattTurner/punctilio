@@ -23,7 +23,7 @@ As far as I can tell, `punctilio` is the most reliable and feature-complete. I b
 
 [^wrote]: While Claude is the number one contributor to this repository, that’s just because Claude has helped me port my existing code and add minor features. The core regular expressions (e.g. dashes, quotes, multiplication signs) are human-written.
 
-I tested `punctilio` against [`smartypants`](https://www.npmjs.com/package/smartypants) 0.2.2, [`tipograph`](https://www.npmjs.com/package/tipograph) 0.7.4, [`smartquotes`](https://www.npmjs.com/package/smartquotes) 2.3.2, [`typograf`](https://www.npmjs.com/package/typograf) 7.6.0, and [`retext-smartypants`](https://www.npmjs.com/package/retext-smartypants) 6.2.0.[^python] These other packages have spotty feature coverage and inconsistent impact on text. For example, `smartypants` mishandles quotes after em dashes (though quite hard to see in GitHub's font) and lacks multiplication sign support.
+I tested `punctilio` 1.0.1 against [`smartypants`](https://www.npmjs.com/package/smartypants) 0.2.2, [`tipograph`](https://www.npmjs.com/package/tipograph) 0.7.4, [`smartquotes`](https://www.npmjs.com/package/smartquotes) 2.3.2, [`typograf`](https://www.npmjs.com/package/typograf) 7.6.0, and [`retext-smartypants`](https://www.npmjs.com/package/retext-smartypants) 6.2.0.[^python] These other packages have spotty feature coverage and inconsistent impact on text. For example, `smartypants` mishandles quotes after em dashes (though quite hard to see in GitHub's font) and lacks multiplication sign support.
 
 [^python]: The Python libraries I found were closely related to the JavaScript packages, so I don’t include Python tests.
 
@@ -32,7 +32,7 @@ I tested `punctilio` against [`smartypants`](https://www.npmjs.com/package/smart
 | She said—"Hi!" | She said—”Hi!” (✗) | She said—“Hi!” (✓) |
 | 5x5 |	5x5 (✗) |	5×5 (✓) |
 
-By running [`benchmark.mjs`](./benchmark.mjs), I basically graded all libraries on a subset of [my unit tests](./src/tests/), selected to represent a wide range of features. The benchmark normalizes stylistic differences (e.g. nbsp vs regular space, British vs American dash spacing) for fair comparison.
+My [`benchmark.mjs`](./benchmark.mjs) measures how well libraries handle a [wide range of scenarios](./benchmark_cases.json). The benchmark normalizes stylistic differences (e.g. nbsp vs regular space, British vs American dash spacing) for fair comparison.
 
 | Package | Score |
 |--------:|:------|
