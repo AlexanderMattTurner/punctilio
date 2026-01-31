@@ -55,6 +55,9 @@ export const months = [
  * Replaces hyphens with en-dashes in number ranges.
  * Uses marker-aware boundaries to avoid false matches when separators
  * appear between word characters.
+ *
+ * Allows trailing multiplier suffixes (x, k, b, t, m) which are common
+ * in ranges like "1-10x" (1x to 10x magnification).
  */
 export function enDashNumberRange(text: string, options: DashOptions = {}): string {
   const chr = options.separator
@@ -64,10 +67,10 @@ export function enDashNumberRange(text: string, options: DashOptions = {}): stri
   const wbe = wordBoundaryEnd(chr)
   return text.replace(
     new RegExp(
-      `${wb}(?<![a-zA-Z.])(?<startNum>(?:p\\.?|\\$)?\\d[\\d.,]*${chr}?)-(?<endNum>${chr}?\\$?\\d[\\d.,]*)(?!\\.\\d)${wbe}`,
+      `${wb}(?<![a-zA-Z.])(?<startNum>(?:p\\.?|\\$)?\\d[\\d.,]*${chr}?)-(?<endNum>${chr}?\\$?\\d[\\d.,]*)(?!\\.\\d)(?<suffix>${chr}?[xKBTM])?${wbe}`,
       "g"
     ),
-    `$<startNum>${EN_DASH}$<endNum>`
+    `$<startNum>${EN_DASH}$<endNum>$<suffix>`
   )
 }
 

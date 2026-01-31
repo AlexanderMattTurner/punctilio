@@ -121,6 +121,14 @@ describe("enDashNumberRange", () => {
     ["$1.50-$3.50", "$1.50–$3.50"],
     ["$1-3", "$1–3"],
     ["1 - 2", "1 - 2"], // Spaced ranges should not change
+    // Multiplier suffixes
+    ["1-10x", "1–10x"], // lowercase x for multiplier
+    ["1-10K", "1–10K"], // uppercase K for kilo
+    ["1-10M", "1–10M"], // uppercase M for million
+    ["1-10B", "1–10B"], // uppercase B for billion
+    ["1-10T", "1–10T"], // uppercase T for trillion
+    ["1-10X", "1-10X"], // uppercase X should NOT match (only lowercase)
+    ["1-10k", "1-10k"], // lowercase k should NOT match (only uppercase)
   ])('should convert "%s" to "%s"', (input, expected) => {
     expect(enDashNumberRange(input)).toBe(expected)
   })
@@ -132,7 +140,8 @@ describe("enDashNumberRange", () => {
     it.each([
       // [description, input, expected]
       ["false leading boundary", `x${sep}1-10`, `x${sep}1-10`], // "x1-10" - should NOT convert
-      ["false trailing boundary", `1-10${sep}x`, `1-10${sep}x`], // "1-10x" - should NOT convert
+      ["multiplier suffix with separator", `1-10${sep}x`, `1–10${sep}x`], // range of multipliers - should convert
+      ["false trailing boundary (non-suffix)", `1-10${sep}y`, `1-10${sep}y`], // "y" is not a valid suffix
       ["valid boundaries with space", `pages ${sep}1-10${sep} total`, `pages ${sep}1–10${sep} total`], // should convert
     ])("handles %s", (_desc, input, expected) => {
       expect(enDashNumberRange(input, { separator: sep })).toBe(expected)
