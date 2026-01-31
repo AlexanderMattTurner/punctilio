@@ -67,7 +67,7 @@ As far as I can tell, `punctilio`’s only missing feature is non-English quote 
 
 ## Scalable DOM transformation via separation boundaries
 
-Other typography libraries only transform plain strings. But real HTML has text spanning multiple elements—if you concatenate text from `<em>Wait</em>...`, transform it, then try to split it back, you've lost track of where `</em>` belonged.
+Other typography libraries either transform plain strings or operate on AST nodes individually (`retext-smartypants` [can't map changes back to HTML](https://github.com/rehypejs/rehype-retext)). But real HTML has text spanning multiple elements—if you concatenate text from `<em>Wait</em>...`, transform it, then try to split it back, you've lost track of where `</em>` belonged.
 
 `punctilio` solves this with **separation boundaries**, a novel approach: insert `DEFAULT_SEPARATOR` (U+E000) at each element boundary before transforming. Every regex is written to allow this character mid-pattern without breaking matches—`.[SEP]..` still becomes `.[SEP]…`. The separator count is validated to ensure none are lost.
 
