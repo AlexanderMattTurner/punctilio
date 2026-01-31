@@ -321,21 +321,14 @@ describe("punctuationLigatures", () => {
     expect(punctuationLigatures(input)).toBe(expected)
   })
 
-  it("handles separator characters", () => {
-    const sep = "\uE000"
-    // Separator between punctuation marks should be preserved after the ligature
-    expect(punctuationLigatures(`?${sep}?`, { separator: sep })).toBe(
-      `${UNICODE_SYMBOLS.DOUBLE_QUESTION}${sep}`
-    )
-    expect(punctuationLigatures(`?${sep}!`, { separator: sep })).toBe(
-      `${UNICODE_SYMBOLS.QUESTION_EXCLAMATION}${sep}`
-    )
-    expect(punctuationLigatures(`!${sep}?`, { separator: sep })).toBe(
-      `${UNICODE_SYMBOLS.EXCLAMATION_QUESTION}${sep}`
-    )
-    expect(punctuationLigatures(`!${sep}!`, { separator: sep })).toBe(
-      `!${sep}`
-    )
+  it.each([
+    ["??", `${UNICODE_SYMBOLS.DOUBLE_QUESTION}${DEFAULT_SEPARATOR}`],
+    ["?!", `${UNICODE_SYMBOLS.QUESTION_EXCLAMATION}${DEFAULT_SEPARATOR}`],
+    ["!?", `${UNICODE_SYMBOLS.EXCLAMATION_QUESTION}${DEFAULT_SEPARATOR}`],
+    ["!!", `!${DEFAULT_SEPARATOR}`],
+  ])("preserves separator in %s", (marks, expected) => {
+    const input = marks[0] + DEFAULT_SEPARATOR + marks[1]
+    expect(punctuationLigatures(input, { separator: DEFAULT_SEPARATOR })).toBe(expected)
   })
 
   it("handles multiple ligatures in same text", () => {

@@ -99,11 +99,8 @@ describe("transform", () => {
 
     it("applies ligatures when enabled", () => {
       const input = 'What?? Really?! No way!? Wow!!'
-      const result = transform(input, { ligatures: true })
-      expect(result).toContain(UNICODE_SYMBOLS.DOUBLE_QUESTION)
-      expect(result).toContain(UNICODE_SYMBOLS.QUESTION_EXCLAMATION)
-      expect(result).toContain(UNICODE_SYMBOLS.EXCLAMATION_QUESTION)
-      expect(result).not.toContain("!!")  // squashed to single !
+      const expected = `What${UNICODE_SYMBOLS.DOUBLE_QUESTION} Really${UNICODE_SYMBOLS.QUESTION_EXCLAMATION} No way${UNICODE_SYMBOLS.EXCLAMATION_QUESTION} Wow!`
+      expect(transform(input, { ligatures: true })).toBe(expected)
     })
   })
 

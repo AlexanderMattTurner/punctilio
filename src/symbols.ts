@@ -427,21 +427,6 @@ export function collapseSpaces(text: string): string {
  *
  * Note: These ligatures have poor font support, so this function is
  * disabled by default.
- *
- * @example
- * ```ts
- * punctuationLigatures("What???")
- * // → "What⁇"
- *
- * punctuationLigatures("Really?!!")
- * // → "Really⁈"
- *
- * punctuationLigatures("No way!??")
- * // → "No way⁉"
- *
- * punctuationLigatures("Wow!!!")
- * // → "Wow!"
- * ```
  */
 export function punctuationLigatures(text: string, options: SymbolOptions = {}): string {
   const chr = options.separator
