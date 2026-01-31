@@ -33,6 +33,8 @@ jobs:
 
       - name: Setup
         uses: ./.github/actions/setup
+        with:
+          registry-url: https://registry.npmjs.org
 
       - name: Auto Version Bump
         run: bash scripts/version-bump.sh
@@ -42,7 +44,6 @@ jobs:
       - name: Publish to npm
         run: |
           git pull origin main
-          npm install -g npm@latest
-          npm publish --access public
+          npm publish --provenance --access public
         env:
-          NODE_AUTH_TOKEN: ""
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
