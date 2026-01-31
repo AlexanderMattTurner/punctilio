@@ -5,22 +5,21 @@ on:
     branches: [main]
 
 jobs:
-  version-bump:
+  version-and-publish:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    outputs:
-      version_changed: ${{ steps.version-bump.outputs.version_changed }}
+      id-token: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup
+        uses: ./.github/actions/setup
         with:
-          node-version: '20'
+          registry-url: "https://registry.npmjs.org"
 
       - name: Auto Version Bump
         id: version-bump
@@ -28,24 +27,8 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
 
-  publish:
-    needs: version-bump
-    if: ${{ needs.version-bump.outputs.version_changed == 'true' }}
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          ref: main
-          fetch-depth: 1
-
-      - name: Setup
-        uses: ./.github/actions/setup
-        with:
-          registry-url: "https://registry.npmjs.org"
-
       - name: Publish to npm
-        run: pnpm publish --access public --provenance
+        if: ${{ steps.version-bump.outputs.version_changed == 'true' }}
+        run: |
+          git pull origin main
+          pnpm publish --access public --provenance
