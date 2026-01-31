@@ -8,7 +8,6 @@ LAST_COMMIT=$(git log -1 --pretty=%B)
 # Check if the most recent commit is already a version bump
 if [[ "$LAST_COMMIT" == chore:\ bump\ version* ]]; then
   echo "Most recent commit is already a version bump. Skipping."
-  echo "version_changed=false" >> "$GITHUB_OUTPUT"
   exit 0
 fi
 
@@ -108,5 +107,4 @@ git add package.json
 git commit -m "chore: bump version to $NEW_VERSION"
 git push
 
-echo "version_changed=true" >> "$GITHUB_OUTPUT"
 echo "Version bump complete!"

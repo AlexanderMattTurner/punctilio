@@ -22,13 +22,11 @@ jobs:
           registry-url: "https://registry.npmjs.org"
 
       - name: Auto Version Bump
-        id: version-bump
         run: bash scripts/version-bump.sh
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
 
       - name: Publish to npm
-        if: ${{ steps.version-bump.outputs.version_changed == 'true' }}
         run: |
           git pull origin main
           pnpm publish --access public --provenance
