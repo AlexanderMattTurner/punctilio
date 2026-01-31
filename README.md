@@ -23,15 +23,13 @@ As far as I can tell, `punctilio` is the most reliable and feature-complete. I b
 
 [^wrote]: While Claude is the number one contributor to this repository, that’s just because Claude has helped me port my existing code and add minor features. The core regular expressions (e.g. dashes, quotes, multiplication signs) are human-written.
 
-I tested `punctilio` 0.4 against [`smartypants`](https://www.npmjs.com/package/smartypants) 0.2.2, [`tipograph`](https://www.npmjs.com/package/tipograph) 0.7.4, and [`smartquotes`](https://www.npmjs.com/package/smartquotes) 2.3.2.[^python] These other packages have spotty feature coverage and inconsistent impact on text. For example, `smartypants` mishandles quotes after em dashes—a common pattern in dialogue:
+I tested `punctilio` 0.4 against [`smartypants`](https://www.npmjs.com/package/smartypants) 0.2.2, [`tipograph`](https://www.npmjs.com/package/tipograph) 0.7.4, and [`smartquotes`](https://www.npmjs.com/package/smartquotes) 2.3.2.[^python] These other packages have spotty feature coverage and inconsistent impact on text. For example, `smartypants` mishandles quotes after em dashes:
 
-[^python]: The Python libraries I found were closely related to the JavaScript packages, so I don't include Python tests.
+[^python]: The Python libraries I found were closely related to the JavaScript packages, so I don’t include Python tests.
 
 | Input | `smartypants` | `punctilio` |
 |:-----:|:-----------------:|:-------:|
-| She said—"Hi!" | She said—"Hi!" ✗ | She said—"Hi!" ✓ |
-| wait—"what?" | wait—"what?" ✗ | wait—"what?" ✓ |
-| He paused—"Why?" | He paused—"Why?" ✗ | He paused—"Why?" ✓ |
+| She said—"Hi!" | She said—”Hi!” ✗ | She said—“Hi!” ✓ |
 
 By running [`benchmark.mjs`](./benchmark.mjs), I basically graded all libraries on a subset of [my unit tests](./src/tests/), selected to represent a wide range of features.
 
@@ -66,7 +64,7 @@ As far as I can tell, `punctilio`’s only missing feature is non-English quote 
 
 ## Works with HTML DOMs via separation boundaries
 
-Other typography libraries either transform plain strings or operate on AST nodes individually (`retext-smartypants` [can't map changes back to HTML](https://github.com/rehypejs/rehype-retext)). But real HTML has text spanning multiple elements—if you concatenate text from `<em>Wait</em>...`, transform it, then try to split it back, you've lost track of where `</em>` belonged. 
+Other typography libraries either transform plain strings or operate on AST nodes individually (`retext-smartypants` [can’t map changes back to HTML](https://github.com/rehypejs/rehype-retext)). But real HTML has text spanning multiple elements—if you concatenate text from `<em>Wait</em>...`, transform it, then try to split it back, you've lost track of where `</em>` belonged. 
 
 `punctilio` introduces _separation boundaries_. First, insert a “separator” character (default: `U+E000`) at each element boundary before transforming (like at the start and end of an `<em>`). Every regex allows this character mid-pattern without breaking matches. For example, `.[SEP]..` still becomes `…[SEP]`. `punctilio` validates the output by ensuring the separator count remains the same. 
 
