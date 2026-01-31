@@ -69,3 +69,43 @@ export const UNICODE_SYMBOLS = {
  */
 export const DEFAULT_SEPARATOR = "\uE000"
 export const ESCAPED_DEFAULT_SEPARATOR = DEFAULT_SEPARATOR.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+
+/**
+ * Creates a marker-aware word boundary pattern for the START of a match.
+ *
+ * Standard `\b` can create false boundaries when separator markers appear between
+ * word characters (e.g., `x\uE000ReLU` has a false boundary before `R`).
+ *
+ * This pattern uses a negative lookbehind to reject matches that are preceded
+ * by word characters followed by any number of markers.
+ *
+ * @param escapedSeparator - Regex-escaped separator string
+ * @returns Pattern string: `(?<!\w${sep}*)\b`
+ *
+ * @example
+ * const wb = wordBoundaryStart(ESCAPED_DEFAULT_SEPARATOR)
+ * // With text "x\uE000ReLU": \b would match before R, but wb won't
+ */
+export function wordBoundaryStart(escapedSeparator: string): string {
+  return `(?<!\\w${escapedSeparator}*)\\b`
+}
+
+/**
+ * Creates a marker-aware word boundary pattern for the END of a match.
+ *
+ * Standard `\b` can create false boundaries when separator markers appear between
+ * word characters (e.g., `1st\uE000ly` has a false boundary after `t`).
+ *
+ * This pattern uses a negative lookahead to reject matches that are followed
+ * by markers then word characters.
+ *
+ * @param escapedSeparator - Regex-escaped separator string
+ * @returns Pattern string: `\b(?!${sep}*\w)`
+ *
+ * @example
+ * const wbe = wordBoundaryEnd(ESCAPED_DEFAULT_SEPARATOR)
+ * // With text "1st\uE000ly": \b would match after t, but wbe won't
+ */
+export function wordBoundaryEnd(escapedSeparator: string): string {
+  return `\\b(?!${escapedSeparator}*\\w)`
+}

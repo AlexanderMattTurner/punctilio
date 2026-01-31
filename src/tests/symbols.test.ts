@@ -73,6 +73,21 @@ describe("multiplication", () => {
     const sep = "\uE000"
     expect(multiplication(`5${sep}x${sep}5`, { separator: sep })).toBe(`5${sep}${UNICODE_SYMBOLS.MULTIPLICATION}${sep}5`)
   })
+
+  describe("marker robustness", () => {
+    // Tests that separators don't create false word boundaries
+    // e.g., "5x\uE000tra" should NOT match because the actual text is "5xtra"
+    const sep = DEFAULT_SEPARATOR
+
+    it.each([
+      // [description, input, expected]
+      ["false boundary before word char", `5x${sep}tra`, `5x${sep}tra`], // "5xtra" - should NOT convert
+      ["valid boundary before space", `5x${sep} done`, `5${UNICODE_SYMBOLS.MULTIPLICATION}${sep} done`], // should convert
+      ["valid boundary before punctuation", `5x${sep}.`, `5${UNICODE_SYMBOLS.MULTIPLICATION}${sep}.`], // should convert
+    ])("handles %s", (_desc, input, expected) => {
+      expect(multiplication(input, { separator: sep })).toBe(expected)
+    })
+  })
 })
 
 describe("mathSymbols", () => {
@@ -149,6 +164,20 @@ describe("degrees", () => {
     expect(degrees(`20${sep}C`, { separator: sep })).toBe(
       `20${sep} ${UNICODE_SYMBOLS.DEGREE}C`
     )
+  })
+
+  describe("marker robustness", () => {
+    // Tests that separators don't create false word boundaries
+    const sep = DEFAULT_SEPARATOR
+
+    it.each([
+      // [description, input, expected]
+      ["false boundary before word char", `20C${sep}elsius`, `20C${sep}elsius`], // "20Celsius" - should NOT convert
+      ["valid boundary before space", `20C${sep} today`, `20 ${UNICODE_SYMBOLS.DEGREE}C${sep} today`], // should convert
+      ["valid boundary before punctuation", `68F${sep}.`, `68 ${UNICODE_SYMBOLS.DEGREE}F${sep}.`], // should convert
+    ])("handles %s", (_desc, input, expected) => {
+      expect(degrees(input, { separator: sep })).toBe(expected)
+    })
   })
 })
 
@@ -296,6 +325,22 @@ describe("superscript", () => {
     expect(superscript(`30${sep}th`, { separator: sep })).toBe(
       `30${sep}${UNICODE_SYMBOLS.SUPERSCRIPT_TH}`
     )
+  })
+
+  describe("marker robustness", () => {
+    // Tests that separators don't create false word boundaries
+    const sep = DEFAULT_SEPARATOR
+
+    it.each([
+      // [description, input, expected]
+      ["false boundary (1stly)", `1st${sep}ly`, `1st${sep}ly`], // "1stly" - should NOT convert
+      ["false boundary (2ndary)", `2nd${sep}ary`, `2nd${sep}ary`], // "2ndary" - should NOT convert
+      ["false boundary (3rdly)", `3rd${sep}ly`, `3rd${sep}ly`], // "3rdly" - should NOT convert
+      ["valid boundary before space", `1st${sep} place`, `1${UNICODE_SYMBOLS.SUPERSCRIPT_ST}${sep} place`], // should convert
+      ["valid boundary before punctuation", `2nd${sep}.`, `2${UNICODE_SYMBOLS.SUPERSCRIPT_ND}${sep}.`], // should convert
+    ])("handles %s", (_desc, input, expected) => {
+      expect(superscript(input, { separator: sep })).toBe(expected)
+    })
   })
 })
 

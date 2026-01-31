@@ -7,7 +7,7 @@
  * @module symbols
  */
 
-import { UNICODE_SYMBOLS, ESCAPED_DEFAULT_SEPARATOR } from "./constants.js"
+import { UNICODE_SYMBOLS, ESCAPED_DEFAULT_SEPARATOR, wordBoundaryEnd } from "./constants.js"
 
 export interface SymbolOptions {
   /**
@@ -104,7 +104,9 @@ export function multiplication(text: string, options: SymbolOptions = {}): strin
   text = text.replace(tightPattern, `$<leftNum>${MULTIPLICATION}$<rightNum>`)
 
   // Trailing multiplier: 5x (followed by word boundary - space, punctuation, etc.)
-  const trailingPattern = new RegExp(`(?<num>\\d${chr}?)[xX*]\\b`, "g")
+  // Uses marker-aware boundary to avoid false matches like "5x\uE000tra"
+  const wbe = wordBoundaryEnd(chr)
+  const trailingPattern = new RegExp(`(?<num>\\d${chr}?)[xX*]${wbe}`, "g")
   text = text.replace(trailingPattern, `$<num>${MULTIPLICATION}`)
 
   return text
@@ -190,8 +192,10 @@ export function degrees(text: string, options: SymbolOptions = {}): string {
 
   // Temperature with optional space before C or F
   // Handles separator between digit and unit
+  // Uses marker-aware boundary to avoid false matches like "20C\uE000elsius"
+  const wbe = wordBoundaryEnd(chr)
   return text.replace(
-    new RegExp(`(?<num>\\d${chr}?) ?(?<unit>[CF])\\b`, "gi"),
+    new RegExp(`(?<num>\\d${chr}?) ?(?<unit>[CF])${wbe}`, "gi"),
     (_, num, unit) => `${num} ${DEGREE}${unit.toUpperCase()}`
   )
 }
@@ -338,8 +342,10 @@ export function superscript(text: string, options: SymbolOptions = {}): string {
 
   // Match number + optional separator + ordinal suffix at word boundary
   // Use case-insensitive matching for the suffix
+  // Uses marker-aware boundary to avoid false matches like "1st\uE000ly"
+  const wbe = wordBoundaryEnd(chr)
   const pattern = new RegExp(
-    `(?<num>\\d${chr}?)(?<suffix>st|nd|rd|th)\\b`,
+    `(?<num>\\d${chr}?)(?<suffix>st|nd|rd|th)${wbe}`,
     "gi"
   )
 
