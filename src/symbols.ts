@@ -90,15 +90,6 @@ export function ellipsis(text: string, options: SymbolOptions = {}): string {
  * - Dimensions: "5x5" → "5×5"
  * - Trailing multiplier: "5x" → "5×" (when followed by word boundary)
  * - Asterisk multiplication: "5*3" → "5×3" (when between numbers)
- *
- * @example
- * ```ts
- * multiplication("The room is 10x12 feet")
- * // → "The room is 10×12 feet"
- *
- * multiplication("2x speed")
- * // → "2× speed"
- * ```
  */
 export function multiplication(text: string, options: SymbolOptions = {}): string {
   const chr = options.separator
@@ -122,15 +113,6 @@ export function multiplication(text: string, options: SymbolOptions = {}): strin
 
 /**
  * Converts ASCII mathematical symbols to proper Unicode equivalents.
- *
- * @example
- * ```ts
- * mathSymbols("x != y and a <= b")
- * // → "x ≠ y and a ≤ b"
- *
- * mathSymbols("The answer is +- 5%")
- * // → "The answer is ± 5%"
- * ```
  */
 export function mathSymbols(text: string): string {
   return text
@@ -164,15 +146,6 @@ export function legalSymbols(text: string): string {
  *
  * Note: Only converts when surrounded by spaces or at word boundaries
  * to avoid false matches in code or URLs.
- *
- * @example
- * ```ts
- * arrows("A -> B -> C")
- * // → "A → B → C"
- *
- * arrows("left <-> right")
- * // → "left ↔ right"
- * ```
  */
 export function arrows(text: string, options: SymbolOptions = {}): string {
   const chr = options.separator
@@ -210,15 +183,6 @@ export function arrows(text: string, options: SymbolOptions = {}): string {
  *
  * Only matches when followed by C or F (case insensitive) to avoid
  * false positives.
- *
- * @example
- * ```ts
- * degrees("The temperature is 20 C")
- * // → "The temperature is 20 °C"
- *
- * degrees("Water boils at 212F")
- * // → "Water boils at 212 °F"
- * ```
  */
 export function degrees(text: string, options: SymbolOptions = {}): string {
   const chr = options.separator
@@ -242,15 +206,6 @@ export function degrees(text: string, options: SymbolOptions = {}): string {
  *
  * This should be called BEFORE smart quote transformations to prevent
  * quotes in measurements from being curled.
- *
- * @example
- * ```ts
- * primeMarks("He's 5'10\" tall")
- * // → "He's 5′10″ tall"
- *
- * primeMarks("Location: 45° 30' 15\"")
- * // → "Location: 45° 30′ 15″"
- * ```
  */
 export function primeMarks(text: string, options: SymbolOptions = {}): string {
   const chr = options.separator
