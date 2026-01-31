@@ -1,13 +1,16 @@
-name: Publish to npm
+name: Publish to npm (Manual)
 
 on:
-  workflow_run:
-    workflows: ["Auto Version Bump"]
-    types: [completed]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (do not actually publish)'
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   publish:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -21,8 +24,10 @@ jobs:
         with:
           registry-url: "https://registry.npmjs.org"
 
-      - name: Build
-        run: pnpm build
-
       - name: Publish to npm
-        run: pnpm publish --access public --provenance
+        run: |
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            pnpm publish --access public --provenance --dry-run
+          else
+            pnpm publish --access public --provenance
+          fi
