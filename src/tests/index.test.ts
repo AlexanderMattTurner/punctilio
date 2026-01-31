@@ -81,7 +81,7 @@ describe("transform", () => {
     it("does not apply superscript by default", () => {
       const input = 'The 1st place winner'
       const result = transform(input)
-      expect(result).toContain("1st")
+      expect(result).toBe(input)
     })
 
     it("applies superscript when enabled", () => {
@@ -93,8 +93,7 @@ describe("transform", () => {
     it("does not apply ligatures by default", () => {
       const input = 'What?? Really?!'
       const result = transform(input)
-      expect(result).toContain("??")
-      expect(result).toContain("?!")
+      expect(result).toBe(input)
     })
 
     it("applies ligatures when enabled", () => {
