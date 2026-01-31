@@ -67,18 +67,18 @@ As far as I can tell, `punctilio`’s only missing feature is non-English quote 
 
 ## Scalable DOM transformation via separation boundaries
 
-Real-world HTML has text spanning multiple elements. If you transform each element separately, cross-element patterns break—an ellipsis split across `<em>.</em>..` won't be recognized.
+Other typography libraries only transform plain strings. But real HTML has text spanning multiple elements—if you concatenate text from `<em>Wait</em>...`, transform it, then try to split it back, you've lost track of where `</em>` belonged.
 
-`punctilio` solves this with **separation boundaries**: insert a private-use Unicode character (`DEFAULT_SEPARATOR`, U+E000) where elements meet. All transforms treat this character as transparent and preserve it in output.
+`punctilio` solves this with **separation boundaries**, a novel approach: insert `DEFAULT_SEPARATOR` (U+E000) at each element boundary before transforming. Every regex is written to allow this character mid-pattern without breaking matches—`.[SEP]..` still becomes `.[SEP]…`. The separator count is validated to ensure none are lost.
 
 ```typescript
 import { transform, DEFAULT_SEPARATOR } from 'punctilio'
 
 const SEP = DEFAULT_SEPARATOR
-transform(`Hello${SEP}...`)  // → "Hello" + SEP + "…"
+transform(`Wait${SEP}...`)  // → "Wait" + SEP + "…"
 ```
 
-Your DOM code inserts separators, calls `transform()`, then uses separator positions to map the result back to elements. Use the `separator` option if U+E000 conflicts with your content.
+Your DOM walker tracks which text node each segment came from, inserts separators between them, transforms the combined string, then splits on separators to update each node. Use the `separator` option if U+E000 conflicts with your content.
 
 ## Options
 
