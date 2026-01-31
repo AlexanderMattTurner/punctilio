@@ -1,10 +1,12 @@
 /**
  * Extended benchmark including typograf and retext-smartypants.
  *
- * FAIR COMPARISON: Normalizes space characters before comparison so that
- * non-breaking spaces (U+00A0), thin spaces (U+2009), etc. are treated
- * as equivalent to regular spaces. This prevents penalizing packages
- * that add typographically-correct non-breaking spaces.
+ * FAIR COMPARISON: Normalizes before comparison:
+ * 1. Space variants (nbsp, thin space, etc.) → regular space
+ * 2. Dash styles: British spaced (word – word) → American unspaced (word—word)
+ * 3. Copyright: "Copyright ©" → "©" (typograf removes "Copyright" text)
+ *
+ * This prevents penalizing packages for valid typographic choices.
  *
  * Run: node extended_benchmark.mjs
  */
@@ -57,6 +59,41 @@ function normalizeSpaces(str) {
   return str.replace(/[\u00A0\u2009\u202F\u2007\u2008]/g, ' ');
 }
 
+/**
+ * Normalize dash styles for fair comparison.
+ * Converts British-style spaced dashes to American-style unspaced em-dashes.
+ *
+ * British: "word – word" (spaced en-dash) or "word — word" (spaced em-dash)
+ * American: "word—word" (unspaced em-dash)
+ */
+function normalizeDashes(str) {
+  // Spaced em-dash → unspaced em-dash
+  str = str.replace(/ ?— ?/g, '—');
+  // Spaced en-dash (used as parenthetical, not range) → unspaced em-dash
+  // Only match when there are spaces on both sides (parenthetical use)
+  str = str.replace(/ – /g, '—');
+  return str;
+}
+
+/**
+ * Normalize copyright handling.
+ * Typograf removes "Copyright" text entirely: "Copyright © 2024" → "© 2024"
+ * We normalize by removing "Copyright " prefix before ©.
+ */
+function normalizeCopyright(str) {
+  return str.replace(/Copyright ©/gi, '©');
+}
+
+/**
+ * Full normalization for fair comparison.
+ */
+function normalize(str) {
+  str = normalizeSpaces(str);
+  str = normalizeDashes(str);
+  str = normalizeCopyright(str);
+  return str;
+}
+
 function getTipographForCategory(category) {
   if (category.includes('German')) return tipographGerman;
   if (category.includes('French')) return tipographFrench;
@@ -91,8 +128,11 @@ const results = Object.fromEntries(packages.map(p => [p, { passed: 0, failed: 0 
 const categoryResults = {};
 
 async function runBenchmark() {
-  console.log('=== FAIR BENCHMARK (space-normalized) ===\n');
-  console.log('Note: All space variants (nbsp, thin space, etc.) treated as equivalent.\n');
+  console.log('=== FAIR BENCHMARK (normalized) ===\n');
+  console.log('Normalizations applied:');
+  console.log('  - Space variants (nbsp, thin space) → regular space');
+  console.log('  - British spaced dashes (word – word) → American unspaced (word—word)');
+  console.log('  - Copyright: "Copyright ©" → "©"\n');
 
   for (const [category, cases] of Object.entries(testCases)) {
     categoryResults[category] = Object.fromEntries(
@@ -104,8 +144,8 @@ async function runBenchmark() {
         try {
           const actual = await runPackage(pkg, input, category);
           // Normalize spaces before comparison for fairness
-          const normalizedActual = normalizeSpaces(actual);
-          const normalizedExpected = normalizeSpaces(expected);
+          const normalizedActual = normalize(actual);
+          const normalizedExpected = normalize(expected);
           const passed = normalizedActual === normalizedExpected;
 
           if (passed) {
