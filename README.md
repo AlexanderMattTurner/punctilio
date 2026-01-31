@@ -32,7 +32,7 @@ I tested `punctilio` 1.0.1 against [`smartypants`](https://www.npmjs.com/package
 | She said—"Hi!" | She said—”Hi!” (✗) | She said—“Hi!” (✓) |
 | 5x5 |	5x5 (✗) |	5×5 (✓) |
 
-My [`benchmark.mjs`](./benchmark.mjs) measures how well libraries handle a [wide range of scenarios](./benchmark_cases.json). The benchmark normalizes stylistic differences (e.g. nbsp vs regular space, British vs American dash spacing) for fair comparison.
+My [`benchmark.mjs`](./benchmark.mjs) measures how well libraries handle a [wide range of scenarios](./benchmark_cases.json). The benchmark normalizes stylistic differences (e.g. non-breaking vs regular space, British vs American dash spacing) for fair comparison.
 
 | Package | Score |
 |--------:|:------|
