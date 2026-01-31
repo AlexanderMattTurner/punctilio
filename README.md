@@ -62,20 +62,21 @@ By running [`benchmark.mjs`](./benchmark.mjs), I basically graded all libraries 
 
 As far as I can tell, `punctilio`’s only missing feature is non-English quote support. I don’t have a personal reason to use non-English localization, but feel free to make a pull request!
 
-## Scalable DOM transformation via separation boundaries
+## Works with HTML DOMs via separation boundaries
 
-Other typography libraries either transform plain strings or operate on AST nodes individually (`retext-smartypants` [can't map changes back to HTML](https://github.com/rehypejs/rehype-retext)). But real HTML has text spanning multiple elements—if you concatenate text from `<em>Wait</em>...`, transform it, then try to split it back, you've lost track of where `</em>` belonged.
+Other typography libraries either transform plain strings or operate on AST nodes individually (`retext-smartypants` [can't map changes back to HTML](https://github.com/rehypejs/rehype-retext)). But real HTML has text spanning multiple elements—if you concatenate text from `<em>Wait</em>...`, transform it, then try to split it back, you've lost track of where `</em>` belonged. 
 
 `punctilio` introduces _separation boundaries_. First, insert a “separator” character (default: `U+E000`) at each element boundary before transforming (like at the start and end of an `<em>`). Every regex allows this character mid-pattern without breaking matches. For example, `.[SEP]..` still becomes `…[SEP]`. `punctilio` validates the output by ensuring the separator count remains the same. 
 
 ```typescript
 import { transform, DEFAULT_SEPARATOR } from 'punctilio'
 
-const SEP = DEFAULT_SEPARATOR
-transform(`Wait${SEP}...`)  // → "Wait" + SEP + "…"
+transform(`"Wait${DEFAULT_SEPARATOR}"`)
+// → `“Wait”${DEFAULT_SEPARATOR}`
+// The separator doesn't block the information that this should be an end-quote!
 ```
 
-Your DOM walker tracks which text node each segment came from, inserts separators between them, transforms the combined string, then splits on separators to update each node. Use the `separator` option if `U+E000` conflicts with your content.
+Your DOM walker tracks which text node each segment came from, inserts separators between them, transforms the combined string, then splits on separators to update each node. Use the `separator` option if `U+E000` conflicts with your content. For an example of how to integrate this functionality, see [my website’s code](https://github.com/alexander-turner/TurnTrout.com/blob/main/quartz/plugins/transformers/formatting_improvement_html.ts). 
 
 ## Options
 
