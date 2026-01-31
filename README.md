@@ -67,33 +67,18 @@ As far as I can tell, `punctilio`’s only missing feature is non-English quote 
 
 ## Scalable DOM transformation via separation boundaries
 
-Most typography libraries can only transform plain strings. But real-world HTML has text spanning multiple elements:
+Real-world HTML has text spanning multiple elements. If you transform each element separately, cross-element patterns break—an ellipsis split across `<em>.</em>..` won't be recognized.
 
-```html
-<p><em>Hello</em>, world...</p>
-```
-
-If you extract just the text (`Hello, world...`) and transform it, you lose element boundaries. If you transform each element separately (`Hello` and `, world...`), cross-element patterns break.
-
-`punctilio` solves this with **separation boundaries**: a private-use Unicode character (U+E000) that marks where elements meet. All regex patterns treat this character as transparent—it can appear anywhere without breaking matches, and it's always preserved in output.
+`punctilio` solves this with **separation boundaries**: insert a private-use Unicode character (`DEFAULT_SEPARATOR`, U+E000) where elements meet. All transforms treat this character as transparent and preserve it in output.
 
 ```typescript
 import { transform, DEFAULT_SEPARATOR } from 'punctilio'
 
-// Your DOM walker inserts separators at element boundaries
-const text = `"Hello${DEFAULT_SEPARATOR}, world..."`
-const result = transform(text)
-// → "Hello\uE000, world…"  (separator preserved between curly quotes)
+const SEP = DEFAULT_SEPARATOR
+transform(`Hello${SEP}...`)  // → "Hello" + SEP + "…"
 ```
 
-The workflow:
-1. Walk your DOM tree, concatenating text with `DEFAULT_SEPARATOR` at element boundaries
-2. Call `transform()` on the combined string
-3. Split on separators to reconstruct elements with transformed text
-
-This lets `punctilio` handle patterns that span elements—like quotes wrapping styled text, or ellipses split across nodes—while your code maintains full control over DOM structure.
-
-A custom separator can be specified via the `separator` option if U+E000 conflicts with your content.
+Your DOM code inserts separators, calls `transform()`, then uses separator positions to map the result back to elements. Use the `separator` option if U+E000 conflicts with your content.
 
 ## Options
 
