@@ -1,26 +1,33 @@
-name: Auto Version Bump
+name: Auto Version Bump and Publish
 
 on:
   push:
     branches: [main]
 
 jobs:
-  version-bump:
+  version-and-publish:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      id-token: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
+      - name: Setup
+        uses: ./.github/actions/setup
 
       - name: Auto Version Bump
         run: bash scripts/version-bump.sh
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+      - name: Publish to npm
+        run: |
+          git pull origin main
+          npm install -g npm@latest
+          pnpm publish --access public --provenance
+        env:
+          NODE_AUTH_TOKEN: ""
