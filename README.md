@@ -23,15 +23,15 @@ As far as I can tell, `punctilio` is the most reliable and feature-complete. I b
 
 [^wrote]: While Claude is the number one contributor to this repository, that’s just because Claude has helped me port my existing code and add minor features. The core regular expressions (e.g. dashes, quotes, multiplication signs) are human-written.
 
-I tested `punctilio` 0.4 against [`smartypants`](https://www.npmjs.com/package/smartypants) 0.2.2, [`tipograph`](https://www.npmjs.com/package/tipograph) 0.7.4, and [`smartquotes`](https://www.npmjs.com/package/smartquotes) 2.3.2.[^python] These other packages have spotty feature coverage and inconsistent impact on text. For example, `smartypants` ignores leading apostrophes:
+I tested `punctilio` 0.4 against [`smartypants`](https://www.npmjs.com/package/smartypants) 0.2.2, [`tipograph`](https://www.npmjs.com/package/tipograph) 0.7.4, and [`smartquotes`](https://www.npmjs.com/package/smartquotes) 2.3.2.[^python] These other packages have spotty feature coverage and inconsistent impact on text. For example, `smartypants` mishandles quotes after em dashes—a common pattern in dialogue:
 
-[^python]: The Python libraries I found were closely related to the JavaScript packages, so I don’t include Python tests. 
+[^python]: The Python libraries I found were closely related to the JavaScript packages, so I don't include Python tests.
 
 | Input | `smartypants` | `punctilio` |
 |:-----:|:-----------------:|:-------:|
-| 'Twas the night | ‘Twas the night ✗ | ’Twas the night ✓ |
-| the '99 season | the ‘99 season ✗ | the ’99 season ✓ |
-| rock 'n' roll | rock ‘n’ roll ✗ | rock ’n’ roll ✓ |
+| She said—"Hi!" | She said—"Hi!" ✗ | She said—"Hi!" ✓ |
+| wait—"what?" | wait—"what?" ✗ | wait—"what?" ✓ |
+| He paused—"Why?" | He paused—"Why?" ✗ | He paused—"Why?" ✓ |
 
 By running [`benchmark.mjs`](./benchmark.mjs), I basically graded all libraries on a subset of [my unit tests](./src/tests/), selected to represent a wide range of features.
 
