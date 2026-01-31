@@ -31,6 +31,7 @@ export {
   primeMarks,
   collapseSpaces,
   superscript,
+  punctuationLigatures,
   symbolTransform,
   type SymbolOptions,
 } from "./symbols.js"
@@ -105,11 +106,18 @@ export interface TransformOptions {
    * Default: false
    */
   superscript?: boolean
+
+  /**
+   * Whether to convert repeated punctuation marks to Unicode ligature characters.
+   * Squashes multiple marks: "???" → "⁇", "?!" → "⁈", "!?" → "⁉", "!!!" → "!"
+   * Default: false (poor font support)
+   */
+  ligatures?: boolean
 }
 
 import { niceQuotes } from "./quotes.js"
 import { hyphenReplace } from "./dashes.js"
-import { symbolTransform, fractions as fractionsTransform, degrees as degreesTransform, superscript as superscriptTransform, primeMarks, collapseSpaces as collapseSpacesTransform } from "./symbols.js"
+import { symbolTransform, fractions as fractionsTransform, degrees as degreesTransform, superscript as superscriptTransform, primeMarks, collapseSpaces as collapseSpacesTransform, punctuationLigatures as ligaturesTransform } from "./symbols.js"
 import { assertSeparatorCountPreserved } from "./utils.js"
 import { DEFAULT_SEPARATOR } from "./constants.js"
 
@@ -125,10 +133,11 @@ export { DEFAULT_SEPARATOR } from "./constants.js"
  * 2. primeMarks (feet/inches, arcminutes/arcseconds)
  * 3. niceQuotes (smart quotes)
  * 4. symbolTransform (ellipses, multiplication, math symbols, legal symbols, arrows)
- * 5. collapseSpaces (collapses multiple spaces into one)
- * 6. fractions (disabled by default)
- * 7. degrees (disabled by default)
- * 8. superscript (disabled by default)
+ * 5. fractions (disabled by default)
+ * 6. degrees (disabled by default)
+ * 7. superscript (disabled by default)
+ * 8. ligatures (disabled by default)
+ * 9. collapseSpaces (collapses multiple spaces into one)
  *
  * @param text - The text to transform
  * @param options - Configuration options
@@ -151,7 +160,7 @@ export { DEFAULT_SEPARATOR } from "./constants.js"
 export function transform(text: string, options: TransformOptions = {}): string {
   const separator = options.separator ?? DEFAULT_SEPARATOR
   const original = text
-  const { symbols = true, fractions = false, degrees = false, superscript = false, collapseSpaces = true, ...separatorOpts } = options
+  const { symbols = true, fractions = false, degrees = false, superscript = false, ligatures = false, collapseSpaces = true, ...separatorOpts } = options
 
   text = hyphenReplace(text, separatorOpts)
   text = primeMarks(text, separatorOpts)
@@ -171,6 +180,10 @@ export function transform(text: string, options: TransformOptions = {}): string 
 
   if (superscript) {
     text = superscriptTransform(text, separatorOpts)
+  }
+
+  if (ligatures) {
+    text = ligaturesTransform(text, separatorOpts)
   }
 
   if (collapseSpaces) {

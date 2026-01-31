@@ -30,64 +30,31 @@ describe("transform", () => {
   it("preserves separator character", () => {
     const sep = DEFAULT_SEPARATOR
     const input = `"Hello${sep}" - test`
-    const result = transform(input, { separator: sep })
-    expect(result).toContain(sep)
+    expect(transform(input, { separator: sep })).toBe(`${LEFT_DOUBLE_QUOTE}Hello${sep}${RIGHT_DOUBLE_QUOTE}${EM_DASH}test`)
   })
 
   describe("symbol transforms", () => {
     it("applies symbol transforms by default", () => {
-      const input = 'Wait... 5x5 != 25 (c) 2024'
-      const result = transform(input)
-      expect(result).toContain(ELLIPSIS)
-      expect(result).toContain(MULTIPLICATION)
-      expect(result).toContain(NOT_EQUAL)
-      expect(result).toContain(COPYRIGHT)
+      expect(transform('Wait... 5x5 != 25 (c) 2024')).toBe(`Wait${ELLIPSIS} 5${MULTIPLICATION}5 ${NOT_EQUAL} 25 ${COPYRIGHT} 2024`)
     })
 
     it("can disable symbol transforms", () => {
-      const input = 'Wait... 5x5 != 25'
-      const result = transform(input, { symbols: false })
-      expect(result).toContain("...")
-      expect(result).toContain("5x5")
-      expect(result).toContain("!=")
+      expect(transform('Wait... 5x5 != 25', { symbols: false })).toBe('Wait... 5x5 != 25')
     })
   })
 
   describe("optional transforms", () => {
-    it("does not apply fractions by default", () => {
-      const input = 'Add 1/2 cup'
-      const result = transform(input)
-      expect(result).toContain("1/2")
-    })
-
-    it("applies fractions when enabled", () => {
-      const input = 'Add 1/2 cup'
-      const result = transform(input, { fractions: true })
-      expect(result).toContain(UNICODE_SYMBOLS.FRACTION_1_2)
-    })
-
-    it("does not apply degrees by default", () => {
-      const input = 'Temperature: 20 C'
-      const result = transform(input)
-      expect(result).not.toContain(UNICODE_SYMBOLS.DEGREE)
-    })
-
-    it("applies degrees when enabled", () => {
-      const input = 'Temperature: 20 C'
-      const result = transform(input, { degrees: true })
-      expect(result).toContain(`${UNICODE_SYMBOLS.DEGREE}C`)
-    })
-
-    it("does not apply superscript by default", () => {
-      const input = 'The 1st place winner'
-      const result = transform(input)
-      expect(result).toContain("1st")
-    })
-
-    it("applies superscript when enabled", () => {
-      const input = 'The 30th of June'
-      const result = transform(input, { superscript: true })
-      expect(result).toContain(`30${UNICODE_SYMBOLS.SUPERSCRIPT_TH}`)
+    it.each([
+      ["fractions disabled", "1/2", {}, "1/2"],
+      ["fractions enabled", "1/2", { fractions: true }, UNICODE_SYMBOLS.FRACTION_1_2],
+      ["degrees disabled", "20 C", {}, "20 C"],
+      ["degrees enabled", "20 C", { degrees: true }, `20 ${UNICODE_SYMBOLS.DEGREE}C`],
+      ["superscript disabled", "1st", {}, "1st"],
+      ["superscript enabled", "1st", { superscript: true }, `1${UNICODE_SYMBOLS.SUPERSCRIPT_ST}`],
+      ["ligatures disabled", "??", {}, "??"],
+      ["ligatures enabled", "??", { ligatures: true }, UNICODE_SYMBOLS.DOUBLE_QUESTION],
+    ] as const)("%s: %s → %s", (_desc, input, options, expected) => {
+      expect(transform(input, options)).toBe(expected)
     })
   })
 

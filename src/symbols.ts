@@ -51,6 +51,9 @@ const {
   SUPERSCRIPT_ND,
   SUPERSCRIPT_RD,
   SUPERSCRIPT_TH,
+  DOUBLE_QUESTION,
+  QUESTION_EXCLAMATION,
+  EXCLAMATION_QUESTION
 } = UNICODE_SYMBOLS
 
 /**
@@ -86,15 +89,6 @@ export function ellipsis(text: string, options: SymbolOptions = {}): string {
  * - Dimensions: "5x5" → "5×5"
  * - Trailing multiplier: "5x" → "5×" (when followed by word boundary)
  * - Asterisk multiplication: "5*3" → "5×3" (when between numbers)
- *
- * @example
- * ```ts
- * multiplication("The room is 10x12 feet")
- * // → "The room is 10×12 feet"
- *
- * multiplication("2x speed")
- * // → "2× speed"
- * ```
  */
 export function multiplication(text: string, options: SymbolOptions = {}): string {
   const chr = options.separator
@@ -118,15 +112,6 @@ export function multiplication(text: string, options: SymbolOptions = {}): strin
 
 /**
  * Converts ASCII mathematical symbols to proper Unicode equivalents.
- *
- * @example
- * ```ts
- * mathSymbols("x != y and a <= b")
- * // → "x ≠ y and a ≤ b"
- *
- * mathSymbols("The answer is +- 5%")
- * // → "The answer is ± 5%"
- * ```
  */
 export function mathSymbols(text: string): string {
   return text
@@ -160,15 +145,6 @@ export function legalSymbols(text: string): string {
  *
  * Note: Only converts when surrounded by spaces or at word boundaries
  * to avoid false matches in code or URLs.
- *
- * @example
- * ```ts
- * arrows("A -> B -> C")
- * // → "A → B → C"
- *
- * arrows("left <-> right")
- * // → "left ↔ right"
- * ```
  */
 export function arrows(text: string, options: SymbolOptions = {}): string {
   const chr = options.separator
@@ -206,15 +182,6 @@ export function arrows(text: string, options: SymbolOptions = {}): string {
  *
  * Only matches when followed by C or F (case insensitive) to avoid
  * false positives.
- *
- * @example
- * ```ts
- * degrees("The temperature is 20 C")
- * // → "The temperature is 20 °C"
- *
- * degrees("Water boils at 212F")
- * // → "Water boils at 212 °F"
- * ```
  */
 export function degrees(text: string, options: SymbolOptions = {}): string {
   const chr = options.separator
@@ -238,15 +205,6 @@ export function degrees(text: string, options: SymbolOptions = {}): string {
  *
  * This should be called BEFORE smart quote transformations to prevent
  * quotes in measurements from being curled.
- *
- * @example
- * ```ts
- * primeMarks("He's 5'10\" tall")
- * // → "He's 5′10″ tall"
- *
- * primeMarks("Location: 45° 30' 15\"")
- * // → "Location: 45° 30′ 15″"
- * ```
  */
 export function primeMarks(text: string, options: SymbolOptions = {}): string {
   const chr = options.separator
@@ -409,6 +367,54 @@ export function superscript(text: string, options: SymbolOptions = {}): string {
  */
 export function collapseSpaces(text: string): string {
   return text.replace(new RegExp(`(?<first>[ ${NBSP}])[ ${NBSP}]+`, "g"), "$<first>")
+}
+
+/**
+ * Converts repeated punctuation marks to Unicode ligature characters,
+ * squashing multiple marks to a single character.
+ *
+ * Handles:
+ * - "??" or "???" etc → "⁇" (squashed to double question mark ligature)
+ * - "?!" or "?!!" etc → "⁈" (question exclamation mark)
+ * - "!?" or "!??" etc → "⁉" (exclamation question mark)
+ * - "!!" or "!!!" etc → "!" (squashed to single exclamation)
+ *
+ * Note: These ligatures have poor font support, so this function is
+ * disabled by default.
+ */
+export function punctuationLigatures(text: string, options: SymbolOptions = {}): string {
+  const chr = options.separator
+    ? escapeRegex(options.separator)
+    : ESCAPED_DEFAULT_SEPARATOR
+
+  // Order matters: handle mixed punctuation first, then repeated
+  // Patterns capture separators between characters and preserve them after the ligature
+
+  // ?!+ → ⁈ (question followed by one or more exclamation marks)
+  text = text.replace(
+    new RegExp(`\\?(${chr})?!(?:${chr}?!)*`, "g"),
+    (_match, sep) => QUESTION_EXCLAMATION + (sep || "")
+  )
+
+  // !?+ → ⁉ (exclamation followed by one or more question marks)
+  text = text.replace(
+    new RegExp(`!(${chr})?\\?(?:${chr}?\\?)*`, "g"),
+    (_match, sep) => EXCLAMATION_QUESTION + (sep || "")
+  )
+
+  // ??+ → ⁇ (two or more question marks squashed to ligature)
+  text = text.replace(
+    new RegExp(`\\?(${chr})?\\?(?:${chr}?\\?)*`, "g"),
+    (_match, sep) => DOUBLE_QUESTION + (sep || "")
+  )
+
+  // !!+ → ! (two or more exclamation marks squashed to single)
+  text = text.replace(
+    new RegExp(`!(${chr})?!(?:${chr}?!)*`, "g"),
+    (_match, sep) => "!" + (sep || "")
+  )
+
+  return text
 }
 
 /**

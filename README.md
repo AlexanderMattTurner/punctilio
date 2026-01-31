@@ -62,14 +62,14 @@ By running [`benchmark.mjs`](./benchmark.mjs), I graded all libraries on a subse
 | Fractions | 1/2 → ½ | ✗ | ✗ | ✗ | ✓ |
 | Superscripts | 1st → 1ˢᵗ | ✗ | ✗ | ✗ | ✓ |
 | Localization | American/British | ✗ | ✗ | ✗ | ✓ |
-| Ligatures | ?? → ⁇ | ✗ | ✓ | ✗ | ✗ |
+| Ligatures | ?? → ⁇ | ✗ | ✓ | ✗ | ✓ |
 | Non-English quotes | „Hallo" (German) | ✗ | ✓ | ✗ | ✗ |
 
 I don’t have a personal reason to use non-English localization, but others are welcome to make a pull request.
 
 ## Options
 
-`punctilio` doesn’t enable all transformations by default. Fractions and degrees tend to match too aggressively (getting the degrees correct requires semantic meaning), while superscript letters have spotty font support—this README’s font doesn't even support the example superscript!
+`punctilio` doesn't enable all transformations by default. Fractions and degrees tend to match too aggressively (getting the degrees correct requires semantic meaning), while superscript letters and punctuation ligatures have spotty font support—this README's font doesn't even support the example superscript! Furthermore, `ligatures=true` can change the meaning of text by collapsing question and exclamation marks.
 
 ```typescript
 transform(text, {
@@ -81,5 +81,6 @@ transform(text, {
   fractions: false,      // 1/2 → ½
   degrees: false,        // 20 C → 20 °C
   superscript: false,    // 1st → 1ˢᵗ
+  ligatures: false,      // ??? → ⁇, ?! → ⁈, !? → ⁉, !!! → !
 })
 ```
