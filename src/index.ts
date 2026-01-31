@@ -109,7 +109,7 @@ export interface TransformOptions {
 
   /**
    * Whether to convert repeated punctuation marks to Unicode ligature characters.
-   * Transforms: "??" → "⁇", "?!" → "⁈", "!?" → "⁉", "!!" → "‼"
+   * Squashes multiple marks: "???" → "⁇", "?!" → "⁈", "!?" → "⁉", "!!!" → "!"
    * Default: false (poor font support)
    */
   ligatures?: boolean

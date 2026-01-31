@@ -103,7 +103,7 @@ describe("transform", () => {
       expect(result).toContain(UNICODE_SYMBOLS.DOUBLE_QUESTION)
       expect(result).toContain(UNICODE_SYMBOLS.QUESTION_EXCLAMATION)
       expect(result).toContain(UNICODE_SYMBOLS.EXCLAMATION_QUESTION)
-      expect(result).toContain(UNICODE_SYMBOLS.DOUBLE_EXCLAMATION)
+      expect(result).not.toContain("!!")  // squashed to single !
     })
   })
 

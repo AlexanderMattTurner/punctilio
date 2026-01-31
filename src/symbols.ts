@@ -416,30 +416,31 @@ export function collapseSpaces(text: string): string {
 }
 
 /**
- * Converts repeated punctuation marks to Unicode ligature characters.
+ * Converts repeated punctuation marks to Unicode ligature characters,
+ * squashing multiple marks to a single character.
  *
  * Handles:
- * - "??" → "⁇" (double question mark)
- * - "?!" → "⁈" (question exclamation mark)
- * - "!?" → "⁉" (exclamation question mark)
- * - "!!" → "‼" (double exclamation mark)
+ * - "??" or "???" etc → "⁇" (squashed to double question mark ligature)
+ * - "?!" or "?!!" etc → "⁈" (question exclamation mark)
+ * - "!?" or "!??" etc → "⁉" (exclamation question mark)
+ * - "!!" or "!!!" etc → "!" (squashed to single exclamation)
  *
  * Note: These ligatures have poor font support, so this function is
  * disabled by default.
  *
  * @example
  * ```ts
- * punctuationLigatures("What??")
+ * punctuationLigatures("What???")
  * // → "What⁇"
  *
- * punctuationLigatures("Really?!")
+ * punctuationLigatures("Really?!!")
  * // → "Really⁈"
  *
- * punctuationLigatures("No way!?")
+ * punctuationLigatures("No way!??")
  * // → "No way⁉"
  *
- * punctuationLigatures("Wow!!")
- * // → "Wow‼"
+ * punctuationLigatures("Wow!!!")
+ * // → "Wow!"
  * ```
  */
 export function punctuationLigatures(text: string, options: SymbolOptions = {}): string {
@@ -448,30 +449,30 @@ export function punctuationLigatures(text: string, options: SymbolOptions = {}):
     : ESCAPED_DEFAULT_SEPARATOR
 
   // Order matters: handle mixed punctuation first, then repeated
-  // Each pattern captures any separator between the two characters and preserves it
+  // Patterns capture separators between characters and preserve them after the ligature
 
-  // ?! → ⁈ (question exclamation mark)
+  // ?!+ → ⁈ (question followed by one or more exclamation marks)
   text = text.replace(
-    new RegExp(`\\?(${chr})?!`, "g"),
+    new RegExp(`\\?(${chr})?!(?:${chr}?!)*`, "g"),
     (_match, sep) => QUESTION_EXCLAMATION + (sep || "")
   )
 
-  // !? → ⁉ (exclamation question mark)
+  // !?+ → ⁉ (exclamation followed by one or more question marks)
   text = text.replace(
-    new RegExp(`!(${chr})?\\?`, "g"),
+    new RegExp(`!(${chr})?\\?(?:${chr}?\\?)*`, "g"),
     (_match, sep) => EXCLAMATION_QUESTION + (sep || "")
   )
 
-  // ?? → ⁇ (double question mark)
+  // ??+ → ⁇ (two or more question marks squashed to ligature)
   text = text.replace(
-    new RegExp(`\\?(${chr})?\\?`, "g"),
+    new RegExp(`\\?(${chr})?\\?(?:${chr}?\\?)*`, "g"),
     (_match, sep) => DOUBLE_QUESTION + (sep || "")
   )
 
-  // !! → ‼ (double exclamation mark)
+  // !!+ → ! (two or more exclamation marks squashed to single)
   text = text.replace(
-    new RegExp(`!(${chr})?!`, "g"),
-    (_match, sep) => DOUBLE_EXCLAMATION + (sep || "")
+    new RegExp(`!(${chr})?!(?:${chr}?!)*`, "g"),
+    (_match, sep) => "!" + (sep || "")
   )
 
   return text

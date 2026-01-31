@@ -69,7 +69,7 @@ I don’t have a personal reason to use non-English localization, but others are
 
 ## Options
 
-`punctilio` doesn’t enable all transformations by default. Fractions and degrees tend to match too aggressively (getting the degrees correct requires semantic meaning), while superscript letters have spotty font support—this README’s font doesn't even support the example superscript!
+`punctilio` doesn't enable all transformations by default. Fractions and degrees tend to match too aggressively (getting the degrees correct requires semantic meaning), while superscript letters and punctuation ligatures have spotty font support—this README's font doesn't even support the example superscript!
 
 ```typescript
 transform(text, {
@@ -81,6 +81,6 @@ transform(text, {
   fractions: false,      // 1/2 → ½
   degrees: false,        // 20 C → 20 °C
   superscript: false,    // 1st → 1ˢᵗ
-  ligatures: false,      // ?? → ⁇, ?! → ⁈, !? → ⁉, !! → ‼
+  ligatures: false,      // ??? → ⁇, ?! → ⁈, !? → ⁉, !!! → !
 })
 ```

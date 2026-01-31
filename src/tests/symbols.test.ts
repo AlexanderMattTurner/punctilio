@@ -294,22 +294,24 @@ describe("superscript", () => {
 
 describe("punctuationLigatures", () => {
   it.each([
-    // Double question mark
+    // Double/multiple question marks squashed to ligature
     ["What??", `What${UNICODE_SYMBOLS.DOUBLE_QUESTION}`],
-    ["Really??", `Really${UNICODE_SYMBOLS.DOUBLE_QUESTION}`],
+    ["Really???", `Really${UNICODE_SYMBOLS.DOUBLE_QUESTION}`],
+    ["Huh????", `Huh${UNICODE_SYMBOLS.DOUBLE_QUESTION}`],
     ["??", UNICODE_SYMBOLS.DOUBLE_QUESTION],
-    // Question exclamation mark
+    // Question + exclamation(s) → ⁈
     ["Really?!", `Really${UNICODE_SYMBOLS.QUESTION_EXCLAMATION}`],
-    ["What?!", `What${UNICODE_SYMBOLS.QUESTION_EXCLAMATION}`],
+    ["What?!!", `What${UNICODE_SYMBOLS.QUESTION_EXCLAMATION}`],
     ["?!", UNICODE_SYMBOLS.QUESTION_EXCLAMATION],
-    // Exclamation question mark
+    // Exclamation + question(s) → ⁉
     ["No way!?", `No way${UNICODE_SYMBOLS.EXCLAMATION_QUESTION}`],
-    ["What!?", `What${UNICODE_SYMBOLS.EXCLAMATION_QUESTION}`],
+    ["What!??", `What${UNICODE_SYMBOLS.EXCLAMATION_QUESTION}`],
     ["!?", UNICODE_SYMBOLS.EXCLAMATION_QUESTION],
-    // Double exclamation mark
-    ["Wow!!", `Wow${UNICODE_SYMBOLS.DOUBLE_EXCLAMATION}`],
-    ["Amazing!!", `Amazing${UNICODE_SYMBOLS.DOUBLE_EXCLAMATION}`],
-    ["!!", UNICODE_SYMBOLS.DOUBLE_EXCLAMATION],
+    // Double/multiple exclamation marks squashed to single
+    ["Wow!!", "Wow!"],
+    ["Amazing!!!", "Amazing!"],
+    ["Yes!!!!", "Yes!"],
+    ["!!", "!"],
     // Single punctuation unchanged
     ["What?", "What?"],
     ["Wow!", "Wow!"],
@@ -332,13 +334,13 @@ describe("punctuationLigatures", () => {
       `${UNICODE_SYMBOLS.EXCLAMATION_QUESTION}${sep}`
     )
     expect(punctuationLigatures(`!${sep}!`, { separator: sep })).toBe(
-      `${UNICODE_SYMBOLS.DOUBLE_EXCLAMATION}${sep}`
+      `!${sep}`
     )
   })
 
   it("handles multiple ligatures in same text", () => {
     const input = "What?? Really?! No way!? Wow!!"
-    const expected = `What${UNICODE_SYMBOLS.DOUBLE_QUESTION} Really${UNICODE_SYMBOLS.QUESTION_EXCLAMATION} No way${UNICODE_SYMBOLS.EXCLAMATION_QUESTION} Wow${UNICODE_SYMBOLS.DOUBLE_EXCLAMATION}`
+    const expected = `What${UNICODE_SYMBOLS.DOUBLE_QUESTION} Really${UNICODE_SYMBOLS.QUESTION_EXCLAMATION} No way${UNICODE_SYMBOLS.EXCLAMATION_QUESTION} Wow!`
     expect(punctuationLigatures(input)).toBe(expected)
   })
 })
