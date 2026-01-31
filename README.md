@@ -23,7 +23,7 @@ As far as I can tell, `punctilio` is the most reliable and feature-complete. I b
 
 [^wrote]: While Claude is the number one contributor to this repository, that’s just because Claude has helped me port my existing code and add minor features. The core regular expressions (e.g. dashes, quotes, multiplication signs) are human-written.
 
-I tested `punctilio` 0.4 against [`smartypants`](https://www.npmjs.com/package/smartypants) 0.2.2, [`tipograph`](https://www.npmjs.com/package/tipograph) 0.7.4, and [`smartquotes`](https://www.npmjs.com/package/smartquotes) 2.3.2.[^python] These other packages have spotty feature coverage and inconsistent impact on text. For example, `smartypants` mishandles quotes after em dashes (though quite hard to see in GitHub's font) and lacks multiplication sign support.
+I tested `punctilio` 1.0.1 against [`smartypants`](https://www.npmjs.com/package/smartypants) 0.2.2, [`tipograph`](https://www.npmjs.com/package/tipograph) 0.7.4, [`smartquotes`](https://www.npmjs.com/package/smartquotes) 2.3.2, [`typograf`](https://www.npmjs.com/package/typograf) 7.6.0, and [`retext-smartypants`](https://www.npmjs.com/package/retext-smartypants) 6.2.0.[^python] These other packages have spotty feature coverage and inconsistent impact on text. For example, `smartypants` mishandles quotes after em dashes (though quite hard to see in GitHub's font) and lacks multiplication sign support.
 
 [^python]: The Python libraries I found were closely related to the JavaScript packages, so I don’t include Python tests.
 
@@ -32,36 +32,39 @@ I tested `punctilio` 0.4 against [`smartypants`](https://www.npmjs.com/package/s
 | She said—"Hi!" | She said—”Hi!” (✗) | She said—“Hi!” (✓) |
 | 5x5 |	5x5 (✗) |	5×5 (✓) |
 
-By running [`benchmark.mjs`](./benchmark.mjs), I basically graded all libraries on a subset of [my unit tests](./src/tests/), selected to represent a wide range of features.
+My [`benchmark.mjs`](./benchmark.mjs) measures how well libraries handle a [wide range of scenarios](./benchmark_cases.json). The benchmark normalizes stylistic differences (e.g. non-breaking vs regular space, British vs American dash spacing) for fair comparison.
 
 | Package | Score |
 |--------:|:------|
 | `punctilio` | 79/82 (96%) |
-| `tipograph` | 48/82 (59%) |
-| `smartquotes` | 30/82 (37%) |
-| `smartypants` | 28/82 (35%) |
+| `tipograph` | 51/82 (62%) |
+| `typograf` | 42/82 (51%) |
+| `smartquotes` | 31/82 (38%) |
+| `smartypants` | 30/82 (37%) |
+| `retext-smartypants` | 28/82 (34%) |
 
-| Feature | Example | `smartypants` | `tipograph` | `smartquotes` | `punctilio` |
-|--------:|:-------:|:-------:|:-------:|:-------:|:-------:|
-| Smart quotes | "hello" → “hello” | ✓ | ✓ | ✓ | ✓ |
-| Leading apostrophe | 'Twas → ’Twas | ✗ | ✗ | ✓ | ✓ |
-| Em dash | -- → — | ✓ | ✗ | ✗ | ✓ |
-| En dash (ranges) | 1-5 → 1–5 | ✗ | ✓ | ✗ | ✓ |
-| Minus sign | -5 → −5 | ✗ | ✓ | ✗ | ✓ |
-| Ellipsis | ... → … | ✓ | ✓ | ✗ | ✓ |
-| Multiplication | 5x5 → 5×5 | ✗ | ✗ | ✗ | ✓ |
-| Math symbols | != → ≠ | ✗ | ✓ | ✗ | ✓ |
-| Legal symbols | (c) → © | ✗ | © only | ✗ | ✓ |
-| Arrows | -> → → | ✗ | ✓ | ✗ | ✓ |
-| Prime marks | 5'10" → 5′10″ | ✗ | ✓ | ✓ | ✓ |
-| Degrees | 20 C → 20 °C | ✗ | ✗ | ✗ | ✓ |
-| Fractions | 1/2 → ½ | ✗ | ✗ | ✗ | ✓ |
-| Superscripts | 1st → 1ˢᵗ | ✗ | ✗ | ✗ | ✓ |
-| Localization | American/British | ✗ | ✗ | ✗ | ✓ |
-| Ligatures | ?? → ⁇ | ✗ | ✓ | ✗ | ✓ |
-| Non-English quotes | „Hallo" (German) | ✗ | ✓ | ✗ | ✗ |
+| Feature | Example | `smartypants` | `tipograph` | `smartquotes` | `typograf` | `punctilio` |
+|--------:|:-------:|:-------:|:-------:|:-------:|:-------:|:-------:|
+| Smart quotes | "hello" → "hello" | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Leading apostrophe | 'Twas → 'Twas | ✗ | ✗ | ✓ | ✗ | ✓ |
+| Em dash | -- → — | ✓ | ✗ | ✗ | ✓ | ✓ |
+| En dash (ranges) | 1-5 → 1–5 | ✗ | ✓ | ✗ | ✗ | ✓ |
+| Minus sign | -5 → −5 | ✗ | ✓ | ✗ | ✗ | ✓ |
+| Ellipsis | ... → … | ✓ | ✓ | ✗ | ✓ | ✓ |
+| Multiplication | 5x5 → 5×5 | ✗ | ✗ | ✗ | ✓ | ✓ |
+| Math symbols | != → ≠ | ✗ | ✓ | ✗ | ✓ | ✓ |
+| Legal symbols | (c) → © | ✗ | © only | ✗ | ✓ | ✓ |
+| Arrows | -> → → | ✗ | ✓ | ✗ | ✓ | ✓ |
+| Prime marks | 5'10" → 5′10″ | ✗ | ✓ | ✓ | ✗ | ✓ |
+| Degrees | 20 C → 20 °C | ✗ | ✗ | ✗ | ✓ | ✓ |
+| Fractions | 1/2 → ½ | ✗ | ✗ | ✗ | ✓ | ✓ |
+| Superscripts | 1st → 1ˢᵗ | ✗ | ✗ | ✗ | ✗ | ✓ |
+| Localization | American/British | ✗ | ✗ | ✗ | ✗ | ✓ |
+| Ligatures | ?? → ⁇ | ✗ | ✓ | ✗ | ✗ | ✓ |
+| Non-English quotes | „Hallo" (German) | ✗ | ✓ | ✗ | ✓ | ✗ |
+| Non-breaking spaces | Chapter 1 | ✗ | ✗ | ✗ | ✓ | ✗ |
 
-As far as I can tell, `punctilio`’s only missing feature is non-English quote support. I don’t have a personal reason to use non-English localization, but feel free to make a pull request!
+`typograf` uniquely inserts non-breaking spaces to prevent bad line breaks (e.g. before numbers, after colons). `punctilio`'s main missing feature is non-English quote support—feel free to make a pull request!
 
 ## Works with HTML DOMs via separation boundaries
 
