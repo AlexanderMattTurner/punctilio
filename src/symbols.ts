@@ -285,11 +285,13 @@ export function fractions(text: string, options: SymbolOptions = {}): string {
     : ESCAPED_DEFAULT_SEPARATOR
 
   for (const [ascii, unicode] of Object.entries(FRACTION_MAP)) {
-    // Negative lookbehind/lookahead: ensures fraction is not part of a larger number
+    // Negative lookbehind/lookahead: ensures fraction is not part of a larger number or path
+    // - (?<![/.\d]) prevents matching after slashes, dots, or digits
+    // - (?![/\d]|\.\d) prevents matching before slashes, digits, or decimal points
     // Named captures preserve separators before and after the slash
     const [numerator, denominator] = ascii.split("/")
     const pattern = new RegExp(
-      `(?<!\\d)${numerator}(?<sepBefore>${chr}?)/(?<sepAfter>${chr}?)${denominator}(?!\\d)`,
+      `(?<![/\\.\\d])${numerator}(?<sepBefore>${chr}?)/(?<sepAfter>${chr}?)${denominator}(?![/\\d]|\\.\\d)`,
       "g"
     )
     // Preserve separators around the fraction Unicode character

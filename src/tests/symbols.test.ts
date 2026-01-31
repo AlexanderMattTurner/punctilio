@@ -201,6 +201,13 @@ describe("fractions", () => {
     ["page 1/25", "page 1/25"],
     ["1/7", "1/7"],
     ["5/9", "5/9"],
+    // Edge cases: fractions in paths/URLs should not match
+    ["a/1/4", "a/1/4"],
+    ["1/4/b", "1/4/b"],
+    ["x/1/2", "x/1/2"],
+    // Edge cases: fractions adjacent to decimals
+    ["3.1/4", "3.1/4"],
+    ["1/4.5", "1/4.5"],
   ])('converts "%s" to "%s"', (input, expected) => {
     expect(fractions(input)).toBe(expected)
   })
