@@ -1,6 +1,6 @@
 {
   "name": "punctilio",
-  "version": "0.4.22",
+  "version": "1.0.0",
   "description": "Smart typography transformations: curly quotes, em-dashes, en-dashes, and more",
   "type": "module",
   "main": "./dist/index.js",
