@@ -65,9 +65,39 @@ By running [`benchmark.mjs`](./benchmark.mjs), I basically graded all libraries 
 
 As far as I can tell, `punctilio`’s only missing feature is non-English quote support. I don’t have a personal reason to use non-English localization, but feel free to make a pull request!
 
+## Scalable DOM transformation via separation boundaries
+
+Most typography libraries can only transform plain strings. But real-world HTML has text spanning multiple elements:
+
+```html
+<p><em>Hello</em>, world...</p>
+```
+
+If you extract just the text (`Hello, world...`) and transform it, you lose element boundaries. If you transform each element separately (`Hello` and `, world...`), cross-element patterns break.
+
+`punctilio` solves this with **separation boundaries**: a private-use Unicode character (U+E000) that marks where elements meet. All regex patterns treat this character as transparent—it can appear anywhere without breaking matches, and it's always preserved in output.
+
+```typescript
+import { transform, DEFAULT_SEPARATOR } from 'punctilio'
+
+// Your DOM walker inserts separators at element boundaries
+const text = `"Hello${DEFAULT_SEPARATOR}, world..."`
+const result = transform(text)
+// → "Hello\uE000, world…"  (separator preserved between curly quotes)
+```
+
+The workflow:
+1. Walk your DOM tree, concatenating text with `DEFAULT_SEPARATOR` at element boundaries
+2. Call `transform()` on the combined string
+3. Split on separators to reconstruct elements with transformed text
+
+This lets `punctilio` handle patterns that span elements—like quotes wrapping styled text, or ellipses split across nodes—while your code maintains full control over DOM structure.
+
+A custom separator can be specified via the `separator` option if U+E000 conflicts with your content.
+
 ## Options
 
-`punctilio` doesn’t enable all transformations by default. Fractions and degrees tend to match too aggressively (perfectly applying the degree transformation requires semantic meaning). Superscript letters and punctuation ligatures have spotty font support—this README’s font doesn’t even support the example superscript! Furthermore, `ligatures = true` can change the meaning of text by collapsing question and exclamation marks.
+`punctilio` doesn't enable all transformations by default. Fractions and degrees tend to match too aggressively (perfectly applying the degree transformation requires semantic meaning). Superscript letters and punctuation ligatures have spotty font support—this README’s font doesn’t even support the example superscript! Furthermore, `ligatures = true` can change the meaning of text by collapsing question and exclamation marks.
 
 ```typescript
 transform(text, {
