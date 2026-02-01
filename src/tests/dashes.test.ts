@@ -21,7 +21,7 @@ describe("hyphenReplace", () => {
       ["word ---", `word${EM_DASH}`],
       [`word${EM_DASH} word`, `word${EM_DASH}word`],
       [`word ${EM_DASH}word`, `word${EM_DASH}word`],
-      ['"I love dogs." - Me', `"I love dogs." ${EM_DASH} Me`],
+      ['"I love dogs." - Me', `"I love dogs."${EM_DASH}Me`],
       ["- Me", `${EM_DASH} Me`],
       ["-- Me", `${EM_DASH} Me`],
       ["Hi-- what do you think?", `Hi${EM_DASH}what do you think?`],
@@ -35,7 +35,7 @@ describe("hyphenReplace", () => {
       ["> - First level", "> - First level"], // Quoted unordered lists should not be changed
       [
         `reward${ELLIPSIS} ${EM_DASH} [Model-based RL, Desires, Brains, Wireheading](https://www.alignmentforum.org/posts/K5ikTdaNymfWXQHFb/model-based-rl-desires-brains-wireheading#Self_aware_desires_1__wireheading)`,
-        `reward${ELLIPSIS} ${EM_DASH} [Model-based RL, Desires, Brains, Wireheading](https://www.alignmentforum.org/posts/K5ikTdaNymfWXQHFb/model-based-rl-desires-brains-wireheading#Self_aware_desires_1__wireheading)`,
+        `reward${ELLIPSIS}${EM_DASH}[Model-based RL, Desires, Brains, Wireheading](https://www.alignmentforum.org/posts/K5ikTdaNymfWXQHFb/model-based-rl-desires-brains-wireheading#Self_aware_desires_1__wireheading)`,
       ],
       ["a browser- or OS-specific fashion", "a browser- or OS-specific fashion"],
       ["since--as you know", `since${EM_DASH}as you know`],
@@ -74,27 +74,15 @@ describe("hyphenReplace", () => {
     })
   })
 
-  describe("quote-to-quote em dash spacing", () => {
+  describe("quote-to-quote em dash (Chicago: no spaces)", () => {
     it.each([
-      // Straight quotes (before niceQuotes converts them)
-      [`"Hello."${EM_DASH}"World"`, `"Hello." ${EM_DASH} "World"`],
-      [`'Hi.'${EM_DASH}'There'`, `'Hi.' ${EM_DASH} 'There'`],
-      // Curly quotes (after niceQuotes)
-      [
-        `${LEFT_DOUBLE_QUOTE}Hello.${RIGHT_DOUBLE_QUOTE}${EM_DASH}${LEFT_DOUBLE_QUOTE}World${RIGHT_DOUBLE_QUOTE}`,
-        `${LEFT_DOUBLE_QUOTE}Hello.${RIGHT_DOUBLE_QUOTE} ${EM_DASH} ${LEFT_DOUBLE_QUOTE}World${RIGHT_DOUBLE_QUOTE}`,
-      ],
-      [
-        `${LEFT_SINGLE_QUOTE}Hi.${RIGHT_SINGLE_QUOTE}${EM_DASH}${LEFT_SINGLE_QUOTE}There${RIGHT_SINGLE_QUOTE}`,
-        `${LEFT_SINGLE_QUOTE}Hi.${RIGHT_SINGLE_QUOTE} ${EM_DASH} ${LEFT_SINGLE_QUOTE}There${RIGHT_SINGLE_QUOTE}`,
-      ],
-      // Mixed: curly closing quote to straight opening quote
-      [
-        `${LEFT_DOUBLE_QUOTE}Quote.${RIGHT_DOUBLE_QUOTE}${EM_DASH}"Another"`,
-        `${LEFT_DOUBLE_QUOTE}Quote.${RIGHT_DOUBLE_QUOTE} ${EM_DASH} "Another"`,
-      ],
-    ])('adds spaces in "%s"', (input, expected) => {
-      expect(hyphenReplace(input)).toBe(expected)
+      // Chicago style: no spaces around em-dashes, even between quotes
+      `"Hello."${EM_DASH}"World"`,
+      `'Hi.'${EM_DASH}'There'`,
+      `${LEFT_DOUBLE_QUOTE}Hello.${RIGHT_DOUBLE_QUOTE}${EM_DASH}${LEFT_DOUBLE_QUOTE}World${RIGHT_DOUBLE_QUOTE}`,
+      `${LEFT_SINGLE_QUOTE}Hi.${RIGHT_SINGLE_QUOTE}${EM_DASH}${LEFT_SINGLE_QUOTE}There${RIGHT_SINGLE_QUOTE}`,
+    ])('preserves unspaced em-dash in "%s"', (input) => {
+      expect(hyphenReplace(input)).toBe(input)
     })
   })
 
@@ -321,7 +309,7 @@ describe("dashStyle option", () => {
     })
   })
 
-  describe('when "british"', () => {
+  describe('when "british" (Oxford style)', () => {
     it.each([
       ["word - word", `word ${EN_DASH} word`],
       ["word -- word", `word ${EN_DASH} word`],
@@ -332,6 +320,15 @@ describe("dashStyle option", () => {
 
     it("still converts number ranges to en dashes", () => {
       expect(hyphenReplace("pages 1-5", { dashStyle: "british" })).toBe(`pages 1${EN_DASH}5`)
+    })
+
+    it("converts existing em-dashes to spaced en-dashes", () => {
+      // Oxford style uses spaced en-dashes, so em-dashes get converted
+      expect(hyphenReplace(`word ${EM_DASH} word`, { dashStyle: "british" })).toBe(`word ${EN_DASH} word`)
+    })
+
+    it("converts date ranges with spaced en dash", () => {
+      expect(hyphenReplace("January-March", { dashStyle: "british" })).toBe(`January ${EN_DASH} March`)
     })
   })
 
@@ -350,5 +347,40 @@ describe("dashStyle option", () => {
     it("still converts minus signs", () => {
       expect(hyphenReplace("-5", { dashStyle: "none" })).toBe(`${MINUS}5`)
     })
+  })
+
+  describe("style conversion consistency", () => {
+    const testCases = [
+      "word - word",
+      "word -- word",
+      "since--as you know",
+      "Hello. -- Author",
+      `word${EM_DASH}word`,
+      `"Quote."${EM_DASH}Author`,
+    ]
+
+    it.each(testCases)(
+      "American → British equals direct British: %s",
+      (input) => {
+        const directBritish = hyphenReplace(input, { dashStyle: "british" })
+        const viaAmerican = hyphenReplace(
+          hyphenReplace(input, { dashStyle: "american" }),
+          { dashStyle: "british" }
+        )
+        expect(viaAmerican).toBe(directBritish)
+      }
+    )
+
+    it.each(testCases)(
+      "British → American equals direct American: %s",
+      (input) => {
+        const directAmerican = hyphenReplace(input, { dashStyle: "american" })
+        const viaBritish = hyphenReplace(
+          hyphenReplace(input, { dashStyle: "british" }),
+          { dashStyle: "american" }
+        )
+        expect(viaBritish).toBe(directAmerican)
+      }
+    )
   })
 })
