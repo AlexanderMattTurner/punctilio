@@ -125,3 +125,31 @@ export function wordBoundaryStart(escapedSeparator: string): string {
 export function wordBoundaryEnd(escapedSeparator: string): string {
   return `\\b(?!${escapedSeparator}*\\w)`
 }
+
+/**
+ * Pattern string for space characters (regular space and non-breaking space).
+ * Use inside regex character classes: `[${SPACE_CHARS}]`
+ */
+export const SPACE_CHARS = ` ${UNICODE_SYMBOLS.NBSP}`
+
+/**
+ * Creates a lookbehind pattern that matches after whitespace, separator, or start of string.
+ * Used for arrow patterns and other constructs that should appear at word boundaries.
+ *
+ * @param escapedSeparator - Regex-escaped separator string
+ * @returns Pattern string: `(?<=[\\s${sep}]|^)`
+ */
+export function spaceBoundaryStart(escapedSeparator: string): string {
+  return `(?<=[\\s${escapedSeparator}]|^)`
+}
+
+/**
+ * Creates a lookahead pattern that matches before whitespace, separator, or end of string.
+ * Used for arrow patterns and other constructs that should appear at word boundaries.
+ *
+ * @param escapedSeparator - Regex-escaped separator string
+ * @returns Pattern string: `(?=[\\s${sep}]|$)`
+ */
+export function spaceBoundaryEnd(escapedSeparator: string): string {
+  return `(?=[\\s${escapedSeparator}]|$)`
+}
