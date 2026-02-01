@@ -36,7 +36,8 @@ const {
   SUPERSCRIPT_TH,
   DOUBLE_QUESTION,
   QUESTION_EXCLAMATION,
-  EXCLAMATION_QUESTION
+  EXCLAMATION_QUESTION,
+  LEFT_DOUBLE_QUOTE,
 } = UNICODE_SYMBOLS
 
 /** Convert "..." to "…". */
@@ -182,7 +183,7 @@ export function primeMarks(text: string, options: SymbolOptions = {}): string {
   // Negative lookahead: ensures not followed by word characters
   // Matches: 12" wide ✓, but not: "Term 1" ✗
   const standaloneInchesPattern = new RegExp(
-    `(?<!["\u201C]${chr}?[^"${chr}]{0,20})(?<numWithSep>\\d${chr}?)"(?!${chr}?[\\w])`,
+    `(?<!["${LEFT_DOUBLE_QUOTE}]${chr}?[^"${chr}]{0,20})(?<numWithSep>\\d${chr}?)"(?!${chr}?[\\w])`,
     "g"
   )
   text = text.replace(standaloneInchesPattern, `$<numWithSep>${DOUBLE_PRIME}`)
