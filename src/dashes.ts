@@ -99,7 +99,7 @@ export function minusReplace(text: string, options: DashOptions = {}): string {
 
 /**
  * Convert surrounded dashes to em/en dashes.
- * Handles patterns like "word - word" → "word—word" (American) or "word – word" (British).
+ * Handles patterns like "word - word" → "word—word" (Chicago) or "word – word" (Oxford).
  */
 function convertParentheticalDashes(text: string, sep: string, style: DashStyle): string {
   if (style === "none") return text
