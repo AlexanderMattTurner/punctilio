@@ -82,6 +82,10 @@ transform(`"Wait${DEFAULT_SEPARATOR}"`)
 
 Use via a DOM walker tracks which text node each segment came from, inserts separators between them, transforms the combined string, then splits on separators to update each node. Use the `separator` option if `U+E000` conflicts with your content. For an example of how to integrate this functionality, see [my website’s code](https://github.com/alexander-turner/TurnTrout.com/blob/main/quartz/plugins/transformers/formatting_improvement_html.ts). 
 
+### Not for raw Markdown
+
+`punctilio` transforms plain text or separator-flattened HTML—not raw Markdown. 
+
 ## Options
 
 `punctilio` doesn’t enable all transformations by default. Fractions and degrees tend to match too aggressively (perfectly applying the degree transformation requires semantic meaning). Superscript letters and punctuation ligatures have spotty font support—on GitHub, this README’s font doesn’t even support the example superscript! Furthermore, `ligatures = true` can change the meaning of text by collapsing question and exclamation marks.
