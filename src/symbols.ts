@@ -47,7 +47,7 @@ export function ellipsis(text: string, options: SymbolOptions = {}): string {
 
   // Convert consecutive or spaced dots: ... or . . . → …
   // Captures preserve any separators between dots
-  const pattern = new RegExp(`\\. ?(${chr})?\\.( ?)(${chr})?\\.`, "g")
+  const pattern = new RegExp(`\\.[${SPACE_CHARS}]?(${chr})?\\.([${SPACE_CHARS}]?)(${chr})?\\.`, "g")
   text = text.replace(pattern, (_match, sep1, _space, sep2) => {
     return ELLIPSIS + (sep1 || "") + (sep2 || "")
   })
