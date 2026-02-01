@@ -74,7 +74,7 @@ function convertSingleQuotes(text: string, sep: string): string {
   const contractionsPattern = LEADING_APOSTROPHE_CONTRACTIONS.join("|")
   const leadingApostropheContraction = new RegExp(
     `(?<=^|[\\s${LEFT_DOUBLE_QUOTE}${RIGHT_DOUBLE_QUOTE}\\-\\(])${sep}?'(?=${sep}?(?:${contractionsPattern})\\b)`,
-    "gmi"
+    "gim"
   )
   text = text.replace(leadingApostropheContraction, RIGHT_SINGLE_QUOTE)
 

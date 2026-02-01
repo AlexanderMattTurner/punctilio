@@ -93,16 +93,6 @@ export function enDashNumberRange(text: string, options: DashOptions = {}): stri
   // But allows "1-2-3" to become "1–2-3" (single-digit segments)
   const notMultiSegment = `(?!${chr}?-${chr}?\\d{3})`
 
-  // First, protect ISO year-month patterns (YYYY-MM) from conversion
-  // by checking if pattern looks like year (1900-2099) followed by month (01-12)
-  const yearMonthPattern = new RegExp(
-    `${wb}(?<year>(?:19|20)\\d{2})-(?<month>0[1-9]|1[0-2])${wbe}`,
-    "g"
-  )
-  // Don't convert year-month patterns - they're dates, not ranges
-  // We skip this by not matching, so no replacement needed here
-  // Instead, we'll use a negative lookahead in the main pattern
-
   // Standard positive number ranges (not preceded by dashes or letters)
   // Disallow dash-like chars and letters before the start number
   // Escape hyphen by putting it first in the character class
@@ -117,7 +107,7 @@ export function enDashNumberRange(text: string, options: DashOptions = {}): stri
       const cleanEnd = endNum.replace(new RegExp(chr, "g"), "")
 
       // Check if this looks like a year-month pattern (YYYY-MM)
-      if (/^(19|20)\d{2}$/.test(cleanStart) && /^(0[1-9]|1[0-2])$/.test(cleanEnd)) {
+      if (/^(?:19|20)\d{2}$/.test(cleanStart) && /^(?:0[1-9]|1[0-2])$/.test(cleanEnd)) {
         return match // Don't convert year-month patterns
       }
 
@@ -131,15 +121,15 @@ export function enDashNumberRange(text: string, options: DashOptions = {}): stri
 
       // Check if this looks like a multi-segment identifier (phone, IP, etc.)
       // If both numbers have 3+ digits and there's a following segment, don't convert
-      const startDigits = cleanStart.replace(/[^0-9]/g, "")
-      const endDigits = cleanEnd.replace(/[^0-9]/g, "")
+      const startDigits = cleanStart.replace(/\D/g, "")
+      const endDigits = cleanEnd.replace(/\D/g, "")
       if (following && startDigits.length >= 3 && endDigits.length >= 3) {
         return match // Don't convert multi-segment identifiers
       }
 
       // Check if the following segment has 3+ digits (catches patterns like 555-123-4567)
       if (following) {
-        const followingDigits = following.replace(/[^0-9]/g, "")
+        const followingDigits = following.replace(/\D/g, "")
         if (followingDigits.length >= 3) {
           return match // Don't convert if next segment is 3+ digits
         }

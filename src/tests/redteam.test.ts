@@ -12,7 +12,7 @@ import { niceQuotes } from "../quotes.js"
 import { hyphenReplace, enDashNumberRange, minusReplace } from "../dashes.js"
 import { UNICODE_SYMBOLS } from "../constants.js"
 
-const { EN_DASH, EM_DASH, MINUS, ELLIPSIS, MULTIPLICATION, ARROW_RIGHT } = UNICODE_SYMBOLS
+const { EN_DASH, MINUS } = UNICODE_SYMBOLS
 
 describe("Red Team: En-dash False Positives", () => {
   describe("Phone numbers should NOT be converted", () => {
