@@ -2,13 +2,10 @@
  * Dash transformation: hyphens → em-dashes, en-dashes, minus signs.
  */
 
+import escapeStringRegexp from "escape-string-regexp"
 import { UNICODE_SYMBOLS, DEFAULT_SEPARATOR, ESCAPED_DEFAULT_SEPARATOR, wordBoundaryStart, wordBoundaryEnd } from "./constants.js"
 
 export type DashStyle = "american" | "british" | "none"
-
-function escapeRegex(str: string): string {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
-}
 
 export interface DashOptions {
   /** Boundary marker for HTML element boundaries. Default: "\uE000" */
@@ -19,7 +16,11 @@ export interface DashOptions {
 
 const { EN_DASH, EM_DASH, MINUS, LEFT_DOUBLE_QUOTE, RIGHT_DOUBLE_QUOTE, LEFT_SINGLE_QUOTE, RIGHT_SINGLE_QUOTE } = UNICODE_SYMBOLS
 
-/** Chars that prevent number range conversion when preceding (e.g., Llama-2-7B) */
+/**
+ * Characters that, when preceding a number, prevent it from being
+ * treated as the start of a number range. This prevents false positives
+ * in model names like "Llama-2-7B" where "2-7" should not become "2–7".
+ */
 export const numberRangeDisallowedPrefixes = ["-", EN_DASH, EM_DASH, MINUS] as const
 
 export const months = [
@@ -29,9 +30,9 @@ export const months = [
   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
 ].join("|")
 
-/** Convert number ranges to en-dash. Skips >2 segments and ISO dates. */
+/** Convert number ranges to en-dash (e.g., "1-5" → "1–5"). */
 export function enDashNumberRange(text: string, options: DashOptions = {}): string {
-  const chr = options.separator ? escapeRegex(options.separator) : ESCAPED_DEFAULT_SEPARATOR
+  const chr = options.separator ? escapeStringRegexp(options.separator) : ESCAPED_DEFAULT_SEPARATOR
   const wb = wordBoundaryStart(chr)
   const wbe = wordBoundaryEnd(chr)
 
@@ -45,10 +46,10 @@ export function enDashNumberRange(text: string, options: DashOptions = {}): stri
       "g"
     ),
     (match, start, end, following, suffix = "") => {
-      if (following) return match // >2 segments
+      if (following) return match
       const s = start.replace(new RegExp(chr, "g"), "")
       const e = end.replace(new RegExp(chr, "g"), "")
-      if (/^(?:19|20)\d{2}$/.test(s) && /^(?:0[1-9]|1[0-2])$/.test(e)) return match // ISO date
+      if (/^(?:19|20)\d{2}$/.test(s) && /^(?:0[1-9]|1[0-2])$/.test(e)) return match
       return `${start}${EN_DASH}${end}${suffix || ""}`
     }
   )
@@ -69,9 +70,9 @@ export function enDashNumberRange(text: string, options: DashOptions = {}): stri
   return text
 }
 
-/** Convert month ranges to en-dash. */
+/** Convert month ranges to en-dash (e.g., "January-March" → "January–March"). */
 export function enDashDateRange(text: string, options: DashOptions = {}): string {
-  const chr = options.separator ? escapeRegex(options.separator) : ESCAPED_DEFAULT_SEPARATOR
+  const chr = options.separator ? escapeStringRegexp(options.separator) : ESCAPED_DEFAULT_SEPARATOR
   const dashStyle = options.dashStyle ?? "american"
   const wb = wordBoundaryStart(chr)
   const wbe = wordBoundaryEnd(chr)
@@ -86,13 +87,20 @@ export function enDashDateRange(text: string, options: DashOptions = {}): string
   )
 }
 
-/** Convert hyphens to minus signs in numeric contexts. */
+/** Convert hyphens to minus signs in numeric contexts (e.g., "-5" → "−5"). */
 export function minusReplace(text: string, options: DashOptions = {}): string {
   const chr = options.separator ?? DEFAULT_SEPARATOR
-  return text.replaceAll(new RegExp(`(?<before>^|[\\s\\(${chr}""])-(?<num>\\s?\\d*\\.?\\d+)`, "gm"), `$<before>${MINUS}$<num>`)
+  // Match after: start of line, whitespace, (, separator, or quotes (straight or curly)
+  return text.replaceAll(
+    new RegExp(`(?<before>^|[\\s\\("${chr}${LEFT_DOUBLE_QUOTE}${RIGHT_DOUBLE_QUOTE}])-(?<num>\\s?\\d*\\.?\\d+)`, "gm"),
+    `$<before>${MINUS}$<num>`
+  )
 }
 
-/** Convert surrounded dashes to em/en dashes. */
+/**
+ * Convert surrounded dashes to em/en dashes.
+ * Handles patterns like "word - word" → "word—word" (American) or "word – word" (British).
+ */
 function convertParentheticalDashes(text: string, sep: string, style: DashStyle): string {
   if (style === "none") return text
   const dash = style === "british" ? EN_DASH : EM_DASH
@@ -110,7 +118,10 @@ function convertParentheticalDashes(text: string, sep: string, style: DashStyle)
   return text
 }
 
-/** Normalize em-dash spacing for American style. */
+/**
+ * Normalize em-dash spacing for American style.
+ * Removes spaces around em-dashes between words, but preserves spacing for attributions.
+ */
 function normalizeEmDashSpacing(text: string, sep: string): string {
   const cq = `${RIGHT_SINGLE_QUOTE}${RIGHT_DOUBLE_QUOTE}`, oq = `${LEFT_SINGLE_QUOTE}${LEFT_DOUBLE_QUOTE}`
   const cp = `\\.\\?!…${cq}"\\'`

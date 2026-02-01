@@ -2,6 +2,7 @@
  * Symbol transformations: ellipses, multiplication, math symbols, arrows.
  */
 
+import escapeStringRegexp from "escape-string-regexp"
 import { UNICODE_SYMBOLS, ESCAPED_DEFAULT_SEPARATOR, wordBoundaryEnd } from "./constants.js"
 
 export interface SymbolOptions {
@@ -9,10 +10,6 @@ export interface SymbolOptions {
   separator?: string
   /** Include arrow transforms (-> → →). Default: true */
   includeArrows?: boolean
-}
-
-function escapeRegex(str: string): string {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
 }
 
 const {
@@ -45,7 +42,7 @@ const {
 /** Convert "..." to "…". */
 export function ellipsis(text: string, options: SymbolOptions = {}): string {
   const chr = options.separator
-    ? escapeRegex(options.separator)
+    ? escapeStringRegexp(options.separator)
     : ESCAPED_DEFAULT_SEPARATOR
 
   // Capture groups preserve separators: .(sep1)?.(sep2)?.
@@ -63,7 +60,7 @@ export function ellipsis(text: string, options: SymbolOptions = {}): string {
 /** Convert "5x5" to "5×5". Skips hex (0x5F). */
 export function multiplication(text: string, options: SymbolOptions = {}): string {
   const chr = options.separator
-    ? escapeRegex(options.separator)
+    ? escapeStringRegexp(options.separator)
     : ESCAPED_DEFAULT_SEPARATOR
 
   // Dimensions with spaces: preserve spacing
@@ -119,7 +116,7 @@ export function legalSymbols(text: string): string {
 /** Convert -> and <-> to arrows. */
 export function arrows(text: string, options: SymbolOptions = {}): string {
   const chr = options.separator
-    ? escapeRegex(options.separator)
+    ? escapeStringRegexp(options.separator)
     : ESCAPED_DEFAULT_SEPARATOR
 
   // Bidirectional arrow: <-> or <-->
@@ -143,26 +140,26 @@ export function arrows(text: string, options: SymbolOptions = {}): string {
   return text
 }
 
-/** Convert "20C" to "20 °C". */
+/** Convert "20 C" or "20 F" to "20 °C" or "20 °F". Only matches uppercase C/F. */
 export function degrees(text: string, options: SymbolOptions = {}): string {
   const chr = options.separator
-    ? escapeRegex(options.separator)
+    ? escapeStringRegexp(options.separator)
     : ESCAPED_DEFAULT_SEPARATOR
 
-  // Temperature with optional space before C or F
+  // Temperature with optional space before C or F (uppercase only)
   // Handles separator between digit and unit
   // Uses marker-aware boundary to avoid false matches like "20C\uE000elsius"
   const wbe = wordBoundaryEnd(chr)
   return text.replace(
-    new RegExp(`(?<num>\\d${chr}?) ?(?<unit>[CF])${wbe}`, "gi"),
-    (_, num, unit) => `${num} ${DEGREE}${unit.toUpperCase()}`
+    new RegExp(`(?<num>\\d${chr}?) ?(?<unit>[CF])${wbe}`, "g"),
+    (_, num, unit) => `${num} ${DEGREE}${unit}`
   )
 }
 
 /** Convert 5'10" to 5′10″ (prime marks). Call before smart quotes. */
 export function primeMarks(text: string, options: SymbolOptions = {}): string {
   const chr = options.separator
-    ? escapeRegex(options.separator)
+    ? escapeStringRegexp(options.separator)
     : ESCAPED_DEFAULT_SEPARATOR
 
   // Single prime: Matches digit + optional separator + apostrophe
@@ -214,7 +211,7 @@ const FRACTION_MAP: Record<string, string> = {
 /** Convert 1/2, 1/4, etc. to ½, ¼, etc. */
 export function fractions(text: string, options: SymbolOptions = {}): string {
   const chr = options.separator
-    ? escapeRegex(options.separator)
+    ? escapeStringRegexp(options.separator)
     : ESCAPED_DEFAULT_SEPARATOR
 
   for (const [ascii, unicode] of Object.entries(FRACTION_MAP)) {
@@ -242,9 +239,9 @@ const ORDINAL_MAP: Record<string, string> = {
 }
 
 /** Convert 1st, 2nd, 3rd, 4th to superscript ordinals. */
-export function superscript(text: string, options: SymbolOptions = {}): string {
+export function superscriptOrdinal(text: string, options: SymbolOptions = {}): string {
   const chr = options.separator
-    ? escapeRegex(options.separator)
+    ? escapeStringRegexp(options.separator)
     : ESCAPED_DEFAULT_SEPARATOR
 
   // Match number + optional separator + ordinal suffix at word boundary
@@ -270,7 +267,7 @@ export function collapseSpaces(text: string): string {
 /** Convert ?? to ⁇, ?! to ⁈, !? to ⁉. Poor font support, disabled by default. */
 export function punctuationLigatures(text: string, options: SymbolOptions = {}): string {
   const chr = options.separator
-    ? escapeRegex(options.separator)
+    ? escapeStringRegexp(options.separator)
     : ESCAPED_DEFAULT_SEPARATOR
 
   // Order matters: handle mixed punctuation first, then repeated

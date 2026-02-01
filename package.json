@@ -63,5 +63,8 @@
     "typescript-eslint": "^8.54.0",
     "typograf": "7.6.0",
     "unified": "11.0.5"
+  },
+  "dependencies": {
+    "escape-string-regexp": "5.0.0"
   }
 }

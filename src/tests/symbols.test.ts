@@ -8,7 +8,7 @@ import {
   primeMarks,
   fractions,
   collapseSpaces,
-  superscript,
+  superscriptOrdinal,
   punctuationLigatures,
   symbolTransform,
 } from "../symbols.js"
@@ -288,7 +288,7 @@ describe("collapseSpaces", () => {
   })
 })
 
-describe("superscript", () => {
+describe("superscriptOrdinal", () => {
   it.each([
     // Basic ordinals
     ["1st", `1${UNICODE_SYMBOLS.SUPERSCRIPT_ST}`],
@@ -320,12 +320,12 @@ describe("superscript", () => {
     ["thunder", "thunder"],
     ["rand", "rand"],
   ])('converts "%s" to "%s"', (input, expected) => {
-    expect(superscript(input)).toBe(expected)
+    expect(superscriptOrdinal(input)).toBe(expected)
   })
 
   it("handles separator characters", () => {
     const sep = "\uE000"
-    expect(superscript(`30${sep}th`, { separator: sep })).toBe(
+    expect(superscriptOrdinal(`30${sep}th`, { separator: sep })).toBe(
       `30${sep}${UNICODE_SYMBOLS.SUPERSCRIPT_TH}`
     )
   })
@@ -342,7 +342,7 @@ describe("superscript", () => {
       ["valid boundary before space", `1st${sep} place`, `1${UNICODE_SYMBOLS.SUPERSCRIPT_ST}${sep} place`], // should convert
       ["valid boundary before punctuation", `2nd${sep}.`, `2${UNICODE_SYMBOLS.SUPERSCRIPT_ND}${sep}.`], // should convert
     ])("handles %s", (_desc, input, expected) => {
-      expect(superscript(input, { separator: sep })).toBe(expected)
+      expect(superscriptOrdinal(input, { separator: sep })).toBe(expected)
     })
   })
 })

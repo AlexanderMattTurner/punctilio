@@ -31,7 +31,7 @@ export {
   fractions,
   primeMarks,
   collapseSpaces,
-  superscript,
+  superscriptOrdinal,
   punctuationLigatures,
   symbolTransform,
   type SymbolOptions,
@@ -127,7 +127,7 @@ export interface TransformOptions {
 
 import { niceQuotes } from "./quotes.js"
 import { hyphenReplace } from "./dashes.js"
-import { symbolTransform, fractions as fractionsTransform, degrees as degreesTransform, superscript as superscriptTransform, primeMarks, collapseSpaces as collapseSpacesTransform, punctuationLigatures as ligaturesTransform } from "./symbols.js"
+import { symbolTransform, fractions as fractionsTransform, degrees as degreesTransform, superscriptOrdinal as superscriptTransform, primeMarks, collapseSpaces as collapseSpacesTransform, punctuationLigatures as ligaturesTransform } from "./symbols.js"
 import { assertSeparatorCountPreserved } from "./utils.js"
 import { DEFAULT_SEPARATOR } from "./constants.js"
 
@@ -167,10 +167,22 @@ export { DEFAULT_SEPARATOR } from "./constants.js"
  * // → 'Add ½ cup'
  * ```
  */
+const defaultOpts: Required<Omit<TransformOptions, "separator">> = {
+  symbols: true,
+  fractions: false,
+  degrees: false,
+  superscript: false,
+  ligatures: false,
+  collapseSpaces: true,
+  checkIdempotency: true,
+  punctuationStyle: "american",
+  dashStyle: "american",
+}
+
 export function transform(text: string, options: TransformOptions = {}): string {
   const separator = options.separator ?? DEFAULT_SEPARATOR
   const original = text
-  const { symbols = true, fractions = false, degrees = false, superscript = false, ligatures = false, collapseSpaces = true, checkIdempotency = true, ...separatorOpts } = options
+  const { symbols, fractions, degrees, superscript, ligatures, collapseSpaces, checkIdempotency, ...separatorOpts } = { ...defaultOpts, ...options }
 
   text = hyphenReplace(text, separatorOpts)
   text = primeMarks(text, separatorOpts)
@@ -202,7 +214,6 @@ export function transform(text: string, options: TransformOptions = {}): string 
 
   assertSeparatorCountPreserved(original, text, separator, "transform")
 
-  // Optional idempotency check: verify that running transform twice gives same result
   if (checkIdempotency) {
     const secondPass = transform(text, { ...options, checkIdempotency: false })
     /* istanbul ignore if -- defensive check that should never trigger */
