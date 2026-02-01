@@ -65,12 +65,14 @@ export function multiplication(text: string, options: SymbolOptions = {}): strin
     : ESCAPED_DEFAULT_SEPARATOR
 
   // Dimensions with spaces: preserve spacing
-  const loosePattern = new RegExp(`(?<leftNum>\\d${chr}?)\\s+[xX*]\\s+(?<rightNum>${chr}?\\d)`, "g")
+  const leftNumPattern = `(?<leftNum>\\d+${chr}?)`
+  const rightNumPattern = `(?<rightNum>${chr}?\\d)`
+  const loosePattern = new RegExp(`${leftNumPattern}\\s+[xX*]\\s+${rightNumPattern}`, "g")
   text = text.replace(loosePattern, `$<leftNum> ${MULTIPLICATION} $<rightNum>`)
 
   // Dimensions without spaces: keep tight
   // Use callback to skip hexadecimal patterns like "0x5F"
-  const tightPattern = new RegExp(`(?<leftNum>\\d+${chr}?)(?<op>[xX*])(?<rightNum>${chr}?\\d)`, "g")
+  const tightPattern = new RegExp(`${leftNumPattern}(?<op>[xX*])${rightNumPattern}`, "g")
   text = text.replace(tightPattern, (match, leftNum, op, rightNum) => {
     // Skip if this looks like a hexadecimal: single 0 followed by x/X
     if (leftNum === "0" && (op === "x" || op === "X")) {
@@ -82,7 +84,7 @@ export function multiplication(text: string, options: SymbolOptions = {}): strin
   // Trailing multiplier: 5x (followed by word boundary - space, punctuation, etc.)
   // Uses marker-aware boundary to avoid false matches like "5x\uE000tra"
   const wbe = wordBoundaryEnd(chr)
-  const trailingPattern = new RegExp(`(?<num>\\d+${chr}?)(?<op>[xX*])${wbe}`, "g")
+  const trailingPattern = new RegExp(`${leftNumPattern}(?<op>[xX*])${wbe}`, "g")
   text = text.replace(trailingPattern, (match, num, op) => {
     // Skip if this looks like start of hexadecimal
     if (num === "0" && (op === "x" || op === "X")) {
