@@ -253,39 +253,39 @@ describe("minusReplace", () => {
 describe("enDashNumberRange edge cases", () => {
   describe("phone numbers should NOT be converted", () => {
     it.each([
-      ["555-123-4567", "555-123-4567"],
-      ["+1-555-123-4567", "+1-555-123-4567"],
-      ["(555)-123-4567", "(555)-123-4567"],
-    ])('preserves "%s"', (input, expected) => {
-      expect(enDashNumberRange(input)).toBe(expected)
+      "555-123-4567",
+      "+1-555-123-4567",
+      "(555)-123-4567",
+    ])('preserves "%s"', (input) => {
+      expect(enDashNumberRange(input)).toBe(input)
     })
   })
 
   describe("ISBN/serial numbers should NOT be converted", () => {
     it.each([
-      ["978-3-16-148410-0", "978-3-16-148410-0"],
-      ["0-13-468599-1", "0-13-468599-1"],
-    ])('preserves "%s"', (input, expected) => {
-      expect(hyphenReplace(input)).toBe(expected)
+      "978-3-16-148410-0",
+      "0-13-468599-1",
+    ])('preserves "%s"', (input) => {
+      expect(hyphenReplace(input)).toBe(input)
     })
   })
 
   describe("ISO dates should NOT be converted", () => {
     it.each([
-      ["2024-01-15", "2024-01-15"],
-      ["2024-01", "2024-01"],
-      ["1999-12", "1999-12"],
-    ])('preserves "%s"', (input, expected) => {
-      expect(enDashNumberRange(input)).toBe(expected)
+      "2024-01-15",
+      "2024-01",
+      "1999-12",
+    ])('preserves "%s"', (input) => {
+      expect(enDashNumberRange(input)).toBe(input)
     })
   })
 
   describe("IP-like patterns should NOT be converted", () => {
     it.each([
-      ["192-168-1-1", "192-168-1-1"],
-      ["12-34-5678", "12-34-5678"], // Following segment has 3+ digits
-    ])('preserves "%s"', (input, expected) => {
-      expect(enDashNumberRange(input)).toBe(expected)
+      "192-168-1-1",
+      "12-34-5678", // Following segment has 3+ digits
+    ])('preserves "%s"', (input) => {
+      expect(enDashNumberRange(input)).toBe(input)
     })
   })
 
