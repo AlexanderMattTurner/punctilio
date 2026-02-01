@@ -53,7 +53,7 @@ My [`benchmark.mjs`](./benchmark.mjs) measures how well libraries handle a [wide
 | Ellipsis | ... → … | ✓ | ✓ | ✓ | ✗ | ✓ |
 | Multiplication | 5x5 → 5×5 | ✓ | ✗ | ✗ | ✗ | ~ |
 | Math symbols | != → ≠ | ✓ | ✗ | ~ | ✗ | ~ |
-| Legal symbols | (c) → © | ✓ | ✗ | © only | ✗ | ✓ |
+| Legal symbols | (c) → © | ✓ | ✗ | ~ | ✗ | ✓ |
 | Arrows | -> → → | ✓ | ✗ | ~ | ✗ | ~ |
 | Prime marks | 5'10" → 5′10″ | ✓ | ✗ | ✓ | ✓ | ✗ |
 | Degrees | 20 C → 20 °C | ✓ | ✗ | ✗ | ✗ | ✓ |
