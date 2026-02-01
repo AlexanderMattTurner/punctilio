@@ -116,28 +116,27 @@ export function legalSymbols(text: string): string {
     .replace(/\(tm\)/gi, TRADEMARK)
 }
 
-/** Convert ->, <-, <-> to arrows. Skips HTML comments (-->). */
+/** Convert -> and <-> to arrows. */
 export function arrows(text: string, options: SymbolOptions = {}): string {
   const chr = options.separator
     ? escapeRegex(options.separator)
     : ESCAPED_DEFAULT_SEPARATOR
 
-  // Bidirectional arrow: <-> (single dash only to avoid HTML comment issues)
-  // Matches <-> with optional separator, requires boundary context
+  // Bidirectional arrow: <-> or <-->
   text = text.replace(
-    new RegExp(`(?<=[\\s${chr}]|^)<-${chr}?>(?=[\\s${chr}]|$)`, "g"),
+    new RegExp(`(?<=[\\s${chr}]|^)<-+${chr}?>(?=[\\s${chr}]|$)`, "g"),
     ARROW_LEFT_RIGHT
   )
 
-  // Right arrow: -> (single dash only to avoid matching --> in HTML comments)
+  // Right arrow: -> or -->
   text = text.replace(
-    new RegExp(`(?<=[\\s${chr}]|^)->(?=[\\s${chr}]|$)`, "g"),
+    new RegExp(`(?<=[\\s${chr}]|^)-+>(?=[\\s${chr}]|$)`, "g"),
     ARROW_RIGHT
   )
 
-  // Left arrow: <- (single dash only)
+  // Left arrow: <- or <--
   text = text.replace(
-    new RegExp(`(?<=[\\s${chr}]|^)<-(?=[\\s${chr}]|$)`, "g"),
+    new RegExp(`(?<=[\\s${chr}]|^)<-+(?=[\\s${chr}]|$)`, "g"),
     ARROW_LEFT
   )
 
