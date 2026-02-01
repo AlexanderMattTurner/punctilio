@@ -21,7 +21,7 @@ describe("hyphenReplace", () => {
       ["word ---", `word${EM_DASH}`],
       [`word${EM_DASH} word`, `word${EM_DASH}word`],
       [`word ${EM_DASH}word`, `word${EM_DASH}word`],
-      ['"I love dogs." - Me', `"I love dogs." ${EM_DASH} Me`],
+      ['"I love dogs." - Me', `"I love dogs."${EM_DASH}Me`],
       ["- Me", `${EM_DASH} Me`],
       ["-- Me", `${EM_DASH} Me`],
       ["Hi-- what do you think?", `Hi${EM_DASH}what do you think?`],
@@ -35,7 +35,7 @@ describe("hyphenReplace", () => {
       ["> - First level", "> - First level"], // Quoted unordered lists should not be changed
       [
         `reward${ELLIPSIS} ${EM_DASH} [Model-based RL, Desires, Brains, Wireheading](https://www.alignmentforum.org/posts/K5ikTdaNymfWXQHFb/model-based-rl-desires-brains-wireheading#Self_aware_desires_1__wireheading)`,
-        `reward${ELLIPSIS} ${EM_DASH} [Model-based RL, Desires, Brains, Wireheading](https://www.alignmentforum.org/posts/K5ikTdaNymfWXQHFb/model-based-rl-desires-brains-wireheading#Self_aware_desires_1__wireheading)`,
+        `reward${ELLIPSIS}${EM_DASH}[Model-based RL, Desires, Brains, Wireheading](https://www.alignmentforum.org/posts/K5ikTdaNymfWXQHFb/model-based-rl-desires-brains-wireheading#Self_aware_desires_1__wireheading)`,
       ],
       ["a browser- or OS-specific fashion", "a browser- or OS-specific fashion"],
       ["since--as you know", `since${EM_DASH}as you know`],
@@ -74,27 +74,15 @@ describe("hyphenReplace", () => {
     })
   })
 
-  describe("quote-to-quote em dash spacing", () => {
+  describe("quote-to-quote em dash (Chicago: no spaces)", () => {
     it.each([
-      // Straight quotes (before niceQuotes converts them)
-      [`"Hello."${EM_DASH}"World"`, `"Hello." ${EM_DASH} "World"`],
-      [`'Hi.'${EM_DASH}'There'`, `'Hi.' ${EM_DASH} 'There'`],
-      // Curly quotes (after niceQuotes)
-      [
-        `${LEFT_DOUBLE_QUOTE}Hello.${RIGHT_DOUBLE_QUOTE}${EM_DASH}${LEFT_DOUBLE_QUOTE}World${RIGHT_DOUBLE_QUOTE}`,
-        `${LEFT_DOUBLE_QUOTE}Hello.${RIGHT_DOUBLE_QUOTE} ${EM_DASH} ${LEFT_DOUBLE_QUOTE}World${RIGHT_DOUBLE_QUOTE}`,
-      ],
-      [
-        `${LEFT_SINGLE_QUOTE}Hi.${RIGHT_SINGLE_QUOTE}${EM_DASH}${LEFT_SINGLE_QUOTE}There${RIGHT_SINGLE_QUOTE}`,
-        `${LEFT_SINGLE_QUOTE}Hi.${RIGHT_SINGLE_QUOTE} ${EM_DASH} ${LEFT_SINGLE_QUOTE}There${RIGHT_SINGLE_QUOTE}`,
-      ],
-      // Mixed: curly closing quote to straight opening quote
-      [
-        `${LEFT_DOUBLE_QUOTE}Quote.${RIGHT_DOUBLE_QUOTE}${EM_DASH}"Another"`,
-        `${LEFT_DOUBLE_QUOTE}Quote.${RIGHT_DOUBLE_QUOTE} ${EM_DASH} "Another"`,
-      ],
-    ])('adds spaces in "%s"', (input, expected) => {
-      expect(hyphenReplace(input)).toBe(expected)
+      // Chicago style: no spaces around em-dashes, even between quotes
+      `"Hello."${EM_DASH}"World"`,
+      `'Hi.'${EM_DASH}'There'`,
+      `${LEFT_DOUBLE_QUOTE}Hello.${RIGHT_DOUBLE_QUOTE}${EM_DASH}${LEFT_DOUBLE_QUOTE}World${RIGHT_DOUBLE_QUOTE}`,
+      `${LEFT_SINGLE_QUOTE}Hi.${RIGHT_SINGLE_QUOTE}${EM_DASH}${LEFT_SINGLE_QUOTE}There${RIGHT_SINGLE_QUOTE}`,
+    ])('preserves unspaced em-dash in "%s"', (input) => {
+      expect(hyphenReplace(input)).toBe(input)
     })
   })
 

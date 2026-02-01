@@ -14,7 +14,7 @@ export interface DashOptions {
   dashStyle?: DashStyle
 }
 
-const { EN_DASH, EM_DASH, MINUS, LEFT_DOUBLE_QUOTE, RIGHT_DOUBLE_QUOTE, LEFT_SINGLE_QUOTE, RIGHT_SINGLE_QUOTE } = UNICODE_SYMBOLS
+const { EN_DASH, EM_DASH, MINUS, LEFT_DOUBLE_QUOTE, RIGHT_DOUBLE_QUOTE } = UNICODE_SYMBOLS
 
 /**
  * Characters that, when preceding a number, prevent it from being
@@ -119,24 +119,25 @@ function convertParentheticalDashes(text: string, sep: string, style: DashStyle)
 }
 
 /**
- * Normalize em-dash spacing for American style.
- * Removes spaces around em-dashes between words, but preserves spacing for attributions.
+ * Normalize em-dash spacing for Chicago style (American).
+ * Removes all spaces around em-dashes per Chicago Manual of Style.
+ *
+ * TODO: Handle interrupted-then-resumed speech within quotes, where Chicago
+ * allows a space after the dash: "Don't inter— Hey! Who threw that?"
  */
 function normalizeEmDashSpacing(text: string, sep: string): string {
-  const closingQuotes = `${RIGHT_SINGLE_QUOTE}${RIGHT_DOUBLE_QUOTE}"'`
-  const openingQuotes = `${LEFT_SINGLE_QUOTE}${LEFT_DOUBLE_QUOTE}"'`
-  const closingPunct = `\\.\\?!…${closingQuotes}`
+  // Remove all spaces around em-dashes
+  text = text.replace(
+    new RegExp(`(?<before>${sep}?)[ ]*${EM_DASH}[ ]*(?<after>${sep}?)`, "g"),
+    `$<before>${EM_DASH}$<after>`
+  )
 
-  // Remove spaces around em-dash between word chars
-  text = text.replace(new RegExp(`(?<before>\\w${sep}?)[ ]+${EM_DASH}[ ]+(?<after>${sep}?\\w)`, "g"), `$<before>${EM_DASH}$<after>`)
-  text = text.replace(new RegExp(`(?<before>\\w${sep}?)[ ]+${EM_DASH}(?<after>${sep}?\\w)`, "g"), `$<before>${EM_DASH}$<after>`)
-  text = text.replace(new RegExp(`(?<before>\\w${sep}?)${EM_DASH}[ ]+(?<after>${sep}?\\w)`, "g"), `$<before>${EM_DASH}$<after>`)
-  // Space between quotes: "Hello."—"World" → "Hello." — "World"
-  text = text.replace(new RegExp(`(?<closingQuote>[${closingQuotes}]${sep}?) ?${EM_DASH} ?(?<openingQuote>${sep}?[${openingQuotes}])`, "g"), `$<closingQuote> ${EM_DASH} $<openingQuote>`)
-  // Attribution: "quote."—Author → "quote." — Author
-  text = text.replace(new RegExp(`(?<punctuation>[${closingPunct}]${sep}?)${EM_DASH}(?<attribution>${sep}?[A-Z\\[])`, "g"), `$<punctuation> ${EM_DASH} $<attribution>`)
-  // Start of line
-  text = text.replace(new RegExp(`^(?<lineSep>${sep}?)${EM_DASH}(?<lineStart>[A-Z0-9])`, "gm"), `$<lineSep>${EM_DASH} $<lineStart>`)
+  // Preserve space after em-dash at start of line (e.g., list attribution)
+  text = text.replace(
+    new RegExp(`^(?<sep>${sep}?)${EM_DASH}(?<after>[A-Z0-9])`, "gm"),
+    `$<sep>${EM_DASH} $<after>`
+  )
+
   return text
 }
 
