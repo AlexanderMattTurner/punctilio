@@ -109,6 +109,9 @@
   "Prime marks - coordinates": [
     ["Location: 45\u00B0 30' 15\"", "Location: 45\u00B0 30\u2032 15\u2033"]
   ],
+  "Prime marks - multiple (quote balancing)": [
+    ["Room is 10' x 12'", "Room is 10\u2032 x 12'"]
+  ],
   "Degrees": [
     ["20 C", "20 \u00B0C"],
     ["68 F", "68 \u00B0F"],

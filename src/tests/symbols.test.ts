@@ -513,14 +513,6 @@ describe("complex real-world patterns", () => {
       expect(primeMarks(input)).toBe(expected)
     })
 
-    // Known limitation: multiple prime marks in sequence (quote balancing)
-    it("documents multiple prime marks limitation", () => {
-      // Second prime mark might be interpreted as closing quote
-      const input = "Room is 10' x 12'"
-      const result = primeMarks(input)
-      // First converts, second doesn't due to quote balancing
-      expect(result).toBe(`Room is 10${UNICODE_SYMBOLS.PRIME} x 12'`)
-    })
   })
 
   describe("temperatures in context", () => {
