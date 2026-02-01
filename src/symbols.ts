@@ -3,7 +3,7 @@
  */
 
 import escapeStringRegexp from "escape-string-regexp"
-import { UNICODE_SYMBOLS, ESCAPED_DEFAULT_SEPARATOR, LATIN_LETTERS, wordBoundaryEnd } from "./constants.js"
+import { UNICODE_SYMBOLS, ESCAPED_DEFAULT_SEPARATOR, LATIN_LETTERS, wordBoundaryEnd, SPACE_CHARS, spaceBoundaryStart, spaceBoundaryEnd } from "./constants.js"
 
 export interface SymbolOptions {
   /** Boundary marker for HTML element boundaries. Default: "\uE000" */
@@ -29,7 +29,6 @@ const {
   GREATER_EQUAL,
   PRIME,
   DOUBLE_PRIME,
-  NBSP,
   SUPERSCRIPT_ST,
   SUPERSCRIPT_ND,
   SUPERSCRIPT_RD,
@@ -95,25 +94,46 @@ export function multiplication(text: string, options: SymbolOptions = {}): strin
   return text
 }
 
+/** Math symbol replacement map: ASCII → Unicode */
+const MATH_SYMBOL_MAP: [RegExp, string][] = [
+  [/!=/g, NOT_EQUAL],
+  [/\+\/-/g, PLUS_MINUS],
+  [/\+-/g, PLUS_MINUS],
+  [/<=/g, LESS_EQUAL],
+  [/>=/g, GREATER_EQUAL],
+  [/~=/g, APPROXIMATE],
+  [/=~/g, APPROXIMATE],
+]
+
 /** Convert !=, <=, >=, +/-, ~= to Unicode equivalents. */
 export function mathSymbols(text: string): string {
+  for (const [pattern, replacement] of MATH_SYMBOL_MAP) {
+    text = text.replace(pattern, replacement)
+  }
   return text
-    .replace(/!=/g, NOT_EQUAL)
-    .replace(/\+\/-/g, PLUS_MINUS)
-    .replace(/\+-/g, PLUS_MINUS)
-    .replace(/<=/g, LESS_EQUAL)
-    .replace(/>=/g, GREATER_EQUAL)
-    .replace(/~=/g, APPROXIMATE)
-    .replace(/=~/g, APPROXIMATE)
 }
+
+/** Legal symbol replacement map: ASCII → Unicode */
+const LEGAL_SYMBOL_MAP: [RegExp, string][] = [
+  [/\(c\)/gi, COPYRIGHT],
+  [/\(r\)/gi, REGISTERED],
+  [/\(tm\)/gi, TRADEMARK],
+]
 
 /** Convert (c), (r), (tm) to ©, ®, ™. */
 export function legalSymbols(text: string): string {
+  for (const [pattern, replacement] of LEGAL_SYMBOL_MAP) {
+    text = text.replace(pattern, replacement)
+  }
   return text
-    .replace(/\(c\)/gi, COPYRIGHT)
-    .replace(/\(r\)/gi, REGISTERED)
-    .replace(/\(tm\)/gi, TRADEMARK)
 }
+
+/** Arrow pattern map: arrow shape → Unicode symbol */
+const ARROW_MAP: [string, string][] = [
+  [`<-+${"%CHR%"}?>`, ARROW_LEFT_RIGHT], // Bidirectional: <-> or <-->
+  ["-+>", ARROW_RIGHT],                   // Right: -> or -->
+  ["<-+", ARROW_LEFT],                    // Left: <- or <--
+]
 
 /** Convert -> and <-> to arrows. */
 export function arrows(text: string, options: SymbolOptions = {}): string {
@@ -121,23 +141,13 @@ export function arrows(text: string, options: SymbolOptions = {}): string {
     ? escapeStringRegexp(options.separator)
     : ESCAPED_DEFAULT_SEPARATOR
 
-  // Bidirectional arrow: <-> or <-->
-  text = text.replace(
-    new RegExp(`(?<=[\\s${chr}]|^)<-+${chr}?>(?=[\\s${chr}]|$)`, "g"),
-    ARROW_LEFT_RIGHT
-  )
+  const start = spaceBoundaryStart(chr)
+  const end = spaceBoundaryEnd(chr)
 
-  // Right arrow: -> or -->
-  text = text.replace(
-    new RegExp(`(?<=[\\s${chr}]|^)-+>(?=[\\s${chr}]|$)`, "g"),
-    ARROW_RIGHT
-  )
-
-  // Left arrow: <- or <--
-  text = text.replace(
-    new RegExp(`(?<=[\\s${chr}]|^)<-+(?=[\\s${chr}]|$)`, "g"),
-    ARROW_LEFT
-  )
+  for (const [arrowPattern, replacement] of ARROW_MAP) {
+    const pattern = new RegExp(`${start}${arrowPattern.replace("%CHR%", chr)}${end}`, "g")
+    text = text.replace(pattern, replacement)
+  }
 
   return text
 }
@@ -265,8 +275,20 @@ export function superscriptOrdinal(text: string, options: SymbolOptions = {}): s
 
 /** Collapse multiple spaces to single space. */
 export function collapseSpaces(text: string): string {
-  return text.replace(new RegExp(`(?<first>[ ${NBSP}])[ ${NBSP}]+`, "g"), "$<first>")
+  return text.replace(new RegExp(`(?<first>[${SPACE_CHARS}])[${SPACE_CHARS}]+`, "g"), "$<first>")
 }
+
+/**
+ * Punctuation ligature map: [first char, repeated char, replacement]
+ * Pattern: first(sep)?repeated(?:sep?repeated)* → replacement
+ * Order matters: handle mixed punctuation first, then repeated
+ */
+const PUNCTUATION_LIGATURE_MAP: [string, string, string][] = [
+  ["\\?", "!", QUESTION_EXCLAMATION],  // ?!+ → ⁈
+  ["!", "\\?", EXCLAMATION_QUESTION],  // !?+ → ⁉
+  ["\\?", "\\?", DOUBLE_QUESTION],     // ??+ → ⁇
+  ["!", "!", "!"],                      // !!+ → ! (normalize)
+]
 
 /** Convert ?? to ⁇, ?! to ⁈, !? to ⁉. Poor font support, disabled by default. */
 export function punctuationLigatures(text: string, options: SymbolOptions = {}): string {
@@ -274,32 +296,10 @@ export function punctuationLigatures(text: string, options: SymbolOptions = {}):
     ? escapeStringRegexp(options.separator)
     : ESCAPED_DEFAULT_SEPARATOR
 
-  // Order matters: handle mixed punctuation first, then repeated
-  // Patterns capture separators between characters and preserve them after the ligature
-
-  // ?!+ → ⁈ (question followed by one or more exclamation marks)
-  text = text.replace(
-    new RegExp(`\\?(${chr})?!(?:${chr}?!)*`, "g"),
-    (_match, sep) => QUESTION_EXCLAMATION + (sep || "")
-  )
-
-  // !?+ → ⁉ (exclamation followed by one or more question marks)
-  text = text.replace(
-    new RegExp(`!(${chr})?\\?(?:${chr}?\\?)*`, "g"),
-    (_match, sep) => EXCLAMATION_QUESTION + (sep || "")
-  )
-
-  // ??+ → ⁇ (two or more question marks squashed to ligature)
-  text = text.replace(
-    new RegExp(`\\?(${chr})?\\?(?:${chr}?\\?)*`, "g"),
-    (_match, sep) => DOUBLE_QUESTION + (sep || "")
-  )
-
-  // !!+ → ! (two or more exclamation marks squashed to single)
-  text = text.replace(
-    new RegExp(`!(${chr})?!(?:${chr}?!)*`, "g"),
-    (_match, sep) => "!" + (sep || "")
-  )
+  for (const [first, repeated, replacement] of PUNCTUATION_LIGATURE_MAP) {
+    const pattern = new RegExp(`${first}(${chr})?${repeated}(?:${chr}?${repeated})*`, "g")
+    text = text.replace(pattern, (_match, sep) => replacement + (sep || ""))
+  }
 
   return text
 }
