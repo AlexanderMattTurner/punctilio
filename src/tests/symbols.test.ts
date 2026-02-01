@@ -439,12 +439,16 @@ describe("competitor-derived edge cases", () => {
       expect(ellipsis(input)).toBe(expected)
     })
 
-    // Known limitation: spaced periods not converted
-    it.each([
-      "text. . . more", // spaced periods preserved
-      "a . b . c",      // not an ellipsis pattern
-    ])('preserves spaced periods (not ellipsis): "%s"', (input) => {
-      expect(ellipsis(input)).toBe(input)
+    it("converts spaced periods to ellipsis", () => {
+      expect(ellipsis("text. . . more")).toBe(`text${UNICODE_SYMBOLS.ELLIPSIS} more`)
+      expect(ellipsis(". . .")).toBe(UNICODE_SYMBOLS.ELLIPSIS)
+      // Also works with non-breaking spaces
+      expect(ellipsis(`.${UNICODE_SYMBOLS.NBSP}.${UNICODE_SYMBOLS.NBSP}.`)).toBe(UNICODE_SYMBOLS.ELLIPSIS)
+    })
+
+    it("preserves non-ellipsis spaced periods", () => {
+      // Only exactly three spaced dots are converted
+      expect(ellipsis("a . b . c")).toBe("a . b . c")
     })
   })
 
@@ -511,14 +515,6 @@ describe("complex real-world patterns", () => {
       expect(primeMarks(input)).toBe(expected)
     })
 
-    // Known limitation: multiple prime marks in sequence (quote balancing)
-    it("documents multiple prime marks limitation", () => {
-      // Second prime mark might be interpreted as closing quote
-      const input = "Room is 10' x 12'"
-      const result = primeMarks(input)
-      // First converts, second doesn't due to quote balancing
-      expect(result).toBe(`Room is 10${UNICODE_SYMBOLS.PRIME} x 12'`)
-    })
   })
 
   describe("temperatures in context", () => {

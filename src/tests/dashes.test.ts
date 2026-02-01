@@ -305,13 +305,10 @@ describe("competitor-derived edge cases", () => {
       expect(hyphenReplace(input)).toBe(expected)
     })
 
-    // Known limitation: double dash after quote not at word boundary
-    it("documents double dash after quote limitation", () => {
-      // Dash must be at word boundary to be converted
+    it("handles double dash after quote", () => {
       const input = '"Hello"-- she said'
       const result = hyphenReplace(input)
-      // Currently not converted because quote" is not followed by space before --
-      expect(result).toBe('"Hello"-- she said')
+      expect(result).toBe(`"Hello"${EM_DASH}she said`)
     })
   })
 
@@ -338,12 +335,10 @@ describe("competitor-derived edge cases", () => {
       expect(hyphenReplace(input)).toBe(expected)
     })
 
-    // Known limitation: unspaced double dash between quotes
-    it("documents unspaced dash between quotes limitation", () => {
+    it("handles unspaced double dash between quotes", () => {
       const input = '"first"--"second"'
       const result = hyphenReplace(input)
-      // Currently not converted - needs space around dashes for word boundary
-      expect(result).toBe('"first"--"second"')
+      expect(result).toBe(`"first"${EM_DASH}"second"`)
     })
   })
 })
@@ -377,13 +372,12 @@ describe("complex real-world patterns", () => {
       expect(hyphenReplace(input)).toBe(expected)
     })
 
-    // Known limitation: non-USD currency symbols not supported for ranges
     it.each([
-      "€5-€10",
-      "£100-£200",
-    ])('documents non-USD currency limitation: "%s"', (input) => {
-      // Currently only $ is supported as currency prefix for ranges
-      expect(hyphenReplace(input)).toBe(input)
+      ["€5-€10", `€5${EN_DASH}€10`],
+      ["£100-£200", `£100${EN_DASH}£200`],
+      ["¥1000-¥2000", `¥1000${EN_DASH}¥2000`],
+    ])('handles non-USD currency range: "%s"', (input, expected) => {
+      expect(hyphenReplace(input)).toBe(expected)
     })
   })
 
@@ -406,12 +400,13 @@ describe("complex real-world patterns", () => {
       expect(hyphenReplace(input)).toBe(expected)
     })
 
-    // Known limitation: number-suffix like "2-3pm" not detected as range
-    it("documents time suffix limitation", () => {
-      const input = '2-3pm'
-      const result = hyphenReplace(input)
-      // "pm" suffix makes this not match the number range pattern
-      expect(result).toBe('2-3pm')
+    it.each([
+      ["2-3pm", `2${EN_DASH}3pm`],
+      ["9-10am", `9${EN_DASH}10am`],
+      ["2-3PM", `2${EN_DASH}3PM`],
+      ["9-10AM", `9${EN_DASH}10AM`],
+    ])('handles time range: "%s"', (input, expected) => {
+      expect(hyphenReplace(input)).toBe(expected)
     })
   })
 })

@@ -129,13 +129,10 @@ describe("niceQuotes", () => {
       expect(niceQuotes(input)).toBe(expected)
     })
 
-    // Known limitation: single quote after em-dash not converted
-    it("documents single quote after em-dash limitation", () => {
-      // Single quote directly after em-dash is not recognized as opening quote
+    it("handles single quote after em-dash", () => {
       const input = `${EM_DASH}'Hi'${EM_DASH}`
       const result = niceQuotes(input)
-      // Opening quote stays straight, closing converts to curly
-      expect(result).toBe(`${EM_DASH}'Hi${RIGHT_SINGLE_QUOTE}${EM_DASH}`)
+      expect(result).toBe(`${EM_DASH}${LEFT_SINGLE_QUOTE}Hi${RIGHT_SINGLE_QUOTE}${EM_DASH}`)
     })
 
     // From Standard Ebooks: M'Donald-style names (archaic patterns)

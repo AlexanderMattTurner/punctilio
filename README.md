@@ -34,14 +34,14 @@ I tested `punctilio` 1.0.1 against [`smartypants`](https://www.npmjs.com/package
 
 My [`benchmark.mjs`](./benchmark.mjs) measures how well libraries handle a [wide range of scenarios](./benchmark_cases.json). The benchmark normalizes stylistic differences (e.g. non-breaking vs regular space, British vs American dash spacing) for fair comparison.
 
-| Package | Score |
-|--------:|:------|
-| `punctilio` | 106/109 (97%) |
-| `tipograph` | 70/109 (64%) |
-| `typograf` | 58/109 (53%) |
-| `smartquotes` | 51/109 (47%) |
-| `smartypants` | 49/109 (45%) |
-| `retext-smartypants` | 47/109 (43%) |
+| Package | Passed (of 118) |
+|--------:|:----------------|
+| `punctilio` | 113 (96%) |
+| `tipograph` | 72 (61%) |
+| `typograf` | 58 (49%) |
+| `smartquotes` | 52 (44%) |
+| `smartypants` | 51 (43%) |
+| `retext-smartypants` | 50 (42%) |
 
 | Feature | Example | `punctilio` | `smartypants` | `tipograph` | `smartquotes` | `typograf` |
 |--------:|:-------:|:-------:|:-------:|:-------:|:-------:|:-------:|
@@ -72,13 +72,8 @@ My [`benchmark.mjs`](./benchmark.mjs) measures how well libraries handle a [wide
 
 | Pattern | Behavior | Notes |
 |:--------|:---------|:------|
-| `—'Hi'—` | Opening `'` not converted | Single quote after em-dash at start is ambiguous |
-| `"Hello"--"second"` | `--` not converted | Unspaced dashes between quotes need word boundaries |
 | `10' x 12'` | Second `'` not converted | Quote balancing prevents double prime conversion |
-| `€5-€10` | Not converted to en-dash | Only `$` currency prefix supported for ranges |
-| `2-3pm` | Not converted to en-dash | Suffix letters prevent number range detection |
-| `. . .` (spaced) | Not converted to ellipsis | Only consecutive dots (`...`) are converted |
-| `No. 3` | Doesn’t replace normal space with a non-breaking one | Requires major new feature |
+| `No. 3` | Doesn't replace normal space with a non-breaking one | Requires major new feature |
 | German/French quotes | Not supported | `« Bonjour »` requires language detection |
 
 ## Test suite

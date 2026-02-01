@@ -39,16 +39,16 @@ const {
   EXCLAMATION_QUESTION,
 } = UNICODE_SYMBOLS
 
-/** Convert "..." to "…". */
+/** Convert "..." or ". . ." to "…". */
 export function ellipsis(text: string, options: SymbolOptions = {}): string {
   const chr = options.separator
     ? escapeStringRegexp(options.separator)
     : ESCAPED_DEFAULT_SEPARATOR
 
-  // Capture groups preserve separators: .(sep1)?.(sep2)?.
-  const pattern = new RegExp(`\\.(${chr})?\\.(${chr})?\\.`, "g")
-  text = text.replace(pattern, (_match, sep1, sep2) => {
-    // Preserve separators by appending them after the ellipsis
+  // Convert consecutive or spaced dots: ... or . . . → …
+  // Captures preserve any separators between dots
+  const pattern = new RegExp(`\\.[${SPACE_CHARS}]?(${chr})?\\.([${SPACE_CHARS}]?)(${chr})?\\.`, "g")
+  text = text.replace(pattern, (_match, sep1, _space, sep2) => {
     return ELLIPSIS + (sep1 || "") + (sep2 || "")
   })
 

@@ -14,7 +14,7 @@ export interface DashOptions {
   dashStyle?: DashStyle
 }
 
-const { EN_DASH, EM_DASH, MINUS, LEFT_DOUBLE_QUOTE, RIGHT_DOUBLE_QUOTE } = UNICODE_SYMBOLS
+const { EN_DASH, EM_DASH, MINUS, LEFT_DOUBLE_QUOTE, RIGHT_DOUBLE_QUOTE, LEFT_SINGLE_QUOTE, RIGHT_SINGLE_QUOTE } = UNICODE_SYMBOLS
 
 /**
  * Characters that, when preceding a number, prevent it from being
@@ -39,10 +39,12 @@ export function enDashNumberRange(text: string, options: DashOptions = {}): stri
   // Escape dash-like chars for lookbehind: prevents matching after dashes (e.g., Llama-2-7B)
   const disallowed = numberRangeDisallowedPrefixes.map(c => c === "-" ? c : `\\u${c.charCodeAt(0).toString(16).padStart(4, "0")}`).join("")
 
-  // Positive ranges: 1-5, $100-$200, p.10-15
+  // Common currency symbols for price ranges
+  const currencies = "$€£¥₹"
+  // Positive ranges: 1-5, $100-$200, €5-€10, p.10-15
   text = text.replace(
     new RegExp(
-      `${wb}(?<![${disallowed}${LATIN_LETTERS}.])(?<start>(?:p\\.?|\\$)?\\d[\\d.,]*${chr}?)-(?<end>${chr}?\\$?\\d[\\d.,]*)(?!\\.\\d)(?<following>(?:${chr}?-${chr}?\\d+)*)(?<suffix>${chr}?[xKBTM])?${wbe}`,
+      `${wb}(?<![${disallowed}${LATIN_LETTERS}.])(?<start>(?:p\\.?|[${currencies}])?\\d[\\d.,]*${chr}?)-(?<end>${chr}?[${currencies}]?\\d[\\d.,]*)(?!\\.\\d)(?<following>(?:${chr}?-${chr}?\\d+)*)(?<suffix>${chr}?(?:[AaPp][Mm]|[xKBTM]))?${wbe}`,
       "g"
     ),
     (match, start, end, following, suffix = "") => {
@@ -111,9 +113,10 @@ function convertParentheticalDashes(text: string, sep: string, style: DashStyle)
     new RegExp(`(?<=[^\\s]|^)(?:(?<sepBefore>${sep}?)[ ]+|(?<sepOnly>${sep}))[~${EN_DASH}${EM_DASH}-]+[ ]*(?<sepAfter>${sep}?)(?:[ ]+|$)`, "g"),
     `$<sepBefore>$<sepOnly>${maybeSpace}${localizedDash}${maybeSpace}$<sepAfter>`
   )
-  // Convert multiple dashes: "word--word" or "word---word"
+  // Convert multiple dashes: "word--word" or "word---word" or "quote"--"quote"
+  const quoteChars = `"'${LEFT_DOUBLE_QUOTE}${RIGHT_DOUBLE_QUOTE}${LEFT_SINGLE_QUOTE}${RIGHT_SINGLE_QUOTE}`
   text = text.replace(
-    new RegExp(`(?<=[${LATIN_LETTERS}\\d])(?<sepBefore>${sep}?)[~${EN_DASH}${EM_DASH}-]{2,}(?<sepAfter>${sep}?)(?=[${LATIN_LETTERS} ])`, "g"),
+    new RegExp(`(?<=[${LATIN_LETTERS}\\d${quoteChars}])(?<sepBefore>${sep}?)[~${EN_DASH}${EM_DASH}-]{2,}(?<sepAfter>${sep}?)(?=[${LATIN_LETTERS}${quoteChars} ])`, "g"),
     `$<sepBefore>${maybeSpace}${localizedDash}${maybeSpace}$<sepAfter>`
   )
   // Convert dashes at start of line
