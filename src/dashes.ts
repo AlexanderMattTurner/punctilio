@@ -103,26 +103,26 @@ export function minusReplace(text: string, options: DashOptions = {}): string {
  */
 function convertParentheticalDashes(text: string, sep: string, style: DashStyle): string {
   if (style === "none") return text
-  const dash = style === "british" ? EN_DASH : EM_DASH
-  const isSpaced = style === "british"
+  const localizedDash = style === "british" ? EN_DASH : EM_DASH
+  const maybeSpace = style === "british" ? " " : ""
 
   // Convert spaced dashes: "word - word" or "word — word"
   text = text.replace(
     new RegExp(`(?<=[^\\s>]|^)(?:(?<sepBefore>${sep}?)[ ]+|(?<sepOnly>${sep}))[~${EN_DASH}${EM_DASH}-]+[ ]*(?<sepAfter>${sep}?)(?:[ ]+|$)`, "g"),
-    isSpaced ? `$<sepBefore>$<sepOnly> ${dash} $<sepAfter>` : `$<sepBefore>$<sepOnly>${dash}$<sepAfter>`
+    `$<sepBefore>$<sepOnly>${maybeSpace}${localizedDash}${maybeSpace}$<sepAfter>`
   )
   // Convert multiple dashes: "word--word" or "word---word"
   text = text.replace(
-    new RegExp(`(?<=[A-Za-z])(?<letterSepBefore>${sep}?)[~${EN_DASH}${EM_DASH}-]{2,}(?<letterSepAfter>${sep}?)(?=[A-Za-z\\d ])|(?<=\\d)(?<digitSepBefore>${sep}?)[~${EN_DASH}${EM_DASH}-]{2,}(?<digitSepAfter>${sep}?)(?=[A-Za-z ])`, "g"),
-    isSpaced ? `$<letterSepBefore>$<digitSepBefore> ${dash} $<letterSepAfter>$<digitSepAfter>` : `$<letterSepBefore>$<digitSepBefore>${dash}$<letterSepAfter>$<digitSepAfter>`
+    new RegExp(`(?<=[A-Za-z\\d])(?<sepBefore>${sep}?)[~${EN_DASH}${EM_DASH}-]{2,}(?<sepAfter>${sep}?)(?=[A-Za-z ])`, "g"),
+    `$<sepBefore>${maybeSpace}${localizedDash}${maybeSpace}$<sepAfter>`
   )
   // Convert dashes at start of line
-  text = text.replace(new RegExp(`^(?<leadingSep>${sep})?[-]+ `, "gm"), `$<leadingSep>${dash} `)
+  text = text.replace(new RegExp(`^(?<leadingSep>${sep})?[-]+ `, "gm"), `$<leadingSep>${localizedDash} `)
   // British: convert unspaced em-dashes to spaced en-dashes (word—word → word – word)
-  if (isSpaced) {
+  if (style === "british") {
     text = text.replace(
       new RegExp(`(?<=[A-Za-z.!?'"])(?<sepBefore>${sep}?)${EM_DASH}(?<sepAfter>${sep}?)(?=[A-Za-z])`, "g"),
-      `$<sepBefore> ${dash} $<sepAfter>`
+      `$<sepBefore>${maybeSpace}${localizedDash}${maybeSpace}$<sepAfter>`
     )
   }
   return text
