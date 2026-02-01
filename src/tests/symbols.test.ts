@@ -124,13 +124,16 @@ describe("legalSymbols", () => {
 
 describe("arrows", () => {
   it.each([
+    // Single-dash arrows convert
     ["A -> B", `A ${UNICODE_SYMBOLS.ARROW_RIGHT} B`],
-    ["A --> B", `A ${UNICODE_SYMBOLS.ARROW_RIGHT} B`],
     ["A <- B", `A ${UNICODE_SYMBOLS.ARROW_LEFT} B`],
-    ["A <-- B", `A ${UNICODE_SYMBOLS.ARROW_LEFT} B`],
     ["A <-> B", `A ${UNICODE_SYMBOLS.ARROW_LEFT_RIGHT} B`],
-    ["A <--> B", `A ${UNICODE_SYMBOLS.ARROW_LEFT_RIGHT} B`],
     ["start -> middle -> end", `start ${UNICODE_SYMBOLS.ARROW_RIGHT} middle ${UNICODE_SYMBOLS.ARROW_RIGHT} end`],
+    // Double-dash arrows do NOT convert (to preserve HTML comments)
+    ["A --> B", "A --> B"],
+    ["A <-- B", "A <-- B"],
+    ["A <--> B", "A <--> B"],
+    // Pointer-style arrows preserved (no spaces)
     ["function->call", "function->call"],
     ["array[0]->value", "array[0]->value"],
   ])('converts "%s" to "%s"', (input, expected) => {

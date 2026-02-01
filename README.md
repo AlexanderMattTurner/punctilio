@@ -66,6 +66,21 @@ My [`benchmark.mjs`](./benchmark.mjs) measures how well libraries handle a [wide
 
 `typograf` uniquely inserts non-breaking spaces to prevent bad line breaks (e.g. before numbers, after colons). `punctilio`'s main missing feature is non-English quote support—feel free to make a pull request!
 
+## Idempotent by design
+
+`punctilio` is designed to be idempotent: applying the transform to already-formatted text produces the same output. This means you can safely run `transform()` multiple times without corrupting your typography. "It's a feature, not a bug" — already-correct smart quotes, em-dashes, and other symbols are left unchanged.
+
+```typescript
+const formatted = transform('"Hello," she said—"wait!"')
+transform(formatted) === formatted  // true
+```
+
+You can optionally enable an idempotency check that throws an error if the transform would change the output on a second pass:
+
+```typescript
+transform(text, { checkIdempotency: true })
+```
+
 ## Works with HTML DOMs via separation boundaries
 
 Other typography libraries either transform plain strings or operate on AST nodes individually (`retext-smartypants` [can’t map changes back to HTML](https://github.com/rehypejs/rehype-retext)). But real HTML has text spanning multiple elements—if you concatenate text from `<em>Wait</em>...`, transform it, then try to split it back, you've lost track of where `</em>` belonged. 

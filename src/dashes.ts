@@ -39,7 +39,7 @@ export interface DashOptions {
   dashStyle?: DashStyle
 }
 
-const { EN_DASH, EM_DASH, MINUS } = UNICODE_SYMBOLS
+const { EN_DASH, EM_DASH, MINUS, LEFT_DOUBLE_QUOTE, RIGHT_DOUBLE_QUOTE, LEFT_SINGLE_QUOTE, RIGHT_SINGLE_QUOTE } = UNICODE_SYMBOLS
 
 /**
  * Characters that, when preceding a number, prevent it from being
@@ -63,8 +63,19 @@ export const months = [
  * Uses marker-aware boundaries to avoid false matches when separators
  * appear between word characters.
  *
- * Allows suffixes which are common in numerical ranges 
+ * Allows suffixes which are common in numerical ranges
  * like "1-10x" (1x to 10x magnification).
+ *
+ * Handles:
+ * - Positive ranges: "1-5" → "1–5"
+ * - Negative to positive: "-5-5" → "−5–5"
+ * - Negative to negative: "-5--2" → "−5–−2"
+ *
+ * Does NOT convert:
+ * - Phone numbers: "555-123-4567" (multi-segment)
+ * - ISBNs: "978-3-16-148410-0" (multi-segment)
+ * - ISO dates: "2024-01-15" or "2024-01" (year-month patterns)
+ * - IP-like patterns: "192-168-1-1" (multi-segment)
  */
 export function enDashNumberRange(text: string, options: DashOptions = {}): string {
   const chr = options.separator
@@ -72,14 +83,90 @@ export function enDashNumberRange(text: string, options: DashOptions = {}): stri
     : ESCAPED_DEFAULT_SEPARATOR
   const wb = wordBoundaryStart(chr)
   const wbe = wordBoundaryEnd(chr)
-  const disallowed = numberRangeDisallowedPrefixes.join("")
-  return text.replace(
+
+  // ISO date pattern: YYYY-MM or YYYY-MM-DD - should not be converted
+  // This lookbehind prevents matching if we're after a 4-digit year
+  const notAfterYear = `(?<!\\d{4}${chr}?)`
+
+  // Negative lookahead: prevent conversion if followed by another segment with 3+ digits
+  // This catches phone numbers (555-123-4567) and IPs (192-168-1-1)
+  // But allows "1-2-3" to become "1–2-3" (single-digit segments)
+  const notMultiSegment = `(?!${chr}?-${chr}?\\d{3})`
+
+  // First, protect ISO year-month patterns (YYYY-MM) from conversion
+  // by checking if pattern looks like year (1900-2099) followed by month (01-12)
+  const yearMonthPattern = new RegExp(
+    `${wb}(?<year>(?:19|20)\\d{2})-(?<month>0[1-9]|1[0-2])${wbe}`,
+    "g"
+  )
+  // Don't convert year-month patterns - they're dates, not ranges
+  // We skip this by not matching, so no replacement needed here
+  // Instead, we'll use a negative lookahead in the main pattern
+
+  // Standard positive number ranges (not preceded by dashes or letters)
+  // Disallow dash-like chars and letters before the start number
+  // Escape hyphen by putting it first in the character class
+  const disallowed = numberRangeDisallowedPrefixes.map(c => c === "-" ? c : `\\u${c.charCodeAt(0).toString(16).padStart(4, "0")}`).join("")
+  text = text.replace(
     new RegExp(
-      `${wb}(?<![${disallowed}a-zA-Z.])(?<startNum>(?:p\\.?|\\$)?\\d[\\d.,]*${chr}?)-(?<endNum>${chr}?\\$?\\d[\\d.,]*)(?!\\.\\d)(?<suffix>${chr}?[xKBTM])?${wbe}`,
+      `${wb}(?<![${disallowed}a-zA-Z.])${notAfterYear}(?<startNum>(?:p\\.?|\\$)?\\d[\\d.,]*${chr}?)-(?<endNum>${chr}?\\$?\\d[\\d.,]*)(?!\\.\\d)(?<following>(?:${chr}?-${chr}?\\d+)*)(?<suffix>${chr}?[xKBTM])?${wbe}`,
       "g"
     ),
-    `$<startNum>${EN_DASH}$<endNum>$<suffix>`
+    (match, startNum, endNum, following, suffix = "") => {
+      const cleanStart = startNum.replace(new RegExp(chr, "g"), "")
+      const cleanEnd = endNum.replace(new RegExp(chr, "g"), "")
+
+      // Check if this looks like a year-month pattern (YYYY-MM)
+      if (/^(19|20)\d{2}$/.test(cleanStart) && /^(0[1-9]|1[0-2])$/.test(cleanEnd)) {
+        return match // Don't convert year-month patterns
+      }
+
+      // Count following segments (each -digit+ group)
+      const followingSegments = following ? (following.match(/-\d+/g) || []).length : 0
+
+      // If there are 2+ following segments (4+ total), it's likely ISBN/serial/IP
+      if (followingSegments >= 2) {
+        return match // Don't convert multi-segment identifiers
+      }
+
+      // Check if this looks like a multi-segment identifier (phone, IP, etc.)
+      // If both numbers have 3+ digits and there's a following segment, don't convert
+      const startDigits = cleanStart.replace(/[^0-9]/g, "")
+      const endDigits = cleanEnd.replace(/[^0-9]/g, "")
+      if (following && startDigits.length >= 3 && endDigits.length >= 3) {
+        return match // Don't convert multi-segment identifiers
+      }
+
+      // Check if the following segment has 3+ digits (catches patterns like 555-123-4567)
+      if (following) {
+        const followingDigits = following.replace(/[^0-9]/g, "")
+        if (followingDigits.length >= 3) {
+          return match // Don't convert if next segment is 3+ digits
+        }
+      }
+
+      return `${startNum}${EN_DASH}${endNum}${following || ""}${suffix || ""}`
+    }
   )
+
+  // Negative number ranges: handle ranges starting with minus sign
+  // Pattern: (−number)-[-−]?(number) → (−number)–[−]?(number)
+  // The minus sign (−) may or may not be converted by minusReplace for the end number
+  // Handle both -5--2 (hyphen for end negative) and −5-−2 (minus for end negative)
+  // Don't match if preceded by a letter (model names like foo−2-7B)
+  text = text.replace(
+    new RegExp(
+      `(?<![a-zA-Z])(?<startNum>${MINUS}\\d[\\d.,]*${chr}?)-(?<endNeg>-)?(?<endNum>${chr}?\\d[\\d.,]*)${notMultiSegment}(?<suffix>${chr}?[xKBTM])?${wbe}`,
+      "g"
+    ),
+    (_, startNum, endNeg, endNum, suffix = "") => {
+      // Convert hyphen to minus sign for end negative number
+      const endMinus = endNeg ? MINUS : ""
+      return `${startNum}${EN_DASH}${endMinus}${endNum}${suffix}`
+    }
+  )
+
+  return text
 }
 
 /**
@@ -159,13 +246,14 @@ function convertParentheticalDashes(text: string, sep: string, style: DashStyle)
   text = text.replace(surroundedDash, replacement)
 
   // Handle multiple dashes within words (e.g., since--as)
+  // But NOT when it's a number range pattern (digit--digit), which should become en-dash
   const multipleDashInWords = new RegExp(
-    `(?<=[A-Za-z\\d])(?<markerBefore>${sep}?)[~${EN_DASH}${EM_DASH}-]{2,}(?<markerAfter>${sep}?)(?=[A-Za-z\\d ])`,
+    `(?<=[A-Za-z])(?<markerBefore>${sep}?)[~${EN_DASH}${EM_DASH}-]{2,}(?<markerAfter>${sep}?)(?=[A-Za-z\\d ])|(?<=\\d)(?<markerBefore2>${sep}?)[~${EN_DASH}${EM_DASH}-]{2,}(?<markerAfter2>${sep}?)(?=[A-Za-z ])`,
     "g"
   )
   const multiReplacement = spaced
-    ? `$<markerBefore> ${dash} $<markerAfter>`
-    : `$<markerBefore>${dash}$<markerAfter>`
+    ? `$<markerBefore>$<markerBefore2> ${dash} $<markerAfter>$<markerAfter2>`
+    : `$<markerBefore>$<markerBefore2>${dash}$<markerAfter>$<markerAfter2>`
   text = text.replace(multipleDashInWords, multiReplacement)
 
   // Handle dashes at start of line
@@ -176,21 +264,74 @@ function convertParentheticalDashes(text: string, sep: string, style: DashStyle)
 
 /** Normalize spacing around em dashes for American style */
 function normalizeEmDashSpacing(text: string, sep: string): string {
+  // Only use curly quotes here - straight quotes will be converted by niceQuotes afterward
+  // Using straight quotes would cause idempotency issues since they get converted
+  const closingQuotes = `${RIGHT_SINGLE_QUOTE}${RIGHT_DOUBLE_QUOTE}`
+  const openingQuotes = `${LEFT_SINGLE_QUOTE}${LEFT_DOUBLE_QUOTE}`
+  // Closing punctuation that typically precedes attribution
+  const closingPunctuation = `\\.\\?!…${RIGHT_SINGLE_QUOTE}${RIGHT_DOUBLE_QUOTE}"\\'`
+
+  // Remove spaces around em-dashes ONLY between word characters (not after punctuation)
+  // This preserves "attribution" patterns like: "quote" — Author
+  // Pattern: word char, spaces, em-dash, spaces, word char
   const spacesAroundEM = new RegExp(
-    `(?<markerBefore>${sep}?)[ ]*${EM_DASH}[ ]*(?<markerAfter>${sep}?)[ ]*`,
+    `(?<before>\\w${sep}?)[ ]+${EM_DASH}[ ]+(?<after>${sep}?\\w)`,
     "g"
   )
-  text = text.replace(spacesAroundEM, `$<markerBefore>${EM_DASH}$<markerAfter>`)
+  text = text.replace(spacesAroundEM, `$<before>${EM_DASH}$<after>`)
 
-  // Add space after em dash following quotation marks
-  const postQuote = new RegExp(`(?<quote>[.!?]${sep}?['"'"]${sep}?|…)${spacesAroundEM.source}`, "g")
-  text = text.replace(postQuote, `$<quote> $<markerBefore>${EM_DASH}$<markerAfter> `)
+  // Also remove just leading or trailing spaces when between word chars
+  const leadingSpace = new RegExp(
+    `(?<before>\\w${sep}?)[ ]+${EM_DASH}(?<after>${sep}?\\w)`,
+    "g"
+  )
+  text = text.replace(leadingSpace, `$<before>${EM_DASH}$<after>`)
 
-  // Preserve space after em dash at start of line
-  const startOfLine = new RegExp(`^${spacesAroundEM.source}(?<after>[A-Z0-9])`, "gm")
-  text = text.replace(startOfLine, `$<markerBefore>${EM_DASH}$<markerAfter> $<after>`)
+  const trailingSpace = new RegExp(
+    `(?<before>\\w${sep}?)${EM_DASH}[ ]+(?<after>${sep}?\\w)`,
+    "g"
+  )
+  text = text.replace(trailingSpace, `$<before>${EM_DASH}$<after>`)
+
+  // Add space before and after em dash when between closing and opening quotes
+  // e.g., "Hello."—"World" → "Hello." — "World"
+  const quoteDashQuote = new RegExp(
+    `(?<before>[${closingQuotes}]${sep}?)${EM_DASH}(?<after>${sep}?[${openingQuotes}])`,
+    "g"
+  )
+  text = text.replace(quoteDashQuote, `$<before> ${EM_DASH} $<after>`)
+
+  // Add spaces for attribution patterns: punctuation + em-dash + capital letter or [
+  // e.g., "quote."—Author → "quote." — Author
+  const attributionPattern = new RegExp(
+    `(?<before>[${closingPunctuation}]${sep}?)${EM_DASH}(?<after>${sep}?[A-Z\\[])`,
+    "g"
+  )
+  text = text.replace(attributionPattern, `$<before> ${EM_DASH} $<after>`)
+
+  // Preserve space after em dash at start of line followed by capital letter
+  const startOfLine = new RegExp(`^(?<markerBefore>${sep}?)${EM_DASH}(?<after>[A-Z0-9])`, "gm")
+  text = text.replace(startOfLine, `$<markerBefore>${EM_DASH} $<after>`)
 
   return text
+}
+
+/**
+ * Normalize spacing around em-dashes between quotes.
+ * This should be called AFTER smart quote conversion to ensure idempotency.
+ */
+export function normalizeQuoteDashSpacing(text: string, options: DashOptions = {}): string {
+  const sep = options.separator ?? DEFAULT_SEPARATOR
+  const closingQuotes = `${RIGHT_SINGLE_QUOTE}${RIGHT_DOUBLE_QUOTE}`
+  const openingQuotes = `${LEFT_SINGLE_QUOTE}${LEFT_DOUBLE_QUOTE}`
+
+  // Add space before and after em dash when between closing and opening quotes
+  // Pattern matches both spaced and unspaced versions for idempotency
+  const quoteDashQuote = new RegExp(
+    `(?<before>[${closingQuotes}]${sep}?) ?${EM_DASH} ?(?<after>${sep}?[${openingQuotes}])`,
+    "g"
+  )
+  return text.replace(quoteDashQuote, `$<before> ${EM_DASH} $<after>`)
 }
 
 /**

@@ -34,7 +34,9 @@ export function assertSeparatorCountPreserved(
   const transformedCount = countSeparators(transformed, separator)
   if (originalCount !== transformedCount) {
     throw new Error(
-      `${transformName} altered separator count: expected ${originalCount}, got ${transformedCount}`
+      `${transformName} altered separator count: expected ${originalCount}, got ${transformedCount}.\n` +
+      `This is a bug in punctilio. Please file an issue at https://github.com/alexander-turner/punctilio/issues\n` +
+      `Include the input text that caused this error.`
     )
   }
 }

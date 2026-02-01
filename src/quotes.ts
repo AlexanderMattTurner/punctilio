@@ -44,8 +44,40 @@ export interface QuoteOptions {
   punctuationStyle?: PunctuationStyle
 }
 
+/**
+ * Known contractions that start with an apostrophe.
+ * These should use RIGHT_SINGLE_QUOTE (apostrophe), not LEFT_SINGLE_QUOTE.
+ */
+const LEADING_APOSTROPHE_CONTRACTIONS = [
+  "twas",   // it was
+  "tis",    // it is
+  "twere",  // it were
+  "twould", // it would
+  "twill",  // it will
+  "til",    // until
+  "bout",   // about
+  "cause",  // because
+  "cept",   // except
+  "gainst", // against
+  "fore",   // before
+  "round",  // around
+  "em",     // them
+  "im",     // him
+  "er",     // her
+  "n",      // and (rock 'n' roll)
+] as const
+
 /** Convert straight single quotes to curly quotes and apostrophes */
 function convertSingleQuotes(text: string, sep: string): string {
+  // First, handle leading apostrophe contractions ('twas, 'tis, etc.)
+  // These should use RIGHT_SINGLE_QUOTE (apostrophe), not opening quote
+  const contractionsPattern = LEADING_APOSTROPHE_CONTRACTIONS.join("|")
+  const leadingApostropheContraction = new RegExp(
+    `(?<=^|[\\s${LEFT_DOUBLE_QUOTE}${RIGHT_DOUBLE_QUOTE}\\-\\(])${sep}?'(?=${sep}?(?:${contractionsPattern})\\b)`,
+    "gmi"
+  )
+  text = text.replace(leadingApostropheContraction, RIGHT_SINGLE_QUOTE)
+
   const afterEndingSinglePatterns = `\\s\\.!?;,\\)${EM_DASH}\\-\\]"`
   const afterEndingSingle = `(?=${sep}?(?:s${sep}?)?(?:[${afterEndingSinglePatterns}]|$))`
   const endingSingle = `(?<=[^\\s${LEFT_DOUBLE_QUOTE}'])[']${afterEndingSingle}`

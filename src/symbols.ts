@@ -89,6 +89,9 @@ export function ellipsis(text: string, options: SymbolOptions = {}): string {
  * - Dimensions: "5x5" → "5×5"
  * - Trailing multiplier: "5x" → "5×" (when followed by word boundary)
  * - Asterisk multiplication: "5*3" → "5×3" (when between numbers)
+ *
+ * Does NOT convert:
+ * - Hexadecimal: "0x5F" stays as "0x5F"
  */
 export function multiplication(text: string, options: SymbolOptions = {}): string {
   const chr = options.separator
@@ -100,14 +103,27 @@ export function multiplication(text: string, options: SymbolOptions = {}): strin
   text = text.replace(loosePattern, `$<leftNum> ${MULTIPLICATION} $<rightNum>`)
 
   // Dimensions without spaces: keep tight
-  const tightPattern = new RegExp(`(?<leftNum>\\d${chr}?)[xX*](?<rightNum>${chr}?\\d)`, "g")
-  text = text.replace(tightPattern, `$<leftNum>${MULTIPLICATION}$<rightNum>`)
+  // Use callback to skip hexadecimal patterns like "0x5F"
+  const tightPattern = new RegExp(`(?<leftNum>\\d+${chr}?)(?<op>[xX*])(?<rightNum>${chr}?\\d)`, "g")
+  text = text.replace(tightPattern, (match, leftNum, op, rightNum) => {
+    // Skip if this looks like a hexadecimal: single 0 followed by x/X
+    if (leftNum === "0" && (op === "x" || op === "X")) {
+      return match // Don't convert hex literals
+    }
+    return `${leftNum}${MULTIPLICATION}${rightNum}`
+  })
 
   // Trailing multiplier: 5x (followed by word boundary - space, punctuation, etc.)
   // Uses marker-aware boundary to avoid false matches like "5x\uE000tra"
   const wbe = wordBoundaryEnd(chr)
-  const trailingPattern = new RegExp(`(?<num>\\d${chr}?)[xX*]${wbe}`, "g")
-  text = text.replace(trailingPattern, `$<num>${MULTIPLICATION}`)
+  const trailingPattern = new RegExp(`(?<num>\\d+${chr}?)(?<op>[xX*])${wbe}`, "g")
+  text = text.replace(trailingPattern, (match, num, op) => {
+    // Skip if this looks like start of hexadecimal
+    if (num === "0" && (op === "x" || op === "X")) {
+      return match
+    }
+    return `${num}${MULTIPLICATION}`
+  })
 
   return text
 }
@@ -141,34 +157,37 @@ export function legalSymbols(text: string): string {
  * Converts arrow character sequences to Unicode arrows.
  *
  * Handles:
- * - "->" or "-->" → "→"
- * - "<-" or "<--" → "←"
- * - "<->" or "<-->" → "↔"
+ * - "->" → "→"
+ * - "<-" → "←"
+ * - "<->" → "↔"
  *
  * Note: Only converts when surrounded by spaces or at word boundaries
  * to avoid false matches in code or URLs.
+ *
+ * Does NOT convert:
+ * - HTML comments: "<!-- comment -->" stays intact (multi-dash arrows `-->` are not converted)
  */
 export function arrows(text: string, options: SymbolOptions = {}): string {
   const chr = options.separator
     ? escapeRegex(options.separator)
     : ESCAPED_DEFAULT_SEPARATOR
 
-  // Bidirectional arrow first (to avoid partial matches)
-  // Matches <-> or <--> with optional separator, requires boundary context
+  // Bidirectional arrow: <-> (single dash only to avoid HTML comment issues)
+  // Matches <-> with optional separator, requires boundary context
   text = text.replace(
-    new RegExp(`(?<=[\\s${chr}]|^)<-{1,2}${chr}?>(?=[\\s${chr}]|$)`, "g"),
+    new RegExp(`(?<=[\\s${chr}]|^)<-${chr}?>(?=[\\s${chr}]|$)`, "g"),
     ARROW_LEFT_RIGHT
   )
 
-  // Right arrow: -> or --> with boundary context
+  // Right arrow: -> (single dash only to avoid matching --> in HTML comments)
   text = text.replace(
-    new RegExp(`(?<=[\\s${chr}]|^)-{1,2}>(?=[\\s${chr}]|$)`, "g"),
+    new RegExp(`(?<=[\\s${chr}]|^)->(?=[\\s${chr}]|$)`, "g"),
     ARROW_RIGHT
   )
 
-  // Left arrow: <- or <-- with boundary context
+  // Left arrow: <- (single dash only)
   text = text.replace(
-    new RegExp(`(?<=[\\s${chr}]|^)<-{1,2}(?=[\\s${chr}]|$)`, "g"),
+    new RegExp(`(?<=[\\s${chr}]|^)<-(?=[\\s${chr}]|$)`, "g"),
     ARROW_LEFT
   )
 

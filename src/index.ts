@@ -15,6 +15,7 @@ export {
   enDashNumberRange,
   enDashDateRange,
   minusReplace,
+  normalizeQuoteDashSpacing,
   months,
   numberRangeDisallowedPrefixes,
   type DashOptions,
@@ -114,10 +115,20 @@ export interface TransformOptions {
    * Default: false (poor font support)
    */
   ligatures?: boolean
+
+  /**
+   * Whether to verify that the transformation is idempotent (running twice
+   * produces the same result). When enabled, throws an error if the second
+   * pass produces a different result than the first.
+   *
+   * Useful for debugging and ensuring consistent output.
+   * Default: false
+   */
+  checkIdempotency?: boolean
 }
 
 import { niceQuotes } from "./quotes.js"
-import { hyphenReplace } from "./dashes.js"
+import { hyphenReplace, normalizeQuoteDashSpacing } from "./dashes.js"
 import { symbolTransform, fractions as fractionsTransform, degrees as degreesTransform, superscript as superscriptTransform, primeMarks, collapseSpaces as collapseSpacesTransform, punctuationLigatures as ligaturesTransform } from "./symbols.js"
 import { assertSeparatorCountPreserved } from "./utils.js"
 import { DEFAULT_SEPARATOR } from "./constants.js"
@@ -161,11 +172,14 @@ export { DEFAULT_SEPARATOR } from "./constants.js"
 export function transform(text: string, options: TransformOptions = {}): string {
   const separator = options.separator ?? DEFAULT_SEPARATOR
   const original = text
-  const { symbols = true, fractions = false, degrees = false, superscript = false, ligatures = false, collapseSpaces = true, ...separatorOpts } = options
+  const { symbols = true, fractions = false, degrees = false, superscript = false, ligatures = false, collapseSpaces = true, checkIdempotency = false, ...separatorOpts } = options
 
   text = hyphenReplace(text, separatorOpts)
   text = primeMarks(text, separatorOpts)
   text = niceQuotes(text, separatorOpts)
+
+  // Normalize em-dash spacing after quotes are converted (for idempotency)
+  text = normalizeQuoteDashSpacing(text, separatorOpts)
 
   if (symbols) {
     text = symbolTransform(text, separatorOpts)
@@ -192,6 +206,20 @@ export function transform(text: string, options: TransformOptions = {}): string 
   }
 
   assertSeparatorCountPreserved(original, text, separator, "transform")
+
+  // Optional idempotency check: verify that running transform twice gives same result
+  if (checkIdempotency) {
+    const secondPass = transform(text, { ...options, checkIdempotency: false })
+    if (text !== secondPass) {
+      throw new Error(
+        `Transform is not idempotent.\n` +
+        `First pass:  ${JSON.stringify(text)}\n` +
+        `Second pass: ${JSON.stringify(secondPass)}\n` +
+        `This is a bug in punctilio. Please file an issue at https://github.com/alexander-turner/punctilio/issues\n` +
+        `Include the input text that caused this error.`
+      )
+    }
+  }
 
   return text
 }
