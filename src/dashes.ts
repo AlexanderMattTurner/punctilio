@@ -112,6 +112,7 @@ export function enDashNumberRange(text: string, options: DashOptions = {}): stri
       }
 
       // Count following segments (each -digit+ group)
+      /* istanbul ignore next -- fallback for edge case where following has no digit matches */
       const followingSegments = following ? (following.match(/-\d+/g) || []).length : 0
 
       // If there are 2+ following segments (4+ total), it's likely ISBN/serial/IP

@@ -1,4 +1,7 @@
 import { transform, DEFAULT_SEPARATOR, countSeparators } from "../index.js"
+import { ellipsis } from "../symbols.js"
+import { niceQuotes } from "../quotes.js"
+import { hyphenReplace } from "../dashes.js"
 import { UNICODE_SYMBOLS } from "../constants.js"
 
 const {
@@ -98,5 +101,56 @@ describe("transform", () => {
       expect(() => transform(input, { separator: DEFAULT_SEPARATOR })).not.toThrow()
       expect(countSeparators(transform(input, { separator: DEFAULT_SEPARATOR }), DEFAULT_SEPARATOR)).toBe(expectedCount)
     })
+
+    it("preserves separator in ellipsis", () => {
+      const input = `.${DEFAULT_SEPARATOR}.${DEFAULT_SEPARATOR}.`
+      const result = ellipsis(input, { separator: DEFAULT_SEPARATOR })
+      expect(result.split(DEFAULT_SEPARATOR).length - 1).toBe(2)
+    })
+
+    it("preserves consecutive separators", () => {
+      const input = `a${DEFAULT_SEPARATOR}${DEFAULT_SEPARATOR}${DEFAULT_SEPARATOR}b`
+      const result = transform(input)
+      expect(result).toContain(`${DEFAULT_SEPARATOR}${DEFAULT_SEPARATOR}${DEFAULT_SEPARATOR}`)
+    })
+  })
+
+  describe("Unicode edge cases", () => {
+    it.each([
+      ['"café"', "café", "combining characters"],
+      ['"Hello 👋 world"', "👋", "emoji"],
+      ['"日本語"', "日本語", "CJK characters"],
+      ['"שלום"', "שלום", "RTL text"],
+      ["a\u200Bb", "a\u200Bb", "zero-width characters"],
+    ])('handles %s in "%s"', (input, expectedContent) => {
+      const result = transform(input)
+      expect(result).toContain(expectedContent)
+    })
+  })
+})
+
+describe("performance", () => {
+  it("handles 1000 dots without timeout", () => {
+    const input = ".".repeat(1000)
+    const start = Date.now()
+    ellipsis(input)
+    const elapsed = Date.now() - start
+    expect(elapsed).toBeLessThan(1000)
+  })
+
+  it("handles 1000 quote pairs without timeout", () => {
+    const input = '"a" '.repeat(1000)
+    const start = Date.now()
+    niceQuotes(input)
+    const elapsed = Date.now() - start
+    expect(elapsed).toBeLessThan(1000)
+  })
+
+  it("handles 1000 dashes without timeout", () => {
+    const input = "a-b ".repeat(1000)
+    const start = Date.now()
+    hyphenReplace(input)
+    const elapsed = Date.now() - start
+    expect(elapsed).toBeLessThan(1000)
   })
 })

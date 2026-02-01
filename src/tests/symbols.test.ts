@@ -393,6 +393,43 @@ describe("punctuationLigatures", () => {
   })
 })
 
+describe("hexadecimal preservation", () => {
+  it.each([
+    ["0x5F3759DF", "0x5F3759DF"],
+    ["0xff", "0xff"],
+    ["0X1A2B", "0X1A2B"],
+    ["The magic number is 0x5F3759DF", "The magic number is 0x5F3759DF"],
+    // Trailing hex at end of input (covers symbols.ts line 123)
+    ["test 0x", "test 0x"],
+    ["value: 0X", "value: 0X"],
+  ])('preserves hex pattern "%s"', (input, expected) => {
+    expect(multiplication(input)).toBe(expected)
+  })
+})
+
+describe("HTML/XML content preservation", () => {
+  it.each([
+    ["<!-- comment -->", "<!-- comment -->"],
+    ["<!-- long -- comment -->", "<!-- long -- comment -->"],
+    ["<tag>content</tag>", "<tag>content</tag>"],
+    // Multi-dash arrows don't convert
+    ["A --> B", "A --> B"],
+    ["A <-- B", "A <-- B"],
+  ])('preserves "%s"', (input, expected) => {
+    expect(arrows(input)).toBe(expected)
+  })
+})
+
+describe("ellipsis edge cases", () => {
+  it("four dots becomes ellipsis + period", () => {
+    expect(ellipsis("End....")).toBe(`End${UNICODE_SYMBOLS.ELLIPSIS}.`)
+  })
+
+  it("six dots becomes two ellipses", () => {
+    expect(ellipsis("......")).toBe(`${UNICODE_SYMBOLS.ELLIPSIS}${UNICODE_SYMBOLS.ELLIPSIS}`)
+  })
+})
+
 describe("symbolTransform", () => {
   it.each([
     ["Wait... 5x5 != 20 (c) 2024", `Wait${UNICODE_SYMBOLS.ELLIPSIS} 5${UNICODE_SYMBOLS.MULTIPLICATION}5 ${UNICODE_SYMBOLS.NOT_EQUAL} 20 ${UNICODE_SYMBOLS.COPYRIGHT} 2024`],

@@ -209,6 +209,7 @@ export function transform(text: string, options: TransformOptions = {}): string 
   // Optional idempotency check: verify that running transform twice gives same result
   if (checkIdempotency) {
     const secondPass = transform(text, { ...options, checkIdempotency: false })
+    /* istanbul ignore if -- defensive check that should never trigger */
     if (text !== secondPass) {
       throw new Error(
         `Transform is not idempotent.\n` +

@@ -86,6 +86,20 @@ describe("niceQuotes", () => {
     })
   })
 
+  describe("leading apostrophe contractions", () => {
+    it.each([
+      ["'twas the night", `${RIGHT_SINGLE_QUOTE}twas the night`],
+      ["'tis the season", `${RIGHT_SINGLE_QUOTE}tis the season`],
+      ["'Twas brillig", `${RIGHT_SINGLE_QUOTE}Twas brillig`],
+      ["'Tis but a scratch", `${RIGHT_SINGLE_QUOTE}Tis but a scratch`],
+      // Decade abbreviations
+      ["the '90s", `the ${RIGHT_SINGLE_QUOTE}90s`],
+      ["in '99", `in ${RIGHT_SINGLE_QUOTE}99`],
+    ])('handles leading apostrophe in "%s"', (input, expected) => {
+      expect(niceQuotes(input)).toBe(expected)
+    })
+  })
+
   describe("nested quotes", () => {
     it("handles double quotes containing single quotes", () => {
       const input = '"She said \'hello\'"'
