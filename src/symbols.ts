@@ -45,13 +45,10 @@ export function ellipsis(text: string, options: SymbolOptions = {}): string {
     ? escapeStringRegexp(options.separator)
     : ESCAPED_DEFAULT_SEPARATOR
 
-  // Convert spaced dots: . . . → …
-  text = text.replace(/\. \. \./g, ELLIPSIS)
-
-  // Capture groups preserve separators: .(sep1)?.(sep2)?.
-  const pattern = new RegExp(`\\.(${chr})?\\.(${chr})?\\.`, "g")
-  text = text.replace(pattern, (_match, sep1, sep2) => {
-    // Preserve separators by appending them after the ellipsis
+  // Convert consecutive or spaced dots: ... or . . . → …
+  // Captures preserve any separators between dots
+  const pattern = new RegExp(`\\. ?(${chr})?\\.( ?)(${chr})?\\.`, "g")
+  text = text.replace(pattern, (_match, sep1, _space, sep2) => {
     return ELLIPSIS + (sep1 || "") + (sep2 || "")
   })
 
