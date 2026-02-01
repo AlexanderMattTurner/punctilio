@@ -1,5 +1,7 @@
 import { hyphenReplace, enDashNumberRange, enDashDateRange, minusReplace, numberRangeDisallowedPrefixes } from "../dashes.js"
-import { DEFAULT_SEPARATOR } from "../constants.js"
+import { DEFAULT_SEPARATOR, UNICODE_SYMBOLS } from "../constants.js"
+
+const { LEFT_DOUBLE_QUOTE, RIGHT_DOUBLE_QUOTE, LEFT_SINGLE_QUOTE, RIGHT_SINGLE_QUOTE, EM_DASH } = UNICODE_SYMBOLS
 
 describe("hyphenReplace", () => {
   describe("em dashes from surrounded hyphens", () => {
@@ -69,10 +71,19 @@ describe("hyphenReplace", () => {
       ['"Hello."—"World"', '"Hello." — "World"'],
       ["'Hi.'—'There'", "'Hi.' — 'There'"],
       // Curly quotes (after niceQuotes)
-      ['"Hello."—"World"', '"Hello." — "World"'],
-      ["'Hi.'—'There'", "'Hi.' — 'There'"],
-      // Mixed
-      ['"Quote."—"Another"', '"Quote." — "Another"'],
+      [
+        `${LEFT_DOUBLE_QUOTE}Hello.${RIGHT_DOUBLE_QUOTE}${EM_DASH}${LEFT_DOUBLE_QUOTE}World${RIGHT_DOUBLE_QUOTE}`,
+        `${LEFT_DOUBLE_QUOTE}Hello.${RIGHT_DOUBLE_QUOTE} ${EM_DASH} ${LEFT_DOUBLE_QUOTE}World${RIGHT_DOUBLE_QUOTE}`,
+      ],
+      [
+        `${LEFT_SINGLE_QUOTE}Hi.${RIGHT_SINGLE_QUOTE}${EM_DASH}${LEFT_SINGLE_QUOTE}There${RIGHT_SINGLE_QUOTE}`,
+        `${LEFT_SINGLE_QUOTE}Hi.${RIGHT_SINGLE_QUOTE} ${EM_DASH} ${LEFT_SINGLE_QUOTE}There${RIGHT_SINGLE_QUOTE}`,
+      ],
+      // Mixed: curly closing quote to straight opening quote
+      [
+        `${LEFT_DOUBLE_QUOTE}Quote.${RIGHT_DOUBLE_QUOTE}${EM_DASH}"Another"`,
+        `${LEFT_DOUBLE_QUOTE}Quote.${RIGHT_DOUBLE_QUOTE} ${EM_DASH} "Another"`,
+      ],
     ])('adds spaces in "%s"', (input, expected) => {
       expect(hyphenReplace(input)).toBe(expected)
     })
