@@ -103,40 +103,18 @@ export function enDashNumberRange(text: string, options: DashOptions = {}): stri
       "g"
     ),
     (match, startNum, endNum, following, suffix = "") => {
+      // If there's a following segment (e.g., -4567 in 555-123-4567), it's not a range
+      if (following) return match
+
       const cleanStart = startNum.replace(new RegExp(chr, "g"), "")
       const cleanEnd = endNum.replace(new RegExp(chr, "g"), "")
 
       // Check if this looks like a year-month pattern (YYYY-MM)
       if (/^(?:19|20)\d{2}$/.test(cleanStart) && /^(?:0[1-9]|1[0-2])$/.test(cleanEnd)) {
-        return match // Don't convert year-month patterns
+        return match
       }
 
-      // Count following segments (each -digit+ group)
-      /* istanbul ignore next -- fallback for edge case where following has no digit matches */
-      const followingSegments = following ? (following.match(/-\d+/g) || []).length : 0
-
-      // If there are 2+ following segments (4+ total), it's likely ISBN/serial/IP
-      if (followingSegments >= 2) {
-        return match // Don't convert multi-segment identifiers
-      }
-
-      // Check if this looks like a multi-segment identifier (phone, IP, etc.)
-      // If both numbers have 3+ digits and there's a following segment, don't convert
-      const startDigits = cleanStart.replace(/\D/g, "")
-      const endDigits = cleanEnd.replace(/\D/g, "")
-      if (following && startDigits.length >= 3 && endDigits.length >= 3) {
-        return match // Don't convert multi-segment identifiers
-      }
-
-      // Check if the following segment has 3+ digits (catches patterns like 555-123-4567)
-      if (following) {
-        const followingDigits = following.replace(/\D/g, "")
-        if (followingDigits.length >= 3) {
-          return match // Don't convert if next segment is 3+ digits
-        }
-      }
-
-      return `${startNum}${EN_DASH}${endNum}${following || ""}${suffix || ""}`
+      return `${startNum}${EN_DASH}${endNum}${suffix || ""}`
     }
   )
 
@@ -286,8 +264,9 @@ function normalizeEmDashSpacing(text: string, sep: string): string {
 
   // Add space before and after em dash when between closing and opening quotes
   // e.g., "Hello."—"World" → "Hello." — "World"
+  // Match both spaced and unspaced for idempotency
   const quoteDashQuote = new RegExp(
-    `(?<before>[${closingQuotes}]${sep}?)${EM_DASH}(?<after>${sep}?[${openingQuotes}])`,
+    `(?<before>[${closingQuotes}]${sep}?) ?${EM_DASH} ?(?<after>${sep}?[${openingQuotes}])`,
     "g"
   )
   text = text.replace(quoteDashQuote, `$<before> ${EM_DASH} $<after>`)
@@ -305,24 +284,6 @@ function normalizeEmDashSpacing(text: string, sep: string): string {
   text = text.replace(startOfLine, `$<markerBefore>${EM_DASH} $<after>`)
 
   return text
-}
-
-/**
- * Normalize spacing around em-dashes between quotes.
- * This should be called AFTER smart quote conversion to ensure idempotency.
- */
-export function normalizeQuoteDashSpacing(text: string, options: DashOptions = {}): string {
-  const sep = options.separator ?? DEFAULT_SEPARATOR
-  const closingQuotes = `${RIGHT_SINGLE_QUOTE}${RIGHT_DOUBLE_QUOTE}`
-  const openingQuotes = `${LEFT_SINGLE_QUOTE}${LEFT_DOUBLE_QUOTE}`
-
-  // Add space before and after em dash when between closing and opening quotes
-  // Pattern matches both spaced and unspaced versions for idempotency
-  const quoteDashQuote = new RegExp(
-    `(?<before>[${closingQuotes}]${sep}?) ?${EM_DASH} ?(?<after>${sep}?[${openingQuotes}])`,
-    "g"
-  )
-  return text.replace(quoteDashQuote, `$<before> ${EM_DASH} $<after>`)
 }
 
 /**

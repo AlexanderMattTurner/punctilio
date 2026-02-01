@@ -1,4 +1,4 @@
-import { hyphenReplace, enDashNumberRange, enDashDateRange, minusReplace, numberRangeDisallowedPrefixes, normalizeQuoteDashSpacing } from "../dashes.js"
+import { hyphenReplace, enDashNumberRange, enDashDateRange, minusReplace, numberRangeDisallowedPrefixes } from "../dashes.js"
 import { DEFAULT_SEPARATOR } from "../constants.js"
 
 describe("hyphenReplace", () => {
@@ -111,7 +111,7 @@ describe("enDashNumberRange", () => {
     ["1.000-2.000", "1.000–2.000"],
     ["1-2 and 3-4", "1–2 and 3–4"],
     ["from 5-10 to 15-20", "from 5–10 to 15–20"],
-    ["1-2-3", "1–2-3"], // Only replace the first hyphen
+    ["1-2-3", "1-2-3"], // Multi-segment patterns are not ranges
     ["a-b", "a-b"], // Don't replace non-numeric ranges
     ["1a-2b", "1a-2b"], // Don't replace if not purely numeric
     ["a1-2b", "a1-2b"], // Don't replace if not purely numeric
@@ -308,14 +308,6 @@ describe("enDashNumberRange edge cases", () => {
       const result = enDashNumberRange(withMinus)
       expect(result).toBe("−5–5")
     })
-  })
-})
-
-describe("normalizeQuoteDashSpacing", () => {
-  it("works with default options", () => {
-    // Test that function works without explicit options (covers default parameter branch)
-    const result = normalizeQuoteDashSpacing("\u201Ctest\u201D\u2014\u201Cquote\u201D")
-    expect(result).toContain(" \u2014 ")
   })
 })
 

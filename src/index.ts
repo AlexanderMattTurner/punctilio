@@ -15,7 +15,6 @@ export {
   enDashNumberRange,
   enDashDateRange,
   minusReplace,
-  normalizeQuoteDashSpacing,
   months,
   numberRangeDisallowedPrefixes,
   type DashOptions,
@@ -127,7 +126,7 @@ export interface TransformOptions {
 }
 
 import { niceQuotes } from "./quotes.js"
-import { hyphenReplace, normalizeQuoteDashSpacing } from "./dashes.js"
+import { hyphenReplace } from "./dashes.js"
 import { symbolTransform, fractions as fractionsTransform, degrees as degreesTransform, superscript as superscriptTransform, primeMarks, collapseSpaces as collapseSpacesTransform, punctuationLigatures as ligaturesTransform } from "./symbols.js"
 import { assertSeparatorCountPreserved } from "./utils.js"
 import { DEFAULT_SEPARATOR } from "./constants.js"
@@ -176,9 +175,6 @@ export function transform(text: string, options: TransformOptions = {}): string 
   text = hyphenReplace(text, separatorOpts)
   text = primeMarks(text, separatorOpts)
   text = niceQuotes(text, separatorOpts)
-
-  // Normalize em-dash spacing after quotes are converted (for idempotency)
-  text = normalizeQuoteDashSpacing(text, separatorOpts)
 
   if (symbols) {
     text = symbolTransform(text, separatorOpts)
