@@ -3,7 +3,7 @@
  */
 
 import escapeStringRegexp from "escape-string-regexp"
-import { UNICODE_SYMBOLS, DEFAULT_SEPARATOR, ESCAPED_DEFAULT_SEPARATOR, wordBoundaryStart, wordBoundaryEnd } from "./constants.js"
+import { UNICODE_SYMBOLS, DEFAULT_SEPARATOR, ESCAPED_DEFAULT_SEPARATOR, LATIN_LETTERS, wordBoundaryStart, wordBoundaryEnd } from "./constants.js"
 
 export type DashStyle = "american" | "british" | "none"
 
@@ -42,7 +42,7 @@ export function enDashNumberRange(text: string, options: DashOptions = {}): stri
   // Positive ranges: 1-5, $100-$200, p.10-15
   text = text.replace(
     new RegExp(
-      `${wb}(?<![${disallowed}a-zA-Z.])(?<start>(?:p\\.?|\\$)?\\d[\\d.,]*${chr}?)-(?<end>${chr}?\\$?\\d[\\d.,]*)(?!\\.\\d)(?<following>(?:${chr}?-${chr}?\\d+)*)(?<suffix>${chr}?[xKBTM])?${wbe}`,
+      `${wb}(?<![${disallowed}${LATIN_LETTERS}.])(?<start>(?:p\\.?|\\$)?\\d[\\d.,]*${chr}?)-(?<end>${chr}?\\$?\\d[\\d.,]*)(?!\\.\\d)(?<following>(?:${chr}?-${chr}?\\d+)*)(?<suffix>${chr}?[xKBTM])?${wbe}`,
       "g"
     ),
     (match, start, end, following, suffix = "") => {
@@ -58,7 +58,7 @@ export function enDashNumberRange(text: string, options: DashOptions = {}): stri
   // Separate regex because MINUS isn't a word char, so \b in ${wb} would match after it
   text = text.replace(
     new RegExp(
-      `(?<![a-zA-Z])(?<start>${MINUS}\\d[\\d.,]*${chr}?)-(?<neg>-)?(?<end>${chr}?\\d[\\d.,]*)(?<following>(?:${chr}?-${chr}?\\d+)*)(?<suffix>${chr}?[xKBTM])?${wbe}`,
+      `(?<![${LATIN_LETTERS}])(?<start>${MINUS}\\d[\\d.,]*${chr}?)-(?<neg>-)?(?<end>${chr}?\\d[\\d.,]*)(?<following>(?:${chr}?-${chr}?\\d+)*)(?<suffix>${chr}?[xKBTM])?${wbe}`,
       "g"
     ),
     (match, start, neg, end, following, suffix = "") => {
@@ -113,7 +113,7 @@ function convertParentheticalDashes(text: string, sep: string, style: DashStyle)
   )
   // Convert multiple dashes: "word--word" or "word---word"
   text = text.replace(
-    new RegExp(`(?<=[A-Za-z\\d])(?<sepBefore>${sep}?)[~${EN_DASH}${EM_DASH}-]{2,}(?<sepAfter>${sep}?)(?=[A-Za-z ])`, "g"),
+    new RegExp(`(?<=[${LATIN_LETTERS}\\d])(?<sepBefore>${sep}?)[~${EN_DASH}${EM_DASH}-]{2,}(?<sepAfter>${sep}?)(?=[${LATIN_LETTERS} ])`, "g"),
     `$<sepBefore>${maybeSpace}${localizedDash}${maybeSpace}$<sepAfter>`
   )
   // Convert dashes at start of line
@@ -121,7 +121,7 @@ function convertParentheticalDashes(text: string, sep: string, style: DashStyle)
   // British: convert unspaced em-dashes to spaced en-dashes (word—word → word – word)
   if (style === "british") {
     text = text.replace(
-      new RegExp(`(?<=[A-Za-z.!?'"])(?<sepBefore>${sep}?)${EM_DASH}(?<sepAfter>${sep}?)(?=[A-Za-z])`, "g"),
+      new RegExp(`(?<=[${LATIN_LETTERS}.!?'"])(?<sepBefore>${sep}?)${EM_DASH}(?<sepAfter>${sep}?)(?=[${LATIN_LETTERS}])`, "g"),
       `$<sepBefore>${maybeSpace}${localizedDash}${maybeSpace}$<sepAfter>`
     )
   }

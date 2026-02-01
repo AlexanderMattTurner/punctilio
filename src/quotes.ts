@@ -2,7 +2,7 @@
  * Smart quote transformation: straight quotes → curly quotes.
  */
 
-import { UNICODE_SYMBOLS, DEFAULT_SEPARATOR } from "./constants.js"
+import { UNICODE_SYMBOLS, DEFAULT_SEPARATOR, LATIN_LETTERS } from "./constants.js"
 
 const {
   EM_DASH,
@@ -29,7 +29,7 @@ function convertSingleQuotes(text: string, sep: string): string {
   const endingSingle = `(?<=[^\\s${LEFT_DOUBLE_QUOTE}'])[']${afterEndingSingle}`
   text = text.replace(new RegExp(endingSingle, "gm"), RIGHT_SINGLE_QUOTE)
 
-  const contraction = `(?<=[A-Za-z])['${RIGHT_SINGLE_QUOTE}](?=${sep}?[a-zA-Z])`
+  const contraction = `(?<=[${LATIN_LETTERS}])['${RIGHT_SINGLE_QUOTE}](?=${sep}?[${LATIN_LETTERS}])`
   text = text.replace(new RegExp(contraction, "gm"), RIGHT_SINGLE_QUOTE)
 
   const apostropheWhitelist = `(?=n${RIGHT_SINGLE_QUOTE} )`
