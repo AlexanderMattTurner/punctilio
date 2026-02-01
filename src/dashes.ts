@@ -67,7 +67,7 @@ export function enDashNumberRange(text: string, options: DashOptions = {}): stri
   const wbe = wordBoundaryEnd(chr)
   return text.replace(
     new RegExp(
-      `${wb}(?<![a-zA-Z.])(?<startNum>(?:p\\.?|\\$)?\\d[\\d.,]*${chr}?)-(?<endNum>${chr}?\\$?\\d[\\d.,]*)(?!\\.\\d)(?<suffix>${chr}?[xKBTM])?${wbe}`,
+      `${wb}(?<![-a-zA-Z.])(?<startNum>(?:p\\.?|\\$)?\\d[\\d.,]*${chr}?)-(?<endNum>${chr}?\\$?\\d[\\d.,]*)(?!\\.\\d)(?<suffix>${chr}?[xKBTM])?${wbe}`,
       "g"
     ),
     `$<startNum>${EN_DASH}$<endNum>$<suffix>`

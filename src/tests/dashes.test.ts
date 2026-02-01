@@ -129,6 +129,11 @@ describe("enDashNumberRange", () => {
     ["1-10T", "1–10T"], // uppercase T for trillion
     ["1-10X", "1-10X"], // uppercase X should NOT match (only lowercase)
     ["1-10k", "1-10k"], // lowercase k should NOT match (only uppercase)
+    // Model names with version numbers should NOT be converted
+    ["Llama-2-7B-chat", "Llama-2-7B-chat"],
+    ["Llama-2-7B", "Llama-2-7B"],
+    ["Llama-3-8B-Instruct", "Llama-3-8B-Instruct"],
+    ["ReLU-2-4", "ReLU-2-4"],
   ])('should convert "%s" to "%s"', (input, expected) => {
     expect(enDashNumberRange(input)).toBe(expected)
   })
