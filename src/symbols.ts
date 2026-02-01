@@ -27,6 +27,7 @@ const {
   APPROXIMATE,
   LESS_EQUAL,
   GREATER_EQUAL,
+  NBSP,
   PRIME,
   DOUBLE_PRIME,
   SUPERSCRIPT_ST,
@@ -273,9 +274,12 @@ export function superscriptOrdinal(text: string, options: SymbolOptions = {}): s
   })
 }
 
-/** Collapse multiple spaces to single space. */
+/** Collapse multiple spaces to single space. Prefers nbsp if any nbsp is present. */
 export function collapseSpaces(text: string): string {
-  return text.replace(new RegExp(`(?<first>[${SPACE_CHARS}])[${SPACE_CHARS}]+`, "g"), "$<first>")
+  return text.replace(new RegExp(`[${SPACE_CHARS}]{2,}`, "g"), (match) => {
+    // If any nbsp is present, prefer nbsp (more likely to be intentional)
+    return match.includes(NBSP) ? NBSP : " "
+  })
 }
 
 /**

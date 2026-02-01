@@ -84,10 +84,20 @@ function normalizeCopyright(str) {
 }
 
 /**
- * Full normalization for fair comparison.
+ * Categories where nbsp should NOT be normalized (we're testing nbsp handling specifically)
  */
-function normalize(str) {
-  str = normalizeSpaces(str);
+const NBSP_TEST_CATEGORIES = ['Non-breaking space preservation', 'Non-breaking space collapsing'];
+
+/**
+ * Full normalization for fair comparison.
+ * @param {string} str - String to normalize
+ * @param {string} category - Test category name
+ */
+function normalize(str, category = '') {
+  // Skip space normalization for nbsp-specific tests
+  if (!NBSP_TEST_CATEGORIES.includes(category)) {
+    str = normalizeSpaces(str);
+  }
   str = normalizeDashes(str);
   str = normalizeCopyright(str);
   return str;
@@ -142,8 +152,8 @@ async function runBenchmark() {
       for (const pkg of packages) {
         try {
           const actual = await runPackage(pkg, input, category);
-          const normalizedActual = normalize(actual);
-          const normalizedExpected = normalize(expected);
+          const normalizedActual = normalize(actual, category);
+          const normalizedExpected = normalize(expected, category);
           const passed = normalizedActual === normalizedExpected;
 
           if (passed) {

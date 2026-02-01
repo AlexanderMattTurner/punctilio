@@ -108,6 +108,98 @@ describe("niceQuotes", () => {
     })
   })
 
+  // Tests derived from competitor libraries and typography guidelines
+  describe("competitor-derived edge cases", () => {
+    // From smartquotes.js: Unicode text within quotes
+    it.each([
+      ['"Águila"', `${LEFT_DOUBLE_QUOTE}Águila${RIGHT_DOUBLE_QUOTE}`],
+      ['"café"', `${LEFT_DOUBLE_QUOTE}café${RIGHT_DOUBLE_QUOTE}`],
+      ['"naïve"', `${LEFT_DOUBLE_QUOTE}naïve${RIGHT_DOUBLE_QUOTE}`],
+      ['"日本語"', `${LEFT_DOUBLE_QUOTE}日本語${RIGHT_DOUBLE_QUOTE}`],
+      ['"שלום"', `${LEFT_DOUBLE_QUOTE}שלום${RIGHT_DOUBLE_QUOTE}`],
+    ])('handles Unicode text in quotes: "%s"', (input, expected) => {
+      expect(niceQuotes(input)).toBe(expected)
+    })
+
+    // From retext-smartypants: quotes after em dashes
+    it.each([
+      [`He said${EM_DASH}"Hello"`, `He said${EM_DASH}${LEFT_DOUBLE_QUOTE}Hello${RIGHT_DOUBLE_QUOTE}`],
+      [`word${EM_DASH}"quoted"${EM_DASH}word`, `word${EM_DASH}${LEFT_DOUBLE_QUOTE}quoted${RIGHT_DOUBLE_QUOTE}${EM_DASH}word`],
+    ])('handles quotes adjacent to em dashes: "%s"', (input, expected) => {
+      expect(niceQuotes(input)).toBe(expected)
+    })
+
+    // Known limitation: single quote after em-dash not converted
+    it("documents single quote after em-dash limitation", () => {
+      // Single quote directly after em-dash is not recognized as opening quote
+      const input = `${EM_DASH}'Hi'${EM_DASH}`
+      const result = niceQuotes(input)
+      // Opening quote stays straight, closing converts to curly
+      expect(result).toBe(`${EM_DASH}'Hi${RIGHT_SINGLE_QUOTE}${EM_DASH}`)
+    })
+
+    // From Standard Ebooks: M'Donald-style names (archaic patterns)
+    it.each([
+      [`"M'Lord"`, `${LEFT_DOUBLE_QUOTE}M${RIGHT_SINGLE_QUOTE}Lord${RIGHT_DOUBLE_QUOTE}`],
+      [`O'Brien's idea`, `O${RIGHT_SINGLE_QUOTE}Brien${RIGHT_SINGLE_QUOTE}s idea`],
+      [`The O'Connors`, `The O${RIGHT_SINGLE_QUOTE}Connors`],
+    ])('handles Irish/Scottish name apostrophes: "%s"', (input, expected) => {
+      expect(niceQuotes(input)).toBe(expected)
+    })
+
+    // From smartquotes.js: complex nested quotes
+    it.each([
+      ['"Alfred \'bertrand\' cees"', `${LEFT_DOUBLE_QUOTE}Alfred ${LEFT_SINGLE_QUOTE}bertrand${RIGHT_SINGLE_QUOTE} cees${RIGHT_DOUBLE_QUOTE}`],
+      ["'Alfred \"bertrand\" cees'", `${LEFT_SINGLE_QUOTE}Alfred ${LEFT_DOUBLE_QUOTE}bertrand${RIGHT_DOUBLE_QUOTE} cees${RIGHT_SINGLE_QUOTE}`],
+    ])('handles complex nested quotes: "%s"', (input, expected) => {
+      expect(niceQuotes(input)).toBe(expected)
+    })
+
+    // From retext-smartypants: quotes with ellipsis
+    it.each([
+      [`"${ELLIPSIS}"`, `${LEFT_DOUBLE_QUOTE}${ELLIPSIS}${RIGHT_DOUBLE_QUOTE}`],
+      [`"Wait${ELLIPSIS}"`, `${LEFT_DOUBLE_QUOTE}Wait${ELLIPSIS}${RIGHT_DOUBLE_QUOTE}`],
+      [`'${ELLIPSIS}'`, `${LEFT_SINGLE_QUOTE}${ELLIPSIS}${RIGHT_SINGLE_QUOTE}`],
+    ])('handles quotes with ellipsis: "%s"', (input, expected) => {
+      expect(niceQuotes(input)).toBe(expected)
+    })
+  })
+
+  describe("complex real-world patterns", () => {
+    it.each([
+      // Dialogue with attribution
+      ['"I can\'t," she said.', `${LEFT_DOUBLE_QUOTE}I can${RIGHT_SINGLE_QUOTE}t,${RIGHT_DOUBLE_QUOTE} she said.`],
+      ['"Why not?" he asked.', `${LEFT_DOUBLE_QUOTE}Why not?${RIGHT_DOUBLE_QUOTE} he asked.`],
+      // Multiple contractions
+      ["I'm can't won't don't", `I${RIGHT_SINGLE_QUOTE}m can${RIGHT_SINGLE_QUOTE}t won${RIGHT_SINGLE_QUOTE}t don${RIGHT_SINGLE_QUOTE}t`],
+      // Quote within parentheses
+      ['("test")', `(${LEFT_DOUBLE_QUOTE}test${RIGHT_DOUBLE_QUOTE})`],
+      ["('test')", `(${LEFT_SINGLE_QUOTE}test${RIGHT_SINGLE_QUOTE})`],
+      // Quote with slash separator
+      ['"option1"/"option2"', `${LEFT_DOUBLE_QUOTE}option1${RIGHT_DOUBLE_QUOTE}/${LEFT_DOUBLE_QUOTE}option2${RIGHT_DOUBLE_QUOTE}`],
+    ])('handles complex pattern: "%s"', (input, expected) => {
+      expect(niceQuotes(input)).toBe(expected)
+    })
+
+    it("handles multi-line dialogue", () => {
+      const input = '"Hello,"\n"World"'
+      const expected = `${LEFT_DOUBLE_QUOTE}Hello,${RIGHT_DOUBLE_QUOTE}\n${LEFT_DOUBLE_QUOTE}World${RIGHT_DOUBLE_QUOTE}`
+      expect(niceQuotes(input)).toBe(expected)
+    })
+  })
+
+  describe("idempotency", () => {
+    it.each([
+      `${LEFT_DOUBLE_QUOTE}already curly${RIGHT_DOUBLE_QUOTE}`,
+      `${LEFT_SINGLE_QUOTE}single curly${RIGHT_SINGLE_QUOTE}`,
+      `I${RIGHT_SINGLE_QUOTE}m already converted`,
+      `${LEFT_DOUBLE_QUOTE}nested ${LEFT_SINGLE_QUOTE}quotes${RIGHT_SINGLE_QUOTE}${RIGHT_DOUBLE_QUOTE}`,
+    ])('is idempotent for: "%s"', (input) => {
+      expect(niceQuotes(input)).toBe(input)
+      expect(niceQuotes(niceQuotes(input))).toBe(input)
+    })
+  })
+
   describe("with separator character", () => {
     const sep = "\uE000"
 

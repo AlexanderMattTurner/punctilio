@@ -36,12 +36,12 @@ My [`benchmark.mjs`](./benchmark.mjs) measures how well libraries handle a [wide
 
 | Package | Score |
 |--------:|:------|
-| `punctilio` | 79/82 (96%) |
-| `tipograph` | 51/82 (62%) |
-| `typograf` | 42/82 (51%) |
-| `smartquotes` | 31/82 (38%) |
-| `smartypants` | 30/82 (37%) |
-| `retext-smartypants` | 28/82 (34%) |
+| `punctilio` | 106/109 (97%) |
+| `tipograph` | 70/109 (64%) |
+| `typograf` | 58/109 (53%) |
+| `smartquotes` | 51/109 (47%) |
+| `smartypants` | 49/109 (45%) |
+| `retext-smartypants` | 47/109 (43%) |
 
 | Feature | Example | `smartypants` | `tipograph` | `smartquotes` | `typograf` | `punctilio` |
 |--------:|:-------:|:-------:|:-------:|:-------:|:-------:|:-------:|
@@ -65,6 +65,29 @@ My [`benchmark.mjs`](./benchmark.mjs) measures how well libraries handle a [wide
 | Non-breaking spaces | Chapter 1 | ✗ | ✗ | ✗ | ✓ | ✗ |
 
 `typograf` uniquely inserts non-breaking spaces to prevent bad line breaks (e.g. before numbers, after colons). I might add this to `punctilio` in the future. `punctilio`’s other missing feature is non-English quote support—feel free to make a pull request!
+
+### Known limitations of `punctilio`
+
+| Pattern | Behavior | Notes |
+|:--------|:---------|:------|
+| `—'Hi'—` | Opening `'` not converted | Single quote after em-dash at start is ambiguous |
+| `"Hello"--"second"` | `--` not converted | Unspaced dashes between quotes need word boundaries |
+| `10' x 12'` | Second `'` not converted | Quote balancing prevents double prime conversion |
+| `€5-€10` | Not converted to en-dash | Only `$` currency prefix supported for ranges |
+| `2-3pm` | Not converted to en-dash | Suffix letters prevent number range detection |
+| `. . .` (spaced) | Not converted to ellipsis | Only consecutive dots (`...`) are converted |
+| `No. 3` | Doesn’t replace normal space with a non-breaking one | Requires major new feature |
+| German/French quotes | Not supported | `« Bonjour »` requires language detection |
+
+## Test suite
+
+Setting aside the benchmark, `punctilio`’s test suite includes 600+ tests at 100% branch coverage, including edge cases derived from competitor libraries ([`smartquotes`](https://github.com/kellym/smartquotes.js), [`retext-smartypants`](https://github.com/retextjs/retext-smartypants), [`typograf`](https://github.com/typograf/typograf)), and the [Standard Ebooks typography manual](https://standardebooks.org/manual/). Key test categories:
+
+- _Quote handling_: Unicode text, nested quotes, contractions, Irish names (O’Brien), leading apostrophes (’99, ’twas)
+- _Dash transformations_: Year/page/score ranges, model name preservation (Llama-2-7B, GPT-4), phone numbers, ISBNs
+- _Symbol transforms_: Measurements (6′2″), coordinates (40° 44′ N), temperatures, fractions, math symbols
+- _Idempotency_: All transformations are verified to be stable when applied multiple times
+- _Separator boundaries_: Tests verify HTML DOM integration doesn’t break patterns
 
 ## Works with HTML DOMs via separation boundaries
 
@@ -112,4 +135,4 @@ transform(text, {
 - The `british` style follows [Oxford style](https://www.ox.ac.uk/sites/files/oxford/Style%20Guide%20quick%20reference%20A-Z.pdf):
   - Periods and commas go outside quotation marks (“Hello”, she said.)
   - Spaced en-dashes between words (word – word)
-- `punctilio` is idempotent by design: `transform(transform(text))` always equals `transform(text)`. If performance is critical, set `checkIdempotency: false` to skip the verification pass. 
+- `punctilio` is idempotent by design: `transform(transform(text))` always equals `transform(text)`. If performance is critical, set `checkIdempotency: false` to skip the verification pass.
