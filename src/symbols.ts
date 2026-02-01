@@ -180,15 +180,25 @@ export function primeMarks(text: string, options: SymbolOptions = {}): string {
   const feetInchesPattern = new RegExp(`(?<primeAndNum>${PRIME}${chr}?\\d${chr}?)"`, "g")
   text = text.replace(feetInchesPattern, `$<primeAndNum>${DOUBLE_PRIME}`)
 
-  // Double prime Pattern 2: Standalone inches
-  // Negative lookbehind: ensures no opening quote within 20 chars before the digit
-  // Negative lookahead: ensures not followed by word characters
-  // Matches: 12" wide ✓, but not: "Term 1" ✗
+  // Double prime Pattern 2: Standalone inches using quote balancing
+  // Count quotes before each match: even = outside quotes (prime), odd = inside quotes (closing quote)
+  // Examples: 12" wide → 12″ wide ✓, "Term 1" → "Term 1" ✓
   const standaloneInchesPattern = new RegExp(
-    `(?<!["${LEFT_DOUBLE_QUOTE}]${chr}?[^"${chr}]{0,20})(?<numWithSep>\\d${chr}?)"(?!${chr}?[${LATIN_LETTERS}\\d_])`,
+    `(?<digit>\\d)(?<sep>${chr}?)"(?<afterSep>${chr}?)(?![${LATIN_LETTERS}\\d_])`,
     "g"
   )
-  text = text.replace(standaloneInchesPattern, `$<numWithSep>${DOUBLE_PRIME}`)
+  text = text.replace(
+    standaloneInchesPattern,
+    (match, digit, sep, afterSep, offset) => {
+      const textBefore = text.slice(0, offset)
+      const quoteCount = (textBefore.match(/"/g) || []).length
+      // Even count = outside quotes = prime mark; Odd count = inside quote = keep as closing quote
+      if (quoteCount % 2 === 0) {
+        return `${digit}${sep}${DOUBLE_PRIME}${afterSep}`
+      }
+      return match
+    }
+  )
 
   return text
 }
