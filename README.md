@@ -36,12 +36,12 @@ My [`benchmark.mjs`](./benchmark.mjs) measures how well libraries handle a [wide
 
 | Package | Score |
 |--------:|:------|
-| `punctilio` | 107/110 (97%) |
-| `tipograph` | 69/110 (63%) |
-| `typograf` | 58/110 (53%) |
-| `smartquotes` | 51/110 (46%) |
-| `smartypants` | 49/110 (45%) |
-| `retext-smartypants` | 47/110 (43%) |
+| `punctilio` | 106/109 (97%) |
+| `tipograph` | 70/109 (64%) |
+| `typograf` | 58/109 (53%) |
+| `smartquotes` | 51/109 (47%) |
+| `smartypants` | 49/109 (45%) |
+| `retext-smartypants` | 47/109 (43%) |
 
 | Feature | Example | `smartypants` | `tipograph` | `smartquotes` | `typograf` | `punctilio` |
 |--------:|:-------:|:-------:|:-------:|:-------:|:-------:|:-------:|

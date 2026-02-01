@@ -275,21 +275,19 @@ describe("collapseSpaces", () => {
   const { NBSP } = UNICODE_SYMBOLS
 
   it.each([
-    // Multiple regular spaces
+    // Multiple regular spaces → single space
     ["hello  world", "hello world"],
     ["a   b", "a b"],
     ["x    y", "x y"],
-    // Multiple nbsp
+    // Multiple nbsp → single nbsp
     [`foo${NBSP}${NBSP}bar`, `foo${NBSP}bar`],
     [`a${NBSP}${NBSP}${NBSP}b`, `a${NBSP}b`],
-    // Mixed: space followed by nbsp (keeps space)
-    [`a ${NBSP}b`, "a b"],
-    [`x  ${NBSP}y`, "x y"],
-    // Mixed: nbsp followed by space (keeps nbsp)
+    // Mixed: any nbsp present → prefer nbsp (more likely intentional)
+    [`a ${NBSP}b`, `a${NBSP}b`],
+    [`x  ${NBSP}y`, `x${NBSP}y`],
     [`a${NBSP} b`, `a${NBSP}b`],
     [`x${NBSP}  y`, `x${NBSP}y`],
-    // Mixed sequences
-    [`a ${NBSP} b`, "a b"],
+    [`a ${NBSP} b`, `a${NBSP}b`],
     [`x${NBSP} ${NBSP}y`, `x${NBSP}y`],
     // Single spaces unchanged
     ["hello world", "hello world"],

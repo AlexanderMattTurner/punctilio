@@ -76,8 +76,8 @@ describe("transform", () => {
     it.each([
       ["hello  world", "hello world", "multiple spaces"],
       [`foo${NBSP}${NBSP}bar`, `foo${NBSP}bar`, "multiple nbsp"],
-      [`a ${NBSP}b`, "a b", "space then nbsp keeps space"],
-      [`a${NBSP} b`, `a${NBSP}b`, "nbsp then space keeps nbsp"],
+      [`a ${NBSP}b`, `a${NBSP}b`, "mixed spaces prefer nbsp"],
+      [`a${NBSP} b`, `a${NBSP}b`, "mixed spaces prefer nbsp"],
     ])("collapses %s by default", (input, expected) => {
       expect(transform(input)).toBe(expected)
     })

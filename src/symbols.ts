@@ -273,9 +273,14 @@ export function superscriptOrdinal(text: string, options: SymbolOptions = {}): s
   })
 }
 
-/** Collapse multiple spaces to single space. */
+/** Collapse multiple spaces to single space. Prefers nbsp if any nbsp is present. */
 export function collapseSpaces(text: string): string {
-  return text.replace(new RegExp(`(?<first>[${SPACE_CHARS}])[${SPACE_CHARS}]+`, "g"), "$<first>")
+  const { NBSP } = UNICODE_SYMBOLS
+  // Match 2+ consecutive space characters (space or nbsp)
+  return text.replace(new RegExp(`[${SPACE_CHARS}]{2,}`, "g"), (match) => {
+    // If any nbsp is present, prefer nbsp (more likely intentional)
+    return match.includes(NBSP) ? NBSP : " "
+  })
 }
 
 /**
