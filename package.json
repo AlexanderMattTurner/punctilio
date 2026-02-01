@@ -1,6 +1,6 @@
 {
   "name": "punctilio",
-  "version": "1.0.5",
+  "version": "1.1.0",
   "description": "Smart typography transformations: curly quotes, em-dashes, en-dashes, and more",
   "type": "module",
   "main": "./dist/index.js",
@@ -63,5 +63,8 @@
     "typescript-eslint": "^8.54.0",
     "typograf": "7.6.0",
     "unified": "11.0.5"
+  },
+  "dependencies": {
+    "escape-string-regexp": "5.0.0"
   }
 }

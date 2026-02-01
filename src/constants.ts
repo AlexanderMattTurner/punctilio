@@ -1,12 +1,14 @@
 /**
  * Shared Unicode constants used throughout the punctilio package.
- * 
+ *
  * This module provides a centralized location for all Unicode symbols
  * used in typography transformations, making the codebase more maintainable
  * and self-documenting.
- * 
+ *
  * @module constants
  */
+
+import escapeStringRegexp from "escape-string-regexp"
 
 /**
  * Unicode symbols for typography transformations.
@@ -64,11 +66,25 @@ export const UNICODE_SYMBOLS = {
 } as const
 
 /**
+ * Character class pattern for Latin letters including European accented characters.
+ * Use inside regex character classes: `[${LATIN_LETTERS}]`
+ *
+ * Includes:
+ * - Basic Latin: A-Z, a-z
+ * - Latin-1 Supplement: À-Ö, Ø-ö, ø-ÿ (excludes × and ÷)
+ * - Latin Extended-A: Ā-ſ (U+0100-017F)
+ * - Latin Extended-B: ƀ-ɏ (U+0180-024F)
+ *
+ * Examples of covered characters: é, ñ, ü, ø, ą, ł, ș
+ */
+export const LATIN_LETTERS = "A-Za-z\\u00C0-\\u00D6\\u00D8-\\u00F6\\u00F8-\\u00FF\\u0100-\\u017F\\u0180-\\u024F"
+
+/**
  * Default separator character for text spanning HTML elements.
  * Uses Unicode Private Use Area character U+E000.
  */
 export const DEFAULT_SEPARATOR = "\uE000"
-export const ESCAPED_DEFAULT_SEPARATOR = DEFAULT_SEPARATOR.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+export const ESCAPED_DEFAULT_SEPARATOR = escapeStringRegexp(DEFAULT_SEPARATOR)
 
 /**
  * Creates a marker-aware word boundary pattern for the START of a match.

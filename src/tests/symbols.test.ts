@@ -8,7 +8,7 @@ import {
   primeMarks,
   fractions,
   collapseSpaces,
-  superscript,
+  superscriptOrdinal,
   punctuationLigatures,
   symbolTransform,
 } from "../symbols.js"
@@ -27,6 +27,8 @@ describe("ellipsis", () => {
     ["e.g.", "e.g."],
     ["U.S.A.", "U.S.A."],
     ["a.b", "a.b"],
+    ["End....", `End${UNICODE_SYMBOLS.ELLIPSIS}.`], // 4 dots
+    ["......", `${UNICODE_SYMBOLS.ELLIPSIS}${UNICODE_SYMBOLS.ELLIPSIS}`], // 6 dots
   ])('converts "%s" to "%s"', (input, expected) => {
     expect(ellipsis(input)).toBe(expected)
   })
@@ -125,12 +127,13 @@ describe("legalSymbols", () => {
 describe("arrows", () => {
   it.each([
     ["A -> B", `A ${UNICODE_SYMBOLS.ARROW_RIGHT} B`],
-    ["A --> B", `A ${UNICODE_SYMBOLS.ARROW_RIGHT} B`],
     ["A <- B", `A ${UNICODE_SYMBOLS.ARROW_LEFT} B`],
-    ["A <-- B", `A ${UNICODE_SYMBOLS.ARROW_LEFT} B`],
     ["A <-> B", `A ${UNICODE_SYMBOLS.ARROW_LEFT_RIGHT} B`],
+    ["A --> B", `A ${UNICODE_SYMBOLS.ARROW_RIGHT} B`],
+    ["A <-- B", `A ${UNICODE_SYMBOLS.ARROW_LEFT} B`],
     ["A <--> B", `A ${UNICODE_SYMBOLS.ARROW_LEFT_RIGHT} B`],
     ["start -> middle -> end", `start ${UNICODE_SYMBOLS.ARROW_RIGHT} middle ${UNICODE_SYMBOLS.ARROW_RIGHT} end`],
+    // Pointer-style arrows preserved (no spaces)
     ["function->call", "function->call"],
     ["array[0]->value", "array[0]->value"],
   ])('converts "%s" to "%s"', (input, expected) => {
@@ -155,6 +158,11 @@ describe("degrees", () => {
     ["100 C", `100 ${UNICODE_SYMBOLS.DEGREE}C`],
     ["212F", `212 ${UNICODE_SYMBOLS.DEGREE}F`],
     ["-40 C", `-40 ${UNICODE_SYMBOLS.DEGREE}C`],
+    // Case-sensitive: lowercase c/f should NOT be converted
+    ["20 c", "20 c"],
+    ["68 f", "68 f"],
+    ["20c", "20c"],
+    ["68f", "68f"],
   ])('converts "%s" to "%s"', (input, expected) => {
     expect(degrees(input)).toBe(expected)
   })
@@ -285,7 +293,7 @@ describe("collapseSpaces", () => {
   })
 })
 
-describe("superscript", () => {
+describe("superscriptOrdinal", () => {
   it.each([
     // Basic ordinals
     ["1st", `1${UNICODE_SYMBOLS.SUPERSCRIPT_ST}`],
@@ -317,12 +325,12 @@ describe("superscript", () => {
     ["thunder", "thunder"],
     ["rand", "rand"],
   ])('converts "%s" to "%s"', (input, expected) => {
-    expect(superscript(input)).toBe(expected)
+    expect(superscriptOrdinal(input)).toBe(expected)
   })
 
   it("handles separator characters", () => {
     const sep = "\uE000"
-    expect(superscript(`30${sep}th`, { separator: sep })).toBe(
+    expect(superscriptOrdinal(`30${sep}th`, { separator: sep })).toBe(
       `30${sep}${UNICODE_SYMBOLS.SUPERSCRIPT_TH}`
     )
   })
@@ -339,7 +347,7 @@ describe("superscript", () => {
       ["valid boundary before space", `1st${sep} place`, `1${UNICODE_SYMBOLS.SUPERSCRIPT_ST}${sep} place`], // should convert
       ["valid boundary before punctuation", `2nd${sep}.`, `2${UNICODE_SYMBOLS.SUPERSCRIPT_ND}${sep}.`], // should convert
     ])("handles %s", (_desc, input, expected) => {
-      expect(superscript(input, { separator: sep })).toBe(expected)
+      expect(superscriptOrdinal(input, { separator: sep })).toBe(expected)
     })
   })
 })
@@ -387,6 +395,19 @@ describe("punctuationLigatures", () => {
     const input = "What?? Really?! No way!? Wow!!"
     const expected = `What${UNICODE_SYMBOLS.DOUBLE_QUESTION} Really${UNICODE_SYMBOLS.QUESTION_EXCLAMATION} No way${UNICODE_SYMBOLS.EXCLAMATION_QUESTION} Wow!`
     expect(punctuationLigatures(input)).toBe(expected)
+  })
+})
+
+describe("hexadecimal preservation", () => {
+  it.each([
+    "0x5F3759DF",
+    "0xff",
+    "0X1A2B",
+    "The magic number is 0x5F3759DF",
+    "test 0x",
+    "value: 0X",
+  ])('preserves "%s"', (input) => {
+    expect(multiplication(input)).toBe(input)
   })
 })
 

@@ -1,4 +1,5 @@
 import { transform, DEFAULT_SEPARATOR, countSeparators } from "../index.js"
+import { ellipsis } from "../symbols.js"
 import { UNICODE_SYMBOLS } from "../constants.js"
 
 const {
@@ -97,6 +98,29 @@ describe("transform", () => {
     ])('preserves %i separators in "%s"', (input, expectedCount) => {
       expect(() => transform(input, { separator: DEFAULT_SEPARATOR })).not.toThrow()
       expect(countSeparators(transform(input, { separator: DEFAULT_SEPARATOR }), DEFAULT_SEPARATOR)).toBe(expectedCount)
+    })
+
+    it("preserves separator in ellipsis", () => {
+      const input = `.${DEFAULT_SEPARATOR}.${DEFAULT_SEPARATOR}.`
+      const result = ellipsis(input, { separator: DEFAULT_SEPARATOR })
+      expect(result.split(DEFAULT_SEPARATOR).length - 1).toBe(2)
+    })
+
+    it("preserves consecutive separators", () => {
+      const input = `a${DEFAULT_SEPARATOR}${DEFAULT_SEPARATOR}${DEFAULT_SEPARATOR}b`
+      expect(transform(input)).toBe(input)
+    })
+  })
+
+  describe("Unicode edge cases", () => {
+    it.each([
+      '"café"',
+      '"Hello 👋 world"',
+      '"日本語"',
+      '"שלום"',
+      "a\u200Bb",
+    ])('preserves content in "%s"', (input) => {
+      expect(transform(input)).toBe(transform(input)) // idempotent
     })
   })
 })

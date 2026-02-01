@@ -6,7 +6,7 @@ The best typography package for English.
 import { transform } from 'punctilio'
 
 transform('"It\'s a beautiful thing, the destruction of words..." -- 1984')
-// → “It’s a beautiful thing, the destruction of words…” — 1984
+// → “It’s a beautiful thing, the destruction of words…”—1984
 ```
 
 [![Test](https://github.com/alexander-turner/punctilio/actions/workflows/test.yml/badge.svg)](https://github.com/alexander-turner/punctilio/actions/workflows/test.yml)
@@ -82,6 +82,10 @@ transform(`"Wait${DEFAULT_SEPARATOR}"`)
 
 Use via a DOM walker tracks which text node each segment came from, inserts separators between them, transforms the combined string, then splits on separators to update each node. Use the `separator` option if `U+E000` conflicts with your content. For an example of how to integrate this functionality, see [my website’s code](https://github.com/alexander-turner/TurnTrout.com/blob/main/quartz/plugins/transformers/formatting_improvement_html.ts). 
 
+### Not for raw Markdown
+
+`punctilio` transforms plain text or separator-flattened HTML—not raw Markdown. 
+
 ## Options
 
 `punctilio` doesn’t enable all transformations by default. Fractions and degrees tend to match too aggressively (perfectly applying the degree transformation requires semantic meaning). Superscript letters and punctuation ligatures have spotty font support—on GitHub, this README’s font doesn’t even support the example superscript! Furthermore, `ligatures = true` can change the meaning of text by collapsing question and exclamation marks.
@@ -91,11 +95,22 @@ transform(text, {
   punctuationStyle: 'american' | 'british' | 'none',  // default: 'american'
   dashStyle: 'american' | 'british' | 'none',         // default: 'american'
 
-  symbols: true,         // math, legal, arrows
-  collapseSpaces: true,  // normalize whitespace
-  fractions: false,      // 1/2 → ½
-  degrees: false,        // 20 C → 20 °C
-  superscript: false,    // 1st → 1ˢᵗ
-  ligatures: false,      // ??? → ⁇, ?! → ⁈, !? → ⁉, !!! → !
+  symbols: true,           // math, legal, arrows
+  collapseSpaces: true,    // normalize whitespace
+  fractions: false,        // 1/2 → ½
+  degrees: false,          // 20 C → 20 °C
+  superscript: false,      // 1st → 1ˢᵗ
+  ligatures: false,        // ??? → ⁇, ?! → ⁈, !? → ⁉, !!! → !
+  checkIdempotency: true,  // verify transform(transform(x)) === transform(x)
 })
 ```
+
+The `'american'` style follows the [Chicago Manual of Style](https://www.chicagomanualofstyle.org/):
+- **Punctuation**: Periods and commas go inside quotation marks (“Hello,” she said.)
+- **Dashes**: Unspaced em-dashes between words (word—word)
+
+The `'british'` style follows [Oxford style](https://www.ox.ac.uk/sites/files/oxford/Style%20Guide%20quick%20reference%20A-Z.pdf):
+- **Punctuation**: Periods and commas go outside quotation marks (“Hello”, she said.)
+- **Dashes**: Spaced en-dashes between words (word – word)
+
+`punctilio` is idempotent by design: `transform(transform(text))` always equals `transform(text)`. If performance is critical, set `checkIdempotency: false` to skip the verification pass. 

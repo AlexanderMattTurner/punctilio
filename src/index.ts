@@ -31,7 +31,7 @@ export {
   fractions,
   primeMarks,
   collapseSpaces,
-  superscript,
+  superscriptOrdinal,
   punctuationLigatures,
   symbolTransform,
   type SymbolOptions,
@@ -68,9 +68,9 @@ export interface TransformOptions {
   /**
    * How to handle punctuation placement around quotation marks.
    *
-   * - `"american"` (default): Periods and commas go inside quotes
+   * - `"american"` (default): Chicago style. Periods and commas go inside quotes.
    *   Example: "Hello." and "Hello,"
-   * - `"british"`: Periods and commas go outside quotes
+   * - `"british"`: Oxford style. Periods and commas go outside quotes.
    *   Example: "Hello". and "Hello",
    * - `"none"`: Don't modify punctuation placement
    *
@@ -81,8 +81,8 @@ export interface TransformOptions {
   /**
    * How to style parenthetical dashes.
    *
-   * - `"american"` (default): Unspaced em dash (word—word)
-   * - `"british"`: Spaced en dash (word – word)
+   * - `"american"` (default): Chicago style. Unspaced em dash (word—word)
+   * - `"british"`: Oxford style. Spaced en dash (word – word)
    * - `"none"`: Don't convert parenthetical dashes
    *
    * Default: "american"
@@ -114,11 +114,20 @@ export interface TransformOptions {
    * Default: false (poor font support)
    */
   ligatures?: boolean
+
+  /**
+   * Whether to verify that the transformation is idempotent (running twice
+   * produces the same result). When enabled, throws an error if the second
+   * pass produces a different result than the first.
+   *
+   * Default: true
+   */
+  checkIdempotency?: boolean
 }
 
 import { niceQuotes } from "./quotes.js"
 import { hyphenReplace } from "./dashes.js"
-import { symbolTransform, fractions as fractionsTransform, degrees as degreesTransform, superscript as superscriptTransform, primeMarks, collapseSpaces as collapseSpacesTransform, punctuationLigatures as ligaturesTransform } from "./symbols.js"
+import { symbolTransform, fractions as fractionsTransform, degrees as degreesTransform, superscriptOrdinal as superscriptTransform, primeMarks, collapseSpaces as collapseSpacesTransform, punctuationLigatures as ligaturesTransform } from "./symbols.js"
 import { assertSeparatorCountPreserved } from "./utils.js"
 import { DEFAULT_SEPARATOR } from "./constants.js"
 
@@ -158,10 +167,22 @@ export { DEFAULT_SEPARATOR } from "./constants.js"
  * // → 'Add ½ cup'
  * ```
  */
+const defaultOpts: Required<Omit<TransformOptions, "separator">> = {
+  symbols: true,
+  fractions: false,
+  degrees: false,
+  superscript: false,
+  ligatures: false,
+  collapseSpaces: true,
+  checkIdempotency: true,
+  punctuationStyle: "american",
+  dashStyle: "american",
+}
+
 export function transform(text: string, options: TransformOptions = {}): string {
   const separator = options.separator ?? DEFAULT_SEPARATOR
   const original = text
-  const { symbols = true, fractions = false, degrees = false, superscript = false, ligatures = false, collapseSpaces = true, ...separatorOpts } = options
+  const { symbols, fractions, degrees, superscript, ligatures, collapseSpaces, checkIdempotency, ...separatorOpts } = { ...defaultOpts, ...options }
 
   text = hyphenReplace(text, separatorOpts)
   text = primeMarks(text, separatorOpts)
@@ -192,6 +213,20 @@ export function transform(text: string, options: TransformOptions = {}): string 
   }
 
   assertSeparatorCountPreserved(original, text, separator, "transform")
+
+  if (checkIdempotency) {
+    const secondPass = transform(text, { ...options, checkIdempotency: false })
+    /* istanbul ignore if -- defensive check that should never trigger */
+    if (text !== secondPass) {
+      throw new Error(
+        `Transform is not idempotent.\n` +
+        `First pass:  ${JSON.stringify(text)}\n` +
+        `Second pass: ${JSON.stringify(secondPass)}\n` +
+        `This is a bug in punctilio. Please file an issue at https://github.com/alexander-turner/punctilio/issues\n` +
+        `Include the input text that caused this error.`
+      )
+    }
+  }
 
   return text
 }
