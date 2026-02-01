@@ -45,8 +45,8 @@ My [`benchmark.mjs`](./benchmark.mjs) measures how well libraries handle a [wide
 
 | Feature | Example | `punctilio` | `smartypants` | `tipograph` | `smartquotes` | `typograf` |
 |--------:|:-------:|:-------:|:-------:|:-------:|:-------:|:-------:|
-| Smart quotes | "hello" → "hello" | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Leading apostrophe | 'Twas → 'Twas | ✓ | ✗ | ✗ | ~ | ✗ |
+| Smart quotes | "hello" → “hello” | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Leading apostrophe | 'Twas → ’Twas | ✓ | ✗ | ✗ | ~ | ✗ |
 | Em dash | -- → — | ✓ | ✓ | ✗ | ✗ | ✓ |
 | En dash (ranges) | 1-5 → 1–5 | ✓ | ✗ | ✓ | ✗ | ✗ |
 | Minus sign | -5 → −5 | ✓ | ✗ | ✓ | ✗ | ✗ |
