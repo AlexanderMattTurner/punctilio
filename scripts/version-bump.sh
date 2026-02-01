@@ -15,6 +15,13 @@ fi
 CURRENT_VERSION=$(node -p "require('./package.json').version")
 echo "Current version: $CURRENT_VERSION"
 
+# Check if package.json version was already changed in this commit
+PREV_VERSION=$(git show HEAD~1:package.json 2>/dev/null | node -p "JSON.parse(require('fs').readFileSync(0, 'utf8')).version" 2>/dev/null || echo "")
+if [ -n "$PREV_VERSION" ] && [ "$PREV_VERSION" != "$CURRENT_VERSION" ]; then
+  echo "package.json version already changed in this commit ($PREV_VERSION -> $CURRENT_VERSION). Skipping."
+  exit 0
+fi
+
 # Get commits since last version bump
 LAST_BUMP_COMMIT=$(git log --oneline --grep="^chore: bump version" -1 --format="%H" 2>/dev/null || echo "")
 
