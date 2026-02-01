@@ -1,8 +1,5 @@
 /**
- * Smart quote transformation
- *
- * Converts straight quotes to typographically correct curly quotes,
- * handling contractions, possessives, and nested quotes.
+ * Smart quote transformation: straight quotes → curly quotes.
  */
 
 import { UNICODE_SYMBOLS, DEFAULT_SEPARATOR } from "./constants.js"
@@ -19,35 +16,13 @@ const {
 export type PunctuationStyle = "american" | "british" | "none"
 
 export interface QuoteOptions {
-  /**
-   * A boundary marker character used when transforming text that spans
-   * multiple HTML elements. This character is treated as "transparent"
-   * in the regex patterns - it won't affect quote matching but allows
-   * the algorithm to work across element boundaries.
-   *
-   * Should be a character that doesn't appear in your text.
-   * Default: "\uE000" (Unicode Private Use Area)
-   */
+  /** Boundary marker for HTML element boundaries. Default: "\uE000" */
   separator?: string
-
-  /**
-   * How to handle punctuation placement around quotation marks.
-   *
-   * - `"american"` (default): Periods and commas go inside quotes
-   *   Example: "Hello." and "Hello,"
-   * - `"british"`: Periods and commas go outside quotes
-   *   Example: "Hello". and "Hello",
-   * - `"none"`: Don't modify punctuation placement
-   *
-   * Default: "american"
-   */
+  /** "american" (inside), "british" (outside), "none". Default: "american" */
   punctuationStyle?: PunctuationStyle
 }
 
-/**
- * Known contractions that start with an apostrophe.
- * These should use RIGHT_SINGLE_QUOTE (apostrophe), not LEFT_SINGLE_QUOTE.
- */
+/** Contractions starting with apostrophe ('twas, 'tis, etc.) */
 const LEADING_APOSTROPHE_CONTRACTIONS = [
   "twas",   // it was
   "tis",    // it is
@@ -153,13 +128,7 @@ function applyPunctuationStyle(text: string, sep: string, style: PunctuationStyl
   return text
 }
 
-/**
- * Converts standard quotes to typographic smart quotes.
- *
- * @param text - The text to transform
- * @param options - Configuration options
- * @returns The text with smart quotes
- */
+/** Convert straight quotes to smart quotes. */
 export function niceQuotes(text: string, options: QuoteOptions = {}): string {
   const sep = options.separator ?? DEFAULT_SEPARATOR
   const punctuationStyle = options.punctuationStyle ?? "american"

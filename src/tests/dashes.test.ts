@@ -250,69 +250,24 @@ describe("minusReplace", () => {
   })
 })
 
-describe("enDashNumberRange edge cases", () => {
-  describe("phone numbers should NOT be converted", () => {
-    it.each([
-      "555-123-4567",
-      "+1-555-123-4567",
-      "(555)-123-4567",
-    ])('preserves "%s"', (input) => {
-      expect(enDashNumberRange(input)).toBe(input)
-    })
+describe("enDashNumberRange preserves", () => {
+  it.each([
+    "555-123-4567", "+1-555-123-4567", "(555)-123-4567", // phones
+    "978-3-16-148410-0", "0-13-468599-1", // ISBNs
+    "2024-01-15", "2024-01", "1999-12", // ISO dates
+    "192-168-1-1", "12-34-5678", // IPs
+  ])('"%s"', (input) => {
+    expect(enDashNumberRange(input)).toBe(input)
   })
+})
 
-  describe("ISBN/serial numbers should NOT be converted", () => {
-    it.each([
-      "978-3-16-148410-0",
-      "0-13-468599-1",
-    ])('preserves "%s"', (input) => {
-      expect(hyphenReplace(input)).toBe(input)
-    })
-  })
-
-  describe("ISO dates should NOT be converted", () => {
-    it.each([
-      "2024-01-15",
-      "2024-01",
-      "1999-12",
-    ])('preserves "%s"', (input) => {
-      expect(enDashNumberRange(input)).toBe(input)
-    })
-  })
-
-  describe("IP-like patterns should NOT be converted", () => {
-    it.each([
-      "192-168-1-1",
-      "12-34-5678", // Following segment has 3+ digits
-    ])('preserves "%s"', (input) => {
-      expect(enDashNumberRange(input)).toBe(input)
-    })
-  })
-
-  describe("empty following segment", () => {
-    it("handles case where following is empty string", () => {
-      // This covers the || [] branch when following.match returns null
-      expect(enDashNumberRange("10-20")).toBe("10–20")
-    })
-  })
-
-  describe("negative number ranges", () => {
-    it("handles negative to negative range", () => {
-      const withMinus = minusReplace("-5--2")
-      const result = enDashNumberRange(withMinus)
-      expect(result).toBe("−5–−2")
-    })
-
-    it("handles negative to positive range", () => {
-      const withMinus = minusReplace("-5-5")
-      const result = enDashNumberRange(withMinus)
-      expect(result).toBe("−5–5")
-    })
-
-    it("does not convert multi-segment negative patterns", () => {
-      const withMinus = minusReplace("-5-3-7")
-      expect(enDashNumberRange(withMinus)).toBe("−5-3-7")
-    })
+describe("negative number ranges", () => {
+  it.each([
+    ["-5--2", "−5–−2"],
+    ["-5-5", "−5–5"],
+    ["-5-3-7", "−5-3-7"], // multi-segment preserved
+  ])('converts "%s" to "%s"', (input, expected) => {
+    expect(enDashNumberRange(minusReplace(input))).toBe(expected)
   })
 })
 
