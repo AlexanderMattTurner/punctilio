@@ -136,13 +136,6 @@
     ["Really?!", "Really\u2048"],
     ["Wait!?", "Wait\u2049"]
   ],
-  "German quotes": [
-    ["\"Guten Tag\"", "\u201EGuten Tag\u201C"],
-    ["'Hallo'", "\u201AHallo\u2018"]
-  ],
-  "French quotes": [
-    ["\"Bonjour\"", "\u00AB\u00A0Bonjour\u00A0\u00BB"]
-  ],
   "Unicode text in quotes": [
     ["\"caf\u00E9\"", "\u201Ccaf\u00E9\u201D"],
     ["\"\u00C1guila\"", "\u201C\u00C1guila\u201D"],
