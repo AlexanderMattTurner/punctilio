@@ -142,5 +142,45 @@
   ],
   "French quotes": [
     ["\"Bonjour\"", "\u00AB\u00A0Bonjour\u00A0\u00BB"]
+  ],
+  "Unicode text in quotes": [
+    ["\"caf\u00E9\"", "\u201Ccaf\u00E9\u201D"],
+    ["\"\u00C1guila\"", "\u201C\u00C1guila\u201D"],
+    ["\"na\u00EFve\"", "\u201Cna\u00EFve\u201D"]
+  ],
+  "Irish/Scottish names": [
+    ["O'Brien's idea", "O\u2019Brien\u2019s idea"],
+    ["The O'Connors", "The O\u2019Connors"]
+  ],
+  "Model name preservation": [
+    ["Llama-2-7B", "Llama-2-7B"],
+    ["Llama-3-8B-Instruct", "Llama-3-8B-Instruct"],
+    ["GPT-4", "GPT-4"],
+    ["Qwen1.5-1.8B", "Qwen1.5-1.8B"]
+  ],
+  "Multi-segment pattern preservation": [
+    ["555-123-4567", "555-123-4567"],
+    ["978-3-16-148410-0", "978-3-16-148410-0"],
+    ["2024-01-15", "2024-01-15"]
+  ],
+  "Year ranges": [
+    ["2020-2024", "2020\u20132024"],
+    ["the 1990-1999 decade", "the 1990\u20131999 decade"]
+  ],
+  "Score ranges": [
+    ["won 3-2", "won 3\u20132"],
+    ["final score 21-17", "final score 21\u201317"]
+  ],
+  "Coordinate notation": [
+    ["40\u00B0 44' 54\" N", "40\u00B0 44\u2032 54\u2033 N"],
+    ["74\u00B0 0' 21\" W", "74\u00B0 0\u2032 21\u2033 W"]
+  ],
+  "Complex nested quotes": [
+    ["\"Alfred 'bertrand' cees\"", "\u201CAlfred \u2018bertrand\u2019 cees\u201D"],
+    ["'Alfred \"bertrand\" cees'", "\u2018Alfred \u201Cbertrand\u201D cees\u2019"]
+  ],
+  "Hexadecimal preservation": [
+    ["0x5F3759DF", "0x5F3759DF"],
+    ["0xff", "0xff"]
   ]
 }
