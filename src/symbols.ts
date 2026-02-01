@@ -165,52 +165,32 @@ export function primeMarks(text: string, options: SymbolOptions = {}): string {
     ? escapeStringRegexp(options.separator)
     : ESCAPED_DEFAULT_SEPARATOR
 
-  // Single prime: Matches digit + optional separator + apostrophe
-  // Lookahead ensures it's followed by: another digit, double quote, end of string, or punctuation
-  // Uses quote balancing: only convert if single quotes are balanced (even count before)
-  // Examples: 5' (feet) ✓, 30' (arcminutes) ✓, 'Term 1' (quoted) ✗
-  const singlePrimePattern = new RegExp(
-    `(?<digit>\\d)(?<sep>${chr}?)'(?<afterSep>${chr}?)(?=(?:\\d|"|$|[\\s.,;:!?)]))`,
-    "g"
-  )
-  text = text.replace(
-    singlePrimePattern,
-    (match, digit, sep, afterSep, offset) => {
+  // Convert quotes to primes using quote balancing
+  // Only convert if quotes are balanced (even count before) to avoid converting closing quotes
+  // Examples: 5' → 5′ ✓, 12" → 12″ ✓, 'Term 1' → 'Term 1' ✓, "Term 1" → "Term 1" ✓
+  const quotePrimePairs: Array<{ quote: string; prime: string; lookahead: string }> = [
+    { quote: "'", prime: PRIME, lookahead: `(?=(?:\\d|"|$|[\\s.,;:!?)]))` },
+    { quote: '"', prime: DOUBLE_PRIME, lookahead: `(?![${LATIN_LETTERS}\\d_])` },
+  ]
+
+  for (const { quote, prime, lookahead } of quotePrimePairs) {
+    const pattern = new RegExp(
+      `(?<digit>\\d)(?<sep>${chr}?)${quote}(?<afterSep>${chr}?)${lookahead}`,
+      "g"
+    )
+    text = text.replace(pattern, (match, digit, sep, afterSep, offset) => {
       const textBefore = text.slice(0, offset)
-      const quoteCount = (textBefore.match(/'/g) || []).length
-      // Even count = outside quotes = prime mark; Odd count = inside quote = keep as closing quote
+      const quoteCount = (textBefore.match(new RegExp(quote, "g")) || []).length
       if (quoteCount % 2 === 0) {
-        return `${digit}${sep}${PRIME}${afterSep}`
+        return `${digit}${sep}${prime}${afterSep}`
       }
       return match
-    }
-  )
+    })
+  }
 
-  // Double prime Pattern 1: Feet-inches pattern
-  // Matches: prime symbol + optional separator + digit + optional separator + double quote
-  // Examples: 5′10" or 5'10" → 5′10″
+  // Feet-inches pattern: convert " after ′ + digit (e.g., 5′10" → 5′10″)
   const feetInchesPattern = new RegExp(`(?<primeAndNum>${PRIME}${chr}?\\d${chr}?)"`, "g")
   text = text.replace(feetInchesPattern, `$<primeAndNum>${DOUBLE_PRIME}`)
-
-  // Double prime Pattern 2: Standalone inches using quote balancing
-  // Count quotes before each match: even = outside quotes (prime), odd = inside quotes (closing quote)
-  // Examples: 12" wide → 12″ wide ✓, "Term 1" → "Term 1" ✓
-  const standaloneInchesPattern = new RegExp(
-    `(?<digit>\\d)(?<sep>${chr}?)"(?<afterSep>${chr}?)(?![${LATIN_LETTERS}\\d_])`,
-    "g"
-  )
-  text = text.replace(
-    standaloneInchesPattern,
-    (match, digit, sep, afterSep, offset) => {
-      const textBefore = text.slice(0, offset)
-      const quoteCount = (textBefore.match(/"/g) || []).length
-      // Even count = outside quotes = prime mark; Odd count = inside quote = keep as closing quote
-      if (quoteCount % 2 === 0) {
-        return `${digit}${sep}${DOUBLE_PRIME}${afterSep}`
-      }
-      return match
-    }
-  )
 
   return text
 }
