@@ -1,12 +1,14 @@
 /**
  * Shared Unicode constants used throughout the punctilio package.
- * 
+ *
  * This module provides a centralized location for all Unicode symbols
  * used in typography transformations, making the codebase more maintainable
  * and self-documenting.
- * 
+ *
  * @module constants
  */
+
+import escapeStringRegexp from "escape-string-regexp"
 
 /**
  * Unicode symbols for typography transformations.
@@ -68,7 +70,7 @@ export const UNICODE_SYMBOLS = {
  * Uses Unicode Private Use Area character U+E000.
  */
 export const DEFAULT_SEPARATOR = "\uE000"
-export const ESCAPED_DEFAULT_SEPARATOR = DEFAULT_SEPARATOR.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+export const ESCAPED_DEFAULT_SEPARATOR = escapeStringRegexp(DEFAULT_SEPARATOR)
 
 /**
  * Creates a marker-aware word boundary pattern for the START of a match.
