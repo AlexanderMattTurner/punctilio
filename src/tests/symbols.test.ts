@@ -442,6 +442,8 @@ describe("competitor-derived edge cases", () => {
     it("converts spaced periods to ellipsis", () => {
       expect(ellipsis("text. . . more")).toBe(`text${UNICODE_SYMBOLS.ELLIPSIS} more`)
       expect(ellipsis(". . .")).toBe(UNICODE_SYMBOLS.ELLIPSIS)
+      // Also works with non-breaking spaces
+      expect(ellipsis(`.\u00A0.\u00A0.`)).toBe(UNICODE_SYMBOLS.ELLIPSIS)
     })
 
     it("preserves non-ellipsis spaced periods", () => {
