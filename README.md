@@ -116,13 +116,13 @@ transform(text, {
 
 ## Test Suite
 
-The test suite includes 600+ tests at 100% coverage, including edge cases derived from competitor libraries ([smartquotes.js](https://github.com/kellym/smartquotes.js), [retext-smartypants](https://github.com/retextjs/retext-smartypants), [typograf](https://github.com/typograf/typograf)) and the [Standard Ebooks typography manual](https://standardebooks.org/manual/). Key test categories:
+The test suite includes 600+ tests at 100% coverage, including edge cases derived from competitor libraries ([`smartquotes`](https://github.com/kellym/smartquotes.js), [`retext-smartypants`](https://github.com/retextjs/retext-smartypants), [`typograf`](https://github.com/typograf/typograf)), and the [Standard Ebooks typography manual](https://standardebooks.org/manual/). Key test categories:
 
-- **Quote handling**: Unicode text, nested quotes, contractions (I'm, don't), Irish names (O'Brien), leading apostrophes ('99, 'twas)
-- **Dash transformations**: Year/page/score ranges, model name preservation (Llama-2-7B, GPT-4), phone numbers, ISBNs
-- **Symbol transforms**: Measurements (6'2"), coordinates (40° 44' N), temperatures, fractions, math symbols
-- **Idempotency**: All transformations are verified to be stable when applied multiple times
-- **Separator boundaries**: Tests verify HTML DOM integration doesn't break patterns
+- _Quote handling_: Unicode text, nested quotes, contractions, Irish names (O’Brien), leading apostrophes (’99, ’twas)
+- _Dash transformations_: Year/page/score ranges, model name preservation (Llama-2-7B, GPT-4), phone numbers, ISBNs
+- _Symbol transforms_: Measurements (6′2″), coordinates (40° 44′ N), temperatures, fractions, math symbols
+- _Idempotency_: All transformations are verified to be stable when applied multiple times
+- _Separator boundaries_: Tests verify HTML DOM integration doesn’t break patterns
 
 ### Known Limitations
 
@@ -133,7 +133,8 @@ Documented edge cases where `punctilio` has limitations:
 | `—'Hi'—` | Opening `'` not converted | Single quote after em-dash at start is ambiguous |
 | `"Hello"--"second"` | `--` not converted | Unspaced dashes between quotes need word boundaries |
 | `10' x 12'` | Second `'` not converted | Quote balancing prevents double prime conversion |
-| `€5-€10`, `£100-£200` | Not converted to en-dash | Only `$` currency prefix supported for ranges |
+| `€5-€10` | Not converted to en-dash | Only `$` currency prefix supported for ranges |
 | `2-3pm` | Not converted to en-dash | Suffix letters prevent number range detection |
 | `. . .` (spaced) | Not converted to ellipsis | Only consecutive dots (`...`) are converted |
-| German/French quotes | Not supported | `„Guten Tag"`, `« Bonjour »` require language detection |
+| | Doesn’t add non-breaking spaces | Requires major addition |
+| German/French quotes | Not supported | `« Bonjour »` requires language detection |
