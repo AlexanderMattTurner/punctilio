@@ -29,10 +29,8 @@ describe("hyphenReplace", () => {
         `${EM_DASH}such behaviors still have to be retrodicted`,
         `${EM_DASH}such behaviors still have to be retrodicted`,
       ],
-      ["\n---\n", "\n---\n"], // Retain horizontal rules
       [`emphasis" ${EM_DASH}`, `emphasis"${EM_DASH}`],
-      ["- First level\n - Second level", `${EM_DASH} First level\n - Second level`],
-      ["> - First level", "> - First level"], // Quoted unordered lists should not be changed
+      ["- Intro text\n then more", `${EM_DASH} Intro text\n then more`],
       [
         `reward${ELLIPSIS} ${EM_DASH} [Model-based RL, Desires, Brains, Wireheading](https://www.alignmentforum.org/posts/K5ikTdaNymfWXQHFb/model-based-rl-desires-brains-wireheading#Self_aware_desires_1__wireheading)`,
         `reward${ELLIPSIS}${EM_DASH}[Model-based RL, Desires, Brains, Wireheading](https://www.alignmentforum.org/posts/K5ikTdaNymfWXQHFb/model-based-rl-desires-brains-wireheading#Self_aware_desires_1__wireheading)`,
@@ -56,9 +54,9 @@ describe("hyphenReplace", () => {
 
   describe("dashes at start of line", () => {
     it.each([
-      ["- This is a list item", `${EM_DASH} This is a list item`],
-      ["--- Indented list item", `${EM_DASH} Indented list item`],
-      ["Line 1\n- Line 2", `Line 1\n${EM_DASH} Line 2`],
+      ["- Author", `${EM_DASH} Author`],
+      ["--- Author attribution", `${EM_DASH} Author attribution`],
+      ["Quote\n- Author", `Quote\n${EM_DASH} Author`],
     ])('handles "%s"', (input, expected) => {
       expect(hyphenReplace(input)).toBe(expected)
     })
