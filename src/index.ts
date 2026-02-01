@@ -121,8 +121,7 @@ export interface TransformOptions {
    * produces the same result). When enabled, throws an error if the second
    * pass produces a different result than the first.
    *
-   * Useful for debugging and ensuring consistent output.
-   * Default: false
+   * Default: true
    */
   checkIdempotency?: boolean
 }
@@ -172,7 +171,7 @@ export { DEFAULT_SEPARATOR } from "./constants.js"
 export function transform(text: string, options: TransformOptions = {}): string {
   const separator = options.separator ?? DEFAULT_SEPARATOR
   const original = text
-  const { symbols = true, fractions = false, degrees = false, superscript = false, ligatures = false, collapseSpaces = true, checkIdempotency = false, ...separatorOpts } = options
+  const { symbols = true, fractions = false, degrees = false, superscript = false, ligatures = false, collapseSpaces = true, checkIdempotency = true, ...separatorOpts } = options
 
   text = hyphenReplace(text, separatorOpts)
   text = primeMarks(text, separatorOpts)
