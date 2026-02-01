@@ -123,4 +123,102 @@ describe("transform", () => {
       expect(transform(input)).toBe(transform(input)) // idempotent
     })
   })
+
+  // Tests derived from competitor libraries and benchmark cases
+  describe("competitor-derived comprehensive tests", () => {
+    // These tests document where punctilio excels over competitors
+    describe("punctilio advantages (benchmark cases)", () => {
+      it.each([
+        // Leading apostrophes - smartypants/tipograph fail these
+        ["'SUP", `${RIGHT_SINGLE_QUOTE}SUP`],
+        ["Rock 'n' Roll", `Rock ${RIGHT_SINGLE_QUOTE}n${RIGHT_SINGLE_QUOTE} Roll`],
+        ["I was born in '99", `I was born in ${RIGHT_SINGLE_QUOTE}99`],
+        // Em dashes from surrounded hyphens - smartquotes fails
+        ["This is a - hyphen.", `This is a${EM_DASH}hyphen.`],
+        // Number ranges - smartypants/smartquotes/typograf fail
+        ["Pages 1-5", `Pages 1${EN_DASH}5`],
+        ["2000-2020", `2000${EN_DASH}2020`],
+        // Date ranges - all competitors fail
+        ["January-March", `January${EN_DASH}March`],
+        // Minus signs - most competitors fail
+        ["-5", `−5`],
+        ["(-5)", `(−5)`],
+        // Prime marks - smartypants/typograf fail
+        ['5\'10"', `5′10″`],
+        ['He is 6\'2" tall', `He is 6′2″ tall`],
+      ])('correctly transforms: "%s"', (input, expected) => {
+        expect(transform(input, { symbols: true, degrees: true })).toBe(expected)
+      })
+    })
+
+    // Compound word preservation (all libraries should preserve these)
+    describe("compound word preservation", () => {
+      it.each([
+        "well-known",
+        "a browser- or OS-specific fashion",
+        "re-read",
+        "self-aware",
+        "high-quality",
+      ])('preserves compound word: "%s"', (input) => {
+        expect(transform(input)).toBe(input)
+      })
+    })
+
+    // Model name preservation (punctilio's unique strength)
+    describe("model name preservation", () => {
+      it.each([
+        "Llama-2-7B",
+        "Llama-3-8B-Instruct",
+        "GPT-4",
+        "Claude-3-Opus",
+        "Qwen1.5-1.8B",
+      ])('preserves model name: "%s"', (input) => {
+        expect(transform(input)).toBe(input)
+      })
+    })
+  })
+
+  describe("complex real-world text", () => {
+    it("handles dialogue with dashes and quotes", () => {
+      const input = '"Wait," she said -- "I don\'t think that\'s right."'
+      const result = transform(input)
+      expect(result).toContain(LEFT_DOUBLE_QUOTE)
+      expect(result).toContain(RIGHT_DOUBLE_QUOTE)
+      expect(result).toContain(EM_DASH)
+      expect(result).toContain(RIGHT_SINGLE_QUOTE) // apostrophe
+    })
+
+    it("handles technical documentation", () => {
+      const input = 'The API returns x != y when a <= b and c >= d. Error tolerance: +-5%.'
+      const expected = `The API returns x ${NOT_EQUAL} y when a ≤ b and c ≥ d. Error tolerance: ±5%.`
+      expect(transform(input)).toBe(expected)
+    })
+
+    it("handles measurement text", () => {
+      const input = 'He is 6\'2" tall.'
+      const result = transform(input, { symbols: true })
+      expect(result).toContain('′') // prime mark
+      expect(result).toContain('″') // double prime
+    })
+
+    it("handles copyright notices", () => {
+      const input = '(c) 2024 Company(tm). All rights reserved(r).'
+      const result = transform(input)
+      expect(result).toContain(COPYRIGHT)
+      expect(result).toContain('™')
+      expect(result).toContain('®')
+    })
+  })
+
+  describe("known limitations", () => {
+    // These document current behavior for edge cases
+    it("documents prime mark vs closing quote ambiguity", () => {
+      // When there's an open quote before a number, the quote after should close
+      // not become a prime mark
+      const input = '"Number 5"'
+      const result = transform(input)
+      // The 5" should be a closing quote, not a prime
+      expect(result).toBe(`${LEFT_DOUBLE_QUOTE}Number 5${RIGHT_DOUBLE_QUOTE}`)
+    })
+  })
 })

@@ -292,6 +292,142 @@ describe("negative number ranges", () => {
   })
 })
 
+// Tests derived from competitor libraries and typography guidelines
+describe("competitor-derived edge cases", () => {
+  // From retext-smartypants: oldschool dash handling
+  describe("double/triple dash patterns", () => {
+    it.each([
+      // From retext-smartypants oldschool mode
+      ["word--word", `word${EM_DASH}word`],
+      ["word---word", `word${EM_DASH}word`],
+      ["start-- end", `start${EM_DASH}end`],
+    ])('converts "%s"', (input, expected) => {
+      expect(hyphenReplace(input)).toBe(expected)
+    })
+
+    // Known limitation: double dash after quote not at word boundary
+    it("documents double dash after quote limitation", () => {
+      // Dash must be at word boundary to be converted
+      const input = '"Hello"-- she said'
+      const result = hyphenReplace(input)
+      // Currently not converted because quote" is not followed by space before --
+      expect(result).toBe('"Hello"-- she said')
+    })
+  })
+
+  // Phone numbers and ISBNs - documented via enDashNumberRange tests above
+  // These multi-segment patterns are correctly preserved
+  describe("multi-segment pattern preservation", () => {
+    it.each([
+      // Already tested in enDashNumberRange preserves section
+      "555-123-4567", // phone
+      "978-3-16-148410-0", // ISBN
+      "2024-01-15", // ISO date
+    ])('preserves multi-segment pattern: "%s"', (input) => {
+      expect(enDashNumberRange(input)).toBe(input)
+    })
+  })
+
+  // From tipograph: dash after quoted text
+  describe("dashes with quotes", () => {
+    it.each([
+      // Em dash after closing quote with space
+      [`${RIGHT_DOUBLE_QUOTE} - author`, `${RIGHT_DOUBLE_QUOTE}${EM_DASH}author`],
+      [`${RIGHT_SINGLE_QUOTE} -- source`, `${RIGHT_SINGLE_QUOTE}${EM_DASH}source`],
+    ])('handles spaced dashes after quotes: "%s"', (input, expected) => {
+      expect(hyphenReplace(input)).toBe(expected)
+    })
+
+    // Known limitation: unspaced double dash between quotes
+    it("documents unspaced dash between quotes limitation", () => {
+      const input = '"first"--"second"'
+      const result = hyphenReplace(input)
+      // Currently not converted - needs space around dashes for word boundary
+      expect(result).toBe('"first"--"second"')
+    })
+  })
+})
+
+describe("complex real-world patterns", () => {
+  describe("year ranges", () => {
+    it.each([
+      ["2020-2024", `2020${EN_DASH}2024`],
+      ["the 1990-1999 decade", `the 1990${EN_DASH}1999 decade`],
+      ["(2010-2015)", `(2010${EN_DASH}2015)`],
+    ])('handles year range: "%s"', (input, expected) => {
+      expect(hyphenReplace(input)).toBe(expected)
+    })
+  })
+
+  describe("score ranges", () => {
+    it.each([
+      ["won 3-2", `won 3${EN_DASH}2`],
+      ["final score 21-17", `final score 21${EN_DASH}17`],
+      ["led 14-7", `led 14${EN_DASH}7`],
+    ])('handles score: "%s"', (input, expected) => {
+      expect(hyphenReplace(input)).toBe(expected)
+    })
+  })
+
+  describe("price ranges", () => {
+    it.each([
+      // Dollar sign is supported
+      ["$10-$20", `$10${EN_DASH}$20`],
+    ])('handles USD price range: "%s"', (input, expected) => {
+      expect(hyphenReplace(input)).toBe(expected)
+    })
+
+    // Known limitation: non-USD currency symbols not supported for ranges
+    it.each([
+      "€5-€10",
+      "£100-£200",
+    ])('documents non-USD currency limitation: "%s"', (input) => {
+      // Currently only $ is supported as currency prefix for ranges
+      expect(hyphenReplace(input)).toBe(input)
+    })
+  })
+
+  describe("mixed content", () => {
+    it("handles multiple em dash transformations", () => {
+      const input = 'The meeting -- scheduled for today -- covers important topics.'
+      const expected = `The meeting${EM_DASH}scheduled for today${EM_DASH}covers important topics.`
+      expect(hyphenReplace(input)).toBe(expected)
+    })
+
+    it("handles page ranges", () => {
+      const input = 'See pages 10-20 for details.'
+      const expected = `See pages 10${EN_DASH}20 for details.`
+      expect(hyphenReplace(input)).toBe(expected)
+    })
+
+    it("handles em dash before URL-like text", () => {
+      const input = 'Visit -- https://example.com'
+      const expected = `Visit${EM_DASH}https://example.com`
+      expect(hyphenReplace(input)).toBe(expected)
+    })
+
+    // Known limitation: number-suffix like "2-3pm" not detected as range
+    it("documents time suffix limitation", () => {
+      const input = '2-3pm'
+      const result = hyphenReplace(input)
+      // "pm" suffix makes this not match the number range pattern
+      expect(result).toBe('2-3pm')
+    })
+  })
+})
+
+describe("idempotency", () => {
+  it.each([
+    `word${EM_DASH}word`,
+    `1${EN_DASH}5`,
+    `${MINUS}10`,
+    `January${EN_DASH}March`,
+  ])('is idempotent for: "%s"', (input) => {
+    expect(hyphenReplace(input)).toBe(input)
+    expect(hyphenReplace(hyphenReplace(input))).toBe(input)
+  })
+})
+
 describe("dashStyle option", () => {
   describe('when "american" (default)', () => {
     it.each([

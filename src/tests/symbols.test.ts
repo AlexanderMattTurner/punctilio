@@ -425,6 +425,152 @@ describe("hexadecimal preservation", () => {
   })
 })
 
+// Tests derived from competitor libraries and typography guidelines
+describe("competitor-derived edge cases", () => {
+  // From retext-smartypants: ellipsis variations
+  describe("ellipsis patterns", () => {
+    it.each([
+      // Ellipsis at boundaries
+      ["...start", `${UNICODE_SYMBOLS.ELLIPSIS} start`],
+      ["end...", `end${UNICODE_SYMBOLS.ELLIPSIS}`],
+      // Four dots = ellipsis + period
+      ["text....", `text${UNICODE_SYMBOLS.ELLIPSIS}.`],
+      // Six dots = two ellipses
+      ["text......", `text${UNICODE_SYMBOLS.ELLIPSIS}${UNICODE_SYMBOLS.ELLIPSIS}`],
+    ])('handles ellipsis pattern: "%s"', (input, expected) => {
+      expect(ellipsis(input)).toBe(expected)
+    })
+
+    // Known limitation: spaced periods not converted
+    it.each([
+      "text. . . more", // spaced periods preserved
+      "a . b . c",      // not an ellipsis pattern
+    ])('preserves spaced periods (not ellipsis): "%s"', (input) => {
+      expect(ellipsis(input)).toBe(input)
+    })
+  })
+
+  // From smartquotes.js: prime marks for height
+  describe("height measurements", () => {
+    it.each([
+      ['6\'2"', `6${UNICODE_SYMBOLS.PRIME}2${UNICODE_SYMBOLS.DOUBLE_PRIME}`],
+      ['5\'10"', `5${UNICODE_SYMBOLS.PRIME}10${UNICODE_SYMBOLS.DOUBLE_PRIME}`],
+      ["8' boards", `8${UNICODE_SYMBOLS.PRIME} boards`],
+      ['cut 12" wide', `cut 12${UNICODE_SYMBOLS.DOUBLE_PRIME} wide`],
+    ])('converts measurement: "%s"', (input, expected) => {
+      expect(primeMarks(input)).toBe(expected)
+    })
+  })
+
+  // From Standard Ebooks: coordinates
+  describe("coordinate notation", () => {
+    it.each([
+      ["40° 44' 54\" N", `40° 44${UNICODE_SYMBOLS.PRIME} 54${UNICODE_SYMBOLS.DOUBLE_PRIME} N`],
+      ["74° 0' 21\" W", `74° 0${UNICODE_SYMBOLS.PRIME} 21${UNICODE_SYMBOLS.DOUBLE_PRIME} W`],
+      ["51° 30' N", `51° 30${UNICODE_SYMBOLS.PRIME} N`],
+    ])('converts coordinates: "%s"', (input, expected) => {
+      expect(primeMarks(input)).toBe(expected)
+    })
+  })
+
+  // From typograf: math with spaces
+  describe("math symbol spacing", () => {
+    it.each([
+      ["a != b", `a ${UNICODE_SYMBOLS.NOT_EQUAL} b`],
+      ["x!=y", `x${UNICODE_SYMBOLS.NOT_EQUAL}y`],
+      ["5 <= 10", `5 ${UNICODE_SYMBOLS.LESS_EQUAL} 10`],
+      ["10 >= 5", `10 ${UNICODE_SYMBOLS.GREATER_EQUAL} 5`],
+    ])('handles math symbols: "%s"', (input, expected) => {
+      expect(mathSymbols(input)).toBe(expected)
+    })
+  })
+
+  // From tipograph: arrow preservation in code
+  describe("arrow context sensitivity", () => {
+    it.each([
+      // Should convert (spaced)
+      ["input -> output", `input ${UNICODE_SYMBOLS.ARROW_RIGHT} output`],
+      ["a <-> b", `a ${UNICODE_SYMBOLS.ARROW_LEFT_RIGHT} b`],
+      // Should NOT convert (no spaces - code-like)
+      ["obj->method", "obj->method"],
+      ["ptr->value", "ptr->value"],
+      ["this->that", "this->that"],
+    ])('handles arrows contextually: "%s"', (input, expected) => {
+      expect(arrows(input)).toBe(expected)
+    })
+  })
+})
+
+describe("complex real-world patterns", () => {
+  describe("mixed measurements", () => {
+    it.each([
+      // Simple foot measurements
+      ["The board is 8' long", `The board is 8${UNICODE_SYMBOLS.PRIME} long`],
+      ['12" wide', `12${UNICODE_SYMBOLS.DOUBLE_PRIME} wide`],
+      // Height notation
+      ['6\'2"', `6${UNICODE_SYMBOLS.PRIME}2${UNICODE_SYMBOLS.DOUBLE_PRIME}`],
+    ])('handles measurement: "%s"', (input, expected) => {
+      expect(primeMarks(input)).toBe(expected)
+    })
+
+    // Known limitation: multiple prime marks in sequence (quote balancing)
+    it("documents multiple prime marks limitation", () => {
+      // Second prime mark might be interpreted as closing quote
+      const input = "Room is 10' x 12'"
+      const result = primeMarks(input)
+      // First converts, second doesn't due to quote balancing
+      expect(result).toBe(`Room is 10${UNICODE_SYMBOLS.PRIME} x 12'`)
+    })
+  })
+
+  describe("temperatures in context", () => {
+    it.each([
+      ["Set oven to 350 F", `Set oven to 350 ${UNICODE_SYMBOLS.DEGREE}F`],
+      ["Water freezes at 0 C", `Water freezes at 0 ${UNICODE_SYMBOLS.DEGREE}C`],
+      ["Room temperature: 72 F", `Room temperature: 72 ${UNICODE_SYMBOLS.DEGREE}F`],
+    ])('handles temperature: "%s"', (input, expected) => {
+      expect(degrees(input)).toBe(expected)
+    })
+  })
+
+  describe("legal text", () => {
+    it.each([
+      ["(c) 2024 Company", `${UNICODE_SYMBOLS.COPYRIGHT} 2024 Company`],
+      ["Brand(r) is a registered trademark", `Brand${UNICODE_SYMBOLS.REGISTERED} is a registered trademark`],
+      ["Product(tm) - buy now!", `Product${UNICODE_SYMBOLS.TRADEMARK} - buy now!`],
+    ])('handles legal symbol: "%s"', (input, expected) => {
+      expect(legalSymbols(input)).toBe(expected)
+    })
+  })
+
+  describe("fractions in recipes", () => {
+    it.each([
+      ["Add 1/2 cup flour", `Add ${UNICODE_SYMBOLS.FRACTION_1_2} cup flour`],
+      ["1/4 teaspoon salt", `${UNICODE_SYMBOLS.FRACTION_1_4} teaspoon salt`],
+      ["about 3/4 done", `about ${UNICODE_SYMBOLS.FRACTION_3_4} done`],
+      ["1/3 of the mixture", `${UNICODE_SYMBOLS.FRACTION_1_3} of the mixture`],
+    ])('handles fraction: "%s"', (input, expected) => {
+      expect(fractions(input)).toBe(expected)
+    })
+  })
+})
+
+describe("idempotency", () => {
+  it.each([
+    UNICODE_SYMBOLS.ELLIPSIS,
+    `5${UNICODE_SYMBOLS.MULTIPLICATION}5`,
+    `a ${UNICODE_SYMBOLS.NOT_EQUAL} b`,
+    UNICODE_SYMBOLS.COPYRIGHT,
+    `5${UNICODE_SYMBOLS.PRIME}10${UNICODE_SYMBOLS.DOUBLE_PRIME}`,
+    `20 ${UNICODE_SYMBOLS.DEGREE}C`,
+    UNICODE_SYMBOLS.FRACTION_1_2,
+    `1${UNICODE_SYMBOLS.SUPERSCRIPT_ST}`,
+  ])('is idempotent for: "%s"', (input) => {
+    expect(ellipsis(input)).toBe(input)
+    expect(multiplication(input)).toBe(input)
+  })
+})
+
 describe("symbolTransform", () => {
   it.each([
     ["Wait... 5x5 != 20 (c) 2024", `Wait${UNICODE_SYMBOLS.ELLIPSIS} 5${UNICODE_SYMBOLS.MULTIPLICATION}5 ${UNICODE_SYMBOLS.NOT_EQUAL} 20 ${UNICODE_SYMBOLS.COPYRIGHT} 2024`],
