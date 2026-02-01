@@ -66,10 +66,6 @@ My [`benchmark.mjs`](./benchmark.mjs) measures how well libraries handle a [wide
 
 `typograf` uniquely inserts non-breaking spaces to prevent bad line breaks (e.g. before numbers, after colons). `punctilio`'s main missing feature is non-English quote support—feel free to make a pull request!
 
-## Idempotent by design
-
-`transform(transform(text))` always equals `transform(text)`. Use `checkIdempotency: true` to throw if a second pass would change output.
-
 ## Works with HTML DOMs via separation boundaries
 
 Other typography libraries either transform plain strings or operate on AST nodes individually (`retext-smartypants` [can’t map changes back to HTML](https://github.com/rehypejs/rehype-retext)). But real HTML has text spanning multiple elements—if you concatenate text from `<em>Wait</em>...`, transform it, then try to split it back, you've lost track of where `</em>` belonged. 
@@ -103,3 +99,5 @@ transform(text, {
   ligatures: false,      // ??? → ⁇, ?! → ⁈, !? → ⁉, !!! → !
 })
 ```
+
+`punctilio` is idempotent by design: `transform(transform(text))` always equals `transform(text)`. 
