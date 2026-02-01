@@ -66,6 +66,10 @@ My [`benchmark.mjs`](./benchmark.mjs) measures how well libraries handle a [wide
 
 `typograf` uniquely inserts non-breaking spaces to prevent bad line breaks (e.g. before numbers, after colons). I might add this to `punctilio` in the future. `punctilio`'s other missing feature is non-English quote support—feel free to make a pull request!
 
+## Not for raw Markdown
+
+`punctilio` transforms plain text or HTML—not raw Markdown. Patterns like `---` (horizontal rules) or `- item` (list markers) will be incorrectly converted to em-dashes. Apply `punctilio` after your Markdown has been converted to HTML.
+
 ## Works with HTML DOMs via separation boundaries
 
 Other typography libraries either transform plain strings or operate on AST nodes individually (`retext-smartypants` [can’t map changes back to HTML](https://github.com/rehypejs/rehype-retext)). But real HTML has text spanning multiple elements—if you concatenate text from `<em>Wait</em>...`, transform it, then try to split it back, you've lost track of where `</em>` belonged. 

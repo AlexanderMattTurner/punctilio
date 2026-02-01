@@ -142,7 +142,7 @@ function normalizeEmDashSpacing(text: string, sep: string): string {
     `$<before>${EM_DASH}$<after>`
   )
 
-  // Preserve space after em-dash at start of line (e.g., list attribution)
+  // Preserve space after em-dash at start of line (e.g., attribution)
   text = text.replace(
     new RegExp(`^(?<sep>${sep}?)${EM_DASH}(?<after>[A-Z0-9])`, "gm"),
     `$<sep>${EM_DASH} $<after>`
