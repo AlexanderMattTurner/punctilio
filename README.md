@@ -23,9 +23,9 @@ As far as I can tell, `punctilio` is the most reliable and feature-complete. I b
 
 [^wrote]: While Claude is the number one contributor to this repository, that’s just because Claude has helped me port my existing code and add minor features. The core regular expressions (e.g. dashes, quotes, multiplication signs) are human-written. Those numerous commits don’t show in this repo’s history.
 
-I tested `punctilio` 1.0.1 against [`smartypants`](https://www.npmjs.com/package/smartypants) 0.2.2, [`tipograph`](https://www.npmjs.com/package/tipograph) 0.7.4, [`smartquotes`](https://www.npmjs.com/package/smartquotes) 2.3.2, [`typograf`](https://www.npmjs.com/package/typograf) 7.6.0, and [`retext-smartypants`](https://www.npmjs.com/package/retext-smartypants) 6.2.0.[^python] These other packages have spotty feature coverage and inconsistent impact on text. For example, `smartypants` mishandles quotes after em dashes (though quite hard to see in GitHub's font) and lacks multiplication sign support.
+I tested `punctilio` 1.0.1 against [`smartypants`](https://www.npmjs.com/package/smartypants) 0.2.2, [`tipograph`](https://www.npmjs.com/package/tipograph) 0.7.4, [`smartquotes`](https://www.npmjs.com/package/smartquotes) 2.3.2, [`typograf`](https://www.npmjs.com/package/typograf) 7.6.0, and [`retext-smartypants`](https://www.npmjs.com/package/retext-smartypants) 6.2.0.[^python] These other packages have spotty feature coverage and inconsistent impact on text. For example, `smartypants` mishandles quotes after em dashes (though quite hard to see in GitHub’s font) and lacks multiplication sign support.
 
-[^python]: The Python libraries I found were closely related to the JavaScript packages, so I don’t include Python tests.
+[^python]: The Python libraries I found were closely related to the JavaScript packages. I tested them and found similar scores, so I don’t include separate Python results.
 
 | Input | `smartypants` | `punctilio` |
 |:-----:|:-----------------:|:-------:|
@@ -64,7 +64,7 @@ My [`benchmark.mjs`](./benchmark.mjs) measures how well libraries handle a [wide
 | Non-English quotes | „Hallo" (German) | ✗ | ✓ | ✗ | ✓ | ✗ |
 | Non-breaking spaces | Chapter 1 | ✗ | ✗ | ✗ | ✓ | ✗ |
 
-`typograf` uniquely inserts non-breaking spaces to prevent bad line breaks (e.g. before numbers, after colons). `punctilio`'s main missing feature is non-English quote support—feel free to make a pull request!
+`typograf` uniquely inserts non-breaking spaces to prevent bad line breaks (e.g. before numbers, after colons). I might add this to `punctilio` in the future. `punctilio`'s other missing feature is non-English quote support—feel free to make a pull request!
 
 ## Works with HTML DOMs via separation boundaries
 
