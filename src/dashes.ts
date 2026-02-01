@@ -106,15 +106,25 @@ function convertParentheticalDashes(text: string, sep: string, style: DashStyle)
   const dash = style === "british" ? EN_DASH : EM_DASH
   const isSpaced = style === "british"
 
+  // Convert spaced dashes: "word - word" or "word — word"
   text = text.replace(
     new RegExp(`(?<=[^\\s>]|^)(?:(?<sepBefore>${sep}?)[ ]+|(?<sepOnly>${sep}))[~${EN_DASH}${EM_DASH}-]+[ ]*(?<sepAfter>${sep}?)(?:[ ]+|$)`, "g"),
     isSpaced ? `$<sepBefore>$<sepOnly> ${dash} $<sepAfter>` : `$<sepBefore>$<sepOnly>${dash}$<sepAfter>`
   )
+  // Convert multiple dashes: "word--word" or "word---word"
   text = text.replace(
     new RegExp(`(?<=[A-Za-z])(?<letterSepBefore>${sep}?)[~${EN_DASH}${EM_DASH}-]{2,}(?<letterSepAfter>${sep}?)(?=[A-Za-z\\d ])|(?<=\\d)(?<digitSepBefore>${sep}?)[~${EN_DASH}${EM_DASH}-]{2,}(?<digitSepAfter>${sep}?)(?=[A-Za-z ])`, "g"),
     isSpaced ? `$<letterSepBefore>$<digitSepBefore> ${dash} $<letterSepAfter>$<digitSepAfter>` : `$<letterSepBefore>$<digitSepBefore>${dash}$<letterSepAfter>$<digitSepAfter>`
   )
+  // Convert dashes at start of line
   text = text.replace(new RegExp(`^(?<leadingSep>${sep})?[-]+ `, "gm"), `$<leadingSep>${dash} `)
+  // British: convert unspaced em-dashes to spaced en-dashes (word—word → word – word)
+  if (isSpaced) {
+    text = text.replace(
+      new RegExp(`(?<=[A-Za-z.!?'"])(?<sepBefore>${sep}?)${EM_DASH}(?<sepAfter>${sep}?)(?=[A-Za-z])`, "g"),
+      `$<sepBefore> ${dash} $<sepAfter>`
+    )
+  }
   return text
 }
 

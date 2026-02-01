@@ -348,4 +348,39 @@ describe("dashStyle option", () => {
       expect(hyphenReplace("-5", { dashStyle: "none" })).toBe(`${MINUS}5`)
     })
   })
+
+  describe("style conversion consistency", () => {
+    const testCases = [
+      "word - word",
+      "word -- word",
+      "since--as you know",
+      "Hello. -- Author",
+      `word${EM_DASH}word`,
+      `"Quote."${EM_DASH}Author`,
+    ]
+
+    it.each(testCases)(
+      "American → British equals direct British: %s",
+      (input) => {
+        const directBritish = hyphenReplace(input, { dashStyle: "british" })
+        const viaAmerican = hyphenReplace(
+          hyphenReplace(input, { dashStyle: "american" }),
+          { dashStyle: "british" }
+        )
+        expect(viaAmerican).toBe(directBritish)
+      }
+    )
+
+    it.each(testCases)(
+      "British → American equals direct American: %s",
+      (input) => {
+        const directAmerican = hyphenReplace(input, { dashStyle: "american" })
+        const viaBritish = hyphenReplace(
+          hyphenReplace(input, { dashStyle: "british" }),
+          { dashStyle: "american" }
+        )
+        expect(viaBritish).toBe(directAmerican)
+      }
+    )
+  })
 })
