@@ -40,7 +40,7 @@ function convertSingleQuotes(text: string, sep: string): string {
   )
   text = text.replace(apostropheRegex, RIGHT_SINGLE_QUOTE)
 
-  const beginningSingle = `(?<beforeContext>(?:^|[\\s${LEFT_DOUBLE_QUOTE}${RIGHT_DOUBLE_QUOTE}\\-\\(])${sep}?)['](?=${sep}?\\S)`
+  const beginningSingle = `(?<beforeContext>(?:^|[\\s${LEFT_DOUBLE_QUOTE}${RIGHT_DOUBLE_QUOTE}${EM_DASH}\\-\\(])${sep}?)['](?=${sep}?\\S)`
   text = text.replace(new RegExp(beginningSingle, "gm"), `$<beforeContext>${LEFT_SINGLE_QUOTE}`)
 
   return text

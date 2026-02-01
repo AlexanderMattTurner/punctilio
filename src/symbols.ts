@@ -39,11 +39,14 @@ const {
   EXCLAMATION_QUESTION,
 } = UNICODE_SYMBOLS
 
-/** Convert "..." to "…". */
+/** Convert "..." or ". . ." to "…". */
 export function ellipsis(text: string, options: SymbolOptions = {}): string {
   const chr = options.separator
     ? escapeStringRegexp(options.separator)
     : ESCAPED_DEFAULT_SEPARATOR
+
+  // Convert spaced dots: . . . → …
+  text = text.replace(/\. \. \./g, ELLIPSIS)
 
   // Capture groups preserve separators: .(sep1)?.(sep2)?.
   const pattern = new RegExp(`\\.(${chr})?\\.(${chr})?\\.`, "g")

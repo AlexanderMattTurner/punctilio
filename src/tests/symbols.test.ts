@@ -439,12 +439,14 @@ describe("competitor-derived edge cases", () => {
       expect(ellipsis(input)).toBe(expected)
     })
 
-    // Known limitation: spaced periods not converted
-    it.each([
-      "text. . . more", // spaced periods preserved
-      "a . b . c",      // not an ellipsis pattern
-    ])('preserves spaced periods (not ellipsis): "%s"', (input) => {
-      expect(ellipsis(input)).toBe(input)
+    it("converts spaced periods to ellipsis", () => {
+      expect(ellipsis("text. . . more")).toBe(`text${UNICODE_SYMBOLS.ELLIPSIS} more`)
+      expect(ellipsis(". . .")).toBe(UNICODE_SYMBOLS.ELLIPSIS)
+    })
+
+    it("preserves non-ellipsis spaced periods", () => {
+      // Only exactly three spaced dots are converted
+      expect(ellipsis("a . b . c")).toBe("a . b . c")
     })
   })
 
