@@ -203,12 +203,26 @@ describe("primeMarks", () => {
     ['"test"', '"test"'],
     ['The ceiling is 9\'6" high', `The ceiling is 9${UNICODE_SYMBOLS.PRIME}6${UNICODE_SYMBOLS.DOUBLE_PRIME} high`],
     ["40° 44' 54\" N", `40° 44${UNICODE_SYMBOLS.PRIME} 54${UNICODE_SYMBOLS.DOUBLE_PRIME} N`],
-    ['"Term 1".', '"Term 1".'],
-    ['"Number 5"', '"Number 5"'],
-    ['"Item 3", "Item 4"', '"Item 3", "Item 4"'],
     ['The board is 12" wide', `The board is 12${UNICODE_SYMBOLS.DOUBLE_PRIME} wide`],
     ['12" long', `12${UNICODE_SYMBOLS.DOUBLE_PRIME} long`],
   ])('converts "%s" to "%s"', (input, expected) => {
+    expect(primeMarks(input)).toBe(expected)
+  })
+
+  // Quote balancing tests: simple (\d)['"]) patterns would incorrectly convert these
+  it.each([
+    // Double quote balancing
+    ['"Term 1".', '"Term 1".'],
+    ['"Number 5"', '"Number 5"'],
+    ['"Item 3", "Item 4"', '"Item 3", "Item 4"'],
+    ['She said "Chapter 5" was good', 'She said "Chapter 5" was good'],
+    ['The file "test_v2" exists', 'The file "test_v2" exists'],
+    ['"Room 101" is famous', '"Room 101" is famous'],
+    // Single quote balancing
+    ["'Term 1'", "'Term 1'"],
+    ["'Item 3'", "'Item 3'"],
+    ["She said 'Chapter 5' was good", "She said 'Chapter 5' was good"],
+  ])('preserves closing quotes via quote balancing: "%s"', (input, expected) => {
     expect(primeMarks(input)).toBe(expected)
   })
 

@@ -45,8 +45,8 @@ My [`benchmark.mjs`](./benchmark.mjs) measures how well libraries handle a [wide
 
 | Feature | Example | `smartypants` | `tipograph` | `smartquotes` | `typograf` | `punctilio` |
 |--------:|:-------:|:-------:|:-------:|:-------:|:-------:|:-------:|
-| Smart quotes | "hello" → "hello" | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Leading apostrophe | 'Twas → 'Twas | ✗ | ✗ | ✓ | ✗ | ✓ |
+| Smart quotes | "hello" → “hello” | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Leading apostrophe | 'Twas → ’Twas | ✗ | ✗ | ✓ | ✗ | ✓ |
 | Em dash | -- → — | ✓ | ✗ | ✗ | ✓ | ✓ |
 | En dash (ranges) | 1-5 → 1–5 | ✗ | ✓ | ✗ | ✗ | ✓ |
 | Minus sign | -5 → −5 | ✗ | ✓ | ✗ | ✗ | ✓ |
@@ -61,14 +61,14 @@ My [`benchmark.mjs`](./benchmark.mjs) measures how well libraries handle a [wide
 | Superscripts | 1st → 1ˢᵗ | ✗ | ✗ | ✗ | ✗ | ✓ |
 | Localization | American/British | ✗ | ✗ | ✗ | ✗ | ✓ |
 | Ligatures | ?? → ⁇ | ✗ | ✓ | ✗ | ✗ | ✓ |
-| Non-English quotes | „Hallo" (German) | ✗ | ✓ | ✗ | ✓ | ✗ |
+| Non-English quotes | „Hallo” (German) | ✗ | ✓ | ✗ | ✓ | ✗ |
 | Non-breaking spaces | Chapter 1 | ✗ | ✗ | ✗ | ✓ | ✗ |
 
-`typograf` uniquely inserts non-breaking spaces to prevent bad line breaks (e.g. before numbers, after colons). I might add this to `punctilio` in the future. `punctilio`'s other missing feature is non-English quote support—feel free to make a pull request!
+`typograf` uniquely inserts non-breaking spaces to prevent bad line breaks (e.g. before numbers, after colons). I might add this to `punctilio` in the future. `punctilio`’s other missing feature is non-English quote support—feel free to make a pull request!
 
 ## Works with HTML DOMs via separation boundaries
 
-Other typography libraries either transform plain strings or operate on AST nodes individually (`retext-smartypants` [can’t map changes back to HTML](https://github.com/rehypejs/rehype-retext)). But real HTML has text spanning multiple elements—if you concatenate text from `<em>Wait</em>...`, transform it, then try to split it back, you've lost track of where `</em>` belonged. 
+Other typography libraries either transform plain strings or operate on AST nodes individually (`retext-smartypants` [can’t map changes back to HTML](https://github.com/rehypejs/rehype-retext)). But real HTML has text spanning multiple elements—if you concatenate text from `<em>Wait</em>...`, transform it, then try to split it back, youve lost track of where `</em>` belonged. 
 
 `punctilio` introduces _separation boundaries_. First, insert a “separator” character (default: `U+E000`) at each element boundary before transforming (like at the start and end of an `<em>`). Every regex allows this character mid-pattern without breaking matches. For example, `.[SEP]..` still becomes `…[SEP]`. `punctilio` validates the output by ensuring the separator count remains the same. 
 
@@ -95,7 +95,7 @@ transform(text, {
   punctuationStyle: 'american' | 'british' | 'none',  // default: 'american'
   dashStyle: 'american' | 'british' | 'none',         // default: 'american'
 
-  symbols: true,           // math, legal, arrows
+  symbols: true,           // math, legal, arrows, primes
   collapseSpaces: true,    // normalize whitespace
   fractions: false,        // 1/2 → ½
   degrees: false,          // 20 C → 20 °C
@@ -105,12 +105,11 @@ transform(text, {
 })
 ```
 
-The `'american'` style follows the [Chicago Manual of Style](https://www.chicagomanualofstyle.org/):
-- **Punctuation**: Periods and commas go inside quotation marks (“Hello,” she said.)
-- **Dashes**: Unspaced em-dashes between words (word—word)
-
-The `'british'` style follows [Oxford style](https://www.ox.ac.uk/sites/files/oxford/Style%20Guide%20quick%20reference%20A-Z.pdf):
-- **Punctuation**: Periods and commas go outside quotation marks (“Hello”, she said.)
-- **Dashes**: Spaced en-dashes between words (word – word)
-
-`punctilio` is idempotent by design: `transform(transform(text))` always equals `transform(text)`. If performance is critical, set `checkIdempotency: false` to skip the verification pass. 
+- Prime marks (`5'10"` → `5′10″`) require semantic understanding to distinguish from closing quotes (e.g. `"Term 1"` should produce closing quotes). `punctilio` counts quotes to heuristically guess whether the matched number at the end of a quote (if not, it requires a prime mark). Other libraries like `tipograph` 0.7.4 use simpler patterns that make more mistakes. That said, `punctilio` is still not perfect and will sometimes wrongly convert to ending quotation marks: `transform('I said "5" sounds right"')` will wrongly produce a closed double quote after the 5” instead of a double prime (correct).
+- The `american` style follows the [Chicago Manual of Style](https://www.chicagomanualofstyle.org/):
+  - Periods and commas go inside quotation marks (“Hello,” she said.)
+  - Unspaced em-dashes between words (word—word)
+- The `british` style follows [Oxford style](https://www.ox.ac.uk/sites/files/oxford/Style%20Guide%20quick%20reference%20A-Z.pdf):
+  - Periods and commas go outside quotation marks (“Hello”, she said.)
+  - Spaced en-dashes between words (word – word)
+- `punctilio` is idempotent by design: `transform(transform(text))` always equals `transform(text)`. If performance is critical, set `checkIdempotency: false` to skip the verification pass. 

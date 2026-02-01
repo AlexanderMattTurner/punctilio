@@ -37,7 +37,6 @@ const {
   DOUBLE_QUESTION,
   QUESTION_EXCLAMATION,
   EXCLAMATION_QUESTION,
-  LEFT_DOUBLE_QUOTE,
 } = UNICODE_SYMBOLS
 
 /** Convert "..." to "…". */
@@ -165,30 +164,32 @@ export function primeMarks(text: string, options: SymbolOptions = {}): string {
     ? escapeStringRegexp(options.separator)
     : ESCAPED_DEFAULT_SEPARATOR
 
-  // Single prime: Matches digit + optional separator + apostrophe
-  // Lookahead ensures it's followed by: another digit, double quote, end of string, or punctuation
-  // Examples: 5' (feet), 30' (arcminutes)
-  const singlePrimePattern = new RegExp(
-    `(?<numWithSep>\\d${chr}?)'(?=${chr}?(?:\\d|"|$|[\\s.,;:!?)]))`,
-    "g"
-  )
-  text = text.replace(singlePrimePattern, `$<numWithSep>${PRIME}`)
+  // Convert quotes to primes using quote balancing
+  // Only convert if quotes are balanced (even count before) to avoid converting closing quotes
+  // Examples: 5' → 5′ ✓, 12" → 12″ ✓, 'Term 1' → 'Term 1' ✓, "Term 1" → "Term 1" ✓
+  const quotePrimePairs = [
+    ["'", PRIME],
+    ['"', DOUBLE_PRIME],
+  ]
 
-  // Double prime Pattern 1: Feet-inches pattern
-  // Matches: prime symbol + optional separator + digit + optional separator + double quote
-  // Examples: 5′10" or 5'10" → 5′10″
+  for (const [quote, prime] of quotePrimePairs) {
+    const pattern = new RegExp(
+      `(?<digit>\\d)(?<sep>${chr}?)${quote}(?<afterSep>${chr}?)(?![${LATIN_LETTERS}])`,
+      "g"
+    )
+    text = text.replace(pattern, (match, digit, sep, afterSep, offset) => {
+      const textBefore = text.slice(0, offset)
+      const quoteCount = (textBefore.match(new RegExp(quote, "g")) || []).length
+      if (quoteCount % 2 === 0) {
+        return `${digit}${sep}${prime}${afterSep}`
+      }
+      return match
+    })
+  }
+
+  // Feet-inches pattern: convert " after ′ + digit (e.g., 5′10" → 5′10″)
   const feetInchesPattern = new RegExp(`(?<primeAndNum>${PRIME}${chr}?\\d${chr}?)"`, "g")
   text = text.replace(feetInchesPattern, `$<primeAndNum>${DOUBLE_PRIME}`)
-
-  // Double prime Pattern 2: Standalone inches
-  // Negative lookbehind: ensures no opening quote within 20 chars before the digit
-  // Negative lookahead: ensures not followed by word characters
-  // Matches: 12" wide ✓, but not: "Term 1" ✗
-  const standaloneInchesPattern = new RegExp(
-    `(?<!["${LEFT_DOUBLE_QUOTE}]${chr}?[^"${chr}]{0,20})(?<numWithSep>\\d${chr}?)"(?!${chr}?[${LATIN_LETTERS}\\d_])`,
-    "g"
-  )
-  text = text.replace(standaloneInchesPattern, `$<numWithSep>${DOUBLE_PRIME}`)
 
   return text
 }
