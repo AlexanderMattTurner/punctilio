@@ -308,6 +308,11 @@ describe("enDashNumberRange edge cases", () => {
       const result = enDashNumberRange(withMinus)
       expect(result).toBe("−5–5")
     })
+
+    it("does not convert multi-segment negative patterns", () => {
+      const withMinus = minusReplace("-5-3-7")
+      expect(enDashNumberRange(withMinus)).toBe("−5-3-7")
+    })
   })
 })
 

@@ -71,11 +71,7 @@ export const months = [
  * - Negative to positive: "-5-5" → "−5–5"
  * - Negative to negative: "-5--2" → "−5–−2"
  *
- * Does NOT convert:
- * - Phone numbers: "555-123-4567" (multi-segment)
- * - ISBNs: "978-3-16-148410-0" (multi-segment)
- * - ISO dates: "2024-01-15" or "2024-01" (year-month patterns)
- * - IP-like patterns: "192-168-1-1" (multi-segment)
+ * Does NOT convert multi-segment patterns (phones, ISBNs, IPs) or ISO dates.
  */
 export function enDashNumberRange(text: string, options: DashOptions = {}): string {
   const chr = options.separator
@@ -84,32 +80,21 @@ export function enDashNumberRange(text: string, options: DashOptions = {}): stri
   const wb = wordBoundaryStart(chr)
   const wbe = wordBoundaryEnd(chr)
 
-  // ISO date pattern: YYYY-MM or YYYY-MM-DD - should not be converted
-  // This lookbehind prevents matching if we're after a 4-digit year
-  const notAfterYear = `(?<!\\d{4}${chr}?)`
-
-  // Negative lookahead: prevent conversion if followed by another segment with 3+ digits
-  // This catches phone numbers (555-123-4567) and IPs (192-168-1-1)
-  // But allows "1-2-3" to become "1–2-3" (single-digit segments)
-  const notMultiSegment = `(?!${chr}?-${chr}?\\d{3})`
-
-  // Standard positive number ranges (not preceded by dashes or letters)
   // Disallow dash-like chars and letters before the start number
-  // Escape hyphen by putting it first in the character class
   const disallowed = numberRangeDisallowedPrefixes.map(c => c === "-" ? c : `\\u${c.charCodeAt(0).toString(16).padStart(4, "0")}`).join("")
   text = text.replace(
     new RegExp(
-      `${wb}(?<![${disallowed}a-zA-Z.])${notAfterYear}(?<startNum>(?:p\\.?|\\$)?\\d[\\d.,]*${chr}?)-(?<endNum>${chr}?\\$?\\d[\\d.,]*)(?!\\.\\d)(?<following>(?:${chr}?-${chr}?\\d+)*)(?<suffix>${chr}?[xKBTM])?${wbe}`,
+      `${wb}(?<![${disallowed}a-zA-Z.])(?<startNum>(?:p\\.?|\\$)?\\d[\\d.,]*${chr}?)-(?<endNum>${chr}?\\$?\\d[\\d.,]*)(?!\\.\\d)(?<following>(?:${chr}?-${chr}?\\d+)*)(?<suffix>${chr}?[xKBTM])?${wbe}`,
       "g"
     ),
     (match, startNum, endNum, following, suffix = "") => {
-      // If there's a following segment (e.g., -4567 in 555-123-4567), it's not a range
+      // Don't convert if more than 2 segments (phones, ISBNs, IPs, etc.)
       if (following) return match
 
       const cleanStart = startNum.replace(new RegExp(chr, "g"), "")
       const cleanEnd = endNum.replace(new RegExp(chr, "g"), "")
 
-      // Check if this looks like a year-month pattern (YYYY-MM)
+      // Don't convert ISO date patterns (YYYY-MM)
       if (/^(?:19|20)\d{2}$/.test(cleanStart) && /^(?:0[1-9]|1[0-2])$/.test(cleanEnd)) {
         return match
       }
@@ -118,20 +103,17 @@ export function enDashNumberRange(text: string, options: DashOptions = {}): stri
     }
   )
 
-  // Negative number ranges: handle ranges starting with minus sign
-  // Pattern: (−number)-[-−]?(number) → (−number)–[−]?(number)
-  // The minus sign (−) may or may not be converted by minusReplace for the end number
-  // Handle both -5--2 (hyphen for end negative) and −5-−2 (minus for end negative)
-  // Don't match if preceded by a letter (model names like foo−2-7B)
+  // Negative number ranges: −5-5 → −5–5, −5--2 → −5–−2
+  // Don't convert if more than 2 segments
   text = text.replace(
     new RegExp(
-      `(?<![a-zA-Z])(?<startNum>${MINUS}\\d[\\d.,]*${chr}?)-(?<endNeg>-)?(?<endNum>${chr}?\\d[\\d.,]*)${notMultiSegment}(?<suffix>${chr}?[xKBTM])?${wbe}`,
+      `(?<![a-zA-Z])(?<startNum>${MINUS}\\d[\\d.,]*${chr}?)-(?<endNeg>-)?(?<endNum>${chr}?\\d[\\d.,]*)(?<following>(?:${chr}?-${chr}?\\d+)*)(?<suffix>${chr}?[xKBTM])?${wbe}`,
       "g"
     ),
-    (_, startNum, endNeg, endNum, suffix = "") => {
-      // Convert hyphen to minus sign for end negative number
+    (match, startNum, endNeg, endNum, following, suffix = "") => {
+      if (following) return match
       const endMinus = endNeg ? MINUS : ""
-      return `${startNum}${EN_DASH}${endMinus}${endNum}${suffix}`
+      return `${startNum}${EN_DASH}${endMinus}${endNum}${suffix || ""}`
     }
   )
 
