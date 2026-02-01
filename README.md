@@ -101,4 +101,4 @@ transform(text, {
 })
 ```
 
-`punctilio` is idempotent by design: `transform(transform(text))` always equals `transform(text)`. By default, `checkIdempotency` verifies this on every call. If performance is critical, set `checkIdempotency: false` to skip the verification pass. 
+`punctilio` is idempotent by design: `transform(transform(text))` always equals `transform(text)`. If performance is critical, set `checkIdempotency: false` to skip the verification pass. 
