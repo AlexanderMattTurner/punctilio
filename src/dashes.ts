@@ -107,14 +107,14 @@ function convertParentheticalDashes(text: string, sep: string, style: DashStyle)
   const isSpaced = style === "british"
 
   text = text.replace(
-    new RegExp(`(?<=[^\\s>]|^)(?:(?<m1>${sep}?)[ ]+|(?<m2>${sep}))[~${EN_DASH}${EM_DASH}-]+[ ]*(?<m3>${sep}?)(?:[ ]+|$)`, "g"),
-    isSpaced ? `$<m1>$<m2> ${dash} $<m3>` : `$<m1>$<m2>${dash}$<m3>`
+    new RegExp(`(?<=[^\\s>]|^)(?:(?<sepBefore>${sep}?)[ ]+|(?<sepOnly>${sep}))[~${EN_DASH}${EM_DASH}-]+[ ]*(?<sepAfter>${sep}?)(?:[ ]+|$)`, "g"),
+    isSpaced ? `$<sepBefore>$<sepOnly> ${dash} $<sepAfter>` : `$<sepBefore>$<sepOnly>${dash}$<sepAfter>`
   )
   text = text.replace(
-    new RegExp(`(?<=[A-Za-z])(?<m1>${sep}?)[~${EN_DASH}${EM_DASH}-]{2,}(?<m2>${sep}?)(?=[A-Za-z\\d ])|(?<=\\d)(?<m3>${sep}?)[~${EN_DASH}${EM_DASH}-]{2,}(?<m4>${sep}?)(?=[A-Za-z ])`, "g"),
-    isSpaced ? `$<m1>$<m3> ${dash} $<m2>$<m4>` : `$<m1>$<m3>${dash}$<m2>$<m4>`
+    new RegExp(`(?<=[A-Za-z])(?<letterSepBefore>${sep}?)[~${EN_DASH}${EM_DASH}-]{2,}(?<letterSepAfter>${sep}?)(?=[A-Za-z\\d ])|(?<=\\d)(?<digitSepBefore>${sep}?)[~${EN_DASH}${EM_DASH}-]{2,}(?<digitSepAfter>${sep}?)(?=[A-Za-z ])`, "g"),
+    isSpaced ? `$<letterSepBefore>$<digitSepBefore> ${dash} $<letterSepAfter>$<digitSepAfter>` : `$<letterSepBefore>$<digitSepBefore>${dash}$<letterSepAfter>$<digitSepAfter>`
   )
-  text = text.replace(new RegExp(`^(?<s>${sep})?[-]+ `, "gm"), `$<s>${dash} `)
+  text = text.replace(new RegExp(`^(?<leadingSep>${sep})?[-]+ `, "gm"), `$<leadingSep>${dash} `)
   return text
 }
 
@@ -128,15 +128,15 @@ function normalizeEmDashSpacing(text: string, sep: string): string {
   const closingPunct = `\\.\\?!…${closingQuotes}`
 
   // Remove spaces around em-dash between word chars
-  text = text.replace(new RegExp(`(?<b>\\w${sep}?)[ ]+${EM_DASH}[ ]+(?<a>${sep}?\\w)`, "g"), `$<b>${EM_DASH}$<a>`)
-  text = text.replace(new RegExp(`(?<b>\\w${sep}?)[ ]+${EM_DASH}(?<a>${sep}?\\w)`, "g"), `$<b>${EM_DASH}$<a>`)
-  text = text.replace(new RegExp(`(?<b>\\w${sep}?)${EM_DASH}[ ]+(?<a>${sep}?\\w)`, "g"), `$<b>${EM_DASH}$<a>`)
+  text = text.replace(new RegExp(`(?<before>\\w${sep}?)[ ]+${EM_DASH}[ ]+(?<after>${sep}?\\w)`, "g"), `$<before>${EM_DASH}$<after>`)
+  text = text.replace(new RegExp(`(?<before>\\w${sep}?)[ ]+${EM_DASH}(?<after>${sep}?\\w)`, "g"), `$<before>${EM_DASH}$<after>`)
+  text = text.replace(new RegExp(`(?<before>\\w${sep}?)${EM_DASH}[ ]+(?<after>${sep}?\\w)`, "g"), `$<before>${EM_DASH}$<after>`)
   // Space between quotes: "Hello."—"World" → "Hello." — "World"
-  text = text.replace(new RegExp(`(?<b>[${closingQuotes}]${sep}?) ?${EM_DASH} ?(?<a>${sep}?[${openingQuotes}])`, "g"), `$<b> ${EM_DASH} $<a>`)
+  text = text.replace(new RegExp(`(?<closingQuote>[${closingQuotes}]${sep}?) ?${EM_DASH} ?(?<openingQuote>${sep}?[${openingQuotes}])`, "g"), `$<closingQuote> ${EM_DASH} $<openingQuote>`)
   // Attribution: "quote."—Author → "quote." — Author
-  text = text.replace(new RegExp(`(?<b>[${closingPunct}]${sep}?)${EM_DASH}(?<a>${sep}?[A-Z\\[])`, "g"), `$<b> ${EM_DASH} $<a>`)
+  text = text.replace(new RegExp(`(?<punctuation>[${closingPunct}]${sep}?)${EM_DASH}(?<attribution>${sep}?[A-Z\\[])`, "g"), `$<punctuation> ${EM_DASH} $<attribution>`)
   // Start of line
-  text = text.replace(new RegExp(`^(?<m>${sep}?)${EM_DASH}(?<a>[A-Z0-9])`, "gm"), `$<m>${EM_DASH} $<a>`)
+  text = text.replace(new RegExp(`^(?<lineSep>${sep}?)${EM_DASH}(?<lineStart>[A-Z0-9])`, "gm"), `$<lineSep>${EM_DASH} $<lineStart>`)
   return text
 }
 
