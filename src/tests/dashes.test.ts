@@ -309,7 +309,7 @@ describe("dashStyle option", () => {
     })
   })
 
-  describe('when "british"', () => {
+  describe('when "british" (Oxford style)', () => {
     it.each([
       ["word - word", `word ${EN_DASH} word`],
       ["word -- word", `word ${EN_DASH} word`],
@@ -320,6 +320,15 @@ describe("dashStyle option", () => {
 
     it("still converts number ranges to en dashes", () => {
       expect(hyphenReplace("pages 1-5", { dashStyle: "british" })).toBe(`pages 1${EN_DASH}5`)
+    })
+
+    it("converts existing em-dashes to spaced en-dashes", () => {
+      // Oxford style uses spaced en-dashes, so em-dashes get converted
+      expect(hyphenReplace(`word ${EM_DASH} word`, { dashStyle: "british" })).toBe(`word ${EN_DASH} word`)
+    })
+
+    it("converts date ranges with spaced en dash", () => {
+      expect(hyphenReplace("January-March", { dashStyle: "british" })).toBe(`January ${EN_DASH} March`)
     })
   })
 
