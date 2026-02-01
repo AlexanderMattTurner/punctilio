@@ -61,7 +61,7 @@ My [`benchmark.mjs`](./benchmark.mjs) measures how well libraries handle a [wide
 | Superscripts | 2nd → 2ⁿᵈ | ✓ | ✗ | ✗ | ✗ | ✗ |
 | Localization | American/British | ✓ | ✗ | ✗ | ✗ | ✗ |
 | Ligatures | ?? → ⁇ | ✓ | ✗ | ✓ | ✗ | ✗ |
-| Non-English quotes | „Hallo" (German) | ✗ | ✗ | ✓ | ✗ | ~ |
+| Non-English quotes | „Hallo” (German) | ✗ | ✗ | ✓ | ✗ | ~ |
 | Non-breaking spaces | Chapter 1 | ✗ | ✗ | ✗ | ✗ | ✓ |
 
 ~ = partial success (handles main example but misses edge cases)
