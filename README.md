@@ -91,12 +91,13 @@ transform(text, {
   punctuationStyle: 'american' | 'british' | 'none',  // default: 'american'
   dashStyle: 'american' | 'british' | 'none',         // default: 'american'
 
-  symbols: true,         // math, legal, arrows
-  collapseSpaces: true,  // normalize whitespace
-  fractions: false,      // 1/2 → ½
-  degrees: false,        // 20 C → 20 °C
-  superscript: false,    // 1st → 1ˢᵗ
-  ligatures: false,      // ??? → ⁇, ?! → ⁈, !? → ⁉, !!! → !
+  symbols: true,           // math, legal, arrows
+  collapseSpaces: true,    // normalize whitespace
+  fractions: false,        // 1/2 → ½
+  degrees: false,          // 20 C → 20 °C
+  superscript: false,      // 1st → 1ˢᵗ
+  ligatures: false,        // ??? → ⁇, ?! → ⁈, !? → ⁉, !!! → !
+  checkIdempotency: true,  // verify transform(transform(x)) === transform(x)
 })
 ```
 
@@ -108,4 +109,4 @@ The `'british'` style follows [Oxford style](https://www.ox.ac.uk/sites/files/ox
 - **Punctuation**: Periods and commas go outside quotation marks (“Hello”, she said.)
 - **Dashes**: Spaced en-dashes between words (word – word)
 
-`punctilio` is idempotent by design: `transform(transform(text))` always equals `transform(text)`. 
+`punctilio` is idempotent by design: `transform(transform(text))` always equals `transform(text)`. If performance is critical, set `checkIdempotency: false` to skip the verification pass. 
