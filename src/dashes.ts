@@ -108,7 +108,7 @@ function convertParentheticalDashes(text: string, sep: string, style: DashStyle)
 
   // Convert spaced dashes: "word - word" or "word — word"
   text = text.replace(
-    new RegExp(`(?<=[^\\s>]|^)(?:(?<sepBefore>${sep}?)[ ]+|(?<sepOnly>${sep}))[~${EN_DASH}${EM_DASH}-]+[ ]*(?<sepAfter>${sep}?)(?:[ ]+|$)`, "g"),
+    new RegExp(`(?<=[^\\s]|^)(?:(?<sepBefore>${sep}?)[ ]+|(?<sepOnly>${sep}))[~${EN_DASH}${EM_DASH}-]+[ ]*(?<sepAfter>${sep}?)(?:[ ]+|$)`, "g"),
     `$<sepBefore>$<sepOnly>${maybeSpace}${localizedDash}${maybeSpace}$<sepAfter>`
   )
   // Convert multiple dashes: "word--word" or "word---word"
