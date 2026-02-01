@@ -209,14 +209,19 @@ describe("primeMarks", () => {
     expect(primeMarks(input)).toBe(expected)
   })
 
-  // Quote balancing tests: tipograph's simple (\d)" pattern would incorrectly convert these
+  // Quote balancing tests: simple (\d)['"]) patterns would incorrectly convert these
   it.each([
+    // Double quote balancing
     ['"Term 1".', '"Term 1".'],
     ['"Number 5"', '"Number 5"'],
     ['"Item 3", "Item 4"', '"Item 3", "Item 4"'],
     ['She said "Chapter 5" was good', 'She said "Chapter 5" was good'],
     ['The file "test_v2" exists', 'The file "test_v2" exists'],
     ['"Room 101" is famous', '"Room 101" is famous'],
+    // Single quote balancing
+    ["'Term 1'", "'Term 1'"],
+    ["'Item 3'", "'Item 3'"],
+    ["She said 'Chapter 5' was good", "She said 'Chapter 5' was good"],
   ])('preserves closing quotes via quote balancing: "%s"', (input, expected) => {
     expect(primeMarks(input)).toBe(expected)
   })

@@ -167,12 +167,24 @@ export function primeMarks(text: string, options: SymbolOptions = {}): string {
 
   // Single prime: Matches digit + optional separator + apostrophe
   // Lookahead ensures it's followed by: another digit, double quote, end of string, or punctuation
-  // Examples: 5' (feet), 30' (arcminutes)
+  // Uses quote balancing: only convert if single quotes are balanced (even count before)
+  // Examples: 5' (feet) ✓, 30' (arcminutes) ✓, 'Term 1' (quoted) ✗
   const singlePrimePattern = new RegExp(
-    `(?<numWithSep>\\d${chr}?)'(?=${chr}?(?:\\d|"|$|[\\s.,;:!?)]))`,
+    `(?<digit>\\d)(?<sep>${chr}?)'(?<afterSep>${chr}?)(?=(?:\\d|"|$|[\\s.,;:!?)]))`,
     "g"
   )
-  text = text.replace(singlePrimePattern, `$<numWithSep>${PRIME}`)
+  text = text.replace(
+    singlePrimePattern,
+    (match, digit, sep, afterSep, offset) => {
+      const textBefore = text.slice(0, offset)
+      const quoteCount = (textBefore.match(/'/g) || []).length
+      // Even count = outside quotes = prime mark; Odd count = inside quote = keep as closing quote
+      if (quoteCount % 2 === 0) {
+        return `${digit}${sep}${PRIME}${afterSep}`
+      }
+      return match
+    }
+  )
 
   // Double prime Pattern 1: Feet-inches pattern
   // Matches: prime symbol + optional separator + digit + optional separator + double quote
