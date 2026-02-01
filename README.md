@@ -43,26 +43,26 @@ My [`benchmark.mjs`](./benchmark.mjs) measures how well libraries handle a [wide
 | `smartypants` | 49/109 (45%) |
 | `retext-smartypants` | 47/109 (43%) |
 
-| Feature | Example | `smartypants` | `tipograph` | `smartquotes` | `typograf` | `punctilio` |
+| Feature | Example | `punctilio` | `smartypants` | `tipograph` | `smartquotes` | `typograf` |
 |--------:|:-------:|:-------:|:-------:|:-------:|:-------:|:-------:|
-| Smart quotes | "hello" → “hello” | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Leading apostrophe | 'Twas → ’Twas | ✗ | ✗ | ✓ | ✗ | ✓ |
-| Em dash | -- → — | ✓ | ✗ | ✗ | ✓ | ✓ |
-| En dash (ranges) | 1-5 → 1–5 | ✗ | ✓ | ✗ | ✗ | ✓ |
-| Minus sign | -5 → −5 | ✗ | ✓ | ✗ | ✗ | ✓ |
-| Ellipsis | ... → … | ✓ | ✓ | ✗ | ✓ | ✓ |
-| Multiplication | 5x5 → 5×5 | ✗ | ✗ | ✗ | ✓ | ✓ |
-| Math symbols | != → ≠ | ✗ | ✓ | ✗ | ✓ | ✓ |
-| Legal symbols | (c) → © | ✗ | © only | ✗ | ✓ | ✓ |
-| Arrows | -> → → | ✗ | ✓ | ✗ | ✓ | ✓ |
-| Prime marks | 5'10" → 5′10″ | ✗ | ✓ | ✓ | ✗ | ✓ |
-| Degrees | 20 C → 20 °C | ✗ | ✗ | ✗ | ✓ | ✓ |
-| Fractions | 1/2 → ½ | ✗ | ✗ | ✗ | ✓ | ✓ |
-| Superscripts | 1st → 1ˢᵗ | ✗ | ✗ | ✗ | ✗ | ✓ |
-| Localization | American/British | ✗ | ✗ | ✗ | ✗ | ✓ |
-| Ligatures | ?? → ⁇ | ✗ | ✓ | ✗ | ✗ | ✓ |
-| Non-English quotes | „Hallo” (German) | ✗ | ✓ | ✗ | ✓ | ✗ |
-| Non-breaking spaces | Chapter 1 | ✗ | ✗ | ✗ | ✓ | ✗ |
+| Smart quotes | "hello" → "hello" | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Leading apostrophe | 'Twas → 'Twas | ✓ | ✗ | ✗ | ✓ | ✗ |
+| Em dash | -- → — | ✓ | ✓ | ✗ | ✗ | ✓ |
+| En dash (ranges) | 1-5 → 1–5 | ✓ | ✗ | ✓ | ✗ | ✗ |
+| Minus sign | -5 → −5 | ✓ | ✗ | ✓ | ✗ | ✗ |
+| Ellipsis | ... → … | ✓ | ✓ | ✓ | ✗ | ✓ |
+| Multiplication | 5x5 → 5×5 | ✓ | ✗ | ✗ | ✗ | ✓ |
+| Math symbols | != → ≠ | ✓ | ✗ | ✓ | ✗ | ✓ |
+| Legal symbols | (c) → © | ✓ | ✗ | © only | ✗ | ✓ |
+| Arrows | -> → → | ✓ | ✗ | ✓ | ✗ | ✓ |
+| Prime marks | 5'10" → 5′10″ | ✓ | ✗ | ✓ | ✓ | ✗ |
+| Degrees | 20 C → 20 °C | ✓ | ✗ | ✗ | ✗ | ✓ |
+| Fractions | 1/2 → ½ | ✓ | ✗ | ✗ | ✗ | ✓ |
+| Superscripts | 2nd → 2ⁿᵈ | ✓ | ✗ | ✗ | ✗ | ✗ |
+| Localization | American/British | ✓ | ✗ | ✗ | ✗ | ✗ |
+| Ligatures | ?? → ⁇ | ✓ | ✗ | ✓ | ✗ | ✗ |
+| Non-English quotes | „Hallo" (German) | ✗ | ✗ | ✓ | ✗ | ✓ |
+| Non-breaking spaces | Chapter 1 | ✗ | ✗ | ✗ | ✗ | ✓ |
 
 `typograf` uniquely inserts non-breaking spaces to prevent bad line breaks (e.g. before numbers, after colons). I might add this to `punctilio` in the future. `punctilio`’s other missing feature is non-English quote support—feel free to make a pull request!
 
