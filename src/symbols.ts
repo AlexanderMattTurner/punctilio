@@ -168,14 +168,14 @@ export function primeMarks(text: string, options: SymbolOptions = {}): string {
   // Convert quotes to primes using quote balancing
   // Only convert if quotes are balanced (even count before) to avoid converting closing quotes
   // Examples: 5' → 5′ ✓, 12" → 12″ ✓, 'Term 1' → 'Term 1' ✓, "Term 1" → "Term 1" ✓
-  const quotePrimePairs: Array<{ quote: string; prime: string; lookahead: string }> = [
-    { quote: "'", prime: PRIME, lookahead: `(?=(?:\\d|"|$|[\\s.,;:!?)]))` },
-    { quote: '"', prime: DOUBLE_PRIME, lookahead: `(?![${LATIN_LETTERS}\\d_])` },
+  const quotePrimePairs = [
+    ["'", PRIME],
+    ['"', DOUBLE_PRIME],
   ]
 
-  for (const { quote, prime, lookahead } of quotePrimePairs) {
+  for (const [quote, prime] of quotePrimePairs) {
     const pattern = new RegExp(
-      `(?<digit>\\d)(?<sep>${chr}?)${quote}(?<afterSep>${chr}?)${lookahead}`,
+      `(?<digit>\\d)(?<sep>${chr}?)${quote}(?<afterSep>${chr}?)(?![${LATIN_LETTERS}])`,
       "g"
     )
     text = text.replace(pattern, (match, digit, sep, afterSep, offset) => {
