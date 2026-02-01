@@ -42,6 +42,13 @@ export interface DashOptions {
 const { EN_DASH, EM_DASH, MINUS } = UNICODE_SYMBOLS
 
 /**
+ * Characters that, when preceding a number, prevent it from being
+ * treated as the start of a number range. This prevents false positives
+ * in model names like "Llama-2-7B" where "2-7" should not become "2–7".
+ */
+export const numberRangeDisallowedPrefixes = ["-", EN_DASH, EM_DASH, MINUS] as const
+
+/**
  * List of month names (full and abbreviated) for date range detection
  */
 export const months = [
@@ -65,9 +72,10 @@ export function enDashNumberRange(text: string, options: DashOptions = {}): stri
     : ESCAPED_DEFAULT_SEPARATOR
   const wb = wordBoundaryStart(chr)
   const wbe = wordBoundaryEnd(chr)
+  const disallowed = numberRangeDisallowedPrefixes.join("")
   return text.replace(
     new RegExp(
-      `${wb}(?<![a-zA-Z.])(?<startNum>(?:p\\.?|\\$)?\\d[\\d.,]*${chr}?)-(?<endNum>${chr}?\\$?\\d[\\d.,]*)(?!\\.\\d)(?<suffix>${chr}?[xKBTM])?${wbe}`,
+      `${wb}(?<![${disallowed}a-zA-Z.])(?<startNum>(?:p\\.?|\\$)?\\d[\\d.,]*${chr}?)-(?<endNum>${chr}?\\$?\\d[\\d.,]*)(?!\\.\\d)(?<suffix>${chr}?[xKBTM])?${wbe}`,
       "g"
     ),
     `$<startNum>${EN_DASH}$<endNum>$<suffix>`

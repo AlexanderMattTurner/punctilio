@@ -1,4 +1,4 @@
-import { hyphenReplace, enDashNumberRange, enDashDateRange, minusReplace } from "../dashes.js"
+import { hyphenReplace, enDashNumberRange, enDashDateRange, minusReplace, numberRangeDisallowedPrefixes } from "../dashes.js"
 import { DEFAULT_SEPARATOR } from "../constants.js"
 
 describe("hyphenReplace", () => {
@@ -131,6 +131,26 @@ describe("enDashNumberRange", () => {
     ["1-10k", "1-10k"], // lowercase k should NOT match (only uppercase)
   ])('should convert "%s" to "%s"', (input, expected) => {
     expect(enDashNumberRange(input)).toBe(expected)
+  })
+
+  describe("disallowed prefix characters", () => {
+    it.each(numberRangeDisallowedPrefixes)(
+      'should not convert number ranges preceded by "%s"',
+      (prefix) => {
+        const input = `foo${prefix}2-7B`
+        expect(enDashNumberRange(input)).toBe(input)
+      }
+    )
+
+    it.each([
+      // Model names with version numbers should NOT be converted
+      ["Llama-2-7B-chat", "Llama-2-7B-chat"],
+      ["Llama-2-7B", "Llama-2-7B"],
+      ["Llama-3-8B-Instruct", "Llama-3-8B-Instruct"],
+      ["ReLU-2-4", "ReLU-2-4"],
+    ])('should not convert "%s"', (input, expected) => {
+      expect(enDashNumberRange(input)).toBe(expected)
+    })
   })
 
   describe("marker robustness", () => {
