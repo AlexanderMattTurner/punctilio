@@ -66,10 +66,6 @@ My [`benchmark.mjs`](./benchmark.mjs) measures how well libraries handle a [wide
 
 `typograf` uniquely inserts non-breaking spaces to prevent bad line breaks (e.g. before numbers, after colons). I might add this to `punctilio` in the future. `punctilio`'s other missing feature is non-English quote support—feel free to make a pull request!
 
-## Not for raw Markdown
-
-`punctilio` transforms plain text or HTML—not raw Markdown. Patterns like `---` (horizontal rules) or `- item` (list markers) will be incorrectly converted to em-dashes. Apply `punctilio` after your Markdown has been converted to HTML.
-
 ## Works with HTML DOMs via separation boundaries
 
 Other typography libraries either transform plain strings or operate on AST nodes individually (`retext-smartypants` [can’t map changes back to HTML](https://github.com/rehypejs/rehype-retext)). But real HTML has text spanning multiple elements—if you concatenate text from `<em>Wait</em>...`, transform it, then try to split it back, you've lost track of where `</em>` belonged. 
@@ -85,6 +81,10 @@ transform(`"Wait${DEFAULT_SEPARATOR}"`)
 ```
 
 Use via a DOM walker tracks which text node each segment came from, inserts separators between them, transforms the combined string, then splits on separators to update each node. Use the `separator` option if `U+E000` conflicts with your content. For an example of how to integrate this functionality, see [my website’s code](https://github.com/alexander-turner/TurnTrout.com/blob/main/quartz/plugins/transformers/formatting_improvement_html.ts). 
+
+### Not for raw Markdown
+
+`punctilio` transforms plain text or separator-flattened HTML—not raw Markdown. 
 
 ## Options
 
