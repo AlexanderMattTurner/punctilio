@@ -3,7 +3,7 @@
  */
 
 import escapeStringRegexp from "escape-string-regexp"
-import { UNICODE_SYMBOLS, ESCAPED_DEFAULT_SEPARATOR, LATIN_LETTERS, wordBoundaryEnd } from "./constants.js"
+import { UNICODE_SYMBOLS, ESCAPED_DEFAULT_SEPARATOR, wordBoundaryEnd } from "./constants.js"
 
 export interface SymbolOptions {
   /** Boundary marker for HTML element boundaries. Default: "\uE000" */
@@ -53,7 +53,7 @@ export function ellipsis(text: string, options: SymbolOptions = {}): string {
     return ELLIPSIS + (sep1 || "") + (sep2 || "")
   })
 
-  text = text.replace(new RegExp(`${ELLIPSIS}(?=[${LATIN_LETTERS}\\d])`, "gu"), `${ELLIPSIS} `)
+  text = text.replace(new RegExp(`${ELLIPSIS}(?=\\w)`, "gu"), `${ELLIPSIS} `)
 
   return text
 }
@@ -185,7 +185,7 @@ export function primeMarks(text: string, options: SymbolOptions = {}): string {
   // Negative lookahead: ensures not followed by word characters
   // Matches: 12" wide ✓, but not: "Term 1" ✗
   const standaloneInchesPattern = new RegExp(
-    `(?<!["${LEFT_DOUBLE_QUOTE}]${chr}?[^"${chr}]{0,20})(?<numWithSep>\\d${chr}?)"(?!${chr}?[${LATIN_LETTERS}\\d_])`,
+    `(?<!["${LEFT_DOUBLE_QUOTE}]${chr}?[^"${chr}]{0,20})(?<numWithSep>\\d${chr}?)"(?!${chr}?[\\w])`,
     "g"
   )
   text = text.replace(standaloneInchesPattern, `$<numWithSep>${DOUBLE_PRIME}`)
