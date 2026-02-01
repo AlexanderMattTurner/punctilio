@@ -6,7 +6,7 @@ The best typography package for English.
 import { transform } from 'punctilio'
 
 transform('"It\'s a beautiful thing, the destruction of words..." -- 1984')
-// → "It's a beautiful thing, the destruction of words…"—1984
+// → “It’s a beautiful thing, the destruction of words…”—1984
 ```
 
 [![Test](https://github.com/alexander-turner/punctilio/actions/workflows/test.yml/badge.svg)](https://github.com/alexander-turner/punctilio/actions/workflows/test.yml)
@@ -101,11 +101,11 @@ transform(text, {
 ```
 
 The `'american'` style follows the [Chicago Manual of Style](https://www.chicagomanualofstyle.org/):
-- **Punctuation**: Periods and commas go inside quotation marks ("Hello," she said.)
+- **Punctuation**: Periods and commas go inside quotation marks (“Hello,” she said.)
 - **Dashes**: Unspaced em-dashes between words (word—word)
 
 The `'british'` style follows [Oxford style](https://www.ox.ac.uk/sites/files/oxford/Style%20Guide%20quick%20reference%20A-Z.pdf):
-- **Punctuation**: Periods and commas go outside quotation marks ('Hello', she said.)
+- **Punctuation**: Periods and commas go outside quotation marks (“Hello”, she said.)
 - **Dashes**: Spaced en-dashes between words (word – word)
 
 `punctilio` is idempotent by design: `transform(transform(text))` always equals `transform(text)`. 
