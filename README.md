@@ -91,13 +91,14 @@ transform(text, {
   punctuationStyle: 'american' | 'british' | 'none',  // default: 'american'
   dashStyle: 'american' | 'british' | 'none',         // default: 'american'
 
-  symbols: true,         // math, legal, arrows
-  collapseSpaces: true,  // normalize whitespace
-  fractions: false,      // 1/2 → ½
-  degrees: false,        // 20 C → 20 °C
-  superscript: false,    // 1st → 1ˢᵗ
-  ligatures: false,      // ??? → ⁇, ?! → ⁈, !? → ⁉, !!! → !
+  symbols: true,           // math, legal, arrows
+  collapseSpaces: true,    // normalize whitespace
+  fractions: false,        // 1/2 → ½
+  degrees: false,          // 20 C → 20 °C
+  superscript: false,      // 1st → 1ˢᵗ
+  ligatures: false,        // ??? → ⁇, ?! → ⁈, !? → ⁉, !!! → !
+  checkIdempotency: true,  // verify transform(transform(x)) === transform(x)
 })
 ```
 
-`punctilio` is idempotent by design: `transform(transform(text))` always equals `transform(text)`. 
+`punctilio` is idempotent by design: `transform(transform(text))` always equals `transform(text)`. By default, `checkIdempotency` verifies this on every call. If performance is critical, set `checkIdempotency: false` to skip the verification pass. 
