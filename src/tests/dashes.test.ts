@@ -63,6 +63,21 @@ describe("hyphenReplace", () => {
     })
   })
 
+  describe("quote-to-quote em dash spacing", () => {
+    it.each([
+      // Straight quotes (before niceQuotes converts them)
+      ['"Hello."—"World"', '"Hello." — "World"'],
+      ["'Hi.'—'There'", "'Hi.' — 'There'"],
+      // Curly quotes (after niceQuotes)
+      ['"Hello."—"World"', '"Hello." — "World"'],
+      ["'Hi.'—'There'", "'Hi.' — 'There'"],
+      // Mixed
+      ['"Quote."—"Another"', '"Quote." — "Another"'],
+    ])('adds spaces in "%s"', (input, expected) => {
+      expect(hyphenReplace(input)).toBe(expected)
+    })
+  })
+
   describe("em dashes at start of line", () => {
     it.each([
       ["—Start of line", "— Start of line"],

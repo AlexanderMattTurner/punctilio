@@ -123,17 +123,18 @@ function convertParentheticalDashes(text: string, sep: string, style: DashStyle)
  * Removes spaces around em-dashes between words, but preserves spacing for attributions.
  */
 function normalizeEmDashSpacing(text: string, sep: string): string {
-  const cq = `${RIGHT_SINGLE_QUOTE}${RIGHT_DOUBLE_QUOTE}`, oq = `${LEFT_SINGLE_QUOTE}${LEFT_DOUBLE_QUOTE}`
-  const cp = `\\.\\?!…${cq}"\\'`
+  const closingQuotes = `${RIGHT_SINGLE_QUOTE}${RIGHT_DOUBLE_QUOTE}"'`
+  const openingQuotes = `${LEFT_SINGLE_QUOTE}${LEFT_DOUBLE_QUOTE}"'`
+  const closingPunct = `\\.\\?!…${closingQuotes}`
 
   // Remove spaces around em-dash between word chars
   text = text.replace(new RegExp(`(?<b>\\w${sep}?)[ ]+${EM_DASH}[ ]+(?<a>${sep}?\\w)`, "g"), `$<b>${EM_DASH}$<a>`)
   text = text.replace(new RegExp(`(?<b>\\w${sep}?)[ ]+${EM_DASH}(?<a>${sep}?\\w)`, "g"), `$<b>${EM_DASH}$<a>`)
   text = text.replace(new RegExp(`(?<b>\\w${sep}?)${EM_DASH}[ ]+(?<a>${sep}?\\w)`, "g"), `$<b>${EM_DASH}$<a>`)
   // Space between quotes: "Hello."—"World" → "Hello." — "World"
-  text = text.replace(new RegExp(`(?<b>[${cq}]${sep}?) ?${EM_DASH} ?(?<a>${sep}?[${oq}])`, "g"), `$<b> ${EM_DASH} $<a>`)
+  text = text.replace(new RegExp(`(?<b>[${closingQuotes}]${sep}?) ?${EM_DASH} ?(?<a>${sep}?[${openingQuotes}])`, "g"), `$<b> ${EM_DASH} $<a>`)
   // Attribution: "quote."—Author → "quote." — Author
-  text = text.replace(new RegExp(`(?<b>[${cp}]${sep}?)${EM_DASH}(?<a>${sep}?[A-Z\\[])`, "g"), `$<b> ${EM_DASH} $<a>`)
+  text = text.replace(new RegExp(`(?<b>[${closingPunct}]${sep}?)${EM_DASH}(?<a>${sep}?[A-Z\\[])`, "g"), `$<b> ${EM_DASH} $<a>`)
   // Start of line
   text = text.replace(new RegExp(`^(?<m>${sep}?)${EM_DASH}(?<a>[A-Z0-9])`, "gm"), `$<m>${EM_DASH} $<a>`)
   return text

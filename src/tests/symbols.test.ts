@@ -158,6 +158,11 @@ describe("degrees", () => {
     ["100 C", `100 ${UNICODE_SYMBOLS.DEGREE}C`],
     ["212F", `212 ${UNICODE_SYMBOLS.DEGREE}F`],
     ["-40 C", `-40 ${UNICODE_SYMBOLS.DEGREE}C`],
+    // Case-sensitive: lowercase c/f should NOT be converted
+    ["20 c", "20 c"],
+    ["68 f", "68 f"],
+    ["20c", "20c"],
+    ["68f", "68f"],
   ])('converts "%s" to "%s"', (input, expected) => {
     expect(degrees(input)).toBe(expected)
   })
