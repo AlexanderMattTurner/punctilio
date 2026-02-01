@@ -35,9 +35,10 @@ export function enDashNumberRange(text: string, options: DashOptions = {}): stri
   const wb = wordBoundaryStart(chr)
   const wbe = wordBoundaryEnd(chr)
 
+  // Escape dash-like chars for lookbehind: prevents matching after dashes (e.g., Llama-2-7B)
   const disallowed = numberRangeDisallowedPrefixes.map(c => c === "-" ? c : `\\u${c.charCodeAt(0).toString(16).padStart(4, "0")}`).join("")
 
-  // Match: {wb}(num)-(num)(following segments?)(suffix?){wbe}
+  // Positive ranges: 1-5, $100-$200, p.10-15
   text = text.replace(
     new RegExp(
       `${wb}(?<![${disallowed}a-zA-Z.])(?<start>(?:p\\.?|\\$)?\\d[\\d.,]*${chr}?)-(?<end>${chr}?\\$?\\d[\\d.,]*)(?!\\.\\d)(?<following>(?:${chr}?-${chr}?\\d+)*)(?<suffix>${chr}?[xKBTM])?${wbe}`,
@@ -52,7 +53,8 @@ export function enDashNumberRange(text: string, options: DashOptions = {}): stri
     }
   )
 
-  // Negative ranges: −5-5 → −5–5
+  // Negative ranges: −5-5 → −5–5, −5--2 → −5–−2
+  // Separate regex because MINUS isn't a word char, so \b in ${wb} would match after it
   text = text.replace(
     new RegExp(
       `(?<![a-zA-Z])(?<start>${MINUS}\\d[\\d.,]*${chr}?)-(?<neg>-)?(?<end>${chr}?\\d[\\d.,]*)(?<following>(?:${chr}?-${chr}?\\d+)*)(?<suffix>${chr}?[xKBTM])?${wbe}`,
@@ -94,15 +96,15 @@ export function minusReplace(text: string, options: DashOptions = {}): string {
 function convertParentheticalDashes(text: string, sep: string, style: DashStyle): string {
   if (style === "none") return text
   const dash = style === "british" ? EN_DASH : EM_DASH
-  const sp = style === "british"
+  const isSpaced = style === "british"
 
   text = text.replace(
     new RegExp(`(?<=[^\\s>]|^)(?:(?<m1>${sep}?)[ ]+|(?<m2>${sep}))[~${EN_DASH}${EM_DASH}-]+[ ]*(?<m3>${sep}?)(?:[ ]+|$)`, "g"),
-    sp ? `$<m1>$<m2> ${dash} $<m3>` : `$<m1>$<m2>${dash}$<m3>`
+    isSpaced ? `$<m1>$<m2> ${dash} $<m3>` : `$<m1>$<m2>${dash}$<m3>`
   )
   text = text.replace(
     new RegExp(`(?<=[A-Za-z])(?<m1>${sep}?)[~${EN_DASH}${EM_DASH}-]{2,}(?<m2>${sep}?)(?=[A-Za-z\\d ])|(?<=\\d)(?<m3>${sep}?)[~${EN_DASH}${EM_DASH}-]{2,}(?<m4>${sep}?)(?=[A-Za-z ])`, "g"),
-    sp ? `$<m1>$<m3> ${dash} $<m2>$<m4>` : `$<m1>$<m3>${dash}$<m2>$<m4>`
+    isSpaced ? `$<m1>$<m3> ${dash} $<m2>$<m4>` : `$<m1>$<m3>${dash}$<m2>$<m4>`
   )
   text = text.replace(new RegExp(`^(?<s>${sep})?[-]+ `, "gm"), `$<s>${dash} `)
   return text
