@@ -182,5 +182,15 @@
   "Hexadecimal preservation": [
     ["0x5F3759DF", "0x5F3759DF"],
     ["0xff", "0xff"]
+  ],
+  "Non-breaking space preservation": [
+    ["hello\u00A0world", "hello\u00A0world"],
+    ["100\u00A0kg", "100\u00A0kg"],
+    ["Dr.\u00A0Smith", "Dr.\u00A0Smith"]
+  ],
+  "Non-breaking space collapsing": [
+    ["hello\u00A0\u00A0world", "hello\u00A0world"],
+    ["a\u00A0 b", "a\u00A0b"],
+    ["a \u00A0b", "a b"]
   ]
 }
