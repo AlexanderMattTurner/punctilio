@@ -107,7 +107,7 @@ import rehypePunctilio from 'punctilio/rehype'
 
 unified()
   .use(rehypeParse)
-  .use(rehypePunctilio, { fractions: true })
+  .use(rehypePunctilio, { dashStyle: 'american' })
   .use(rehypeStringify)
   .process('<p>"Hello..." -- world</p>')
 // → <p>"Hello…"—world</p>
