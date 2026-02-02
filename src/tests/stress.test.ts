@@ -610,6 +610,208 @@ describe("Stress Tests - Potential Bug Scenarios", () => {
   })
 })
 
+describe("Critical Negative Tests - Should NOT Transform", () => {
+  /**
+   * These tests verify that certain patterns are NOT incorrectly transformed.
+   * Missing negative tests were identified in code review.
+   */
+
+  describe("multiplication - preserve words containing x", () => {
+    it.each([
+      ["extra", "extra"],
+      ["index", "index"],
+      ["2xtra", "2xtra"], // digit followed by x but then letters
+      ["hex", "hex"],
+      ["next", "next"],
+      ["text", "text"],
+      ["approximately", "approximately"],
+    ])('does NOT transform word: "%s"', (input, expected) => {
+      expect(multiplication(input)).toBe(expected)
+    })
+  })
+
+  describe("dashes - preserve multi-segment patterns", () => {
+    it.each([
+      // Long phone numbers (3+ segments) - correctly preserved
+      ["1-800-555-1234", "1-800-555-1234"],
+      // ISBNs
+      ["ISBN 978-3-16-148410-0", "ISBN 978-3-16-148410-0"],
+      ["0-13-468599-1", "0-13-468599-1"],
+      // ISO dates
+      ["2024-01-15", "2024-01-15"],
+      ["2024-01-15-report.pdf", "2024-01-15-report.pdf"],
+      // MAC addresses (colons, not dashes)
+      ["00:1A:2B:3C:4D:5E", "00:1A:2B:3C:4D:5E"],
+    ])('preserves pattern: "%s"', (input, expected) => {
+      expect(hyphenReplace(input)).toBe(expected)
+    })
+  })
+
+  describe("BUG: short phone numbers incorrectly converted", () => {
+    // BUG: Two-segment number patterns like "555-1234" are treated as ranges
+    // This is because the library only preserves 3+ segment patterns
+    it("short phone number is incorrectly converted to en-dash", () => {
+      // 555-1234 looks like a number range and gets converted
+      expect(hyphenReplace("555-1234")).toBe(`555${EN_DASH}1234`)
+      // This is a bug - phone numbers should be preserved
+    })
+
+    it("phone with area code in parens has last segment converted", () => {
+      // (555) 123-4567 - only the last segment has a dash, so it's treated as range
+      expect(hyphenReplace("(555) 123-4567")).toBe(`(555) 123${EN_DASH}4567`)
+      // This is a bug - should preserve phone number format
+    })
+  })
+
+  describe("ellipsis - preserve code patterns", () => {
+    it.each([
+      // These patterns should ideally be preserved, testing actual behavior
+      ["e.g.", "e.g."],
+      ["i.e.", "i.e."],
+      ["a.m.", "a.m."],
+      ["p.m.", "p.m."],
+      ["Dr.", "Dr."],
+      ["Mr.", "Mr."],
+      ["etc.", "etc."],
+    ])('preserves abbreviation: "%s"', (input, expected) => {
+      expect(ellipsis(input)).toBe(expected)
+    })
+  })
+})
+
+describe("Security - Separator Character Handling", () => {
+  const sep = DEFAULT_SEPARATOR
+
+  describe("separator character in user input", () => {
+    it("handles input containing separator character", () => {
+      // If user input contains the separator character, behavior should be defined
+      const input = `Text with ${sep} in it`
+      // This should not throw and should preserve the separator
+      expect(() => transform(input, { separator: sep })).not.toThrow()
+    })
+
+    it("multiple separator characters are preserved", () => {
+      const input = `${sep}${sep}${sep}text${sep}${sep}${sep}`
+      const result = transform(input, { separator: sep })
+      const inputCount = (input.match(new RegExp(sep, "g")) || []).length
+      const resultCount = (result.match(new RegExp(sep, "g")) || []).length
+      expect(resultCount).toBe(inputCount)
+    })
+  })
+})
+
+describe("Additional ReDoS Prevention Tests", () => {
+  /**
+   * More rigorous tests for regex performance with adversarial inputs.
+   */
+
+  it("handles 1000 unbalanced single quotes efficiently", () => {
+    const input = "'".repeat(1000) + "a"
+    const start = performance.now()
+    transform(input)
+    const duration = performance.now() - start
+    expect(duration).toBeLessThan(500) // Should complete in under 500ms
+  })
+
+  it("handles 500 chained number patterns efficiently", () => {
+    const input = "1" + "-1".repeat(500)
+    const start = performance.now()
+    transform(input)
+    const duration = performance.now() - start
+    expect(duration).toBeLessThan(500)
+  })
+
+  it("handles 500 repeated ellipsis candidates efficiently", () => {
+    const input = "..." + "...".repeat(500)
+    const start = performance.now()
+    transform(input)
+    const duration = performance.now() - start
+    expect(duration).toBeLessThan(500)
+  })
+
+  it("handles deeply nested quote patterns efficiently", () => {
+    const input = '"a'.repeat(100) + 'b"'.repeat(100)
+    const start = performance.now()
+    transform(input)
+    const duration = performance.now() - start
+    expect(duration).toBeLessThan(500)
+  })
+})
+
+describe("Quote Edge Cases - From Critique", () => {
+  describe("year abbreviations", () => {
+    // Year abbreviations like '90s should use RIGHT_SINGLE_QUOTE (apostrophe)
+    // This is the expected behavior - they are contractions of the full year
+    it.each([
+      ["the '90s", `the ${RIGHT_SINGLE_QUOTE}90s`],
+      ["class of '88", `class of ${RIGHT_SINGLE_QUOTE}88`],
+      ["back in '99", `back in ${RIGHT_SINGLE_QUOTE}99`],
+    ])('handles year abbreviation: "%s"', (input, expected) => {
+      expect(niceQuotes(input)).toBe(expected)
+    })
+  })
+
+  describe("split dialogue", () => {
+    it.each([
+      // Split dialogue with attribution
+      [
+        '"Yes," he said, "absolutely."',
+        `${LEFT_DOUBLE_QUOTE}Yes,${RIGHT_DOUBLE_QUOTE} he said, ${LEFT_DOUBLE_QUOTE}absolutely.${RIGHT_DOUBLE_QUOTE}`,
+      ],
+      [
+        '"No," she replied, "I disagree."',
+        `${LEFT_DOUBLE_QUOTE}No,${RIGHT_DOUBLE_QUOTE} she replied, ${LEFT_DOUBLE_QUOTE}I disagree.${RIGHT_DOUBLE_QUOTE}`,
+      ],
+    ])('handles split dialogue: "%s"', (input, expected) => {
+      expect(niceQuotes(input)).toBe(expected)
+    })
+  })
+
+  describe("em-dash after exclamation in quote", () => {
+    it("handles em-dash after exclamation in quote", () => {
+      // This tests the interaction between quotes and em-dashes
+      const input = `"No!"${EM_DASH}she screamed`
+      const result = transform(input)
+      expect(result).toContain(LEFT_DOUBLE_QUOTE)
+      expect(result).toContain(RIGHT_DOUBLE_QUOTE)
+      expect(result).toContain(EM_DASH)
+    })
+  })
+})
+
+describe("Stringent Assertions - Long Input Verification", () => {
+  it("converts ALL quote pairs in repeated pattern", () => {
+    const count = 50
+    const input = '"Hello" '.repeat(count)
+    const result = transform(input)
+
+    // Count actual occurrences - should have exactly 'count' of each quote type
+    const leftCount = (result.match(new RegExp(LEFT_DOUBLE_QUOTE, "g")) || []).length
+    const rightCount = (result.match(new RegExp(RIGHT_DOUBLE_QUOTE, "g")) || []).length
+
+    expect(leftCount).toBe(count)
+    expect(rightCount).toBe(count)
+  })
+
+  it("converts ALL dashes in repeated pattern", () => {
+    const count = 50
+    const input = "pages 1-5 ".repeat(count)
+    const result = transform(input)
+
+    const enDashCount = (result.match(new RegExp(EN_DASH, "g")) || []).length
+    expect(enDashCount).toBe(count)
+  })
+
+  it("converts ALL ellipses in repeated pattern", () => {
+    const count = 50
+    const input = "Wait... ".repeat(count)
+    const result = transform(input)
+
+    const ellipsisCount = (result.match(new RegExp(ELLIPSIS, "g")) || []).length
+    expect(ellipsisCount).toBe(count)
+  })
+})
+
 describe("Competitor Feature Gaps", () => {
   /**
    * These tests document features from competitor libraries that punctilio
