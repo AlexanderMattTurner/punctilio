@@ -64,8 +64,6 @@ My [`benchmark.mjs`](https://github.com/alexander-turner/punctilio/blob/main/ben
 | Non-English quotes | „Hallo” (German) | ✗ | ✗ | ✓ | ✗ | ~ |
 | Non-breaking spaces | Chapter 1 | ✗ | ✗ | ✗ | ✗ | ✓ |
 
-_~ = partial success (handles main example but misses edge cases)_
-
 `typograf` uniquely inserts non-breaking spaces to prevent bad line breaks (e.g. before numbers, after colons). I might add this to `punctilio` in the future. `punctilio`’s other missing feature is non-English quote support—feel free to make a pull request!
 
 ### Known limitations of `punctilio`
