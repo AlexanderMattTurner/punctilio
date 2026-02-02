@@ -75,8 +75,13 @@ function hasAncestor(
  * @param node - The element or element content to process
  * @param shouldSkip - Function to determine which elements to skip
  * @returns Array of Text nodes
+ *
+ * @example
+ * ```ts
+ * const textNodes = flattenTextNodes(paragraphElement, (el) => el.tagName === 'code')
+ * ```
  */
-function flattenTextNodes(
+export function flattenTextNodes(
   node: Element | ElementContent,
   shouldSkip: (n: Element) => boolean
 ): Text[] {
@@ -107,10 +112,23 @@ function flattenTextNodes(
  * @param node - The element to transform
  * @param transformFn - The transformation function to apply
  * @param shouldSkip - Function to determine which elements to skip
- * @param separator - The marker character to use
+ * @param separator - The marker character to use (default: DEFAULT_SEPARATOR)
  * @throws Error if transformation alters the number of text nodes
+ *
+ * @example
+ * ```ts
+ * import { transformElement, DEFAULT_SEPARATOR } from 'punctilio/rehype'
+ *
+ * // Apply a custom transform to an element
+ * transformElement(
+ *   paragraphElement,
+ *   (text) => text.replace(/eg\b/g, 'e.g.'),
+ *   (el) => el.tagName === 'code',
+ *   DEFAULT_SEPARATOR
+ * )
+ * ```
  */
-function transformElement(
+export function transformElement(
   node: Element,
   transformFn: (input: string) => string,
   shouldSkip: (input: Element) => boolean,
