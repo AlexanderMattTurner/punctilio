@@ -608,3 +608,11 @@ describe("phone number preservation", () => {
     expect(hyphenReplace(input)).toBe(expected)
   })
 })
+
+describe("minusReplace regex-special separators", () => {
+  const regexSpecialChars = [".", "*", "+", "?", "^", "$", "[", "]", "\\", "|", "(", ")"]
+
+  it.each(regexSpecialChars)("handles '%s' as separator", (sep) => {
+    expect(() => minusReplace("-5", { separator: sep })).not.toThrow()
+  })
+})

@@ -107,7 +107,7 @@ export function enDashDateRange(text: string, options: DashOptions = {}): string
 
 /** Convert hyphens to minus signs in numeric contexts (e.g., "-5" → "−5"). */
 export function minusReplace(text: string, options: DashOptions = {}): string {
-  const chr = options.separator ?? DEFAULT_SEPARATOR
+  const chr = escapeStringRegexp(options.separator ?? DEFAULT_SEPARATOR)
   // Match after: start of line, whitespace, (, separator, or quotes (straight or curly)
   return text.replaceAll(
     new RegExp(`(?<before>^|[\\s\\("${chr}${LEFT_DOUBLE_QUOTE}${RIGHT_DOUBLE_QUOTE}])-(?<num>\\s?\\d*\\.?\\d+)`, "gm"),
@@ -123,24 +123,25 @@ function convertParentheticalDashes(text: string, sep: string, style: DashStyle)
   if (style === "none") return text
   const localizedDash = style === "british" ? EN_DASH : EM_DASH
   const maybeSpace = style === "british" ? " " : ""
+  const escapedSep = escapeStringRegexp(sep)
 
   // Convert spaced dashes: "word - word" or "word — word"
   text = text.replace(
-    new RegExp(`(?<=[^\\s]|^)(?:(?<sepBefore>${sep}?)[ ]+|(?<sepOnly>${sep}))[~${EN_DASH}${EM_DASH}-]+[ ]*(?<sepAfter>${sep}?)(?:[ ]+|$)`, "g"),
+    new RegExp(`(?<=[^\\s]|^)(?:(?<sepBefore>${escapedSep}?)[ ]+|(?<sepOnly>${escapedSep}))[~${EN_DASH}${EM_DASH}-]+[ ]*(?<sepAfter>${escapedSep}?)(?:[ ]+|$)`, "g"),
     `$<sepBefore>$<sepOnly>${maybeSpace}${localizedDash}${maybeSpace}$<sepAfter>`
   )
   // Convert multiple dashes: "word--word" or "word---word" or "quote"--"quote"
   const quoteChars = `"'${LEFT_DOUBLE_QUOTE}${RIGHT_DOUBLE_QUOTE}${LEFT_SINGLE_QUOTE}${RIGHT_SINGLE_QUOTE}`
   text = text.replace(
-    new RegExp(`(?<=[${LATIN_LETTERS}\\d${quoteChars}])(?<sepBefore>${sep}?)[~${EN_DASH}${EM_DASH}-]{2,}(?<sepAfter>${sep}?)(?=[${LATIN_LETTERS}${quoteChars} ])`, "g"),
+    new RegExp(`(?<=[${LATIN_LETTERS}\\d${quoteChars}])(?<sepBefore>${escapedSep}?)[~${EN_DASH}${EM_DASH}-]{2,}(?<sepAfter>${escapedSep}?)(?=[${LATIN_LETTERS}${quoteChars} ])`, "g"),
     `$<sepBefore>${maybeSpace}${localizedDash}${maybeSpace}$<sepAfter>`
   )
   // Convert dashes at start of line
-  text = text.replace(new RegExp(`^(?<leadingSep>${sep})?[-]+ `, "gm"), `$<leadingSep>${localizedDash} `)
+  text = text.replace(new RegExp(`^(?<leadingSep>${escapedSep})?[-]+ `, "gm"), `$<leadingSep>${localizedDash} `)
   // British: convert unspaced em-dashes to spaced en-dashes (word—word → word – word)
   if (style === "british") {
     text = text.replace(
-      new RegExp(`(?<=[${LATIN_LETTERS}.!?'"])(?<sepBefore>${sep}?)${EM_DASH}(?<sepAfter>${sep}?)(?=[${LATIN_LETTERS}])`, "g"),
+      new RegExp(`(?<=[${LATIN_LETTERS}.!?'"])(?<sepBefore>${escapedSep}?)${EM_DASH}(?<sepAfter>${escapedSep}?)(?=[${LATIN_LETTERS}])`, "g"),
       `$<sepBefore>${maybeSpace}${localizedDash}${maybeSpace}$<sepAfter>`
     )
   }
@@ -155,15 +156,17 @@ function convertParentheticalDashes(text: string, sep: string, style: DashStyle)
  * allows a space after the dash: "Don't inter— Hey! Who threw that?"
  */
 function normalizeEmDashSpacing(text: string, sep: string): string {
+  const escapedSep = escapeStringRegexp(sep)
+
   // Remove all spaces around em-dashes
   text = text.replace(
-    new RegExp(`(?<before>${sep}?)[ ]*${EM_DASH}[ ]*(?<after>${sep}?)`, "g"),
+    new RegExp(`(?<before>${escapedSep}?)[ ]*${EM_DASH}[ ]*(?<after>${escapedSep}?)`, "g"),
     `$<before>${EM_DASH}$<after>`
   )
 
   // Preserve space after em-dash at start of line (e.g., attribution)
   text = text.replace(
-    new RegExp(`^(?<sep>${sep}?)${EM_DASH}(?<after>[A-Z0-9])`, "gm"),
+    new RegExp(`^(?<sep>${escapedSep}?)${EM_DASH}(?<after>[A-Z0-9])`, "gm"),
     `$<sep>${EM_DASH} $<after>`
   )
 
