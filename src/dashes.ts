@@ -41,12 +41,23 @@ export function enDashNumberRange(text: string, options: DashOptions = {}): stri
 
   // Common currency symbols for price ranges
   const currencies = "$€£¥₹"
+
+  // Build positive range pattern from readable components
+  const phoneAreaCode = `(?<precedingAreaCode>\\d{3}-|\\(\\d{3}\\) ?)?`  // 555- or (555)
+  const notAfterDash = `(?<![${disallowed}${LATIN_LETTERS}.])`           // prevent Llama-2-7B
+  const rangeStart = `(?<start>(?:p\\.?|[${currencies}])?\\d[\\d.,]*${chr}?)`  // p.10, $100, 1,000
+  const rangeEnd = `(?<end>${chr}?[${currencies}]?\\d[\\d.,]*)`          // 20, $200, 2,000
+  const notDecimal = `(?!\\.\\d)`                                        // don't match 1.5
+  const moreSegments = `(?<following>(?:${chr}?-${chr}?\\d+)*)`          // -4567 in phone numbers
+  const unitSuffix = `(?<suffix>${chr}?(?:[AaPp][Mm]|[xKBTM]))?`         // am/pm, K/M/B
+
   // Positive ranges: 1-5, $100-$200, €5-€10, p.10-15
+  const positiveRangePattern = [
+    phoneAreaCode, wb, notAfterDash, rangeStart, "-", rangeEnd, notDecimal, moreSegments, unitSuffix, wbe
+  ].join("")
+
   text = text.replace(
-    new RegExp(
-      `(?<precedingAreaCode>\\d{3}-|\\(\\d{3}\\) ?)?${wb}(?<![${disallowed}${LATIN_LETTERS}.])(?<start>(?:p\\.?|[${currencies}])?\\d[\\d.,]*${chr}?)-(?<end>${chr}?[${currencies}]?\\d[\\d.,]*)(?!\\.\\d)(?<following>(?:${chr}?-${chr}?\\d+)*)(?<suffix>${chr}?(?:[AaPp][Mm]|[xKBTM]))?${wbe}`,
-      "g"
-    ),
+    new RegExp(positiveRangePattern, "g"),
     (match, precedingAreaCode, start, end, following, suffix = "") => {
       if (following) return match
       const s = start.replace(new RegExp(chr, "g"), "")
