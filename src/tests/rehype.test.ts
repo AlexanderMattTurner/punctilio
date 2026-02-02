@@ -306,3 +306,23 @@ describe("rehypePunctilio", () => {
     })
   })
 })
+
+describe("separator injection protection", () => {
+  it("throws when transform injects separators", () => {
+    const element = h("p", "hello world") as Element
+    const maliciousTransform = (text: string): string =>
+      text.replace("hello", `hello${DEFAULT_SEPARATOR}injected`)
+    expect(() => {
+      transformElement(element, maliciousTransform, () => false, DEFAULT_SEPARATOR)
+    }).toThrow("Transformation altered the number of text nodes")
+  })
+
+  it("throws when transform removes separators", () => {
+    const element = h("p", ["hello ", h("em", "world")]) as Element
+    const maliciousTransform = (text: string): string =>
+      text.replace(DEFAULT_SEPARATOR, "")
+    expect(() => {
+      transformElement(element, maliciousTransform, () => false, DEFAULT_SEPARATOR)
+    }).toThrow("Transformation altered the number of text nodes")
+  })
+})
