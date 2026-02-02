@@ -1,4 +1,7 @@
-import { countSeparators, assertSeparatorCountPreserved } from "../utils.js"
+import { existsSync, readFileSync, unlinkSync } from "node:fs"
+import { tmpdir } from "node:os"
+
+import { countSeparators, assertSeparatorCountPreserved, formatErrorString } from "../utils.js"
 import { DEFAULT_SEPARATOR } from "../constants.js"
 
 describe("countSeparators", () => {
@@ -55,5 +58,41 @@ describe("assertSeparatorCountPreserved", () => {
         expect(() => assertSeparatorCountPreserved(original, transformed)).not.toThrow()
       }
     })
+  })
+})
+
+describe("formatErrorString", () => {
+  it("returns JSON-stringified content for short strings", () => {
+    const result = formatErrorString("short text", "test")
+    expect(result).toBe('"short text"')
+  })
+
+  it("writes to temp file for strings over 500 chars", () => {
+    const longText = "x".repeat(501)
+    const result = formatErrorString(longText, "long-test")
+
+    expect(result).toMatch(/^\[written to .+punctilio-error-long-test-\d+\.txt\]$/)
+
+    // Extract filepath and verify file contents
+    const match = result.match(/\[written to (?<path>.+)\]/)
+    const filepath = match?.groups?.path ?? ""
+    expect(filepath).not.toBe("")
+    expect(existsSync(filepath)).toBe(true)
+    expect(readFileSync(filepath, "utf-8")).toBe(longText)
+
+    // Cleanup
+    unlinkSync(filepath)
+  })
+
+  it("writes to temp directory", () => {
+    const longText = "y".repeat(600)
+    const result = formatErrorString(longText, "tmpdir")
+
+    const match = result.match(/\[written to (?<path>.+)\]/)
+    const filepath = match?.groups?.path ?? ""
+    expect(filepath).not.toBe("")
+    expect(filepath.startsWith(tmpdir())).toBe(true)
+
+    unlinkSync(filepath)
   })
 })

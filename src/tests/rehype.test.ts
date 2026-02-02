@@ -422,6 +422,27 @@ describe("rehypePunctilio", () => {
         expect(result).toHaveLength(1)
         expect(result[0].value).toBe("text")
       })
+
+      it("stops recursion at max depth to prevent stack overflow", () => {
+        // Build a deeply nested structure that exceeds MAX_RECURSION_DEPTH (1000)
+        let deepElement: Element = {
+          type: "element",
+          tagName: "span",
+          properties: {},
+          children: [{ type: "text", value: "deep" }],
+        }
+        for (let i = 0; i < 1005; i++) {
+          deepElement = {
+            type: "element",
+            tagName: "div",
+            properties: {},
+            children: [deepElement],
+          }
+        }
+        // Should not throw and should return empty (text is beyond depth limit)
+        const result = flattenTextNodes(deepElement, noSkip)
+        expect(result).toHaveLength(0)
+      })
     })
 
     describe("transformElement", () => {
