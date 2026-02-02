@@ -63,43 +63,34 @@ export function multiplication(text: string, options: SymbolOptions = {}): strin
     ? escapeStringRegexp(options.separator)
     : ESCAPED_DEFAULT_SEPARATOR
 
-  // Dimensions with spaces: preserve spacing
-  // Loop to handle chained multiplications like "5 x 5 x 5"
-  const leftNumLoose = `(?<leftNum>(?:\\d+|${MULTIPLICATION})${chr}?)`
-  const rightNumPattern = `(?<rightNum>${chr}?\\d)`
-  const loosePattern = new RegExp(`${leftNumLoose}\\s+[xX*]\\s+${rightNumPattern}`, "g")
-  let prev = ""
-  while (prev !== text) {
-    prev = text
-    text = text.replace(loosePattern, `$<leftNum> ${MULTIPLICATION} $<rightNum>`)
-  }
+  // Match entire multiplication chains in one pass: "5 x 5 x 5" or "5x5x5"
+  // Pattern matches: digit(s), then one or more (operator, digit(s)) groups
+  const chainPattern = new RegExp(
+    `(\\d+)((?:${chr}?\\s*[xX*]\\s*${chr}?\\d+)+)`,
+    "g"
+  )
 
-  // Dimensions without spaces: keep tight
-  // Use callback to skip hexadecimal patterns like "0x5F"
-  // Loop to handle chained multiplications like "5x5x5"
-  const leftNumTight = `(?<leftNum>(?:\\d+|${MULTIPLICATION})${chr}?)`
-  const tightPattern = new RegExp(`${leftNumTight}(?<op>[xX*])${rightNumPattern}`, "g")
-  prev = ""
-  while (prev !== text) {
-    prev = text
-    text = text.replace(tightPattern, (match, leftNum, op, rightNum) => {
-      // Skip if this looks like a hexadecimal: single 0 followed by x/X
-      if (leftNum === "0" && (op === "x" || op === "X")) {
-        return match // Don't convert hex literals
+  text = text.replace(chainPattern, (match, firstNum, rest) => {
+    // Skip hexadecimal: 0x... or 0X...
+    if (firstNum === "0" && /^[xX]/.test(rest)) return match
+
+    // Replace all operators in the chain, preserving spacing
+    const converted = rest.replace(
+      new RegExp(`(${chr}?)(\\s*)[xX*](\\s*)(${chr}?)`, "g"),
+      (_: string, pre: string, spaceBefore: string, spaceAfter: string, post: string) => {
+        const space = spaceBefore || spaceAfter ? " " : ""
+        return `${pre}${space}${MULTIPLICATION}${space}${post}`
       }
-      return `${leftNum}${MULTIPLICATION}${rightNum}`
-    })
-  }
+    )
+    return `${firstNum}${converted}`
+  })
 
   // Trailing multiplier: 5x (followed by word boundary - space, punctuation, etc.)
-  // Uses marker-aware boundary to avoid false matches like "5x\uE000tra"
   const wbe = wordBoundaryEnd(chr)
-  const trailingPattern = new RegExp(`(?<leftNum>\\d+${chr}?)(?<op>[xX*])${wbe}`, "g")
-  text = text.replace(trailingPattern, (match, num, op) => {
+  const trailingPattern = new RegExp(`(\\d+${chr}?)[xX*]${wbe}`, "g")
+  text = text.replace(trailingPattern, (match, num) => {
     // Skip if this looks like start of hexadecimal
-    if (num === "0" && (op === "x" || op === "X")) {
-      return match
-    }
+    if (num === "0") return match
     return `${num}${MULTIPLICATION}`
   })
 

@@ -342,16 +342,13 @@ describe("niceQuotes", () => {
   })
 
   describe("empty and whitespace quotes", () => {
-    it("converts empty single quotes to left+right pair", () => {
-      expect(niceQuotes("''")).toBe(`${LEFT_SINGLE_QUOTE}${RIGHT_SINGLE_QUOTE}`)
-    })
-
-    it("converts quotes containing only whitespace", () => {
-      expect(niceQuotes('" "')).toBe(`${LEFT_DOUBLE_QUOTE} ${RIGHT_DOUBLE_QUOTE}`)
-    })
-
-    it("converts single quotes containing only whitespace", () => {
-      expect(niceQuotes("' '")).toBe(`${LEFT_SINGLE_QUOTE} ${RIGHT_SINGLE_QUOTE}`)
+    it.each([
+      ["''", `${LEFT_SINGLE_QUOTE}${RIGHT_SINGLE_QUOTE}`, "empty single"],
+      ['""', `${LEFT_DOUBLE_QUOTE}${RIGHT_DOUBLE_QUOTE}`, "empty double"],
+      ["' '", `${LEFT_SINGLE_QUOTE} ${RIGHT_SINGLE_QUOTE}`, "whitespace single"],
+      ['" "', `${LEFT_DOUBLE_QUOTE} ${RIGHT_DOUBLE_QUOTE}`, "whitespace double"],
+    ])("converts %s → %s (%s)", (input, expected) => {
+      expect(niceQuotes(input)).toBe(expected)
     })
   })
 })

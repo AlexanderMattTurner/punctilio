@@ -26,8 +26,9 @@ export interface QuoteOptions {
 function convertSingleQuotes(text: string, sep: string): string {
   // Handle empty single quotes '' and whitespace-only quotes ' ' first
   // Only match straight quotes, not already-converted curly quotes
-  text = text.replace(/(?<!['\u2018\u2019])''(?!['\u2018\u2019])/g, `${LEFT_SINGLE_QUOTE}${RIGHT_SINGLE_QUOTE}`)
-  text = text.replace(/(?<!['\u2018\u2019])'(\s+)'(?!['\u2018\u2019])/g, `${LEFT_SINGLE_QUOTE}$1${RIGHT_SINGLE_QUOTE}`)
+  const singleQuoteChars = `'${LEFT_SINGLE_QUOTE}${RIGHT_SINGLE_QUOTE}`
+  text = text.replace(new RegExp(`(?<![${singleQuoteChars}])''(?![${singleQuoteChars}])`, "g"), `${LEFT_SINGLE_QUOTE}${RIGHT_SINGLE_QUOTE}`)
+  text = text.replace(new RegExp(`(?<![${singleQuoteChars}])'(\\s+)'(?![${singleQuoteChars}])`, "g"), `${LEFT_SINGLE_QUOTE}$1${RIGHT_SINGLE_QUOTE}`)
 
   const afterEndingSinglePatterns = `\\s\\.!?;,\\)${EM_DASH}\\-\\]"`
   const afterEndingSingle = `(?=${sep}?(?:s${sep}?)?(?:[${afterEndingSinglePatterns}]|$))`

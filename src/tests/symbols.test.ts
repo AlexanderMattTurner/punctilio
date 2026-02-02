@@ -697,15 +697,14 @@ describe("fractions edge cases", () => {
 })
 
 describe("chained multiplications", () => {
-  it("converts all chained tight multiplications", () => {
-    expect(multiplication("5x5x5")).toBe(`5${UNICODE_SYMBOLS.MULTIPLICATION}5${UNICODE_SYMBOLS.MULTIPLICATION}5`)
-  })
-
-  it("converts all spaced multiplications in chain", () => {
-    expect(multiplication("5 x 5 x 5")).toBe(`5 ${UNICODE_SYMBOLS.MULTIPLICATION} 5 ${UNICODE_SYMBOLS.MULTIPLICATION} 5`)
-  })
-
-  it("converts all asterisk multiplications in chain", () => {
-    expect(multiplication("5*5*5")).toBe(`5${UNICODE_SYMBOLS.MULTIPLICATION}5${UNICODE_SYMBOLS.MULTIPLICATION}5`)
+  const M = UNICODE_SYMBOLS.MULTIPLICATION
+  it.each([
+    ["5x5x5", `5${M}5${M}5`, "tight x"],
+    ["5 x 5 x 5", `5 ${M} 5 ${M} 5`, "spaced x"],
+    ["5*5*5", `5${M}5${M}5`, "tight *"],
+    ["5 * 5 * 5", `5 ${M} 5 ${M} 5`, "spaced *"],
+    ["10x10x10", `10${M}10${M}10`, "multi-digit"],
+  ])("converts %s → %s (%s)", (input, expected) => {
+    expect(multiplication(input)).toBe(expected)
   })
 })
