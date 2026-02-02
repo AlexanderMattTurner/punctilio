@@ -602,4 +602,35 @@ describe("phone number preservation", () => {
   it("preserves phone with area code in parens", () => {
     expect(hyphenReplace("(555) 123-4567")).toBe("(555) 123-4567")
   })
+
+  it("preserves US toll-free prefixes (1-800, 1-888, etc.)", () => {
+    expect(hyphenReplace("1-800")).toBe("1-800")
+    expect(hyphenReplace("1-888")).toBe("1-888")
+    expect(hyphenReplace("1-877")).toBe("1-877")
+    expect(hyphenReplace("1-866")).toBe("1-866")
+    expect(hyphenReplace("1-855")).toBe("1-855")
+    expect(hyphenReplace("Call 1-800-...")).toBe("Call 1-800-...")
+  })
+
+  it("preserves full toll-free numbers", () => {
+    expect(hyphenReplace("1-800-555-1234")).toBe("1-800-555-1234")
+    expect(hyphenReplace("1-888-555-1234")).toBe("1-888-555-1234")
+  })
+
+  it("preserves international format phone numbers", () => {
+    expect(hyphenReplace("+1-800-555-1234")).toBe("+1-800-555-1234")
+    expect(hyphenReplace("+44-20-7946-0958")).toBe("+44-20-7946-0958")
+    expect(hyphenReplace("+1 (800) 555-1234")).toBe("+1 (800) 555-1234")
+  })
+
+  it("still converts ranges starting with 1 when not phone-like", () => {
+    expect(hyphenReplace("1-5")).toBe(`1${EN_DASH}5`)
+    expect(hyphenReplace("1-50")).toBe(`1${EN_DASH}50`)
+    expect(hyphenReplace("1-99")).toBe(`1${EN_DASH}99`)
+  })
+
+  it("converts non-US country code patterns", () => {
+    // 2-800 is not a valid US country code pattern
+    expect(hyphenReplace("2-800")).toBe(`2${EN_DASH}800`)
+  })
 })

@@ -65,6 +65,9 @@ export function enDashNumberRange(text: string, options: DashOptions = {}): stri
       // Skip phone number patterns: 3 digits followed by 4 digits with preceding area code
       // e.g., 555-123-4567 or (555) 123-4567 where we're matching the "123-4567" part
       if (precedingAreaCode && /^\d{3}$/.test(s) && /^\d{4}$/.test(e)) return match
+      // Skip US country code + area code pattern: 1-800, 1-888, etc.
+      // These look like truncated phone numbers, not ranges
+      if (/^1$/.test(s) && /^\d{3}$/.test(e)) return match
       return `${precedingAreaCode || ""}${start}${EN_DASH}${end}${suffix || ""}`
     }
   )
