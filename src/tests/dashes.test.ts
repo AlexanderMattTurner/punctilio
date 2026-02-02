@@ -43,12 +43,11 @@ describe("hyphenReplace", () => {
   })
 
   describe("multiple dashes within words", () => {
-    it("replaces double dashes", () => {
-      expect(hyphenReplace("Since--as you know")).toBe(`Since${EM_DASH}as you know`)
-    })
-
-    it("replaces triple dashes", () => {
-      expect(hyphenReplace("word---another")).toBe(`word${EM_DASH}another`)
+    it.each([
+      ["Since--as you know", `Since${EM_DASH}as you know`, "double dashes"],
+      ["word---another", `word${EM_DASH}another`, "triple dashes"],
+    ])("%s → %s (%s)", (input, expected) => {
+      expect(hyphenReplace(input)).toBe(expected)
     })
   })
 
@@ -107,17 +106,11 @@ describe("hyphenReplace", () => {
 
   describe("with separator character", () => {
     const sep = "\uE000"
-
-    it("should handle separator in em dash context", () => {
-      const input = `word${sep} - ${sep}another`
-      const result = hyphenReplace(input, { separator: sep })
-      expect(result).toBe(`word${sep}${EM_DASH}${sep}another`)
-    })
-
-    it("should handle separator in number ranges", () => {
-      const input = `pages 1${sep}-${sep}5`
-      const result = hyphenReplace(input, { separator: sep })
-      expect(result).toBe(`pages 1${sep}${EN_DASH}${sep}5`)
+    it.each([
+      [`word${sep} - ${sep}another`, `word${sep}${EM_DASH}${sep}another`, "em dash context"],
+      [`pages 1${sep}-${sep}5`, `pages 1${sep}${EN_DASH}${sep}5`, "number ranges"],
+    ])("%s → %s (%s)", (input, expected) => {
+      expect(hyphenReplace(input, { separator: sep })).toBe(expected)
     })
   })
 })
@@ -590,47 +583,28 @@ describe("negative temperatures", () => {
 })
 
 describe("phone number preservation", () => {
-  it("converts standalone 3+4 digit patterns as ranges (555-1234)", () => {
-    // Standalone 3+4 patterns are treated as ranges, not phone numbers
-    expect(hyphenReplace("555-1234")).toBe(`555${EN_DASH}1234`)
-  })
-
-  it("preserves full phone numbers with area code (555-123-4567)", () => {
-    expect(hyphenReplace("555-123-4567")).toBe("555-123-4567")
-  })
-
-  it("preserves phone with area code in parens", () => {
-    expect(hyphenReplace("(555) 123-4567")).toBe("(555) 123-4567")
-  })
-
-  it("preserves US toll-free prefixes (1-800, 1-888, etc.)", () => {
-    expect(hyphenReplace("1-800")).toBe("1-800")
-    expect(hyphenReplace("1-888")).toBe("1-888")
-    expect(hyphenReplace("1-877")).toBe("1-877")
-    expect(hyphenReplace("1-866")).toBe("1-866")
-    expect(hyphenReplace("1-855")).toBe("1-855")
-    expect(hyphenReplace("Call 1-800-...")).toBe("Call 1-800-...")
-  })
-
-  it("preserves full toll-free numbers", () => {
-    expect(hyphenReplace("1-800-555-1234")).toBe("1-800-555-1234")
-    expect(hyphenReplace("1-888-555-1234")).toBe("1-888-555-1234")
-  })
-
-  it("preserves international format phone numbers", () => {
-    expect(hyphenReplace("+1-800-555-1234")).toBe("+1-800-555-1234")
-    expect(hyphenReplace("+44-20-7946-0958")).toBe("+44-20-7946-0958")
-    expect(hyphenReplace("+1 (800) 555-1234")).toBe("+1 (800) 555-1234")
-  })
-
-  it("still converts ranges starting with 1 when not phone-like", () => {
-    expect(hyphenReplace("1-5")).toBe(`1${EN_DASH}5`)
-    expect(hyphenReplace("1-50")).toBe(`1${EN_DASH}50`)
-    expect(hyphenReplace("1-99")).toBe(`1${EN_DASH}99`)
-  })
-
-  it("converts non-US country code patterns", () => {
-    // 2-800 is not a valid US country code pattern
-    expect(hyphenReplace("2-800")).toBe(`2${EN_DASH}800`)
+  it.each([
+    // Preserved phone patterns
+    ["555-123-4567", "555-123-4567", "full phone with area code"],
+    ["(555) 123-4567", "(555) 123-4567", "area code in parens"],
+    ["1-800", "1-800", "toll-free prefix 800"],
+    ["1-888", "1-888", "toll-free prefix 888"],
+    ["1-877", "1-877", "toll-free prefix 877"],
+    ["1-866", "1-866", "toll-free prefix 866"],
+    ["1-855", "1-855", "toll-free prefix 855"],
+    ["Call 1-800-...", "Call 1-800-...", "truncated toll-free"],
+    ["1-800-555-1234", "1-800-555-1234", "full toll-free"],
+    ["1-888-555-1234", "1-888-555-1234", "full toll-free 888"],
+    ["+1-800-555-1234", "+1-800-555-1234", "international US"],
+    ["+44-20-7946-0958", "+44-20-7946-0958", "international UK"],
+    ["+1 (800) 555-1234", "+1 (800) 555-1234", "international with parens"],
+    // Converted range patterns
+    ["555-1234", `555${EN_DASH}1234`, "standalone 3+4 as range"],
+    ["1-5", `1${EN_DASH}5`, "simple range"],
+    ["1-50", `1${EN_DASH}50`, "range to two digits"],
+    ["1-99", `1${EN_DASH}99`, "range to 99"],
+    ["2-800", `2${EN_DASH}800`, "non-US country code pattern"],
+  ])("%s → %s (%s)", (input, expected) => {
+    expect(hyphenReplace(input)).toBe(expected)
   })
 })

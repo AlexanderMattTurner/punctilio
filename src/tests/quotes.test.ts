@@ -199,23 +199,12 @@ describe("niceQuotes", () => {
 
   describe("with separator character", () => {
     const sep = "\uE000"
-
-    it("should preserve separator character positions", () => {
-      const input = `"Hello${sep} world"`
-      const result = niceQuotes(input, { separator: sep })
-      expect(result).toBe(`${LEFT_DOUBLE_QUOTE}Hello${sep} world${RIGHT_DOUBLE_QUOTE}`)
-    })
-
-    it("should handle contractions across separator", () => {
-      const input = `don${sep}'t`
-      const result = niceQuotes(input, { separator: sep })
-      expect(result).toBe(`don${sep}${RIGHT_SINGLE_QUOTE}t`)
-    })
-
-    it("should handle quotes at separator boundaries", () => {
-      const input = `"test${sep}"`
-      const result = niceQuotes(input, { separator: sep })
-      expect(result).toBe(`${LEFT_DOUBLE_QUOTE}test${sep}${RIGHT_DOUBLE_QUOTE}`)
+    it.each([
+      [`"Hello${sep} world"`, `${LEFT_DOUBLE_QUOTE}Hello${sep} world${RIGHT_DOUBLE_QUOTE}`, "preserves separator positions"],
+      [`don${sep}'t`, `don${sep}${RIGHT_SINGLE_QUOTE}t`, "contractions across separator"],
+      [`"test${sep}"`, `${LEFT_DOUBLE_QUOTE}test${sep}${RIGHT_DOUBLE_QUOTE}`, "quotes at separator boundaries"],
+    ])("%s → %s (%s)", (input, expected) => {
+      expect(niceQuotes(input, { separator: sep })).toBe(expected)
     })
   })
 

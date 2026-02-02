@@ -87,8 +87,8 @@ export function multiplication(text: string, options: SymbolOptions = {}): strin
 
   // Trailing multiplier: 5x (followed by word boundary - space, punctuation, etc.)
   const wbe = wordBoundaryEnd(chr)
-  const trailingPattern = new RegExp(`(\\d+${chr}?)[xX*]${wbe}`, "g")
-  text = text.replace(trailingPattern, (match, num) => {
+  const trailingPattern = new RegExp(`(?<num>\\d+${chr}?)[xX*]${wbe}`, "g")
+  text = text.replace(trailingPattern, (match, num: string) => {
     // Skip if this looks like start of hexadecimal
     if (num === "0") return match
     return `${num}${MULTIPLICATION}`
