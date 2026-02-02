@@ -72,7 +72,7 @@ export function multiplication(text: string, options: SymbolOptions = {}): strin
 
   text = text.replace(chainPattern, (match, firstNum, rest) => {
     // Skip hexadecimal: 0x... or 0X...
-    if (firstNum === "0" && /^[xX]/.test(rest)) return match
+    if (firstNum === "0" && /^x/i.test(rest)) return match
 
     // Replace all operators in the chain, preserving spacing
     const converted = rest.replace(

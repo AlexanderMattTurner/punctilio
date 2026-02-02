@@ -56,9 +56,9 @@ function convertSingleQuotes(text: string, sep: string): string {
 function convertDoubleQuotes(text: string, sep: string): string {
   // Handle empty quotes "" first - match only when not part of adjacent quotes
   // Require word boundary or start/end of string on at least one side
-  text = text.replace(/(?<=^|[\s(\[{])""(?=$|[\s)\]}.!?,;:])/g, `${LEFT_DOUBLE_QUOTE}${RIGHT_DOUBLE_QUOTE}`)
+  text = text.replace(/(?<=^|[\s([{])""(?=$|[\s)\]}.!?,;:])/g, `${LEFT_DOUBLE_QUOTE}${RIGHT_DOUBLE_QUOTE}`)
   // Handle whitespace-only quotes " " - require non-quote chars on both sides
-  text = text.replace(/(?<=^|[\s(\[{])"(\s+)"(?=$|[\s)\]}.!?,;:])/g, `${LEFT_DOUBLE_QUOTE}$1${RIGHT_DOUBLE_QUOTE}`)
+  text = text.replace(/(?<=^|[\s([{])"(?<ws>\s+)"(?=$|[\s)\]}.!?,;:])/g, `${LEFT_DOUBLE_QUOTE}$<ws>${RIGHT_DOUBLE_QUOTE}`)
 
   const beginningDouble = new RegExp(
     `(?<=^|[\\s\\(\\/\\[\\{\\-${EM_DASH}${sep}])(?<beforeChr>${sep}?)["](?<afterChr>(?<sepWithPunct>${sep}[ .,])|(?=${sep}?\\.{3}|${sep}?[^\\s\\)\\${EM_DASH},!?${sep};:.\\}]))`,
