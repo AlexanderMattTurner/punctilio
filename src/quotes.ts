@@ -58,7 +58,7 @@ function convertDoubleQuotes(text: string, sep: string): string {
   // Require word boundary or start/end of string on at least one side
   text = text.replace(/(?<=^|[\s([{])""(?=$|[\s)\]}.!?,;:])/g, `${LEFT_DOUBLE_QUOTE}${RIGHT_DOUBLE_QUOTE}`)
   // Handle whitespace-only quotes " " - require non-quote chars on both sides
-  text = text.replace(/(?<=^|[\s([{])"(?<ws>\s+)"(?=$|[\s)\]}.!?,;:])/g, `${LEFT_DOUBLE_QUOTE}$<ws>${RIGHT_DOUBLE_QUOTE}`)
+  text = text.replace(/(?<=^|[\s([{])"(?<whitespace>\s+)"(?=$|[\s)\]}.!?,;:])/g, `${LEFT_DOUBLE_QUOTE}$<whitespace>${RIGHT_DOUBLE_QUOTE}`)
 
   const beginningDouble = new RegExp(
     `(?<=^|[\\s\\(\\/\\[\\{\\-${EM_DASH}${sep}])(?<beforeChr>${sep}?)["](?<afterChr>(?<sepWithPunct>${sep}[ .,])|(?=${sep}?\\.{3}|${sep}?[^\\s\\)\\${EM_DASH},!?${sep};:.\\}]))`,
