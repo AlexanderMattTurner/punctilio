@@ -57,6 +57,7 @@
   "packageManager": "pnpm@10.28.1",
   "devDependencies": {
     "@eslint/js": "^9.39.2",
+    "@types/hast": "^3.0.4",
     "@types/jest": "^29.5.12",
     "@types/node": "^20.11.0",
     "eslint": "^9.39.2",
@@ -75,10 +76,16 @@
     "typograf": "7.6.0",
     "unified": "11.0.5"
   },
+  "peerDependencies": {
+    "unified": "^11.0.0"
+  },
+  "peerDependenciesMeta": {
+    "unified": {
+      "optional": true
+    }
+  },
   "dependencies": {
-    "@types/hast": "^3.0.4",
     "escape-string-regexp": "5.0.0",
-    "unified": "^11.0.5",
     "unist-util-visit-parents": "^6.0.1"
   }
 }

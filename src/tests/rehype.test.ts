@@ -204,6 +204,14 @@ describe("rehypePunctilio", () => {
       const withoutFractions = await processHtml(html, { fractions: false })
       expect(withoutFractions).toContain("1/2")
     })
+
+    it("respects custom separator option", async () => {
+      const customSep = "\uE001"
+      const html = '<p>"Hello"</p>'
+      const result = await processHtml(html, { separator: customSep })
+      expect(result).toContain(LEFT_DOUBLE_QUOTE)
+      expect(result).toContain(RIGHT_DOUBLE_QUOTE)
+    })
   })
 
   describe("complex real-world scenarios", () => {
@@ -345,9 +353,7 @@ describe("rehypePunctilio", () => {
       expect(result).toContain('"Hello"')
     })
 
-    it("handles elements without children property", async () => {
-      // Tests the !node?.children early return in transformElement
-      // This is mainly defensive code, but can be triggered by raw HTML
+    it("handles basic paragraph transformation", async () => {
       const html = '<p>"Test"</p>'
       const result = await processHtml(html)
       expect(result).toContain(LEFT_DOUBLE_QUOTE)

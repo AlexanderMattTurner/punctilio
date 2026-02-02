@@ -204,7 +204,6 @@ const TRANSFORMABLE_ELEMENTS = [
   "ruby",
   "rt",
   "rp",
-  "wbr",
 ]
 
 /**
@@ -295,6 +294,9 @@ export function rehypePunctilio(
   }
 
   return (tree: Root) => {
+    // Track transformed elements to avoid double-processing
+    const transformed = new Set<Element>()
+
     visitParents(tree, (node, ancestors) => {
       // Only process element nodes
       if (node.type !== "element") {
@@ -302,6 +304,11 @@ export function rehypePunctilio(
       }
 
       const element = node as Element
+
+      // Skip if already transformed
+      if (transformed.has(element)) {
+        return
+      }
 
       // Check if this node or any ancestor should be skipped
       if (shouldSkip(element)) {
@@ -314,7 +321,10 @@ export function rehypePunctilio(
       // Collect and transform elements with text content
       const elementsToTransform = collectTransformableElements(element, shouldSkip)
       for (const elt of elementsToTransform) {
-        transformElement(elt, transformFn, shouldSkip, separator)
+        if (!transformed.has(elt)) {
+          transformElement(elt, transformFn, shouldSkip, separator)
+          transformed.add(elt)
+        }
       }
     })
   }
