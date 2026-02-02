@@ -18,10 +18,14 @@ echo "Current version: $CURRENT_VERSION"
 # Check if package.json version was already changed in this commit
 PREV_VERSION=$(git show HEAD~1:package.json 2>/dev/null | node -p "JSON.parse(require('fs').readFileSync(0, 'utf8')).version" 2>/dev/null || echo "")
 if [ -n "$PREV_VERSION" ] && [ "$PREV_VERSION" != "$CURRENT_VERSION" ]; then
-  echo "package.json version already changed in this commit ($PREV_VERSION -> $CURRENT_VERSION). Skipping."
-  exit 0
+  echo "package.json version already changed in this commit ($PREV_VERSION -> $CURRENT_VERSION). Skipping version increment."
+  NEW_VERSION="$CURRENT_VERSION"
+  SKIP_INCREMENT=true
+else
+  SKIP_INCREMENT=false
 fi
 
+if [ "$SKIP_INCREMENT" = false ]; then
 # Get commits since last version bump
 LAST_BUMP_COMMIT=$(git log --oneline --grep="^chore: bump version" -1 --format="%H" 2>/dev/null || echo "")
 
@@ -100,6 +104,7 @@ case $BUMP in
     NEW_VERSION="${MAJOR}.${MINOR}.$((PATCH_NUM + 1))"
     ;;
 esac
+fi
 
 echo "New version: $NEW_VERSION"
 
@@ -109,24 +114,29 @@ if ! [[ "$NEW_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
   exit 1
 fi
 
-# Update package.json using node to preserve formatting
-# Pass version via environment variable to avoid shell injection
-NEW_VERSION="$NEW_VERSION" node -e '
+# Update package.json if version wasn't already changed
+if [ "$SKIP_INCREMENT" = false ]; then
+  # Update package.json using node to preserve formatting
+  # Pass version via environment variable to avoid shell injection
+  NEW_VERSION="$NEW_VERSION" node -e '
 const fs = require("fs");
 const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
 pkg.version = process.env.NEW_VERSION;
 fs.writeFileSync("package.json", JSON.stringify(pkg, null, 2) + "\n");
 '
-
-echo "Updated package.json to version $NEW_VERSION"
+  echo "Updated package.json to version $NEW_VERSION"
+fi
 
 # Configure git
 git config user.name "github-actions[bot]"
 git config user.email "github-actions[bot]@users.noreply.github.com"
 
-# Commit and push
-git add package.json
-git commit -m "chore: bump version to $NEW_VERSION"
-git push
-
-echo "Version bump complete!"
+# Commit and push if there are changes
+if git diff --quiet package.json && git diff --cached --quiet package.json; then
+  echo "No uncommitted changes to package.json. Version $NEW_VERSION already committed."
+else
+  git add package.json
+  git commit -m "chore: bump version to $NEW_VERSION"
+  git push
+  echo "Version bump complete!"
+fi
