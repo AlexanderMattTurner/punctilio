@@ -341,18 +341,16 @@ describe("niceQuotes", () => {
     })
   })
 
-  describe("known bugs", () => {
-    // BUG: Empty single quotes become double apostrophes instead of left+right single quotes
-    it.failing("should convert empty single quotes to left+right pair", () => {
+  describe("empty and whitespace quotes", () => {
+    it("converts empty single quotes to left+right pair", () => {
       expect(niceQuotes("''")).toBe(`${LEFT_SINGLE_QUOTE}${RIGHT_SINGLE_QUOTE}`)
     })
 
-    // BUG: Quote containing only whitespace has limited conversion
-    it.failing("should convert quotes containing only whitespace", () => {
+    it("converts quotes containing only whitespace", () => {
       expect(niceQuotes('" "')).toBe(`${LEFT_DOUBLE_QUOTE} ${RIGHT_DOUBLE_QUOTE}`)
     })
 
-    it.failing("should convert single quotes containing only whitespace", () => {
+    it("converts single quotes containing only whitespace", () => {
       expect(niceQuotes("' '")).toBe(`${LEFT_SINGLE_QUOTE} ${RIGHT_SINGLE_QUOTE}`)
     })
   })

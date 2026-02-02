@@ -52,6 +52,8 @@ export function enDashNumberRange(text: string, options: DashOptions = {}): stri
       const s = start.replace(new RegExp(chr, "g"), "")
       const e = end.replace(new RegExp(chr, "g"), "")
       if (/^(?:19|20)\d{2}$/.test(s) && /^(?:0[1-9]|1[0-2])$/.test(e)) return match
+      // Skip phone number patterns: 3 digits followed by 4 digits (e.g., 555-1234)
+      if (/^\d{3}$/.test(s) && /^\d{4}$/.test(e)) return match
       return `${start}${EN_DASH}${end}${suffix || ""}`
     }
   )

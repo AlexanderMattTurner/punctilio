@@ -696,17 +696,16 @@ describe("fractions edge cases", () => {
   })
 })
 
-describe("known bugs", () => {
-  // BUG: Chained tight multiplications only convert first occurrence
-  it.failing("should convert all chained tight multiplications", () => {
+describe("chained multiplications", () => {
+  it("converts all chained tight multiplications", () => {
     expect(multiplication("5x5x5")).toBe(`5${UNICODE_SYMBOLS.MULTIPLICATION}5${UNICODE_SYMBOLS.MULTIPLICATION}5`)
   })
 
-  it.failing("should convert all spaced multiplications in chain", () => {
+  it("converts all spaced multiplications in chain", () => {
     expect(multiplication("5 x 5 x 5")).toBe(`5 ${UNICODE_SYMBOLS.MULTIPLICATION} 5 ${UNICODE_SYMBOLS.MULTIPLICATION} 5`)
   })
 
-  it.failing("should convert all asterisk multiplications in chain", () => {
+  it("converts all asterisk multiplications in chain", () => {
     expect(multiplication("5*5*5")).toBe(`5${UNICODE_SYMBOLS.MULTIPLICATION}5${UNICODE_SYMBOLS.MULTIPLICATION}5`)
   })
 })

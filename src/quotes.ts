@@ -24,6 +24,11 @@ export interface QuoteOptions {
 
 /** Convert straight single quotes to curly quotes and apostrophes */
 function convertSingleQuotes(text: string, sep: string): string {
+  // Handle empty single quotes '' and whitespace-only quotes ' ' first
+  // Only match straight quotes, not already-converted curly quotes
+  text = text.replace(/(?<!['\u2018\u2019])''(?!['\u2018\u2019])/g, `${LEFT_SINGLE_QUOTE}${RIGHT_SINGLE_QUOTE}`)
+  text = text.replace(/(?<!['\u2018\u2019])'(\s+)'(?!['\u2018\u2019])/g, `${LEFT_SINGLE_QUOTE}$1${RIGHT_SINGLE_QUOTE}`)
+
   const afterEndingSinglePatterns = `\\s\\.!?;,\\)${EM_DASH}\\-\\]"`
   const afterEndingSingle = `(?=${sep}?(?:s${sep}?)?(?:[${afterEndingSinglePatterns}]|$))`
   const endingSingle = `(?<=[^\\s${LEFT_DOUBLE_QUOTE}'])[']${afterEndingSingle}`
@@ -48,6 +53,12 @@ function convertSingleQuotes(text: string, sep: string): string {
 
 /** Convert straight double quotes to curly quotes */
 function convertDoubleQuotes(text: string, sep: string): string {
+  // Handle empty quotes "" first - match only when not part of adjacent quotes
+  // Require word boundary or start/end of string on at least one side
+  text = text.replace(/(?<=^|[\s(\[{])""(?=$|[\s)\]}.!?,;:])/g, `${LEFT_DOUBLE_QUOTE}${RIGHT_DOUBLE_QUOTE}`)
+  // Handle whitespace-only quotes " " - require non-quote chars on both sides
+  text = text.replace(/(?<=^|[\s(\[{])"(\s+)"(?=$|[\s)\]}.!?,;:])/g, `${LEFT_DOUBLE_QUOTE}$1${RIGHT_DOUBLE_QUOTE}`)
+
   const beginningDouble = new RegExp(
     `(?<=^|[\\s\\(\\/\\[\\{\\-${EM_DASH}${sep}])(?<beforeChr>${sep}?)["](?<afterChr>(?<sepWithPunct>${sep}[ .,])|(?=${sep}?\\.{3}|${sep}?[^\\s\\)\\${EM_DASH},!?${sep};:.\\}]))`,
     "gm"

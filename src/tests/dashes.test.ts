@@ -589,13 +589,12 @@ describe("negative temperatures", () => {
   })
 })
 
-describe("known bugs", () => {
-  // BUG: Two-segment number patterns like "555-1234" are treated as ranges
-  it.failing("should preserve short phone numbers (555-1234)", () => {
+describe("phone number preservation", () => {
+  it("preserves short phone numbers (555-1234)", () => {
     expect(hyphenReplace("555-1234")).toBe("555-1234")
   })
 
-  it.failing("should preserve phone with area code in parens", () => {
+  it("preserves phone with area code in parens", () => {
     expect(hyphenReplace("(555) 123-4567")).toBe("(555) 123-4567")
   })
 })
