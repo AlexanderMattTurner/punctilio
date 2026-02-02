@@ -9,6 +9,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./rehype": {
+      "types": "./dist/rehype.d.ts",
+      "import": "./dist/rehype.js"
     }
   },
   "files": [
@@ -30,7 +34,12 @@
     "en-dash",
     "typesetting",
     "punctuation",
-    "text-formatting"
+    "text-formatting",
+    "rehype",
+    "rehype-plugin",
+    "unified",
+    "markdown",
+    "html"
   ],
   "author": "Alexander Turner",
   "license": "MIT",
@@ -53,6 +62,8 @@
     "eslint": "^9.39.2",
     "eslint-plugin-regexp": "^3.0.0",
     "jest": "^29.7.0",
+    "rehype-parse": "9.0.1",
+    "rehype-stringify": "10.0.1",
     "retext": "9.0.0",
     "retext-smartypants": "6.2.0",
     "smartquotes": "2.3.2",
@@ -65,6 +76,9 @@
     "unified": "11.0.5"
   },
   "dependencies": {
-    "escape-string-regexp": "5.0.0"
+    "@types/hast": "^3.0.4",
+    "escape-string-regexp": "5.0.0",
+    "unified": "^11.0.5",
+    "unist-util-visit-parents": "^6.0.1"
   }
 }
