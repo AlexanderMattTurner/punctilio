@@ -75,6 +75,10 @@ _~ = partial success (handles main example but misses edge cases)_
 | `10' x 12'` | Second `'` not converted | Quote balancing prevents double prime conversion |
 | `No. 3` | Doesn't replace normal space with a non-breaking one | Requires major new feature |
 | German/French quotes | Not supported | `« Bonjour »` requires language detection |
+| `5x5x5` | Only first `x` converted | Chained multiplications: `5×5x5` instead of `5×5×5` |
+| `555-1234` | Becomes `555–1234` | Short phone numbers incorrectly treated as ranges |
+| `''` (empty) | Becomes `''` | Empty single quotes become double apostrophes |
+| `" "` (space only) | Partial conversion | Quotes with only whitespace have limited support |
 
 ## Test suite
 

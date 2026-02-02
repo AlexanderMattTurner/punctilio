@@ -513,3 +513,89 @@ describe("dashStyle option", () => {
     )
   })
 })
+
+describe("technical patterns preservation", () => {
+  it.each([
+    ["https://example-site.com", "https://example-site.com"],
+    ["http://sub-domain.example.com/path-to-file", "http://sub-domain.example.com/path-to-file"],
+    ["user-name@example.com", "user-name@example.com"],
+    ["550e8400-e29b-41d4-a716-446655440000", "550e8400-e29b-41d4-a716-446655440000"],
+    ["commit 1a2b3c4d-5e6f", "commit 1a2b3c4d-5e6f"],
+  ])('preserves technical pattern: "%s"', (input, expected) => {
+    expect(hyphenReplace(input)).toBe(expected)
+  })
+})
+
+describe("scientific notation", () => {
+  it.each([
+    ["1e-10", "1e-10"],
+    ["5.5e-3", "5.5e-3"],
+    ["1E-5", "1E-5"],
+    ["3.14e+10", "3.14e+10"],
+  ])('preserves scientific notation: "%s"', (input, expected) => {
+    expect(hyphenReplace(input)).toBe(expected)
+  })
+})
+
+describe("version numbers", () => {
+  it.each([
+    ["v1.0.0-beta", "v1.0.0-beta"],
+    ["1.0.0-rc.1", "1.0.0-rc.1"],
+    ["2.0.0-alpha.1", "2.0.0-alpha.1"],
+    ["1.0.0-beta.1-hotfix", "1.0.0-beta.1-hotfix"],
+  ])('preserves version number: "%s"', (input, expected) => {
+    expect(hyphenReplace(input)).toBe(expected)
+  })
+})
+
+describe("edge number ranges", () => {
+  it.each([
+    ["1000000-2000000", `1000000${EN_DASH}2000000`],
+    ["1.5-2.5", `1.5${EN_DASH}2.5`],
+    ["pp. 100-200", `pp. 100${EN_DASH}200`],
+    ["I-V", "I-V"],
+    ["i-v", "i-v"],
+    ["Chapter I-III", "Chapter I-III"],
+  ])('handles number range edge case: "%s"', (input, expected) => {
+    expect(hyphenReplace(input)).toBe(expected)
+  })
+})
+
+describe("social media patterns", () => {
+  it.each([
+    ["#my-hashtag", "#my-hashtag"],
+    ["@user-name", "@user-name"],
+  ])('preserves social pattern: "%s"', (input, expected) => {
+    expect(hyphenReplace(input)).toBe(expected)
+  })
+})
+
+describe("mixed dash types", () => {
+  it.each([
+    [`pages 1${EN_DASH}5`, `pages 1${EN_DASH}5`],
+    [`word${EM_DASH}word`, `word${EM_DASH}word`],
+    [`pages 1-5 and word${EM_DASH}word`, `pages 1${EN_DASH}5 and word${EM_DASH}word`],
+  ])('handles mixed dashes: "%s"', (input, expected) => {
+    expect(hyphenReplace(input)).toBe(expected)
+  })
+})
+
+describe("negative temperatures", () => {
+  it.each([
+    ["-5 to -10", `${MINUS}5 to ${MINUS}10`],
+    ["High: 5, Low: -10", `High: 5, Low: ${MINUS}10`],
+  ])('handles negative temperatures: "%s"', (input, expected) => {
+    expect(hyphenReplace(input)).toBe(expected)
+  })
+})
+
+describe("known bugs", () => {
+  // BUG: Two-segment number patterns like "555-1234" are treated as ranges
+  it.failing("should preserve short phone numbers (555-1234)", () => {
+    expect(hyphenReplace("555-1234")).toBe("555-1234")
+  })
+
+  it.failing("should preserve phone with area code in parens", () => {
+    expect(hyphenReplace("(555) 123-4567")).toBe("(555) 123-4567")
+  })
+})
