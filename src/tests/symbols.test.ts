@@ -597,3 +597,114 @@ describe("symbolTransform", () => {
     expect(symbolTransform("A -> B", { includeArrows: false })).toBe("A -> B")
   })
 })
+
+describe("multiplication edge cases", () => {
+  it.each([
+    ["1000000x2000000", `1000000${UNICODE_SYMBOLS.MULTIPLICATION}2000000`],
+    ["01x02", `01${UNICODE_SYMBOLS.MULTIPLICATION}02`],
+    ["2x", `2${UNICODE_SYMBOLS.MULTIPLICATION}`],
+  ])('handles multiplication edge: "%s"', (input, expected) => {
+    expect(multiplication(input)).toBe(expected)
+  })
+})
+
+describe("multiplication - preserve words containing x", () => {
+  it.each([
+    ["extra", "extra"],
+    ["index", "index"],
+    ["2xtra", "2xtra"],
+    ["hex", "hex"],
+    ["next", "next"],
+    ["text", "text"],
+    ["approximately", "approximately"],
+  ])('does NOT transform word: "%s"', (input, expected) => {
+    expect(multiplication(input)).toBe(expected)
+  })
+})
+
+describe("ellipsis edge cases", () => {
+  it.each([
+    ["One... Two... Three...", `One${UNICODE_SYMBOLS.ELLIPSIS} Two${UNICODE_SYMBOLS.ELLIPSIS} Three${UNICODE_SYMBOLS.ELLIPSIS}`],
+    ["...5 items", `${UNICODE_SYMBOLS.ELLIPSIS} 5 items`],
+    ["End of sentence....", `End of sentence${UNICODE_SYMBOLS.ELLIPSIS}.`],
+    ['"Wait..."', `"Wait${UNICODE_SYMBOLS.ELLIPSIS}"`],
+  ])('handles ellipsis edge: "%s"', (input, expected) => {
+    expect(ellipsis(input)).toBe(expected)
+  })
+})
+
+describe("ellipsis - preserve abbreviations", () => {
+  it.each([
+    ["e.g.", "e.g."],
+    ["i.e.", "i.e."],
+    ["a.m.", "a.m."],
+    ["p.m.", "p.m."],
+    ["Dr.", "Dr."],
+    ["Mr.", "Mr."],
+    ["etc.", "etc."],
+  ])('preserves abbreviation: "%s"', (input, expected) => {
+    expect(ellipsis(input)).toBe(expected)
+  })
+})
+
+describe("prime marks edge cases", () => {
+  it.each([
+    ['100\'50"', `100${UNICODE_SYMBOLS.PRIME}50${UNICODE_SYMBOLS.DOUBLE_PRIME}`],
+    ["5' boards", `5${UNICODE_SYMBOLS.PRIME} boards`],
+    ['12" pipe', `12${UNICODE_SYMBOLS.DOUBLE_PRIME} pipe`],
+    ["5', 10'", `5${UNICODE_SYMBOLS.PRIME}, 10'`],
+  ])('handles prime mark edge: "%s"', (input, expected) => {
+    expect(primeMarks(input)).toBe(expected)
+  })
+})
+
+describe("degrees edge temperatures", () => {
+  it.each([
+    ["-40 C", `-40 ${UNICODE_SYMBOLS.DEGREE}C`],
+    ["-40 F", `-40 ${UNICODE_SYMBOLS.DEGREE}F`],
+    ["0 C", `0 ${UNICODE_SYMBOLS.DEGREE}C`],
+    ["0 F", `0 ${UNICODE_SYMBOLS.DEGREE}F`],
+    ["1000 C", `1000 ${UNICODE_SYMBOLS.DEGREE}C`],
+    ["1000 F", `1000 ${UNICODE_SYMBOLS.DEGREE}F`],
+  ])('handles temperature edge: "%s"', (input, expected) => {
+    expect(degrees(input)).toBe(expected)
+  })
+})
+
+describe("arrow edge cases", () => {
+  it.each([
+    ["A -> B -> C", `A ${UNICODE_SYMBOLS.ARROW_RIGHT} B ${UNICODE_SYMBOLS.ARROW_RIGHT} C`],
+    ["A <- B <- C", `A ${UNICODE_SYMBOLS.ARROW_LEFT} B ${UNICODE_SYMBOLS.ARROW_LEFT} C`],
+    ["A ---> B", `A ${UNICODE_SYMBOLS.ARROW_RIGHT} B`],
+    ["A <--- B", `A ${UNICODE_SYMBOLS.ARROW_LEFT} B`],
+    ["-> output", `${UNICODE_SYMBOLS.ARROW_RIGHT} output`],
+    ["input ->", `input ${UNICODE_SYMBOLS.ARROW_RIGHT}`],
+  ])('handles arrow edge: "%s"', (input, expected) => {
+    expect(arrows(input)).toBe(expected)
+  })
+})
+
+describe("fractions edge cases", () => {
+  it.each([
+    ["1/2 and 1/4", `${UNICODE_SYMBOLS.FRACTION_1_2} and ${UNICODE_SYMBOLS.FRACTION_1_4}`],
+    ["Add 1/2.", `Add ${UNICODE_SYMBOLS.FRACTION_1_2}.`],
+    ["(1/2)", `(${UNICODE_SYMBOLS.FRACTION_1_2})`],
+    ["5/7", "5/7"],
+    ["11/12", "11/12"],
+  ])('handles fraction edge: "%s"', (input, expected) => {
+    expect(fractions(input)).toBe(expected)
+  })
+})
+
+describe("chained multiplications", () => {
+  const M = UNICODE_SYMBOLS.MULTIPLICATION
+  it.each([
+    ["5x5x5", `5${M}5${M}5`, "tight x"],
+    ["5 x 5 x 5", `5 ${M} 5 ${M} 5`, "spaced x"],
+    ["5*5*5", `5${M}5${M}5`, "tight *"],
+    ["5 * 5 * 5", `5 ${M} 5 ${M} 5`, "spaced *"],
+    ["10x10x10", `10${M}10${M}10`, "multi-digit"],
+  ])("converts %s → %s (%s)", (input, expected) => {
+    expect(multiplication(input)).toBe(expected)
+  })
+})

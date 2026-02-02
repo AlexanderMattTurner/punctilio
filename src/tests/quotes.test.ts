@@ -199,23 +199,82 @@ describe("niceQuotes", () => {
 
   describe("with separator character", () => {
     const sep = "\uE000"
-
-    it("should preserve separator character positions", () => {
-      const input = `"Hello${sep} world"`
-      const result = niceQuotes(input, { separator: sep })
-      expect(result).toBe(`${LEFT_DOUBLE_QUOTE}Hello${sep} world${RIGHT_DOUBLE_QUOTE}`)
+    it.each([
+      [`"Hello${sep} world"`, `${LEFT_DOUBLE_QUOTE}Hello${sep} world${RIGHT_DOUBLE_QUOTE}`, "preserves separator positions"],
+      [`don${sep}'t`, `don${sep}${RIGHT_SINGLE_QUOTE}t`, "contractions across separator"],
+      [`"test${sep}"`, `${LEFT_DOUBLE_QUOTE}test${sep}${RIGHT_DOUBLE_QUOTE}`, "quotes at separator boundaries"],
+    ])("%s → %s (%s)", (input, expected) => {
+      expect(niceQuotes(input, { separator: sep })).toBe(expected)
     })
+  })
 
-    it("should handle contractions across separator", () => {
-      const input = `don${sep}'t`
-      const result = niceQuotes(input, { separator: sep })
-      expect(result).toBe(`don${sep}${RIGHT_SINGLE_QUOTE}t`)
+  describe("unbalanced and edge quotes", () => {
+    it.each([
+      ['"unclosed', `${LEFT_DOUBLE_QUOTE}unclosed`],
+      ["unclosed'", `unclosed${RIGHT_SINGLE_QUOTE}`],
+      ['""', `${LEFT_DOUBLE_QUOTE}${RIGHT_DOUBLE_QUOTE}`],
+    ])('handles edge quote pattern: "%s"', (input, expected) => {
+      expect(niceQuotes(input)).toBe(expected)
     })
+  })
 
-    it("should handle quotes at separator boundaries", () => {
-      const input = `"test${sep}"`
-      const result = niceQuotes(input, { separator: sep })
-      expect(result).toBe(`${LEFT_DOUBLE_QUOTE}test${sep}${RIGHT_DOUBLE_QUOTE}`)
+  describe("quotes after various punctuation", () => {
+    it.each([
+      ['text; "quote"', `text; ${LEFT_DOUBLE_QUOTE}quote${RIGHT_DOUBLE_QUOTE}`],
+      ['title: "quote"', `title: ${LEFT_DOUBLE_QUOTE}quote${RIGHT_DOUBLE_QUOTE}`],
+      ['what? "quote"', `what? ${LEFT_DOUBLE_QUOTE}quote${RIGHT_DOUBLE_QUOTE}`],
+      ['wow! "quote"', `wow! ${LEFT_DOUBLE_QUOTE}quote${RIGHT_DOUBLE_QUOTE}`],
+      ['[note] "quote"', `[note] ${LEFT_DOUBLE_QUOTE}quote${RIGHT_DOUBLE_QUOTE}`],
+      ['{code} "quote"', `{code} ${LEFT_DOUBLE_QUOTE}quote${RIGHT_DOUBLE_QUOTE}`],
+    ])('handles quotes after punctuation: "%s"', (input, expected) => {
+      expect(niceQuotes(input)).toBe(expected)
+    })
+  })
+
+  describe("consecutive contractions", () => {
+    it.each([
+      ["I'd've", `I${RIGHT_SINGLE_QUOTE}d${RIGHT_SINGLE_QUOTE}ve`],
+      ["y'all'd've", `y${RIGHT_SINGLE_QUOTE}all${RIGHT_SINGLE_QUOTE}d${RIGHT_SINGLE_QUOTE}ve`],
+      ["wouldn't've", `wouldn${RIGHT_SINGLE_QUOTE}t${RIGHT_SINGLE_QUOTE}ve`],
+      ["couldn't've", `couldn${RIGHT_SINGLE_QUOTE}t${RIGHT_SINGLE_QUOTE}ve`],
+    ])('handles double contraction: "%s"', (input, expected) => {
+      expect(niceQuotes(input)).toBe(expected)
+    })
+  })
+
+  describe("quotes with special Unicode", () => {
+    it.each([
+      ['"Hello! 😊"', `${LEFT_DOUBLE_QUOTE}Hello! 😊${RIGHT_DOUBLE_QUOTE}`],
+      ['"你好"', `${LEFT_DOUBLE_QUOTE}你好${RIGHT_DOUBLE_QUOTE}`],
+      ['"こんにちは"', `${LEFT_DOUBLE_QUOTE}こんにちは${RIGHT_DOUBLE_QUOTE}`],
+      ['"مرحبا"', `${LEFT_DOUBLE_QUOTE}مرحبا${RIGHT_DOUBLE_QUOTE}`],
+      ['"Привет"', `${LEFT_DOUBLE_QUOTE}Привет${RIGHT_DOUBLE_QUOTE}`],
+    ])('handles Unicode content in quotes: "%s"', (input, expected) => {
+      expect(niceQuotes(input)).toBe(expected)
+    })
+  })
+
+  describe("multiline quotes", () => {
+    it.each([
+      ['"Hello\nWorld"', `${LEFT_DOUBLE_QUOTE}Hello\nWorld${RIGHT_DOUBLE_QUOTE}`],
+      ['"A"\n"B"', `${LEFT_DOUBLE_QUOTE}A${RIGHT_DOUBLE_QUOTE}\n${LEFT_DOUBLE_QUOTE}B${RIGHT_DOUBLE_QUOTE}`],
+    ])('handles multiline: "%s"', (input, expected) => {
+      expect(niceQuotes(input)).toBe(expected)
+    })
+  })
+
+  describe("split dialogue", () => {
+    it.each([
+      [
+        '"Yes," he said, "absolutely."',
+        `${LEFT_DOUBLE_QUOTE}Yes,${RIGHT_DOUBLE_QUOTE} he said, ${LEFT_DOUBLE_QUOTE}absolutely.${RIGHT_DOUBLE_QUOTE}`,
+      ],
+      [
+        '"No," she replied, "I disagree."',
+        `${LEFT_DOUBLE_QUOTE}No,${RIGHT_DOUBLE_QUOTE} she replied, ${LEFT_DOUBLE_QUOTE}I disagree.${RIGHT_DOUBLE_QUOTE}`,
+      ],
+    ])('handles split dialogue: "%s"', (input, expected) => {
+      expect(niceQuotes(input)).toBe(expected)
     })
   })
 
@@ -268,6 +327,17 @@ describe("niceQuotes", () => {
       it("still converts straight quotes to smart quotes", () => {
         expect(niceQuotes('"Hello".', { punctuationStyle: "none" })).toBe(periodOutsideDouble)
       })
+    })
+  })
+
+  describe("empty and whitespace quotes", () => {
+    it.each([
+      ["''", `${LEFT_SINGLE_QUOTE}${RIGHT_SINGLE_QUOTE}`, "empty single"],
+      ['""', `${LEFT_DOUBLE_QUOTE}${RIGHT_DOUBLE_QUOTE}`, "empty double"],
+      ["' '", `${LEFT_SINGLE_QUOTE} ${RIGHT_SINGLE_QUOTE}`, "whitespace single"],
+      ['" "', `${LEFT_DOUBLE_QUOTE} ${RIGHT_DOUBLE_QUOTE}`, "whitespace double"],
+    ])("converts %s → %s (%s)", (input, expected) => {
+      expect(niceQuotes(input)).toBe(expected)
     })
   })
 })
