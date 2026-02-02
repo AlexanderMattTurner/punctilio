@@ -62,6 +62,7 @@
     "@types/node": "^20.11.0",
     "eslint": "^9.39.2",
     "eslint-plugin-regexp": "^3.0.0",
+    "hastscript": "9.0.1",
     "jest": "^29.7.0",
     "rehype-parse": "9.0.1",
     "rehype-stringify": "10.0.1",
