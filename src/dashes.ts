@@ -47,13 +47,12 @@ export function enDashNumberRange(text: string, options: DashOptions = {}): stri
   const notAfterDash = `(?<![${disallowed}${LATIN_LETTERS}.])`           // prevent Llama-2-7B
   const rangeStart = `(?<start>(?:p\\.?|[${currencies}])?\\d[\\d.,]*${chr}?)`  // p.10, $100, 1,000
   const rangeEnd = `(?<end>${chr}?[${currencies}]?\\d[\\d.,]*)`          // 20, $200, 2,000
-  const notDecimal = `(?!\\.\\d)`                                        // don't match 1.5
   const moreSegments = `(?<following>(?:${chr}?-${chr}?\\d+)*)`          // -4567 in phone numbers
   const unitSuffix = `(?<suffix>${chr}?(?:[AaPp][Mm]|[xKBTM]))?`         // am/pm, K/M/B
 
   // Positive ranges: 1-5, $100-$200, €5-€10, p.10-15
   const positiveRangePattern = [
-    phoneAreaCode, wb, notAfterDash, rangeStart, "-", rangeEnd, notDecimal, moreSegments, unitSuffix, wbe
+    phoneAreaCode, wb, notAfterDash, rangeStart, "-", rangeEnd, moreSegments, unitSuffix, wbe
   ].join("")
 
   text = text.replace(
