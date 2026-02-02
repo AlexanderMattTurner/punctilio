@@ -128,7 +128,7 @@ export interface TransformOptions {
 import { niceQuotes } from "./quotes.js"
 import { hyphenReplace } from "./dashes.js"
 import { symbolTransform, fractions as fractionsTransform, degrees as degreesTransform, superscriptOrdinal as superscriptTransform, primeMarks, collapseSpaces as collapseSpacesTransform, punctuationLigatures as ligaturesTransform } from "./symbols.js"
-import { assertSeparatorCountPreserved } from "./utils.js"
+import { assertSeparatorCountPreserved, formatErrorString } from "./utils.js"
 import { DEFAULT_SEPARATOR } from "./constants.js"
 
 export { assertSeparatorCountPreserved, countSeparators } from "./utils.js"
@@ -231,8 +231,8 @@ export function transform(text: string, options: TransformOptions = {}): string 
     if (text !== secondPass) {
       throw new Error(
         `Transform is not idempotent.\n` +
-        `First pass:  ${JSON.stringify(text)}\n` +
-        `Second pass: ${JSON.stringify(secondPass)}\n` +
+        `First pass:  ${formatErrorString(text, "first-pass")}\n` +
+        `Second pass: ${formatErrorString(secondPass, "second-pass")}\n` +
         `This is a bug in punctilio. Please file an issue at https://github.com/alexander-turner/punctilio/issues\n` +
         `Include the input text that caused this error.`
       )
