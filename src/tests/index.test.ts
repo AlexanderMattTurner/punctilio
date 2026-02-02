@@ -221,4 +221,251 @@ describe("transform", () => {
       expect(result).toBe(`${LEFT_DOUBLE_QUOTE}Number 5${RIGHT_DOUBLE_QUOTE}`)
     })
   })
+
+  describe("complex combined transformations", () => {
+    it.each([
+      [
+        '"Wait..." she said - "it\'s pages 1-5."',
+        `${LEFT_DOUBLE_QUOTE}Wait…${RIGHT_DOUBLE_QUOTE} she said${EM_DASH}${LEFT_DOUBLE_QUOTE}it${RIGHT_SINGLE_QUOTE}s pages 1–5.${RIGHT_DOUBLE_QUOTE}`,
+      ],
+      [
+        "(c) 2024 - Room is 10x12, set to 72 F",
+        `${COPYRIGHT} 2024${EM_DASH}Room is 10×12, set to 72 °F`,
+      ],
+    ])('handles complex transform: "%s"', (input, expected) => {
+      expect(transform(input, { degrees: true })).toBe(expected)
+    })
+  })
+
+  describe("empty and whitespace inputs", () => {
+    it.each([
+      ["", ""],
+      [" ", " "],
+      ["\n", "\n"],
+      ["\t", "\t"],
+      ["   ", " "],
+    ])('handles empty/whitespace: "%s"', (input, expected) => {
+      expect(transform(input)).toBe(expected)
+    })
+  })
+
+  describe("very long inputs", () => {
+    it("handles long repeated patterns", () => {
+      const input = '"Hello" '.repeat(100)
+      const result = transform(input)
+      expect(result).toContain(LEFT_DOUBLE_QUOTE)
+      expect(result).toContain(RIGHT_DOUBLE_QUOTE)
+    })
+
+    it("handles long continuous text", () => {
+      const input = "word ".repeat(1000)
+      const result = transform(input)
+      expect(result).toBe(input.trim() + " ")
+    })
+
+    it("converts ALL quote pairs in repeated pattern", () => {
+      const count = 50
+      const input = '"Hello" '.repeat(count)
+      const result = transform(input)
+      const leftCount = (result.match(new RegExp(LEFT_DOUBLE_QUOTE, "g")) || []).length
+      const rightCount = (result.match(new RegExp(RIGHT_DOUBLE_QUOTE, "g")) || []).length
+      expect(leftCount).toBe(count)
+      expect(rightCount).toBe(count)
+    })
+
+    it("converts ALL dashes in repeated pattern", () => {
+      const count = 50
+      const input = "pages 1-5 ".repeat(count)
+      const result = transform(input)
+      const enDashCount = (result.match(/–/g) || []).length
+      expect(enDashCount).toBe(count)
+    })
+
+    it("converts ALL ellipses in repeated pattern", () => {
+      const count = 50
+      const input = "Wait... ".repeat(count)
+      const result = transform(input)
+      const ellipsisCount = (result.match(/…/g) || []).length
+      expect(ellipsisCount).toBe(count)
+    })
+  })
+
+  describe("Unicode edge cases", () => {
+    it.each([
+      ['"test\u200Bword"', `${LEFT_DOUBLE_QUOTE}test\u200Bword${RIGHT_DOUBLE_QUOTE}`],
+      ['"test\u200Fword"', `${LEFT_DOUBLE_QUOTE}test\u200Fword${RIGHT_DOUBLE_QUOTE}`],
+      ['"caf\u0065\u0301"', `${LEFT_DOUBLE_QUOTE}caf\u0065\u0301${RIGHT_DOUBLE_QUOTE}`],
+    ])('handles Unicode edge case', (input, expected) => {
+      expect(transform(input)).toBe(expected)
+    })
+  })
+
+  describe("option combinations", () => {
+    it("applies all optional transforms together", () => {
+      const input = "1st place: 1/2 at 72 F - wow!!"
+      const result = transform(input, {
+        fractions: true,
+        degrees: true,
+        superscript: true,
+        ligatures: true,
+      })
+      expect(result).toContain("ˢᵗ")
+      expect(result).toContain("½")
+      expect(result).toContain("°")
+    })
+
+    it("respects disabled transforms", () => {
+      const input = "1/2 at 72 F"
+      const result = transform(input, {
+        fractions: false,
+        degrees: false,
+      })
+      expect(result).not.toContain("½")
+      expect(result).not.toContain("°")
+    })
+  })
+
+  describe("separator robustness", () => {
+    const sep = DEFAULT_SEPARATOR
+
+    it.each([
+      [`${sep}"test"${sep}`, `${sep}${LEFT_DOUBLE_QUOTE}test${RIGHT_DOUBLE_QUOTE}${sep}`],
+      [`"test${sep}word"`, `${LEFT_DOUBLE_QUOTE}test${sep}word${RIGHT_DOUBLE_QUOTE}`],
+      [`${sep}${sep}"test"${sep}${sep}`, `${sep}${sep}${LEFT_DOUBLE_QUOTE}test${RIGHT_DOUBLE_QUOTE}${sep}${sep}`],
+    ])('handles separator in quotes', (input, expected) => {
+      expect(transform(input, { separator: sep })).toBe(expected)
+    })
+
+    it.each([
+      [`word${sep} - ${sep}word`, `word${sep}${EM_DASH}${sep}word`],
+      [`1${sep}-${sep}5`, `1${sep}–${sep}5`],
+    ])('handles separator in dashes', (input, expected) => {
+      expect(transform(input, { separator: sep })).toBe(expected)
+    })
+
+    it("preserves exact separator count through transform", () => {
+      const input = `${sep}text${sep}more${sep}text${sep}`
+      const result = transform(input, { separator: sep })
+      const inputCount = (input.match(new RegExp(sep, "g")) || []).length
+      const resultCount = (result.match(new RegExp(sep, "g")) || []).length
+      expect(resultCount).toBe(inputCount)
+    })
+
+    it("handles input containing separator character", () => {
+      const input = `Text with ${sep} in it`
+      expect(() => transform(input, { separator: sep })).not.toThrow()
+    })
+  })
+
+  describe("additional idempotency", () => {
+    it.each([
+      '"Hello" - she said, "it\'s pages 1-5..."',
+      'Product(tm) 5x5 at 72 F (c) 2024',
+      "Add 1/2 cup - that's about 3/4 done",
+      '1st place winner said "congrats!!"',
+    ])('is idempotent: "%s"', (input) => {
+      const first = transform(input, { fractions: true, degrees: true, superscript: true, ligatures: true })
+      const second = transform(first, { fractions: true, degrees: true, superscript: true, ligatures: true })
+      expect(second).toBe(first)
+    })
+
+    it.each([
+      `${LEFT_DOUBLE_QUOTE}Hello${RIGHT_DOUBLE_QUOTE}`,
+      `word${EM_DASH}word`,
+      `1–5`,
+      `Wait…`,
+      `5×5`,
+      `20 °C`,
+      `${COPYRIGHT} 2024`,
+    ])('stable for: "%s"', (input) => {
+      expect(transform(input)).toBe(input)
+    })
+  })
+
+  describe("style combinations", () => {
+    it("applies American conventions throughout", () => {
+      const input = '"Hello." - word - "World."'
+      const result = transform(input, { punctuationStyle: "american", dashStyle: "american" })
+      expect(result).toContain(`Hello.${RIGHT_DOUBLE_QUOTE}`)
+      expect(result).toContain(EM_DASH)
+      expect(result).not.toContain(` ${EM_DASH} `)
+    })
+
+    it("applies British conventions throughout", () => {
+      const input = '"Hello." - word - "World."'
+      const result = transform(input, { punctuationStyle: "british", dashStyle: "british" })
+      expect(result).toContain(`${RIGHT_DOUBLE_QUOTE}.`)
+      expect(result).toContain(` – `)
+    })
+
+    it("applies American punctuation with British dashes", () => {
+      const input = '"Hello." - word'
+      const result = transform(input, { punctuationStyle: "american", dashStyle: "british" })
+      expect(result).toContain(`Hello.${RIGHT_DOUBLE_QUOTE}`)
+      expect(result).toContain(` – `)
+    })
+  })
+
+  describe("regex performance", () => {
+    it("handles pathological quote patterns efficiently", () => {
+      const input = '"a"'.repeat(50) + "'"
+      const start = Date.now()
+      transform(input)
+      const duration = Date.now() - start
+      expect(duration).toBeLessThan(1000)
+    })
+
+    it("handles pathological dash patterns efficiently", () => {
+      const input = "1-2-3-4-5-6-7-8-9-10-11-12-13-14-15"
+      const start = Date.now()
+      transform(input)
+      const duration = Date.now() - start
+      expect(duration).toBeLessThan(1000)
+    })
+
+    it("handles 1000 unbalanced single quotes efficiently", () => {
+      const input = "'".repeat(1000) + "a"
+      const start = performance.now()
+      transform(input)
+      const duration = performance.now() - start
+      expect(duration).toBeLessThan(500)
+    })
+
+    it("handles 500 chained number patterns efficiently", () => {
+      const input = "1" + "-1".repeat(500)
+      const start = performance.now()
+      transform(input)
+      const duration = performance.now() - start
+      expect(duration).toBeLessThan(500)
+    })
+  })
+
+  describe("special regex characters in input", () => {
+    it.each([
+      ['"test [bracket]"', `${LEFT_DOUBLE_QUOTE}test [bracket]${RIGHT_DOUBLE_QUOTE}`],
+      ['"test (paren)"', `${LEFT_DOUBLE_QUOTE}test (paren)${RIGHT_DOUBLE_QUOTE}`],
+      ['"test {brace}"', `${LEFT_DOUBLE_QUOTE}test {brace}${RIGHT_DOUBLE_QUOTE}`],
+      ['"test $dollar"', `${LEFT_DOUBLE_QUOTE}test $dollar${RIGHT_DOUBLE_QUOTE}`],
+      ['"test ^caret"', `${LEFT_DOUBLE_QUOTE}test ^caret${RIGHT_DOUBLE_QUOTE}`],
+      ['"test .dot"', `${LEFT_DOUBLE_QUOTE}test .dot${RIGHT_DOUBLE_QUOTE}`],
+      ['"test |pipe"', `${LEFT_DOUBLE_QUOTE}test |pipe${RIGHT_DOUBLE_QUOTE}`],
+    ])('handles regex special chars: "%s"', (input, expected) => {
+      expect(transform(input)).toBe(expected)
+    })
+  })
+
+  describe("boundary conditions", () => {
+    it.each([
+      ['"start', `${LEFT_DOUBLE_QUOTE}start`],
+      ["'start", `${RIGHT_SINGLE_QUOTE}start`],
+      ["-5 start", `−5 start`],
+      ["...start", `… start`],
+      ['end"', `end${RIGHT_DOUBLE_QUOTE}`],
+      ["end'", `end${RIGHT_SINGLE_QUOTE}`],
+      ["end...", `end…`],
+      ["5x", `5×`],
+    ])('handles boundary: "%s"', (input, expected) => {
+      expect(transform(input)).toBe(expected)
+    })
+  })
 })

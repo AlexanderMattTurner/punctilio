@@ -23,7 +23,7 @@ As far as I can tell, `punctilio` is the most reliable and feature-complete. I b
 
 [^wrote]: While Claude is the number one contributor to this repository, that’s just because Claude has helped me port my existing code and add minor features. The core regular expressions (e.g. dashes, quotes, multiplication signs) are human-written. Those numerous commits don’t show in this repo’s history.
 
-I tested `punctilio` 1.0.1 against [`smartypants`](https://www.npmjs.com/package/smartypants) 0.2.2, [`tipograph`](https://www.npmjs.com/package/tipograph) 0.7.4, [`smartquotes`](https://www.npmjs.com/package/smartquotes) 2.3.2, [`typograf`](https://www.npmjs.com/package/typograf) 7.6.0, and [`retext-smartypants`](https://www.npmjs.com/package/retext-smartypants) 6.2.0.[^python] These other packages have spotty feature coverage and inconsistent impact on text. For example, `smartypants` mishandles quotes after em dashes (though quite hard to see in GitHub’s font) and lacks multiplication sign support.
+I tested `punctilio` 1.2.9 against [`smartypants`](https://www.npmjs.com/package/smartypants) 0.2.2, [`tipograph`](https://www.npmjs.com/package/tipograph) 0.7.4, [`smartquotes`](https://www.npmjs.com/package/smartquotes) 2.3.2, [`typograf`](https://www.npmjs.com/package/typograf) 7.6.0, and [`retext-smartypants`](https://www.npmjs.com/package/retext-smartypants) 6.2.0.[^python] These other packages have spotty feature coverage and inconsistent impact on text. For example, `smartypants` mishandles quotes after em dashes (though quite hard to see in GitHub’s font) and lacks multiplication sign support.
 
 [^python]: The Python libraries I found were closely related to the JavaScript packages. I tested them and found similar scores, so I don’t include separate Python results.
 
@@ -34,14 +34,14 @@ I tested `punctilio` 1.0.1 against [`smartypants`](https://www.npmjs.com/package
 
 My [`benchmark.mjs`](./benchmark.mjs) measures how well libraries handle a [wide range of scenarios](./benchmark_cases.json). The benchmark normalizes stylistic differences (e.g. non-breaking vs regular space, British vs American dash spacing) for fair comparison.
 
-| Package | Passed (of 118) |
+| Package | Passed (of 154) |
 |--------:|:----------------|
-| `punctilio` | 113 (96%) |
-| `tipograph` | 72 (61%) |
-| `typograf` | 58 (49%) |
-| `smartquotes` | 52 (44%) |
-| `smartypants` | 51 (43%) |
-| `retext-smartypants` | 50 (42%) |
+| `punctilio` | 149 (97%) |
+| `tipograph` | 88 (57%) |
+| `typograf` | 74 (48%) |
+| `smartypants` | 68 (44%) |
+| `smartquotes` | 67 (44%) |
+| `retext-smartypants` | 65 (42%) |
 
 | Feature | Example | `punctilio` | `smartypants` | `tipograph` | `smartquotes` | `typograf` |
 |--------:|:-------:|:-------:|:-------:|:-------:|:-------:|:-------:|

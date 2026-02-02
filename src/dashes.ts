@@ -41,18 +41,34 @@ export function enDashNumberRange(text: string, options: DashOptions = {}): stri
 
   // Common currency symbols for price ranges
   const currencies = "$€£¥₹"
+
+  // Build positive range pattern from readable components
+  const phoneAreaCode = `(?<precedingAreaCode>\\d{3}-|\\(\\d{3}\\) ?)?`  // 555- or (555)
+  const notAfterDash = `(?<![${disallowed}${LATIN_LETTERS}.])`           // prevent Llama-2-7B
+  const rangeStart = `(?<start>(?:p\\.?|[${currencies}])?\\d[\\d.,]*${chr}?)`  // p.10, $100, 1,000
+  const rangeEnd = `(?<end>${chr}?[${currencies}]?\\d[\\d.,]*)`          // 20, $200, 2,000
+  const moreSegments = `(?<following>(?:${chr}?-${chr}?\\d+)*)`          // -4567 in phone numbers
+  const unitSuffix = `(?<suffix>${chr}?(?:[AaPp][Mm]|[xKBTM]))?`         // am/pm, K/M/B
+
   // Positive ranges: 1-5, $100-$200, €5-€10, p.10-15
+  const positiveRangePattern = [
+    phoneAreaCode, wb, notAfterDash, rangeStart, "-", rangeEnd, moreSegments, unitSuffix, wbe
+  ].join("")
+
   text = text.replace(
-    new RegExp(
-      `${wb}(?<![${disallowed}${LATIN_LETTERS}.])(?<start>(?:p\\.?|[${currencies}])?\\d[\\d.,]*${chr}?)-(?<end>${chr}?[${currencies}]?\\d[\\d.,]*)(?!\\.\\d)(?<following>(?:${chr}?-${chr}?\\d+)*)(?<suffix>${chr}?(?:[AaPp][Mm]|[xKBTM]))?${wbe}`,
-      "g"
-    ),
-    (match, start, end, following, suffix = "") => {
+    new RegExp(positiveRangePattern, "g"),
+    (match, precedingAreaCode, start, end, following, suffix = "") => {
       if (following) return match
-      const s = start.replace(new RegExp(chr, "g"), "")
-      const e = end.replace(new RegExp(chr, "g"), "")
-      if (/^(?:19|20)\d{2}$/.test(s) && /^(?:0[1-9]|1[0-2])$/.test(e)) return match
-      return `${start}${EN_DASH}${end}${suffix || ""}`
+      const startNum = start.replace(new RegExp(chr, "g"), "")
+      const endNum = end.replace(new RegExp(chr, "g"), "")
+      if (/^(?:19|20)\d{2}$/.test(startNum) && /^(?:0[1-9]|1[0-2])$/.test(endNum)) return match
+      // Skip phone number patterns: 3 digits followed by 4 digits with preceding area code
+      // e.g., 555-123-4567 or (555) 123-4567 where we're matching the "123-4567" part
+      if (precedingAreaCode && /^\d{3}$/.test(startNum) && /^\d{4}$/.test(endNum)) return match
+      // Skip US country code + area code pattern: 1-800, 1-888, etc.
+      // These look like truncated phone numbers, not ranges
+      if (/^1$/.test(startNum) && /^\d{3}$/.test(endNum)) return match
+      return `${precedingAreaCode || ""}${start}${EN_DASH}${end}${suffix || ""}`
     }
   )
 
