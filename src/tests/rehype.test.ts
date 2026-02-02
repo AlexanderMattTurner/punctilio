@@ -1,8 +1,14 @@
+import type { Element, Text, ElementContent } from "hast"
 import { unified } from "unified"
 import rehypeParse from "rehype-parse"
 import rehypeStringify from "rehype-stringify"
-import { rehypePunctilio, type RehypePunctilioOptions } from "../rehype.js"
-import { UNICODE_SYMBOLS } from "../constants.js"
+import {
+  rehypePunctilio,
+  type RehypePunctilioOptions,
+  transformElement,
+  flattenTextNodes,
+} from "../rehype.js"
+import { UNICODE_SYMBOLS, DEFAULT_SEPARATOR } from "../constants.js"
 
 const {
   LEFT_DOUBLE_QUOTE,
@@ -319,6 +325,188 @@ describe("rehypePunctilio", () => {
     it("exports rehypePunctilio as default", async () => {
       const { default: defaultExport } = await import("../rehype.js")
       expect(defaultExport).toBe(rehypePunctilio)
+    })
+  })
+
+  describe("exported utilities", () => {
+    describe("flattenTextNodes", () => {
+      const noSkip = () => false
+      const skipCode = (n: Element) => n.tagName === "code"
+
+      it("extracts text from a single text node", () => {
+        const textNode: Text = { type: "text", value: "Hello" }
+        const result = flattenTextNodes(textNode, noSkip)
+        expect(result).toHaveLength(1)
+        expect(result[0].value).toBe("Hello")
+      })
+
+      it("extracts text from element with text children", () => {
+        const element: Element = {
+          type: "element",
+          tagName: "p",
+          properties: {},
+          children: [
+            { type: "text", value: "Hello " },
+            { type: "text", value: "world" },
+          ],
+        }
+        const result = flattenTextNodes(element, noSkip)
+        expect(result).toHaveLength(2)
+        expect(result.map((n) => n.value)).toEqual(["Hello ", "world"])
+      })
+
+      it("extracts text from nested elements", () => {
+        const element: Element = {
+          type: "element",
+          tagName: "p",
+          properties: {},
+          children: [
+            { type: "text", value: "Start " },
+            {
+              type: "element",
+              tagName: "em",
+              properties: {},
+              children: [{ type: "text", value: "middle" }],
+            },
+            { type: "text", value: " end" },
+          ],
+        }
+        const result = flattenTextNodes(element, noSkip)
+        expect(result).toHaveLength(3)
+        expect(result.map((n) => n.value)).toEqual(["Start ", "middle", " end"])
+      })
+
+      it("skips elements matching the skip predicate", () => {
+        const element: Element = {
+          type: "element",
+          tagName: "p",
+          properties: {},
+          children: [
+            { type: "text", value: "Before " },
+            {
+              type: "element",
+              tagName: "code",
+              properties: {},
+              children: [{ type: "text", value: "skipped" }],
+            },
+            { type: "text", value: " after" },
+          ],
+        }
+        const result = flattenTextNodes(element, skipCode)
+        expect(result).toHaveLength(2)
+        expect(result.map((n) => n.value)).toEqual(["Before ", " after"])
+      })
+
+      it("returns empty array for skipped root element", () => {
+        const element: Element = {
+          type: "element",
+          tagName: "code",
+          properties: {},
+          children: [{ type: "text", value: "content" }],
+        }
+        const result = flattenTextNodes(element, skipCode)
+        expect(result).toHaveLength(0)
+      })
+
+      it("ignores non-text, non-element nodes", () => {
+        const element: Element = {
+          type: "element",
+          tagName: "p",
+          properties: {},
+          children: [
+            { type: "text", value: "text" },
+            { type: "comment", value: "comment" } as unknown as ElementContent,
+          ],
+        }
+        const result = flattenTextNodes(element, noSkip)
+        expect(result).toHaveLength(1)
+        expect(result[0].value).toBe("text")
+      })
+    })
+
+    describe("transformElement", () => {
+      const noSkip = () => false
+      const toUpper = (s: string) => s.toUpperCase()
+
+      it("transforms text in a simple element", () => {
+        const element: Element = {
+          type: "element",
+          tagName: "p",
+          properties: {},
+          children: [{ type: "text", value: "hello" }],
+        }
+        transformElement(element, toUpper, noSkip, DEFAULT_SEPARATOR)
+        expect((element.children[0] as Text).value).toBe("HELLO")
+      })
+
+      it("transforms text across multiple nodes preserving structure", () => {
+        const element: Element = {
+          type: "element",
+          tagName: "p",
+          properties: {},
+          children: [
+            { type: "text", value: "hello " },
+            {
+              type: "element",
+              tagName: "em",
+              properties: {},
+              children: [{ type: "text", value: "world" }],
+            },
+          ],
+        }
+        transformElement(element, toUpper, noSkip, DEFAULT_SEPARATOR)
+        expect((element.children[0] as Text).value).toBe("HELLO ")
+        const em = element.children[1] as Element
+        expect((em.children[0] as Text).value).toBe("WORLD")
+      })
+
+      it("skips elements matching the skip predicate", () => {
+        const skipCode = (n: Element) => n.tagName === "code"
+        const element: Element = {
+          type: "element",
+          tagName: "p",
+          properties: {},
+          children: [
+            { type: "text", value: "before " },
+            {
+              type: "element",
+              tagName: "code",
+              properties: {},
+              children: [{ type: "text", value: "unchanged" }],
+            },
+            { type: "text", value: " after" },
+          ],
+        }
+        transformElement(element, toUpper, skipCode, DEFAULT_SEPARATOR)
+        expect((element.children[0] as Text).value).toBe("BEFORE ")
+        const code = element.children[1] as Element
+        expect((code.children[0] as Text).value).toBe("unchanged")
+        expect((element.children[2] as Text).value).toBe(" AFTER")
+      })
+
+      it("applies custom transform functions", () => {
+        const replaceHyphens = (s: string) => s.replace(/-/g, "–")
+        const element: Element = {
+          type: "element",
+          tagName: "p",
+          properties: {},
+          children: [{ type: "text", value: "pages 1-5" }],
+        }
+        transformElement(element, replaceHyphens, noSkip, DEFAULT_SEPARATOR)
+        expect((element.children[0] as Text).value).toBe("pages 1–5")
+      })
+
+      it("works with custom separator", () => {
+        const customSep = "\uE001"
+        const element: Element = {
+          type: "element",
+          tagName: "p",
+          properties: {},
+          children: [{ type: "text", value: "hello" }],
+        }
+        transformElement(element, toUpper, noSkip, customSep)
+        expect((element.children[0] as Text).value).toBe("HELLO")
+      })
     })
   })
 
