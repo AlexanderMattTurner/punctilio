@@ -159,6 +159,8 @@ const TRANSFORMABLE_ELEMENTS = [
   "strong",
   "i",
   "b",
+  "u",
+  "s",
   "sub",
   "sup",
   "small",
@@ -243,6 +245,20 @@ function collectTransformableElements(
 }
 
 /**
+ * Recursively marks all element descendants as transformed.
+ * Used to prevent redundant processing of nested elements whose text
+ * was already processed as part of a parent element.
+ */
+function markDescendants(node: Element, set: Set<Element>): void {
+  for (const child of node.children) {
+    if (child.type === "element") {
+      set.add(child)
+      markDescendants(child, set)
+    }
+  }
+}
+
+/**
  * Rehype plugin that applies punctilio typography transformations to HTML.
  *
  * @param options - Plugin configuration options
@@ -324,6 +340,8 @@ export function rehypePunctilio(
         if (!transformed.has(elt)) {
           transformElement(elt, transformFn, shouldSkip, separator)
           transformed.add(elt)
+          // Mark all descendants as processed since their text was included
+          markDescendants(elt, transformed)
         }
       }
     })
