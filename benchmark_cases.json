@@ -212,5 +212,51 @@
   "Non-breaking space collapsing": [
     ["hello\u00A0\u00A0world", "hello\u00A0world"],
     ["a  b  c", "a b c"]
+  ],
+  "Chained multiplications": [
+    ["5x5x5", "5\u00D75\u00D75"],
+    ["5 x 5 x 5", "5 \u00D7 5 \u00D7 5"],
+    ["10*10*10", "10\u00D710\u00D710"]
+  ],
+  "Phone numbers - preserved": [
+    ["555-1234", "555-1234"],
+    ["555-123-4567", "555-123-4567"],
+    ["(555) 123-4567", "(555) 123-4567"]
+  ],
+  "Empty quotes": [
+    ["\"\"", "\u201C\u201D"],
+    ["''", "\u2018\u2019"]
+  ],
+  "Split dialogue": [
+    ["\"Yes,\" he said, \"absolutely.\"", "\u201CYes,\u201D he said, \u201Cabsolutely.\u201D"],
+    ["\"No,\" she replied, \"I disagree.\"", "\u201CNo,\u201D she replied, \u201CI disagree.\u201D"]
+  ],
+  "Double contractions": [
+    ["I'd've", "I\u2019d\u2019ve"],
+    ["wouldn't've", "wouldn\u2019t\u2019ve"],
+    ["y'all'd've", "y\u2019all\u2019d\u2019ve"]
+  ],
+  "Year abbreviations": [
+    ["I was born in '99", "I was born in \u201999"],
+    ["The '80s were great", "The \u201980s were great"],
+    ["Class of '22", "Class of \u201922"]
+  ],
+  "Temperature extremes": [
+    ["-40 C", "\u221240 \u00B0C"],
+    ["0 C", "0 \u00B0C"],
+    ["1000 F", "1000 \u00B0F"]
+  ],
+  "Comma number ranges": [
+    ["1,000-2,000", "1,000\u20132,000"],
+    ["$1,000-$2,000", "$1,000\u2013$2,000"],
+    ["\u20AC100,000-\u20AC200,000", "\u20AC100,000\u2013\u20AC200,000"]
+  ],
+  "Arrow chains": [
+    ["A -> B -> C", "A \u2192 B \u2192 C"],
+    ["A <- B <- C", "A \u2190 B \u2190 C"]
+  ],
+  "Ellipsis chains": [
+    ["One... Two... Three...", "One\u2026 Two\u2026 Three\u2026"],
+    ["Wait...", "Wait\u2026"]
   ]
 }
