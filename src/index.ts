@@ -181,6 +181,17 @@ const defaultOpts: Required<Omit<TransformOptions, "separator">> = {
 
 export function transform(text: string, options: TransformOptions = {}): string {
   const separator = options.separator ?? DEFAULT_SEPARATOR
+
+  // Validate separator: must be a single UTF-16 code unit (BMP character)
+  // Multi-codepoint characters (surrogate pairs like emoji) cause issues with regex patterns
+  if (separator.length !== 1) {
+    throw new Error(
+      `Invalid separator: must be a single character. ` +
+      `Received "${separator}" (length: ${separator.length}). ` +
+      `Use a single-codepoint character like the default "\\uE000".`
+    )
+  }
+
   const original = text
   const { symbols, fractions, degrees, superscript, ligatures, collapseSpaces, checkIdempotency, ...separatorOpts } = { ...defaultOpts, ...options }
 
