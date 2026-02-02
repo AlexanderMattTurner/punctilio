@@ -40,8 +40,9 @@ function convertSingleQuotes(text: string, sep: string): string {
 
   const apostropheWhitelist = `(?=n${RIGHT_SINGLE_QUOTE} )`
   const endQuoteNotContraction = `(?!${contraction})${RIGHT_SINGLE_QUOTE}${afterEndingSingle}`
+  // Limit lookahead scan to 1000 chars to prevent catastrophic backtracking on pathological inputs
   const apostropheRegex = new RegExp(
-    `(?<=^|[^\\w])'(${apostropheWhitelist}|(?![^${LEFT_SINGLE_QUOTE}'\\n]*${endQuoteNotContraction}))`,
+    `(?<=^|[^\\w])'(${apostropheWhitelist}|(?![^${LEFT_SINGLE_QUOTE}'\\n]{0,1000}${endQuoteNotContraction}))`,
     "gm"
   )
   text = text.replace(apostropheRegex, RIGHT_SINGLE_QUOTE)

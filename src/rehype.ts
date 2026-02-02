@@ -14,6 +14,7 @@ import { visitParents } from "unist-util-visit-parents"
 
 import { transform, type TransformOptions } from "./index.js"
 import { DEFAULT_SEPARATOR } from "./constants.js"
+import { formatErrorString } from "./utils.js"
 
 /**
  * Options for the rehype-punctilio plugin.
@@ -38,6 +39,12 @@ export interface RehypePunctilioOptions extends TransformOptions {
 }
 
 const DEFAULT_SKIP_TAGS = ["code", "pre", "script", "style", "kbd", "var", "samp"]
+
+/**
+ * Maximum recursion depth for tree traversal functions.
+ * Prevents stack overflow from maliciously deep HTML nesting.
+ */
+const MAX_RECURSION_DEPTH = 1000
 
 /**
  * Check if an element has a specific CSS class.
@@ -74,6 +81,7 @@ function hasAncestor(
  *
  * @param node - The element or element content to process
  * @param shouldSkip - Function to determine which elements to skip
+ * @param depth - Current recursion depth (internal use)
  * @returns Array of Text nodes
  *
  * @example
@@ -83,8 +91,13 @@ function hasAncestor(
  */
 export function flattenTextNodes(
   node: Element | ElementContent,
-  shouldSkip: (n: Element) => boolean
+  shouldSkip: (n: Element) => boolean,
+  depth: number = 0
 ): Text[] {
+  if (depth > MAX_RECURSION_DEPTH) {
+    return []
+  }
+
   if (node.type === "element" && shouldSkip(node)) {
     return []
   }
@@ -94,7 +107,7 @@ export function flattenTextNodes(
   }
 
   if (node.type === "element" && "children" in node) {
-    return node.children.flatMap((child) => flattenTextNodes(child, shouldSkip))
+    return node.children.flatMap((child) => flattenTextNodes(child, shouldSkip, depth + 1))
   }
 
   return []
@@ -158,7 +171,7 @@ export function transformElement(
     throw new Error(
       `Transformation altered the number of text nodes. ` +
         `Expected ${textNodes.length}, got ${transformedFragments.length}. ` +
-        `Input: ${JSON.stringify(markedContent)}`
+        `Input: ${formatErrorString(markedContent, "input")}`
     )
   }
 
@@ -232,12 +245,19 @@ const TRANSFORMABLE_ELEMENTS = [
  *
  * @param node - The root element to search from
  * @param shouldSkip - Function to determine which elements to skip
+ * @param depth - Current recursion depth (internal use)
  * @returns Array of elements that contain transformable text
  */
 function collectTransformableElements(
   node: Element,
-  shouldSkip: (n: Element) => boolean
+  shouldSkip: (n: Element) => boolean,
+  depth: number = 0
 ): Element[] {
+  /* istanbul ignore if -- defensive: prevents stack overflow from malicious HTML */
+  if (depth > MAX_RECURSION_DEPTH) {
+    return []
+  }
+
   const results: Element[] = []
 
   if (shouldSkip(node)) {
@@ -254,7 +274,7 @@ function collectTransformableElements(
     // Otherwise, recurse into children
     for (const child of node.children) {
       if (child.type === "element") {
-        results.push(...collectTransformableElements(child, shouldSkip))
+        results.push(...collectTransformableElements(child, shouldSkip, depth + 1))
       }
     }
   }
@@ -267,11 +287,16 @@ function collectTransformableElements(
  * Used to prevent redundant processing of nested elements whose text
  * was already processed as part of a parent element.
  */
-function markDescendants(node: Element, set: Set<Element>): void {
+function markDescendants(node: Element, set: Set<Element>, depth: number = 0): void {
+  /* istanbul ignore if -- defensive: prevents stack overflow from malicious HTML */
+  if (depth > MAX_RECURSION_DEPTH) {
+    return
+  }
+
   for (const child of node.children) {
     if (child.type === "element") {
       set.add(child)
-      markDescendants(child, set)
+      markDescendants(child, set, depth + 1)
     }
   }
 }
