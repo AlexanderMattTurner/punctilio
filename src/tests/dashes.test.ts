@@ -590,8 +590,13 @@ describe("negative temperatures", () => {
 })
 
 describe("phone number preservation", () => {
-  it("preserves short phone numbers (555-1234)", () => {
-    expect(hyphenReplace("555-1234")).toBe("555-1234")
+  it("converts standalone 3+4 digit patterns as ranges (555-1234)", () => {
+    // Standalone 3+4 patterns are treated as ranges, not phone numbers
+    expect(hyphenReplace("555-1234")).toBe(`555${EN_DASH}1234`)
+  })
+
+  it("preserves full phone numbers with area code (555-123-4567)", () => {
+    expect(hyphenReplace("555-123-4567")).toBe("555-123-4567")
   })
 
   it("preserves phone with area code in parens", () => {

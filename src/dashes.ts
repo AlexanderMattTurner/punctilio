@@ -44,17 +44,18 @@ export function enDashNumberRange(text: string, options: DashOptions = {}): stri
   // Positive ranges: 1-5, $100-$200, €5-€10, p.10-15
   text = text.replace(
     new RegExp(
-      `${wb}(?<![${disallowed}${LATIN_LETTERS}.])(?<start>(?:p\\.?|[${currencies}])?\\d[\\d.,]*${chr}?)-(?<end>${chr}?[${currencies}]?\\d[\\d.,]*)(?!\\.\\d)(?<following>(?:${chr}?-${chr}?\\d+)*)(?<suffix>${chr}?(?:[AaPp][Mm]|[xKBTM]))?${wbe}`,
+      `(?<precedingAreaCode>\\d{3}-|\\(\\d{3}\\) ?)?${wb}(?<![${disallowed}${LATIN_LETTERS}.])(?<start>(?:p\\.?|[${currencies}])?\\d[\\d.,]*${chr}?)-(?<end>${chr}?[${currencies}]?\\d[\\d.,]*)(?!\\.\\d)(?<following>(?:${chr}?-${chr}?\\d+)*)(?<suffix>${chr}?(?:[AaPp][Mm]|[xKBTM]))?${wbe}`,
       "g"
     ),
-    (match, start, end, following, suffix = "") => {
+    (match, precedingAreaCode, start, end, following, suffix = "") => {
       if (following) return match
       const s = start.replace(new RegExp(chr, "g"), "")
       const e = end.replace(new RegExp(chr, "g"), "")
       if (/^(?:19|20)\d{2}$/.test(s) && /^(?:0[1-9]|1[0-2])$/.test(e)) return match
-      // Skip phone number patterns: 3 digits followed by 4 digits (e.g., 555-1234)
-      if (/^\d{3}$/.test(s) && /^\d{4}$/.test(e)) return match
-      return `${start}${EN_DASH}${end}${suffix || ""}`
+      // Skip phone number patterns: 3 digits followed by 4 digits with preceding area code
+      // e.g., 555-123-4567 or (555) 123-4567 where we're matching the "123-4567" part
+      if (precedingAreaCode && /^\d{3}$/.test(s) && /^\d{4}$/.test(e)) return match
+      return `${precedingAreaCode || ""}${start}${EN_DASH}${end}${suffix || ""}`
     }
   )
 
