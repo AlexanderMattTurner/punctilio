@@ -1,4 +1,5 @@
 import type { Element, Text, ElementContent } from "hast"
+import { h } from "hastscript"
 import { unified } from "unified"
 import rehypeParse from "rehype-parse"
 import rehypeStringify from "rehype-stringify"
@@ -329,176 +330,91 @@ describe("rehypePunctilio", () => {
   })
 
   describe("exported utilities", () => {
+    const ignoreNone = () => false
+    const ignoreCode = (el: Element) => el.tagName === "code"
+
+    // Test nodes using hastscript for cleaner syntax
+    const testNodes = {
+      empty: h("div", []) as Element,
+      simple: h("p", "Hello, world!") as Element,
+      nested: h("div", ["This is ", h("em", "emphasized"), " text."]) as Element,
+      withCode: h("div", ["This is ", h("code", "ignored"), " text."]) as Element,
+      emptyAndComment: h("div", [
+        h("span"),
+        { type: "comment", value: "This is a comment" } as unknown as ElementContent,
+      ]) as Element,
+      deeplyNested: h("div", [
+        "Level 1 ",
+        h("span", ["Level 2 ", h("em", "Level 3")]),
+        " End",
+      ]) as Element,
+    }
+
     describe("flattenTextNodes", () => {
-      const noSkip = () => false
-      const skipCode = (n: Element) => n.tagName === "code"
+      it("handles various node structures", () => {
+        expect(flattenTextNodes(testNodes.empty, ignoreNone)).toEqual([])
+        expect(flattenTextNodes(testNodes.simple, ignoreNone)).toEqual([
+          { type: "text", value: "Hello, world!" },
+        ])
+        expect(flattenTextNodes(testNodes.nested, ignoreNone)).toEqual([
+          { type: "text", value: "This is " },
+          { type: "text", value: "emphasized" },
+          { type: "text", value: " text." },
+        ])
+        expect(flattenTextNodes(testNodes.withCode, ignoreCode)).toEqual([
+          { type: "text", value: "This is " },
+          { type: "text", value: " text." },
+        ])
+        expect(flattenTextNodes(testNodes.emptyAndComment, ignoreNone)).toEqual([])
+        expect(flattenTextNodes(testNodes.deeplyNested, ignoreNone)).toEqual([
+          { type: "text", value: "Level 1 " },
+          { type: "text", value: "Level 2 " },
+          { type: "text", value: "Level 3" },
+          { type: "text", value: " End" },
+        ])
+      })
 
       it("extracts text from a single text node", () => {
         const textNode: Text = { type: "text", value: "Hello" }
-        const result = flattenTextNodes(textNode, noSkip)
+        const result = flattenTextNodes(textNode, ignoreNone)
         expect(result).toHaveLength(1)
         expect(result[0].value).toBe("Hello")
       })
 
-      it("extracts text from element with text children", () => {
-        const element: Element = {
-          type: "element",
-          tagName: "p",
-          properties: {},
-          children: [
-            { type: "text", value: "Hello " },
-            { type: "text", value: "world" },
-          ],
-        }
-        const result = flattenTextNodes(element, noSkip)
-        expect(result).toHaveLength(2)
-        expect(result.map((n) => n.value)).toEqual(["Hello ", "world"])
-      })
-
-      it("extracts text from nested elements", () => {
-        const element: Element = {
-          type: "element",
-          tagName: "p",
-          properties: {},
-          children: [
-            { type: "text", value: "Start " },
-            {
-              type: "element",
-              tagName: "em",
-              properties: {},
-              children: [{ type: "text", value: "middle" }],
-            },
-            { type: "text", value: " end" },
-          ],
-        }
-        const result = flattenTextNodes(element, noSkip)
-        expect(result).toHaveLength(3)
-        expect(result.map((n) => n.value)).toEqual(["Start ", "middle", " end"])
-      })
-
-      it("skips elements matching the skip predicate", () => {
-        const element: Element = {
-          type: "element",
-          tagName: "p",
-          properties: {},
-          children: [
-            { type: "text", value: "Before " },
-            {
-              type: "element",
-              tagName: "code",
-              properties: {},
-              children: [{ type: "text", value: "skipped" }],
-            },
-            { type: "text", value: " after" },
-          ],
-        }
-        const result = flattenTextNodes(element, skipCode)
-        expect(result).toHaveLength(2)
-        expect(result.map((n) => n.value)).toEqual(["Before ", " after"])
-      })
-
-      it("returns empty array for skipped root element", () => {
-        const element: Element = {
-          type: "element",
-          tagName: "code",
-          properties: {},
-          children: [{ type: "text", value: "content" }],
-        }
-        const result = flattenTextNodes(element, skipCode)
-        expect(result).toHaveLength(0)
-      })
-
-      it("ignores non-text, non-element nodes", () => {
-        const element: Element = {
-          type: "element",
-          tagName: "p",
-          properties: {},
-          children: [
-            { type: "text", value: "text" },
-            { type: "comment", value: "comment" } as unknown as ElementContent,
-          ],
-        }
-        const result = flattenTextNodes(element, noSkip)
-        expect(result).toHaveLength(1)
-        expect(result[0].value).toBe("text")
-      })
-
       it("stops recursion at max depth to prevent stack overflow", () => {
-        // Build a deeply nested structure that exceeds MAX_RECURSION_DEPTH (1000)
-        let deepElement: Element = {
-          type: "element",
-          tagName: "span",
-          properties: {},
-          children: [{ type: "text", value: "deep" }],
-        }
+        let deepElement: Element = h("span", "deep") as Element
         for (let i = 0; i < 1005; i++) {
-          deepElement = {
-            type: "element",
-            tagName: "div",
-            properties: {},
-            children: [deepElement],
-          }
+          deepElement = h("div", [deepElement]) as Element
         }
-        // Should not throw and should return empty (text is beyond depth limit)
-        const result = flattenTextNodes(deepElement, noSkip)
+        const result = flattenTextNodes(deepElement, ignoreNone)
         expect(result).toHaveLength(0)
       })
     })
 
     describe("transformElement", () => {
-      const noSkip = () => false
       const toUpper = (s: string) => s.toUpperCase()
 
       it("transforms text in a simple element", () => {
-        const element: Element = {
-          type: "element",
-          tagName: "p",
-          properties: {},
-          children: [{ type: "text", value: "hello" }],
-        }
-        transformElement(element, toUpper, noSkip, DEFAULT_SEPARATOR)
+        const element = h("p", "hello") as Element
+        transformElement(element, toUpper, ignoreNone, DEFAULT_SEPARATOR)
         expect((element.children[0] as Text).value).toBe("HELLO")
       })
 
       it("transforms text across multiple nodes preserving structure", () => {
-        const element: Element = {
-          type: "element",
-          tagName: "p",
-          properties: {},
-          children: [
-            { type: "text", value: "hello " },
-            {
-              type: "element",
-              tagName: "em",
-              properties: {},
-              children: [{ type: "text", value: "world" }],
-            },
-          ],
-        }
-        transformElement(element, toUpper, noSkip, DEFAULT_SEPARATOR)
+        const element = h("p", ["hello ", h("em", "world")]) as Element
+        transformElement(element, toUpper, ignoreNone, DEFAULT_SEPARATOR)
         expect((element.children[0] as Text).value).toBe("HELLO ")
         const em = element.children[1] as Element
         expect((em.children[0] as Text).value).toBe("WORLD")
       })
 
       it("skips elements matching the skip predicate", () => {
-        const skipCode = (n: Element) => n.tagName === "code"
-        const element: Element = {
-          type: "element",
-          tagName: "p",
-          properties: {},
-          children: [
-            { type: "text", value: "before " },
-            {
-              type: "element",
-              tagName: "code",
-              properties: {},
-              children: [{ type: "text", value: "unchanged" }],
-            },
-            { type: "text", value: " after" },
-          ],
-        }
-        transformElement(element, toUpper, skipCode, DEFAULT_SEPARATOR)
+        const element = h("p", [
+          "before ",
+          h("code", "unchanged"),
+          " after",
+        ]) as Element
+        transformElement(element, toUpper, ignoreCode, DEFAULT_SEPARATOR)
         expect((element.children[0] as Text).value).toBe("BEFORE ")
         const code = element.children[1] as Element
         expect((code.children[0] as Text).value).toBe("unchanged")
@@ -507,26 +423,36 @@ describe("rehypePunctilio", () => {
 
       it("applies custom transform functions", () => {
         const replaceHyphens = (s: string) => s.replace(/-/g, "–")
-        const element: Element = {
-          type: "element",
-          tagName: "p",
-          properties: {},
-          children: [{ type: "text", value: "pages 1-5" }],
-        }
-        transformElement(element, replaceHyphens, noSkip, DEFAULT_SEPARATOR)
+        const element = h("p", "pages 1-5") as Element
+        transformElement(element, replaceHyphens, ignoreNone, DEFAULT_SEPARATOR)
         expect((element.children[0] as Text).value).toBe("pages 1–5")
       })
 
       it("works with custom separator", () => {
-        const customSep = "\uE001"
-        const element: Element = {
-          type: "element",
-          tagName: "p",
-          properties: {},
-          children: [{ type: "text", value: "hello" }],
-        }
-        transformElement(element, toUpper, noSkip, customSep)
+        const element = h("p", "hello") as Element
+        transformElement(element, toUpper, ignoreNone, "\uE001")
         expect((element.children[0] as Text).value).toBe("HELLO")
+      })
+    })
+
+    describe("transformElement error conditions", () => {
+      it("handles node with no children gracefully", () => {
+        const nodeWithoutChildren = h("div") as Element
+        nodeWithoutChildren.children = undefined as unknown as Element["children"]
+        const transform = (text: string) => text.toUpperCase()
+        // Should not throw - returns early for defensive reasons
+        expect(() => {
+          transformElement(nodeWithoutChildren, transform, ignoreNone, DEFAULT_SEPARATOR)
+        }).not.toThrow()
+      })
+
+      it("throws error when transformation alters number of text nodes", () => {
+        const node = h("p", "hello world") as Element
+        const transform = (text: string): string =>
+          text.replace("hello", `hello${DEFAULT_SEPARATOR}extra${DEFAULT_SEPARATOR}`)
+        expect(() => {
+          transformElement(node, transform, ignoreNone, DEFAULT_SEPARATOR)
+        }).toThrow("Transformation altered the number of text nodes")
       })
     })
   })

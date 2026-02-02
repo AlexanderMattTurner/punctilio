@@ -33,6 +33,9 @@ importers:
       eslint-plugin-regexp:
         specifier: ^3.0.0
         version: 3.0.0(eslint@9.39.2)
+      hastscript:
+        specifier: 9.0.1
+        version: 9.0.1
       jest:
         specifier: ^29.7.0
         version: 29.7.0(@types/node@20.19.30)
