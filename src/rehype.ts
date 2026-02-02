@@ -86,13 +86,13 @@ function hasAncestor(
  *
  * @example
  * ```ts
- * const textNodes = flattenTextNodes(paragraphElement, (el) => el.tagName === 'code', 0)
+ * const textNodes = flattenTextNodes(paragraphElement, (el) => el.tagName === 'code')
  * ```
  */
 export function flattenTextNodes(
   node: Element | ElementContent,
   shouldSkip: (n: Element) => boolean,
-  depth: number
+  depth: number = 0
 ): Text[] {
   if (depth > MAX_RECURSION_DEPTH) {
     return []
@@ -152,7 +152,7 @@ export function transformElement(
     return
   }
 
-  const textNodes = flattenTextNodes(node, shouldSkip, 0)
+  const textNodes = flattenTextNodes(node, shouldSkip)
   /* istanbul ignore if -- only hit when element has no text descendants */
   if (textNodes.length === 0) {
     return
@@ -251,7 +251,7 @@ const TRANSFORMABLE_ELEMENTS = [
 function collectTransformableElements(
   node: Element,
   shouldSkip: (n: Element) => boolean,
-  depth: number
+  depth: number = 0
 ): Element[] {
   /* istanbul ignore if -- defensive: prevents stack overflow from malicious HTML */
   if (depth > MAX_RECURSION_DEPTH) {
@@ -287,7 +287,7 @@ function collectTransformableElements(
  * Used to prevent redundant processing of nested elements whose text
  * was already processed as part of a parent element.
  */
-function markDescendants(node: Element, set: Set<Element>, depth: number): void {
+function markDescendants(node: Element, set: Set<Element>, depth: number = 0): void {
   /* istanbul ignore if -- defensive: prevents stack overflow from malicious HTML */
   if (depth > MAX_RECURSION_DEPTH) {
     return
@@ -378,13 +378,13 @@ export function rehypePunctilio(
       }
 
       // Collect and transform elements with text content
-      const elementsToTransform = collectTransformableElements(element, shouldSkip, 0)
+      const elementsToTransform = collectTransformableElements(element, shouldSkip)
       for (const elt of elementsToTransform) {
         if (!transformed.has(elt)) {
           transformElement(elt, transformFn, shouldSkip, separator)
           transformed.add(elt)
           // Mark all descendants as processed since their text was included
-          markDescendants(elt, transformed, 0)
+          markDescendants(elt, transformed)
         }
       }
     })

@@ -335,7 +335,7 @@ describe("rehypePunctilio", () => {
 
       it("extracts text from a single text node", () => {
         const textNode: Text = { type: "text", value: "Hello" }
-        const result = flattenTextNodes(textNode, noSkip, 0)
+        const result = flattenTextNodes(textNode, noSkip)
         expect(result).toHaveLength(1)
         expect(result[0].value).toBe("Hello")
       })
@@ -350,7 +350,7 @@ describe("rehypePunctilio", () => {
             { type: "text", value: "world" },
           ],
         }
-        const result = flattenTextNodes(element, noSkip, 0)
+        const result = flattenTextNodes(element, noSkip)
         expect(result).toHaveLength(2)
         expect(result.map((n) => n.value)).toEqual(["Hello ", "world"])
       })
@@ -371,7 +371,7 @@ describe("rehypePunctilio", () => {
             { type: "text", value: " end" },
           ],
         }
-        const result = flattenTextNodes(element, noSkip, 0)
+        const result = flattenTextNodes(element, noSkip)
         expect(result).toHaveLength(3)
         expect(result.map((n) => n.value)).toEqual(["Start ", "middle", " end"])
       })
@@ -392,7 +392,7 @@ describe("rehypePunctilio", () => {
             { type: "text", value: " after" },
           ],
         }
-        const result = flattenTextNodes(element, skipCode, 0)
+        const result = flattenTextNodes(element, skipCode)
         expect(result).toHaveLength(2)
         expect(result.map((n) => n.value)).toEqual(["Before ", " after"])
       })
@@ -404,7 +404,7 @@ describe("rehypePunctilio", () => {
           properties: {},
           children: [{ type: "text", value: "content" }],
         }
-        const result = flattenTextNodes(element, skipCode, 0)
+        const result = flattenTextNodes(element, skipCode)
         expect(result).toHaveLength(0)
       })
 
@@ -418,7 +418,7 @@ describe("rehypePunctilio", () => {
             { type: "comment", value: "comment" } as unknown as ElementContent,
           ],
         }
-        const result = flattenTextNodes(element, noSkip, 0)
+        const result = flattenTextNodes(element, noSkip)
         expect(result).toHaveLength(1)
         expect(result[0].value).toBe("text")
       })
@@ -440,7 +440,7 @@ describe("rehypePunctilio", () => {
           }
         }
         // Should not throw and should return empty (text is beyond depth limit)
-        const result = flattenTextNodes(deepElement, noSkip, 0)
+        const result = flattenTextNodes(deepElement, noSkip)
         expect(result).toHaveLength(0)
       })
     })
