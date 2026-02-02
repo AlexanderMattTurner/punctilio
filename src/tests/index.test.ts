@@ -13,6 +13,13 @@ const {
   NOT_EQUAL,
   COPYRIGHT,
   NBSP,
+  PRIME,
+  DOUBLE_PRIME,
+  TRADEMARK,
+  REGISTERED,
+  DEGREE,
+  FRACTION_1_2,
+  SUPERSCRIPT_ST,
 } = UNICODE_SYMBOLS
 
 describe("transform", () => {
@@ -181,11 +188,8 @@ describe("transform", () => {
   describe("complex real-world text", () => {
     it("handles dialogue with dashes and quotes", () => {
       const input = '"Wait," she said -- "I don\'t think that\'s right."'
-      const result = transform(input)
-      expect(result).toContain(LEFT_DOUBLE_QUOTE)
-      expect(result).toContain(RIGHT_DOUBLE_QUOTE)
-      expect(result).toContain(EM_DASH)
-      expect(result).toContain(RIGHT_SINGLE_QUOTE) // apostrophe
+      const expected = `${LEFT_DOUBLE_QUOTE}Wait,${RIGHT_DOUBLE_QUOTE} she said${EM_DASH}${LEFT_DOUBLE_QUOTE}I don${RIGHT_SINGLE_QUOTE}t think that${RIGHT_SINGLE_QUOTE}s right.${RIGHT_DOUBLE_QUOTE}`
+      expect(transform(input)).toEqual(expected)
     })
 
     it("handles technical documentation", () => {
@@ -196,17 +200,14 @@ describe("transform", () => {
 
     it("handles measurement text", () => {
       const input = 'He is 6\'2" tall.'
-      const result = transform(input, { symbols: true })
-      expect(result).toContain('′') // prime mark
-      expect(result).toContain('″') // double prime
+      const expected = `He is 6${PRIME}2${DOUBLE_PRIME} tall.`
+      expect(transform(input, { symbols: true })).toEqual(expected)
     })
 
     it("handles copyright notices", () => {
       const input = '(c) 2024 Company(tm). All rights reserved(r).'
-      const result = transform(input)
-      expect(result).toContain(COPYRIGHT)
-      expect(result).toContain('™')
-      expect(result).toContain('®')
+      const expected = `${COPYRIGHT} 2024 Company${TRADEMARK}. All rights reserved${REGISTERED}.`
+      expect(transform(input)).toEqual(expected)
     })
   })
 
@@ -252,9 +253,8 @@ describe("transform", () => {
   describe("very long inputs", () => {
     it("handles long repeated patterns", () => {
       const input = '"Hello" '.repeat(100)
-      const result = transform(input)
-      expect(result).toContain(LEFT_DOUBLE_QUOTE)
-      expect(result).toContain(RIGHT_DOUBLE_QUOTE)
+      const expected = `${LEFT_DOUBLE_QUOTE}Hello${RIGHT_DOUBLE_QUOTE} `.repeat(100)
+      expect(transform(input)).toEqual(expected)
     })
 
     it("handles long continuous text", () => {
@@ -303,25 +303,22 @@ describe("transform", () => {
   describe("option combinations", () => {
     it("applies all optional transforms together", () => {
       const input = "1st place: 1/2 at 72 F - wow!!"
-      const result = transform(input, {
+      const expected = `1${SUPERSCRIPT_ST} place: ${FRACTION_1_2} at 72 ${DEGREE}F${EM_DASH}wow!`
+      expect(transform(input, {
         fractions: true,
         degrees: true,
         superscript: true,
         ligatures: true,
-      })
-      expect(result).toContain("ˢᵗ")
-      expect(result).toContain("½")
-      expect(result).toContain("°")
+      })).toEqual(expected)
     })
 
     it("respects disabled transforms", () => {
       const input = "1/2 at 72 F"
-      const result = transform(input, {
-        fractions: false,
+      const expected = `${FRACTION_1_2} at 72 F`
+      expect(transform(input, {
+        fractions: true,
         degrees: false,
-      })
-      expect(result).not.toContain("½")
-      expect(result).not.toContain("°")
+      })).toEqual(expected)
     })
   })
 
@@ -385,24 +382,20 @@ describe("transform", () => {
   describe("style combinations", () => {
     it("applies American conventions throughout", () => {
       const input = '"Hello." - word - "World."'
-      const result = transform(input, { punctuationStyle: "american", dashStyle: "american" })
-      expect(result).toContain(`Hello.${RIGHT_DOUBLE_QUOTE}`)
-      expect(result).toContain(EM_DASH)
-      expect(result).not.toContain(` ${EM_DASH} `)
+      const expected = `${LEFT_DOUBLE_QUOTE}Hello.${RIGHT_DOUBLE_QUOTE}${EM_DASH}word${EM_DASH}${LEFT_DOUBLE_QUOTE}World.${RIGHT_DOUBLE_QUOTE}`
+      expect(transform(input, { punctuationStyle: "american", dashStyle: "american" })).toEqual(expected)
     })
 
     it("applies British conventions throughout", () => {
       const input = '"Hello." - word - "World."'
-      const result = transform(input, { punctuationStyle: "british", dashStyle: "british" })
-      expect(result).toContain(`${RIGHT_DOUBLE_QUOTE}.`)
-      expect(result).toContain(` – `)
+      const expected = `${LEFT_DOUBLE_QUOTE}Hello${RIGHT_DOUBLE_QUOTE}. ${EN_DASH} word ${EN_DASH} ${LEFT_DOUBLE_QUOTE}World${RIGHT_DOUBLE_QUOTE}.`
+      expect(transform(input, { punctuationStyle: "british", dashStyle: "british" })).toEqual(expected)
     })
 
     it("applies American punctuation with British dashes", () => {
       const input = '"Hello." - word'
-      const result = transform(input, { punctuationStyle: "american", dashStyle: "british" })
-      expect(result).toContain(`Hello.${RIGHT_DOUBLE_QUOTE}`)
-      expect(result).toContain(` – `)
+      const expected = `${LEFT_DOUBLE_QUOTE}Hello.${RIGHT_DOUBLE_QUOTE} ${EN_DASH} word`
+      expect(transform(input, { punctuationStyle: "american", dashStyle: "british" })).toEqual(expected)
     })
   })
 

@@ -576,17 +576,14 @@ describe("symbolTransform", () => {
 
   it("handles complex text with multiple symbols", () => {
     const input = "Product(tm) v2.0 - Size: 10x20 cm, tolerance +- 5%"
-    const result = symbolTransform(input)
-    expect(result).toContain(UNICODE_SYMBOLS.TRADEMARK)
-    expect(result).toContain(UNICODE_SYMBOLS.MULTIPLICATION)
-    expect(result).toContain(UNICODE_SYMBOLS.PLUS_MINUS)
+    const expected = `Product${UNICODE_SYMBOLS.TRADEMARK} v2.0 - Size: 10${UNICODE_SYMBOLS.MULTIPLICATION}20 cm, tolerance ${UNICODE_SYMBOLS.PLUS_MINUS} 5%`
+    expect(symbolTransform(input)).toEqual(expected)
   })
 
   it("respects separator option", () => {
     const sep = "\uE000"
     const input = `5${sep}x${sep}5`
-    const result = symbolTransform(input, { separator: sep })
-    expect(result).toContain(UNICODE_SYMBOLS.MULTIPLICATION)
+    expect(symbolTransform(input, { separator: sep })).toEqual(`5${sep}${UNICODE_SYMBOLS.MULTIPLICATION}${sep}5`)
   })
 
   it("includes arrows by default", () => {
