@@ -190,9 +190,10 @@ export function primeMarks(text: string, options: SymbolOptions = {}): string {
       `(?<digit>\\d)(?<sep>${chr}?)${quote}(?<afterSep>${chr}?)(?![${LATIN_LETTERS}])`,
       "g"
     )
+    const quoteCountPattern = new RegExp(escapeStringRegexp(quote), "g")
     text = text.replace(pattern, (match, digit, sep, afterSep, offset) => {
       const textBefore = text.slice(0, offset)
-      const quoteCount = (textBefore.match(new RegExp(quote, "g")) || []).length
+      const quoteCount = (textBefore.match(quoteCountPattern) || []).length
       if (quoteCount % 2 === 0) {
         return `${digit}${sep}${prime}${afterSep}`
       }
