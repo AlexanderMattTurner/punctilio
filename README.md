@@ -100,7 +100,31 @@ transform(`"Wait${DEFAULT_SEPARATOR}"`)
 // The separator doesn’t block the information that this should be an end-quote!
 ```
 
-Use via a DOM walker tracks which text node each segment came from, inserts separators between them, transforms the combined string, then splits on separators to update each node. Use the `separator` option if `U+E000` conflicts with your content. For an example of how to integrate this functionality, see [my website’s code](https://github.com/alexander-turner/TurnTrout.com/blob/main/quartz/plugins/transformers/formatting_improvement_html.ts). 
+Use via a DOM walker tracks which text node each segment came from, inserts separators between them, transforms the combined string, then splits on separators to update each node. Use the `separator` option if `U+E000` conflicts with your content. For an example of how to integrate this functionality, see [my website's code](https://github.com/alexander-turner/TurnTrout.com/blob/main/quartz/plugins/transformers/formatting_improvement_html.ts).
+
+### Rehype plugin
+
+For unified/rehype pipelines, use the built-in plugin:
+
+```typescript
+import rehypePunctilio from 'punctilio/rehype'
+
+const file = await unified()
+  .use(rehypeParse)
+  .use(rehypePunctilio, { fractions: true })
+  .use(rehypeStringify)
+  .process('<p>"Hello..." -- world</p>')
+
+// → <p>"Hello…"—world</p>
+```
+
+The plugin handles the DOM walking and separator logic automatically. For custom transforms, import the utilities directly:
+
+```typescript
+import { transformElement, DEFAULT_SEPARATOR } from 'punctilio/rehype'
+
+transformElement(element, myTransform, shouldSkip, DEFAULT_SEPARATOR)
+```
 
 ### Not for raw Markdown
 
