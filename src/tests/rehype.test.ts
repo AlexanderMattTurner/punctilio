@@ -36,29 +36,27 @@ async function processHtml(html: string, options?: RehypePunctilioOptions): Prom
 describe("rehypePunctilio", () => {
   describe("basic transformations", () => {
     it.each([
-      ["quotes", '<p>"Hello," she said.</p>', [LDQ, RDQ]],
-      ["apostrophes", "<p>It's a test.</p>", [RSQ]],
-      ["em dashes", "<p>Wait -- here it comes.</p>", [EM_DASH]],
-      ["en dashes", "<p>Pages 1-5</p>", [EN_DASH]],
-      ["ellipses", "<p>Wait...</p>", [ELLIPSIS]],
-      ["multiplication", "<p>5x5</p>", [MULTIPLICATION]],
-      ["math symbols", "<p>x != y</p>", [NOT_EQUAL]],
-      ["legal symbols", "<p>(c) 2024</p>", [COPYRIGHT]],
+      ["quotes", '<p>"Hello," she said.</p>', `<p>${LDQ}Hello,${RDQ} she said.</p>`],
+      ["apostrophes", "<p>It's a test.</p>", `<p>It${RSQ}s a test.</p>`],
+      ["em dashes", "<p>Wait -- here it comes.</p>", `<p>Wait${EM_DASH}here it comes.</p>`],
+      ["en dashes", "<p>Pages 1-5</p>", `<p>Pages 1${EN_DASH}5</p>`],
+      ["ellipses", "<p>Wait...</p>", `<p>Wait${ELLIPSIS}</p>`],
+      ["multiplication", "<p>5x5</p>", `<p>5${MULTIPLICATION}5</p>`],
+      ["math symbols", "<p>x != y</p>", `<p>x ${NOT_EQUAL} y</p>`],
+      ["legal symbols", "<p>(c) 2024</p>", `<p>${COPYRIGHT} 2024</p>`],
     ])("transforms %s", async (_name, html, expected) => {
-      const result = await processHtml(html)
-      expected.forEach((char) => expect(result).toContain(char))
+      expect(await processHtml(html)).toEqual(expected)
     })
   })
 
   describe("HTML structure preservation", () => {
     it.each([
-      ["nested elements", '<p><em>"Hello,"</em> she said.</p>', ["<em>", "</em>", LDQ, RDQ]],
-      ["text spanning elements", '<p><em>"Wait</em>..."</p>', [LDQ, RDQ, ELLIPSIS]],
-      ["deeply nested", '<div><p><span><strong>"Hello"</strong></span></p></div>', [LDQ, RDQ]],
-      ["attributes", '<p class="intro" id="first">"Hello"</p>', ['class="intro"', 'id="first"']],
+      ["nested elements", '<p><em>"Hello,"</em> she said.</p>', `<p><em>${LDQ}Hello,${RDQ}</em> she said.</p>`],
+      ["text spanning elements", '<p><em>"Wait</em>..."</p>', `<p><em>${LDQ}Wait</em>${ELLIPSIS}${RDQ}</p>`],
+      ["deeply nested", '<div><p><span><strong>"Hello"</strong></span></p></div>', `<div><p><span><strong>${LDQ}Hello${RDQ}</strong></span></p></div>`],
+      ["attributes", '<p class="intro" id="first">"Hello"</p>', `<p class="intro" id="first">${LDQ}Hello${RDQ}</p>`],
     ])("preserves %s", async (_name, html, expected) => {
-      const result = await processHtml(html)
-      expected.forEach((str) => expect(result).toContain(str))
+      expect(await processHtml(html)).toEqual(expected)
     })
   })
 
@@ -66,57 +64,46 @@ describe("rehypePunctilio", () => {
     it.each(["code", "pre", "script", "style", "kbd", "var", "samp"])(
       "skips %s elements",
       async (tag) => {
-        const result = await processHtml(`<${tag}>"Hello"</${tag}>`)
-        expect(result).toContain('"Hello"')
-        expect(result).not.toContain(LDQ)
+        expect(await processHtml(`<${tag}>"Hello"</${tag}>`)).toEqual(`<${tag}>"Hello"</${tag}>`)
       }
     )
 
     it("skips nested content inside code blocks", async () => {
-      const result = await processHtml('<pre><code>"Hello" -- test...</code></pre>')
-      expect(result).toContain('"Hello"')
-      expect(result).toContain("--")
-      expect(result).toContain("...")
+      expect(await processHtml('<pre><code>"Hello" -- test...</code></pre>')).toEqual(
+        '<pre><code>"Hello" -- test...</code></pre>'
+      )
     })
 
     it("transforms siblings of skipped elements", async () => {
-      const result = await processHtml('<p><code>code</code> "Hello"</p>')
-      expect(result).toContain(LDQ)
-      expect(result).toContain(RDQ)
+      expect(await processHtml('<p><code>code</code> "Hello"</p>')).toEqual(
+        `<p><code>code</code> ${LDQ}Hello${RDQ}</p>`
+      )
     })
   })
 
   describe("custom skip options", () => {
     it.each([
-      ["custom tags", '<custom-tag>"Hello"</custom-tag>', { skipTags: ["custom-tag"] }],
-      ["custom classes", '<p class="no-transform">"Hello"</p>', { skipClasses: ["no-transform"] }],
-      ["descendants of skip classes", '<div class="raw"><p>"Hello"</p></div>', { skipClasses: ["raw"] }],
-    ])("skips %s", async (_name, html, options) => {
-      const result = await processHtml(html, options)
-      expect(result).toContain('"Hello"')
+      ["custom tags", '<custom-tag>"Hello"</custom-tag>', { skipTags: ["custom-tag"] }, '<custom-tag>"Hello"</custom-tag>'],
+      ["custom classes", '<p class="no-transform">"Hello"</p>', { skipClasses: ["no-transform"] }, '<p class="no-transform">"Hello"</p>'],
+      ["descendants of skip classes", '<div class="raw"><p>"Hello"</p></div>', { skipClasses: ["raw"] }, '<div class="raw"><p>"Hello"</p></div>'],
+    ])("skips %s", async (_name, html, options, expected) => {
+      expect(await processHtml(html, options)).toEqual(expected)
     })
   })
 
   describe("transform options passthrough", () => {
     it.each([
-      ["punctuationStyle american", '<p>"Hello."</p>', { punctuationStyle: "american" as const }, `${LDQ}Hello.${RDQ}`],
-      ["punctuationStyle british", '<p>"Hello."</p>', { punctuationStyle: "british" as const }, `${LDQ}Hello${RDQ}.`],
-      ["dashStyle american", "<p>word - word</p>", { dashStyle: "american" as const }, EM_DASH],
-      ["dashStyle british", "<p>word - word</p>", { dashStyle: "british" as const }, EN_DASH],
-      ["symbols enabled", "<p>5x5</p>", { symbols: true }, MULTIPLICATION],
-      ["fractions enabled", "<p>1/2 cup</p>", { fractions: true }, FRACTION_1_2],
-      ["custom separator", '<p>"Hello"</p>', { separator: "\uE001" }, LDQ],
+      ["punctuationStyle american", '<p>"Hello."</p>', { punctuationStyle: "american" as const }, `<p>${LDQ}Hello.${RDQ}</p>`],
+      ["punctuationStyle british", '<p>"Hello."</p>', { punctuationStyle: "british" as const }, `<p>${LDQ}Hello${RDQ}.</p>`],
+      ["dashStyle american", "<p>word - word</p>", { dashStyle: "american" as const }, `<p>word${EM_DASH}word</p>`],
+      ["dashStyle british", "<p>word - word</p>", { dashStyle: "british" as const }, `<p>word ${EN_DASH} word</p>`],
+      ["symbols enabled", "<p>5x5</p>", { symbols: true }, `<p>5${MULTIPLICATION}5</p>`],
+      ["symbols disabled", "<p>5x5</p>", { symbols: false }, "<p>5x5</p>"],
+      ["fractions enabled", "<p>1/2 cup</p>", { fractions: true }, `<p>${FRACTION_1_2} cup</p>`],
+      ["fractions disabled", "<p>1/2 cup</p>", { fractions: false }, "<p>1/2 cup</p>"],
+      ["custom separator", '<p>"Hello"</p>', { separator: "\uE001" }, `<p>${LDQ}Hello${RDQ}</p>`],
     ])("respects %s", async (_name, html, options, expected) => {
-      const result = await processHtml(html, options)
-      expect(result).toContain(expected)
-    })
-
-    it.each([
-      ["symbols disabled", "<p>5x5</p>", { symbols: false }, "5x5"],
-      ["fractions disabled", "<p>1/2 cup</p>", { fractions: false }, "1/2"],
-    ])("respects %s", async (_name, html, options, expected) => {
-      const result = await processHtml(html, options)
-      expect(result).toContain(expected)
+      expect(await processHtml(html, options)).toEqual(expected)
     })
   })
 
@@ -125,39 +112,37 @@ describe("rehypePunctilio", () => {
       [
         "article content",
         `<article><h1>"Title's"</h1><p>"quotes" -- dashes</p><p>Pages 1-5</p></article>`,
-        [LDQ, RDQ, RSQ, EM_DASH, EN_DASH],
+        `<article><h1>${LDQ}Title${RSQ}s${RDQ}</h1><p>${LDQ}quotes${RDQ}${EM_DASH}dashes</p><p>Pages 1${EN_DASH}5</p></article>`,
       ],
       [
         "mixed code and prose",
         '<p>The function <code>getValue()</code> returns "the value" -- useful.</p>',
-        ["getValue()", LDQ, RDQ, EM_DASH],
+        `<p>The function <code>getValue()</code> returns ${LDQ}the value${RDQ}${EM_DASH}useful.</p>`,
       ],
       [
         "table content",
         '<table><tr><th>"Header"</th><td>Pages 1-5</td></tr></table>',
-        [LDQ, RDQ, EN_DASH],
+        `<table><tbody><tr><th>${LDQ}Header${RDQ}</th><td>Pages 1${EN_DASH}5</td></tr></tbody></table>`,
       ],
       [
         "list content",
         '<ul><li>"First" -- important</li><li>Pages 1-5</li></ul>',
-        [LDQ, EM_DASH, EN_DASH],
+        `<ul><li>${LDQ}First${RDQ}${EM_DASH}important</li><li>Pages 1${EN_DASH}5</li></ul>`,
       ],
     ])("handles %s", async (_name, html, expected) => {
-      const result = await processHtml(html)
-      expected.forEach((str) => expect(result).toContain(str))
+      expect(await processHtml(html)).toEqual(expected)
     })
   })
 
   describe("edge cases", () => {
     it.each([
       ["empty paragraphs", "<p></p>", "<p></p>"],
-      ["whitespace-only", "<p>   </p>", "<p>"],
-      ["special characters", "<p>Café &amp; résumé</p>", "Café"],
-      ["emoji", '<p>"Hello 👋"</p>', "👋"],
-      ["links", '<p><a href="https://example.com">"Link"</a></p>', 'href="https://example.com"'],
+      ["whitespace-only", "<p>   </p>", "<p> </p>"],
+      ["special characters", "<p>Café &amp; résumé</p>", "<p>Café &#x26; résumé</p>"],
+      ["emoji", '<p>"Hello 👋"</p>', `<p>${LDQ}Hello 👋${RDQ}</p>`],
+      ["links", '<p><a href="https://example.com">"Link"</a></p>', `<p><a href="https://example.com">${LDQ}Link${RDQ}</a></p>`],
     ])("handles %s", async (_name, html, expected) => {
-      const result = await processHtml(html)
-      expect(result).toContain(expected)
+      expect(await processHtml(html)).toEqual(expected)
     })
 
     it("is idempotent", async () => {
@@ -282,28 +267,26 @@ describe("rehypePunctilio", () => {
 
   describe("coverage edge cases", () => {
     it.each([
-      ["space-separated class string", '<p class="foo bar no-transform">"Hello"</p>', { skipClasses: ["no-transform"] }, '"Hello"'],
-      ["HTML comments", '<p>"Hello"<!-- comment --></p>', {}, "<!-- comment -->"],
-      ["non-text children only", '<div><img src="test.jpg" alt="test"></div>', {}, '<img src="test.jpg"'],
-      ["skip class at root", '<p class="skip">"Hello"</p>', { skipClasses: ["skip"] }, '"Hello"'],
-      ["nested skipped elements", '<pre><p>"Hello"</p></pre>', {}, '"Hello"'],
-      ["multiple skip classes", '<p class="a b">"Hello"</p>', { skipClasses: ["b"] }, '"Hello"'],
+      ["space-separated class string", '<p class="foo bar no-transform">"Hello"</p>', { skipClasses: ["no-transform"] }, '<p class="foo bar no-transform">"Hello"</p>'],
+      ["HTML comments", '<p>"Hello"<!-- comment --></p>', {}, `<p>${LDQ}Hello${RDQ}<!-- comment --></p>`],
+      ["non-text children only", '<div><img src="test.jpg" alt="test"></div>', {}, '<div><img src="test.jpg" alt="test"></div>'],
+      ["skip class at root", '<p class="skip">"Hello"</p>', { skipClasses: ["skip"] }, '<p class="skip">"Hello"</p>'],
+      ["nested skipped elements", '<pre><p>"Hello"</p></pre>', {}, '<pre><p>"Hello"</p></pre>'],
+      ["multiple skip classes", '<p class="a b">"Hello"</p>', { skipClasses: ["b"] }, '<p class="a b">"Hello"</p>'],
     ])("handles %s", async (_name, html, options, expected) => {
-      const result = await processHtml(html, options)
-      expect(result).toContain(expected)
+      expect(await processHtml(html, options)).toEqual(expected)
     })
 
     it("handles skipped child within non-skipped parent", async () => {
-      const result = await processHtml('<div>"Before" <code>"Inside"</code> "After"</div>')
-      expect(result).toContain(LDQ)
-      expect(result).toContain('"Inside"')
+      expect(await processHtml('<div>"Before" <code>"Inside"</code> "After"</div>')).toEqual(
+        `<div>${LDQ}Before${RDQ} <code>"Inside"</code> ${LDQ}After${RDQ}</div>`
+      )
     })
 
     it("handles mixed skip and non-skip siblings", async () => {
-      const result = await processHtml('<article><p>"Hello"</p><pre>"Code"</pre><p>"World"</p></article>')
-      expect(result).toMatch(new RegExp(`<p>${LDQ}Hello${RDQ}</p>`))
-      expect(result).toMatch(new RegExp(`<p>${LDQ}World${RDQ}</p>`))
-      expect(result).toContain('<pre>"Code"</pre>')
+      expect(await processHtml('<article><p>"Hello"</p><pre>"Code"</pre><p>"World"</p></article>')).toEqual(
+        `<article><p>${LDQ}Hello${RDQ}</p><pre>"Code"</pre><p>${LDQ}World${RDQ}</p></article>`
+      )
     })
   })
 })
