@@ -1,6 +1,6 @@
 > *punctilio* (n.): precise observance of formalities.
 
-The best typography package for English.
+Pretty good at making your text pretty. The most feature-complete and reliable English typography package.
 
 ```typescript
 import { transform } from 'punctilio'
