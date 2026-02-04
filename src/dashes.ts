@@ -108,11 +108,23 @@ export function enDashDateRange(text: string, options: DashOptions = {}): string
 /** Convert hyphens to minus signs in numeric contexts (e.g., "-5" → "−5"). */
 export function minusReplace(text: string, options: DashOptions = {}): string {
   const chr = escapeStringRegexp(options.separator ?? DEFAULT_SEPARATOR)
+
+  // Pattern 1: Spaced math subtraction (e.g., "5 - 3" → "5 − 3")
+  // Only when preceded by a digit - this distinguishes "5 - 3" from "Safari) - 9"
+  text = text.replaceAll(
+    new RegExp(`(?<=\\d${chr}?) - (?<num>${chr}?\\d*\\.?\\d+)`, "g"),
+    ` ${MINUS} $<num>`
+  )
+
+  // Pattern 2: Direct negative numbers (e.g., "-5" → "−5", "(-3)" → "(−3)")
   // Match after: start of line, whitespace, (, separator, or quotes (straight or curly)
-  return text.replaceAll(
-    new RegExp(`(?<before>^|[\\s\\("${chr}${LEFT_DOUBLE_QUOTE}${RIGHT_DOUBLE_QUOTE}])-(?<num>\\s?\\d*\\.?\\d+)`, "gm"),
+  // No space allowed between hyphen and digit
+  text = text.replaceAll(
+    new RegExp(`(?<before>^|[\\s\\("${chr}${LEFT_DOUBLE_QUOTE}${RIGHT_DOUBLE_QUOTE}])-(?<num>\\d*\\.?\\d+)`, "gm"),
     `$<before>${MINUS}$<num>`
   )
+
+  return text
 }
 
 /**
