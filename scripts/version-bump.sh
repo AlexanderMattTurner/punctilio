@@ -72,7 +72,7 @@ RESPONSE=$(curl -s https://api.anthropic.com/v1/messages \
   -d "$(jq -n \
     --arg prompt "$PROMPT" \
     '{
-      model: "claude-haiku-4-0",
+      model: "claude-haiku-4-5-20250514",
       max_tokens: 10,
       messages: [{role: "user", content: $prompt}]
     }')")
@@ -80,11 +80,11 @@ RESPONSE=$(curl -s https://api.anthropic.com/v1/messages \
 # Extract the bump level from Claude's response
 BUMP=$(echo "$RESPONSE" | jq -r '.content[0].text' | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')
 
-# Validate response
+# Validate response - fail if Claude couldn't determine bump type
 if [[ "$BUMP" != "major" && "$BUMP" != "minor" && "$BUMP" != "patch" ]]; then
-  echo "Unexpected response from Claude: $BUMP"
-  echo "Defaulting to patch"
-  BUMP="patch"
+  echo "Error: Unexpected response from Claude: $BUMP"
+  echo "Full response: $RESPONSE"
+  exit 1
 fi
 
 echo "Claude determined bump level: $BUMP"
@@ -106,12 +106,40 @@ case $BUMP in
 esac
 fi
 
-echo "New version: $NEW_VERSION"
+echo "Calculated version: $NEW_VERSION"
 
 # Validate version format (strict semver: X.Y.Z where X, Y, Z are non-negative integers)
 if ! [[ "$NEW_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
   echo "Error: Invalid version format: $NEW_VERSION"
   exit 1
+fi
+
+# Check npm registry for the latest published version
+PACKAGE_NAME=$(node -p "require('./package.json').name")
+NPM_VERSION=$(npm view "$PACKAGE_NAME" version 2>/dev/null || echo "0.0.0")
+echo "Latest npm version: $NPM_VERSION"
+
+# Compare versions and bump if needed to avoid publishing duplicate
+# Parse both versions
+IFS='.' read -r NEW_MAJOR NEW_MINOR NEW_PATCH <<< "$NEW_VERSION"
+IFS='.' read -r NPM_MAJOR NPM_MINOR NPM_PATCH <<< "$NPM_VERSION"
+
+# Check if NEW_VERSION is less than or equal to NPM_VERSION
+version_lte() {
+  local v1_major=$1 v1_minor=$2 v1_patch=$3
+  local v2_major=$4 v2_minor=$5 v2_patch=$6
+
+  if [ "$v1_major" -lt "$v2_major" ]; then return 0; fi
+  if [ "$v1_major" -gt "$v2_major" ]; then return 1; fi
+  if [ "$v1_minor" -lt "$v2_minor" ]; then return 0; fi
+  if [ "$v1_minor" -gt "$v2_minor" ]; then return 1; fi
+  if [ "$v1_patch" -le "$v2_patch" ]; then return 0; fi
+  return 1
+}
+
+if version_lte "$NEW_MAJOR" "$NEW_MINOR" "$NEW_PATCH" "$NPM_MAJOR" "$NPM_MINOR" "$NPM_PATCH"; then
+  echo "Version $NEW_VERSION already exists on npm (latest: $NPM_VERSION). Skipping."
+  exit 0
 fi
 
 # Update package.json if version wasn't already changed
