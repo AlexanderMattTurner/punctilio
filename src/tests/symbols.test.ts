@@ -705,3 +705,4 @@ describe("chained multiplications", () => {
     expect(multiplication(input)).toBe(expected)
   })
 })
+

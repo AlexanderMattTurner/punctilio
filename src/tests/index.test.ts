@@ -1,6 +1,6 @@
 import { transform, DEFAULT_SEPARATOR, countSeparators } from "../index.js"
 import { ellipsis } from "../symbols.js"
-import { UNICODE_SYMBOLS } from "../constants.js"
+import { UNICODE_SYMBOLS, REGEX_SPECIAL_CHARS } from "../constants.js"
 
 const {
   LEFT_DOUBLE_QUOTE,
@@ -459,6 +459,70 @@ describe("transform", () => {
       ["5x", `5×`],
     ])('handles boundary: "%s"', (input, expected) => {
       expect(transform(input)).toBe(expected)
+    })
+  })
+
+  describe("separator validation", () => {
+    const invalidSeparators = [
+      ["🎉", "emoji (multi-codepoint)"],
+      ["ab", "multi-character"],
+      ["", "empty string"],
+    ] as const
+
+    it.each(invalidSeparators)("rejects %s separator (%s)", (sep) => {
+      expect(() => transform('"Hello"', { separator: sep })).toThrow(
+        /Invalid separator.*must be a single character/
+      )
+    })
+
+    const validSeparators = ["\uE000", "|", "\u2603"] // Default, pipe, snowman
+
+    it.each(validSeparators)("accepts '%s' as separator", (sep) => {
+      expect(() => transform('"Hello"', { separator: sep })).not.toThrow()
+    })
+  })
+
+  describe("regex-special separator characters", () => {
+    it.each(REGEX_SPECIAL_CHARS)("handles '%s' as separator", (sep) => {
+      expect(transform('"Hello"', { separator: sep })).toEqual(
+        `${LEFT_DOUBLE_QUOTE}Hello${RIGHT_DOUBLE_QUOTE}`
+      )
+    })
+  })
+
+  describe("Unicode preservation", () => {
+    it.each([
+      ["emoji", '"Hello 👋 World"', `${LEFT_DOUBLE_QUOTE}Hello 👋 World${RIGHT_DOUBLE_QUOTE}`],
+      ["RTL text", '"שלום"', `${LEFT_DOUBLE_QUOTE}שלום${RIGHT_DOUBLE_QUOTE}`],
+      ["zero-width space", '"Hello\u200BWorld"', `${LEFT_DOUBLE_QUOTE}Hello\u200BWorld${RIGHT_DOUBLE_QUOTE}`],
+    ] as const)("preserves %s in input", (_, input, expected) => {
+      expect(transform(input)).toEqual(expected)
+    })
+  })
+
+  describe("large input handling", () => {
+    it("handles 1MB of text", () => {
+      const input = "Hello, world! ".repeat(70000)
+      const start = performance.now()
+      transform(input)
+      expect(performance.now() - start).toBeLessThan(2000)
+    })
+  })
+
+  describe("ReDoS resistance", () => {
+    const MAX_TIMEOUT_MS = 100
+
+    it.each([
+      ["10000 single quotes", "'".repeat(10000)],
+      ["10000 double quotes", '"'.repeat(10000)],
+      ["1000 unbalanced quotes", '"Hello '.repeat(1000)],
+      ["10000 hyphens", "-".repeat(10000)],
+      ["alternating digits/hyphens", "1-2-3-4-5-6-7-8-9-0".repeat(500)],
+      ["10000 dots", ".".repeat(10000)],
+    ] as const)("handles %s", (_, input) => {
+      const start = performance.now()
+      transform(input)
+      expect(performance.now() - start).toBeLessThan(MAX_TIMEOUT_MS)
     })
   })
 })
