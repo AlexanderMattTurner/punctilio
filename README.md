@@ -1,6 +1,6 @@
 > *punctilio* (n.): precise observance of formalities.
 
-The best typography package for English.
+Pretty good at making your text pretty. The most feature-complete and reliable English typography package.
 
 ```typescript
 import { transform } from 'punctilio'
@@ -45,24 +45,24 @@ My [`benchmark.mjs`](https://github.com/alexander-turner/punctilio/blob/main/ben
 
 | Feature | Example | `punctilio` | `smartypants` | `tipograph` | `smartquotes` | `typograf` |
 |--------:|:-------:|:-------:|:-------:|:-------:|:-------:|:-------:|
-| Smart quotes | "hello" → “hello” | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Leading apostrophe | 'Twas → ’Twas | ✓ | ✗ | ✗ | ~ | ✗ |
-| Em dash | -- → — | ✓ | ✓ | ✗ | ✗ | ✓ |
-| En dash (ranges) | 1-5 → 1–5 | ✓ | ✗ | ✓ | ✗ | ✗ |
-| Minus sign | -5 → −5 | ✓ | ✗ | ✓ | ✗ | ✗ |
-| Ellipsis | ... → … | ✓ | ✓ | ✓ | ✗ | ✓ |
-| Multiplication | 5x5 → 5×5 | ✓ | ✗ | ✗ | ✗ | ~ |
-| Math symbols | != → ≠ | ✓ | ✗ | ~ | ✗ | ~ |
-| Legal symbols | (c) → © | ✓ | ✗ | ~ | ✗ | ✓ |
-| Arrows | -> → → | ✓ | ✗ | ~ | ✗ | ~ |
-| Prime marks | 5'10" → 5′10″ | ✓ | ✗ | ✓ | ✓ | ✗ |
-| Degrees | 20 C → 20 °C | ✓ | ✗ | ✗ | ✗ | ✓ |
-| Fractions | 1/2 → ½ | ✓ | ✗ | ✗ | ✗ | ✓ |
-| Superscripts | 2nd → 2ⁿᵈ | ✓ | ✗ | ✗ | ✗ | ✗ |
-| English localization | American/British | ✓ | ✗ | ✗ | ✗ | ✗ |
-| Ligatures | ?? → ⁇ | ✓ | ✗ | ✓ | ✗ | ✗ |
-| Non-English quotes | „Hallo” (German) | ✗ | ✗ | ✓ | ✗ | ~ |
-| Non-breaking spaces | Chapter 1 | ✗ | ✗ | ✗ | ✗ | ✓ |
+| Smart quotes | <span class="no-formatting">"hello" → “hello”</span> | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Leading apostrophe | <span class="no-formatting">'Twas → ’Twas</span> | ✓ | ✗ | ✗ | ~ | ✗ |
+| Em dash | <span class="no-formatting">-- → —</span> | ✓ | ✓ | ✗ | ✗ | ✓ |
+| En dash (ranges) | <span class="no-formatting">1-5 → 1–5</span> | ✓ | ✗ | ✓ | ✗ | ✗ |
+| Minus sign | <span class="no-formatting">-5 → −5</span> | ✓ | ✗ | ✓ | ✗ | ✗ |
+| Ellipsis | <span class="no-formatting">... → …</span> | ✓ | ✓ | ✓ | ✗ | ✓ |
+| Multiplication | <span class="no-formatting">5x5 → 5×5</span> | ✓ | ✗ | ✗ | ✗ | ~ |
+| Math symbols | <span class="no-formatting">!= → ≠</span> | ✓ | ✗ | ~ | ✗ | ~ |
+| Legal symbols | <span class="no-formatting">(c) → ©</span> | ✓ | ✗ | ~ | ✗ | ✓ |
+| Arrows | <span class="no-formatting">-> → →</span> | ✓ | ✗ | ~ | ✗ | ~ |
+| Prime marks | <span class="no-formatting">5'10" → 5′10″</span> | ✓ | ✗ | ✓ | ✓ | ✗ |
+| Degrees | <span class="no-formatting">20 C → 20 °C</span> | ✓ | ✗ | ✗ | ✗ | ✓ |
+| Fractions | <span class="no-formatting">1/2 → ½</span> | ✓ | ✗ | ✗ | ✗ | ✓ |
+| Superscripts | <span class="no-formatting">2nd → 2ⁿᵈ</span> | ✓ | ✗ | ✗ | ✗ | ✗ |
+| English localization | <span class="no-formatting">American / British</span> | ✓ | ✗ | ✗ | ✗ | ✗ |
+| Ligatures | <span class="no-formatting">?? → ⁇</span> | ✓ | ✗ | ✓ | ✗ | ✗ |
+| Non-English quotes | <span class="no-formatting">„Hallo”</span> | ✗ | ✗ | ✓ | ✗ | ~ |
+| Non-breaking spaces | <span class="no-formatting">Chapter 1</span> | ✗ | ✗ | ✗ | ✗ | ✓ |
 
 `typograf` uniquely inserts non-breaking spaces to prevent bad line breaks (e.g. before numbers, after colons). I might add this to `punctilio` in the future. `punctilio`’s other missing feature is non-English quote support—feel free to make a pull request!
 
