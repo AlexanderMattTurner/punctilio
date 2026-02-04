@@ -87,6 +87,12 @@ export const DEFAULT_SEPARATOR = "\uE000"
 export const ESCAPED_DEFAULT_SEPARATOR = escapeStringRegexp(DEFAULT_SEPARATOR)
 
 /**
+ * Characters that have special meaning in regular expressions.
+ * Used for testing that separator escaping works correctly.
+ */
+export const REGEX_SPECIAL_CHARS = [".", "*", "+", "?", "^", "$", "[", "]", "\\", "|", "(", ")"] as const
+
+/**
  * Creates a marker-aware word boundary pattern for the START of a match.
  *
  * Standard `\b` can create false boundaries when separator markers appear between

@@ -1,6 +1,6 @@
 import { transform, DEFAULT_SEPARATOR, countSeparators } from "../index.js"
 import { ellipsis } from "../symbols.js"
-import { UNICODE_SYMBOLS } from "../constants.js"
+import { UNICODE_SYMBOLS, REGEX_SPECIAL_CHARS } from "../constants.js"
 
 const {
   LEFT_DOUBLE_QUOTE,
@@ -483,9 +483,7 @@ describe("transform", () => {
   })
 
   describe("regex-special separator characters", () => {
-    const regexSpecialChars = [".", "*", "+", "?", "^", "$", "[", "]", "\\", "|", "(", ")"]
-
-    it.each(regexSpecialChars)("handles '%s' as separator", (sep) => {
+    it.each(REGEX_SPECIAL_CHARS)("handles '%s' as separator", (sep) => {
       expect(transform('"Hello"', { separator: sep })).toEqual(
         `${LEFT_DOUBLE_QUOTE}Hello${RIGHT_DOUBLE_QUOTE}`
       )
