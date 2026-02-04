@@ -269,10 +269,11 @@ describe("rehypePunctilio", () => {
         expect(() => transformElement(node, toUpper, ignoreNone, DEFAULT_SEPARATOR)).not.toThrow()
       })
 
-      it("throws on altered text node count", () => {
-        const node = h("p", "hello") as Element
-        const badTransform = (s: string) => s.replace("hello", `hello${DEFAULT_SEPARATOR}extra${DEFAULT_SEPARATOR}`)
-        expect(() => transformElement(node, badTransform, ignoreNone, DEFAULT_SEPARATOR)).toThrow(
+      it.each([
+        ["injecting separators", h("p", "hello"), (s: string) => s.replace("hello", `hello${DEFAULT_SEPARATOR}injected`)],
+        ["removing separators", h("p", ["hello ", h("em", "world")]), (s: string) => s.replace(DEFAULT_SEPARATOR, "")],
+      ])("throws on %s", (_name, element, transform) => {
+        expect(() => transformElement(element as Element, transform, () => false, DEFAULT_SEPARATOR)).toThrow(
           "Transformation altered the number of text nodes"
         )
       })
@@ -304,25 +305,5 @@ describe("rehypePunctilio", () => {
       expect(result).toMatch(new RegExp(`<p>${LDQ}World${RDQ}</p>`))
       expect(result).toContain('<pre>"Code"</pre>')
     })
-  })
-})
-
-describe("separator injection protection", () => {
-  it("throws when transform injects separators", () => {
-    const element = h("p", "hello world") as Element
-    const maliciousTransform = (text: string): string =>
-      text.replace("hello", `hello${DEFAULT_SEPARATOR}injected`)
-    expect(() => {
-      transformElement(element, maliciousTransform, () => false, DEFAULT_SEPARATOR)
-    }).toThrow("Transformation altered the number of text nodes")
-  })
-
-  it("throws when transform removes separators", () => {
-    const element = h("p", ["hello ", h("em", "world")]) as Element
-    const maliciousTransform = (text: string): string =>
-      text.replace(DEFAULT_SEPARATOR, "")
-    expect(() => {
-      transformElement(element, maliciousTransform, () => false, DEFAULT_SEPARATOR)
-    }).toThrow("Transformation altered the number of text nodes")
   })
 })
