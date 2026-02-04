@@ -109,6 +109,9 @@ describe("hyphenReplace", () => {
     it.each([
       [`word${sep} - ${sep}another`, `word${sep}${EM_DASH}${sep}another`, "em dash context"],
       [`pages 1${sep}-${sep}5`, `pages 1${sep}${EN_DASH}${sep}5`, "number ranges"],
+      // Whitespace after separator should be preserved (not consumed by dash conversion)
+      [`text ${EM_DASH} ${sep} more text`, `text${EM_DASH}${sep} more text`, "preserves whitespace after separator"],
+      [`text - ${sep} more`, `text${EM_DASH}${sep} more`, "preserves space after separator with hyphen"],
     ])("%s → %s (%s)", (input, expected) => {
       expect(hyphenReplace(input, { separator: sep })).toBe(expected)
     })
