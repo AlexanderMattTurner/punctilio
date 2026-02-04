@@ -1,0 +1,20 @@
+#!/bin/bash
+# Pre-commit hook: Format and lint staged files
+# Customize the lint-staged configuration in package.json
+
+GIT_ROOT=$(git rev-parse --show-toplevel)
+
+# Check if lint-staged is installed
+if [ ! -f "$GIT_ROOT/node_modules/.bin/lint-staged" ]; then
+  echo "Warning: lint-staged not found. Run 'pnpm install' to enable pre-commit formatting." >&2
+  exit 0
+fi
+
+# Run lint-staged (via pnpm or npm)
+if command -v pnpm >/dev/null 2>&1; then
+  pnpm exec lint-staged --allow-empty
+elif command -v npm >/dev/null 2>&1; then
+  npx lint-staged --allow-empty
+else
+  echo "Warning: Neither pnpm nor npm found. Skipping lint-staged." >&2
+fi
