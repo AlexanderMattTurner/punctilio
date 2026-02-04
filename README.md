@@ -32,7 +32,7 @@ I tested `punctilio` 1.2.9 against [`smartypants`](https://www.npmjs.com/package
 | She said—"Hi!" | She said—”Hi!” (✗) | She said—“Hi!” (✓) |
 | 5x5 |	5x5 (✗) |	5×5 (✓) |
 
-My [`benchmark.mjs`](./benchmark.mjs) measures how well libraries handle a [wide range of scenarios](./benchmark_cases.json). The benchmark normalizes stylistic differences (e.g. non-breaking vs regular space, British vs American dash spacing) for fair comparison.
+My [`benchmark.mjs`](https://github.com/alexander-turner/punctilio/blob/main/benchmark.mjs) measures how well libraries handle a [wide range of scenarios](https://github.com/alexander-turner/punctilio/blob/main/benchmark_cases.json). The benchmark normalizes stylistic differences (e.g. non-breaking vs regular space, British vs American dash spacing) for fair comparison.
 
 | Package | Passed (of 154) |
 |--------:|:----------------|
@@ -59,7 +59,7 @@ My [`benchmark.mjs`](./benchmark.mjs) measures how well libraries handle a [wide
 | Degrees | 20 C → 20 °C | ✓ | ✗ | ✗ | ✗ | ✓ |
 | Fractions | 1/2 → ½ | ✓ | ✗ | ✗ | ✗ | ✓ |
 | Superscripts | 2nd → 2ⁿᵈ | ✓ | ✗ | ✗ | ✗ | ✗ |
-| Localization | American/British | ✓ | ✗ | ✗ | ✗ | ✗ |
+| English localization | American/British | ✓ | ✗ | ✗ | ✗ | ✗ |
 | Ligatures | ?? → ⁇ | ✓ | ✗ | ✓ | ✗ | ✗ |
 | Non-English quotes | „Hallo” (German) | ✗ | ✗ | ✓ | ✗ | ~ |
 | Non-breaking spaces | Chapter 1 | ✗ | ✗ | ✗ | ✗ | ✓ |
