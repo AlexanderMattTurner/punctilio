@@ -1,4 +1,4 @@
-import type { Element, Text, ElementContent } from "hast"
+import type { Element, Parent, Text, ElementContent } from "hast"
 import { h } from "hastscript"
 import { unified } from "unified"
 import rehypeParse from "rehype-parse"
@@ -8,6 +8,10 @@ import {
   type RehypePunctilioOptions,
   transformElement,
   flattenTextNodes,
+  getTextContent,
+  getFirstTextNode,
+  assertSmartQuotesMatch,
+  collectTransformableElements,
 } from "../rehype.js"
 import { UNICODE_SYMBOLS, DEFAULT_SEPARATOR } from "../constants.js"
 
@@ -261,6 +265,128 @@ describe("rehypePunctilio", () => {
         expect(() => transformElement(element as Element, transform, () => false, DEFAULT_SEPARATOR)).toThrow(
           "Transformation altered the number of text nodes"
         )
+      })
+
+      it("passes invariance check for marker-transparent transforms", () => {
+        const element = h("p", ["hello ", h("em", "world")]) as Element
+        expect(() =>
+          transformElement(element, toUpper, ignoreNone, DEFAULT_SEPARATOR, true)
+        ).not.toThrow()
+      })
+
+      it("throws on invariance check failure", () => {
+        const element = h("p", ["hello ", h("em", "world")]) as Element
+        // This transform interacts with the separator: it replaces char before separator
+        const badTransform = (s: string) => s.replace(new RegExp(` ${DEFAULT_SEPARATOR}`, "g"), `X${DEFAULT_SEPARATOR}`)
+        expect(() =>
+          transformElement(element, badTransform, ignoreNone, DEFAULT_SEPARATOR, true)
+        ).toThrow("Transform invariance check failed")
+      })
+    })
+
+    describe("getTextContent", () => {
+      it.each([
+        ["simple text", fixtures.simple, ignoreNone, "Hello, world!"],
+        ["nested elements", fixtures.nested, ignoreNone, "This is emphasized text."],
+        ["with ignored code", fixtures.withCode, ignoreCode, "This is  text."],
+        ["empty element", fixtures.empty, ignoreNone, ""],
+        ["deeply nested", fixtures.deeplyNested, ignoreNone, "Level 1 Level 2 Level 3 End"],
+      ])("extracts from %s", (_name, node, skip, expected) => {
+        expect(getTextContent(node, skip)).toBe(expected)
+      })
+
+      it("uses default shouldSkip when not provided", () => {
+        expect(getTextContent(fixtures.simple)).toBe("Hello, world!")
+      })
+    })
+
+    describe("getFirstTextNode", () => {
+      it.each([
+        ["simple text", fixtures.simple, "Hello, world!"],
+        ["nested", fixtures.nested, "This is "],
+        ["deeply nested", fixtures.deeplyNested, "Level 1 "],
+      ])("finds first text in %s", (_name, node, expectedValue) => {
+        const result = getFirstTextNode(node as Parent)
+        expect(result).not.toBeNull()
+        expect(result!.value).toBe(expectedValue)
+      })
+
+      it("returns null for empty element", () => {
+        expect(getFirstTextNode(fixtures.empty as Parent)).toBeNull()
+      })
+
+      it("returns text node directly", () => {
+        const textNode: Text = { type: "text", value: "Direct" }
+        expect(getFirstTextNode(textNode as unknown as Parent)).toBe(textNode)
+      })
+
+      it("returns null for null input", () => {
+        expect(getFirstTextNode(null as unknown as Parent)).toBeNull()
+      })
+
+      it("returns null for comments-only element", () => {
+        const node = h("div", [
+          { type: "comment", value: "comment" } as unknown as ElementContent,
+        ]) as Element
+        expect(getFirstTextNode(node as Parent)).toBeNull()
+      })
+
+      it("stops at max recursion depth", () => {
+        let deep: Element = h("span", "deep") as Element
+        for (let i = 0; i < 1005; i++) deep = h("div", [deep]) as Element
+        expect(getFirstTextNode(deep as Parent)).toBeNull()
+      })
+    })
+
+    describe("assertSmartQuotesMatch", () => {
+      it.each([
+        ["matched double quotes", "\u201CHello\u201D"],
+        ["nested quotes", "\u201COuter \u201Cinner\u201D outer\u201D"],
+        ["empty string", ""],
+        ["no quotes", "Hello, world!"],
+      ])("passes for %s", (_name, input) => {
+        expect(() => assertSmartQuotesMatch(input)).not.toThrow()
+      })
+
+      it.each([
+        ["unmatched opening", "\u201CHello"],
+        ["unmatched closing", "Hello\u201D"],
+        ["extra opening", "\u201C\u201CHello\u201D"],
+      ])("throws for %s", (_name, input) => {
+        expect(() => assertSmartQuotesMatch(input)).toThrow("Mismatched quotes")
+      })
+    })
+
+    describe("collectTransformableElements", () => {
+      it("collects elements with direct text children", () => {
+        const tree = h("div", [
+          h("p", "First paragraph"),
+          h("div", [h("p", "Nested paragraph")]),
+        ]) as Element
+        const result = collectTransformableElements(tree, ignoreNone)
+        expect(result).toHaveLength(2)
+        expect(result[0].tagName).toBe("p")
+        expect(result[1].tagName).toBe("p")
+      })
+
+      it("skips elements matching shouldSkip", () => {
+        const tree = h("div", [
+          h("p", "Normal"),
+          h("code", "Skipped"),
+        ]) as Element
+        const result = collectTransformableElements(tree, ignoreCode)
+        expect(result).toHaveLength(1)
+        expect(result[0].tagName).toBe("p")
+      })
+
+      it("returns empty for skipped root", () => {
+        const tree = h("code", "Skipped") as Element
+        expect(collectTransformableElements(tree, ignoreCode)).toHaveLength(0)
+      })
+
+      it("returns empty for elements without text children", () => {
+        const tree = h("div", [h("img")]) as Element
+        expect(collectTransformableElements(tree, ignoreNone)).toHaveLength(0)
       })
     })
   })

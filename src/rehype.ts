@@ -7,7 +7,7 @@
  * @packageDocumentation
  */
 
-import type { Root, Element, Text, ElementContent, Parent } from "hast"
+import type { Root, Element, Text, ElementContent, Parent, RootContent } from "hast"
 import type { Transformer } from "unified"
 
 import { visitParents } from "unist-util-visit-parents"
@@ -114,6 +114,94 @@ export function flattenTextNodes(
 }
 
 /**
+ * Extracts concatenated text content from an element.
+ *
+ * @param node - The element to extract text from
+ * @param shouldSkip - Optional function to determine which elements to skip
+ * @returns The combined text content
+ *
+ * @example
+ * ```ts
+ * const text = getTextContent(paragraphElement)
+ * // Returns "Hello, world!" for <p>Hello, <em>world!</em></p>
+ * ```
+ */
+export function getTextContent(
+  node: Element,
+  shouldSkip: (n: Element) => boolean = () => false
+): string {
+  return flattenTextNodes(node, shouldSkip)
+    .map((n) => n.value)
+    .join("")
+}
+
+/**
+ * Recursively finds the first text node in a tree of HTML elements.
+ *
+ * @param node - The root node to search from
+ * @param depth - Current recursion depth (internal use)
+ * @returns The first text node found, or null if no text nodes exist
+ *
+ * @example
+ * ```ts
+ * const textNode = getFirstTextNode(divElement)
+ * if (textNode) console.log(textNode.value)
+ * ```
+ */
+export function getFirstTextNode(
+  node: Parent | RootContent,
+  depth: number = 0
+): Text | null {
+  if (!node || depth > MAX_RECURSION_DEPTH) return null
+
+  if (node.type === "text" && "value" in node) {
+    return node as Text
+  }
+
+  if ("children" in node && node.children.length > 0) {
+    for (const child of node.children) {
+      const textNode = getFirstTextNode(child as Parent, depth + 1)
+      if (textNode) return textNode
+    }
+  }
+
+  return null
+}
+
+/**
+ * Validates that smart quotes in a text string are properly matched.
+ *
+ * @param input - The text to validate
+ * @throws Error if quotes are mismatched
+ *
+ * @example
+ * ```ts
+ * assertSmartQuotesMatch('\u201CHello\u201D') // OK
+ * assertSmartQuotesMatch('\u201CHello')        // throws Error
+ * ```
+ */
+export function assertSmartQuotesMatch(input: string): void {
+  if (!input) return
+
+  const quoteMap: Record<string, string> = { "\u201C": "\u201D", "\u201D": "\u201C" }
+  const stack: string[] = []
+
+  for (const char of input) {
+    if (char in quoteMap) {
+      if (stack.length > 0 && quoteMap[stack[stack.length - 1]] === char) {
+        stack.pop()
+      } else {
+        stack.push(char)
+      }
+    }
+  }
+
+  if (stack.length > 0) {
+    throw new Error(`Mismatched quotes in ${input}`)
+  }
+}
+
+/**
  * Applies a transformation to element text content while preserving HTML structure.
  *
  * This function uses a marker technique to handle text that spans multiple
@@ -126,7 +214,13 @@ export function flattenTextNodes(
  * @param transformFn - The transformation function to apply
  * @param shouldSkip - Function to determine which elements to skip
  * @param separator - The marker character to use (default: DEFAULT_SEPARATOR)
+ * @param checkInvariance - Whether to verify that the transform produces the same
+ *   result with and without markers. When true, checks that
+ *   `stripMarkers(transform(textWithMarkers)) === transform(stripMarkers(text))`.
+ *   Useful for debugging transforms that accidentally interact with markers.
+ *   Default: false
  * @throws Error if transformation alters the number of text nodes
+ * @throws Error if checkInvariance is true and the invariance check fails
  *
  * @example
  * ```ts
@@ -145,7 +239,8 @@ export function transformElement(
   node: Element,
   transformFn: (input: string) => string,
   shouldSkip: (input: Element) => boolean,
-  separator: string
+  separator: string,
+  checkInvariance: boolean = false
 ): void {
   /* istanbul ignore if -- defensive: elements should always have children array */
   if (!node?.children) {
@@ -178,6 +273,20 @@ export function transformElement(
   textNodes.forEach((n, index) => {
     n.value = transformedFragments[index]
   })
+
+  if (checkInvariance) {
+    const stripSep = (s: string) => s.replaceAll(separator, "")
+    const strippedTransformed = stripSep(transformedContent)
+    const expected = transformFn(stripSep(markedContent))
+
+    if (expected !== strippedTransformed) {
+      throw new Error(
+        `Transform invariance check failed: ` +
+          `expected ${formatErrorString(expected, "expected")} ` +
+          `but got ${formatErrorString(strippedTransformed, "actual")}`
+      )
+    }
+  }
 }
 
 /**
@@ -248,7 +357,7 @@ const TRANSFORMABLE_ELEMENTS = [
  * @param depth - Current recursion depth (internal use)
  * @returns Array of elements that contain transformable text
  */
-function collectTransformableElements(
+export function collectTransformableElements(
   node: Element,
   shouldSkip: (n: Element) => boolean,
   depth: number = 0
