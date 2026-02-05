@@ -16,12 +16,15 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "src",
+    "tsconfig.json"
   ],
   "scripts": {
     "build": "tsc",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
     "lint": "eslint src",
+    "prepare": "tsc || true",
     "prepublishOnly": "pnpm run build && pnpm run test",
     "postinstall": "bash scripts/install-hooks.sh || true",
     "install-hooks": "bash scripts/install-hooks.sh"
