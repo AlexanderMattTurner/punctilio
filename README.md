@@ -98,7 +98,7 @@ transform(`"Wait${DEFAULT_SEPARATOR}"`)
 // The separator doesn’t block the information that this should be an end-quote!
 ```
 
-For rehype/unified pipelines, use the built-in plugin (handles the separator logic automatically):
+For `rehype` / `unified` pipelines, use the built-in plugin which handles the separator logic automatically:
 
 ```typescript
 import rehypePunctilio from 'punctilio/rehype'
