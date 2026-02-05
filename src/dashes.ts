@@ -131,8 +131,10 @@ function convertParentheticalDashes(text: string, sep: string, style: DashStyle)
     `(?<=[^\\s]|^)(?<sepBefore>${escapedSep}?)[ ]+[~${EN_DASH}${EM_DASH}-]+(?!-*>)[ ]*(?<sepAfter>${escapedSep}?)(?<trailing>[ ]*)(?=\\S|$)`, "g"
   )
   text = text.replace(spacedDashPattern, (_match, sepBefore, sepAfter, trailing) => {
-    // Preserve trailing spaces only after a separator (they belong to the next text segment)
-    return `${sepBefore}${maybeSpace}${localizedDash}${maybeSpace}${sepAfter}${sepAfter ? trailing : ""}`
+    // For British style (spaced en-dash), preserve trailing spaces after separator
+    // For American style (unspaced em-dash), consume trailing spaces (em-dash replaces surrounding space)
+    const keepTrailing = maybeSpace && sepAfter ? trailing : ""
+    return `${sepBefore}${maybeSpace}${localizedDash}${maybeSpace}${sepAfter}${keepTrailing}`
   })
   // Convert multiple dashes: "word--word" or "word---word" or "quote"--"quote"
   const quoteChars = `"'${LEFT_DOUBLE_QUOTE}${RIGHT_DOUBLE_QUOTE}${LEFT_SINGLE_QUOTE}${RIGHT_SINGLE_QUOTE}`
