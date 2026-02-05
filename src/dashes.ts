@@ -128,7 +128,7 @@ function convertParentheticalDashes(text: string, sep: string, style: DashStyle)
   // Convert spaced dashes: "word - word" or "word — word"
   // When a separator follows the dash, preserve trailing spaces (they belong to the next text segment).
   const spacedDashPattern = new RegExp(
-    `(?<=[^\\s]|^)(?<sepBefore>${escapedSep}?)[ ]+[~${EN_DASH}${EM_DASH}-]+[ ]*(?<sepAfter>${escapedSep}?)(?<trailing>[ ]*)(?=\\S|$)`, "g"
+    `(?<=[^\\s]|^)(?<sepBefore>${escapedSep}?)[ ]+[~${EN_DASH}${EM_DASH}-]+(?!-*>)[ ]*(?<sepAfter>${escapedSep}?)(?<trailing>[ ]*)(?=\\S|$)`, "g"
   )
   text = text.replace(spacedDashPattern, (_match, sepBefore, sepAfter, trailing) => {
     // Preserve trailing spaces only after a separator (they belong to the next text segment)

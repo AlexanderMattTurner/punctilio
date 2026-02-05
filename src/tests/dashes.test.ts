@@ -37,6 +37,11 @@ describe("hyphenReplace", () => {
       ],
       ["a browser- or OS-specific fashion", "a browser- or OS-specific fashion"],
       ["since--as you know", `since${EM_DASH}as you know`],
+      // Arrow patterns should be preserved (not converted to em-dashes)
+      ["word -> arrow", "word -> arrow"],
+      ["word --> arrow", "word --> arrow"],
+      ["-> start", "-> start"],
+      ["--> start", "--> start"],
     ])('should replace hyphens in "%s"', (input, expected) => {
       expect(hyphenReplace(input)).toBe(expected)
     })
