@@ -196,16 +196,13 @@ describe("nbspBetweenInitials", () => {
 
 describe("nbspTransform", () => {
   it("applies all nbsp transformations", () => {
-    const result = nbspTransform("Dr. Smith wrote Fig. 1 on p. 42")
-    expect(result).toContain(`Dr.${NBSP}Smith`)
-    expect(result).toContain(`Fig.${NBSP}1`)
-    expect(result).toContain(`p.${NBSP}42`)
+    expect(nbspTransform("Dr. Smith wrote Fig. 1 on p. 42"))
+      .toBe(`Dr.${NBSP}Smith wrote Fig.${NBSP}1 on${NBSP}p.${NBSP}42`)
   })
 
   it("handles multiple rules on the same text", () => {
-    const result = nbspTransform("© 2024 by J. K. Rowling")
-    expect(result).toContain(`©${NBSP}2024`)
-    expect(result).toContain(`J.${NBSP}K.${NBSP}Rowling`)
+    expect(nbspTransform("© 2024 by J. K. Rowling"))
+      .toBe(`©${NBSP}2024 by${NBSP}J.${NBSP}K.${NBSP}Rowling`)
   })
 
   it("nbspBeforeLastWord fires on plain text", () => {
@@ -213,8 +210,8 @@ describe("nbspTransform", () => {
   })
 
   it("passes separator through to all functions", () => {
-    const result = nbspTransform(`Dr.${SEP} Smith`, { separator: SEP })
-    expect(result).toContain(`Dr.${SEP}${NBSP}Smith`)
+    expect(nbspTransform(`Dr.${SEP} Smith`, { separator: SEP }))
+      .toBe(`Dr.${SEP}${NBSP}Smith`)
   })
 
   describe("ordering: specific patterns before generic", () => {
@@ -225,13 +222,11 @@ describe("nbspTransform", () => {
     })
 
     it("honorific + initials compose correctly", () => {
-      expect(nbspTransform("Dr. J. K. Smith")).toContain(`Dr.${NBSP}J.${NBSP}K.${NBSP}Smith`)
+      expect(nbspTransform("Dr. J. K. Smith")).toBe(`Dr.${NBSP}J.${NBSP}K.${NBSP}Smith`)
     })
 
     it("honorific + unit don't double-apply with short words", () => {
-      const result = nbspTransform("St. Anne had 5 kg")
-      expect(result).toContain(`St.${NBSP}Anne`)
-      expect(result).toContain(`5${NBSP}kg`)
+      expect(nbspTransform("St. Anne had 5 kg")).toBe(`St.${NBSP}Anne had 5${NBSP}kg`)
     })
   })
 })

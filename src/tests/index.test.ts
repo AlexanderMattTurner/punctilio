@@ -1,6 +1,6 @@
 import { transform, DEFAULT_SEPARATOR, countSeparators } from "../index.js"
 import { ellipsis } from "../symbols.js"
-import { UNICODE_SYMBOLS, REGEX_SPECIAL_CHARS, SPACE_CHARS } from "../constants.js"
+import { UNICODE_SYMBOLS, REGEX_SPECIAL_CHARS } from "../constants.js"
 
 const {
   LEFT_DOUBLE_QUOTE,
@@ -101,18 +101,13 @@ describe("transform", () => {
 
   describe("nbsp option", () => {
     it("inserts nbsp in typographically appropriate places", () => {
-      const result = transform("Dr. Smith wrote Fig. 1 on p. 42", { nbsp: true })
-      expect(result).toContain(`Dr.${NBSP}Smith`)
-      expect(result).toContain(`Fig.${NBSP}1`)
-      expect(result).toContain(`p.${NBSP}42`)
+      expect(transform("Dr. Smith wrote Fig. 1 on p. 42", { nbsp: true }))
+        .toBe(`Dr.${NBSP}Smith wrote Fig.${NBSP}1 on${NBSP}p.${NBSP}42`)
     })
 
     it("collapseSpaces cleans up after nbsp", () => {
-      // nbsp may produce adjacent nbsp+space; collapseSpaces collapses them
-      const result = transform("Prof. Wilson arrived", { nbsp: true })
-      expect(result).toContain(`Prof.${NBSP}Wilson`)
-      // No double spaces should remain
-      expect(result).not.toMatch(new RegExp(`[${SPACE_CHARS}]{2}`))
+      expect(transform("Prof. Wilson arrived", { nbsp: true }))
+        .toBe(`Prof.${NBSP}Wilson${NBSP}arrived`)
     })
 
     it("is idempotent with nbsp enabled", () => {
