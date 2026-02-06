@@ -56,8 +56,7 @@ describe("nbspAfterShortWords", () => {
 })
 
 describe("nbspBetweenNumberAndUnit", () => {
-  const unitSamples = UNITS.filter((_, i) => i % 7 === 0)
-  it.each(unitSamples.map((u) => [`5 ${u}`, `5${NBSP}${u}`]))(
+  it.each(UNITS.map((u) => [`5 ${u}`, `5${NBSP}${u}`]))(
     '"%s" → "%s"',
     (input, expected) => {
       expect(nbspBetweenNumberAndUnit(input)).toBe(expected)
