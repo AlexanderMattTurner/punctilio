@@ -1,44 +1,40 @@
 #!/bin/bash
-# Auto version bump using Claude API to analyze commits
+# Auto version bump using Claude API to analyze commits and publish to npm
+# Version is tracked via npm registry and git tags, not committed to the repository
 set -e
 
-# Get the most recent commit message
-LAST_COMMIT=$(git log -1 --pretty=%B)
+# Get the latest published version from npm (source of truth)
+PACKAGE_NAME=$(node -p "require('./package.json').name")
+CURRENT_VERSION=$(npm view "$PACKAGE_NAME" version 2>/dev/null || echo "0.0.0")
+echo "Current npm version: $CURRENT_VERSION"
 
-# Check if the most recent commit is already a version bump
-if [[ "$LAST_COMMIT" == chore:\ bump\ version* ]]; then
-  echo "Most recent commit is already a version bump. Skipping."
-  exit 0
-fi
+# Find the latest version tag to determine which commits to analyze
+LAST_TAG=$(git describe --tags --match "v*" --abbrev=0 HEAD 2>/dev/null || echo "")
 
-# Get current version from package.json
-CURRENT_VERSION=$(node -p "require('./package.json').version")
-echo "Current version: $CURRENT_VERSION"
+if [ -n "$LAST_TAG" ]; then
+  # Skip if HEAD is already tagged (no new commits since last release)
+  LAST_TAG_SHA=$(git rev-list -1 "$LAST_TAG")
+  HEAD_SHA=$(git rev-parse HEAD)
+  if [ "$LAST_TAG_SHA" = "$HEAD_SHA" ]; then
+    echo "No new commits since $LAST_TAG. Skipping."
+    exit 0
+  fi
 
-# Check if package.json version was already changed in this commit
-PREV_VERSION=$(git show HEAD~1:package.json 2>/dev/null | node -p "JSON.parse(require('fs').readFileSync(0, 'utf8')).version" 2>/dev/null || echo "")
-if [ -n "$PREV_VERSION" ] && [ "$PREV_VERSION" != "$CURRENT_VERSION" ]; then
-  echo "package.json version already changed in this commit ($PREV_VERSION -> $CURRENT_VERSION). Skipping version increment."
-  NEW_VERSION="$CURRENT_VERSION"
-  SKIP_INCREMENT=true
+  COMMITS_RAW=$(git log "$LAST_TAG"..HEAD --pretty=format:"- %s" --no-merges)
+  DIFF_STAT=$(git diff --stat "$LAST_TAG"..HEAD 2>/dev/null || echo "Unable to get diff")
 else
-  SKIP_INCREMENT=false
-fi
-
-if [ "$SKIP_INCREMENT" = false ]; then
-# Get commits since last version bump
-LAST_BUMP_COMMIT=$(git log --oneline --grep="^chore: bump version" -1 --format="%H" 2>/dev/null || echo "")
-
-if [ -n "$LAST_BUMP_COMMIT" ]; then
-  COMMITS_RAW=$(git log "$LAST_BUMP_COMMIT"..HEAD --pretty=format:"- %s" --no-merges)
-  DIFF_STAT=$(git diff --stat "$LAST_BUMP_COMMIT"..HEAD 2>/dev/null || echo "Unable to get diff")
-else
-  COMMITS_RAW=$(git log -1 --pretty=format:"- %s" --no-merges)
+  # No version tags found — analyze recent commits
+  COMMITS_RAW=$(git log --pretty=format:"- %s" --no-merges -20)
   DIFF_STAT=$(git show --stat HEAD 2>/dev/null || echo "Unable to get diff")
 fi
 
 # Sanitize commit messages: truncate each line, remove control chars, limit total length
 COMMITS=$(echo "$COMMITS_RAW" | head -20 | cut -c1-100 | tr -cd '[:print:]\n' | head -c 2000)
+
+if [ -z "$COMMITS" ]; then
+  echo "No commits to analyze. Skipping."
+  exit 0
+fi
 
 echo "Commits to analyze:"
 echo "$COMMITS"
@@ -120,9 +116,8 @@ case $BUMP in
     NEW_VERSION="${MAJOR}.${MINOR}.$((PATCH_NUM + 1))"
     ;;
 esac
-fi
 
-echo "Calculated version: $NEW_VERSION"
+echo "New version: $NEW_VERSION"
 
 # Validate version format (strict semver: X.Y.Z where X, Y, Z are non-negative integers)
 if ! [[ "$NEW_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
@@ -130,57 +125,25 @@ if ! [[ "$NEW_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
   exit 1
 fi
 
-# Check npm registry for the latest published version
-PACKAGE_NAME=$(node -p "require('./package.json').name")
-NPM_VERSION=$(npm view "$PACKAGE_NAME" version 2>/dev/null || echo "0.0.0")
-echo "Latest npm version: $NPM_VERSION"
-
-# Compare versions and bump if needed to avoid publishing duplicate
-# Parse both versions
-IFS='.' read -r NEW_MAJOR NEW_MINOR NEW_PATCH <<< "$NEW_VERSION"
-IFS='.' read -r NPM_MAJOR NPM_MINOR NPM_PATCH <<< "$NPM_VERSION"
-
-# Check if NEW_VERSION is less than or equal to NPM_VERSION
-version_lte() {
-  local v1_major=$1 v1_minor=$2 v1_patch=$3
-  local v2_major=$4 v2_minor=$5 v2_patch=$6
-
-  if [ "$v1_major" -lt "$v2_major" ]; then return 0; fi
-  if [ "$v1_major" -gt "$v2_major" ]; then return 1; fi
-  if [ "$v1_minor" -lt "$v2_minor" ]; then return 0; fi
-  if [ "$v1_minor" -gt "$v2_minor" ]; then return 1; fi
-  if [ "$v1_patch" -le "$v2_patch" ]; then return 0; fi
-  return 1
-}
-
-if version_lte "$NEW_MAJOR" "$NEW_MINOR" "$NEW_PATCH" "$NPM_MAJOR" "$NPM_MINOR" "$NPM_PATCH"; then
-  echo "Version $NEW_VERSION already exists on npm (latest: $NPM_VERSION). Skipping."
+# Check if version already exists on npm (safety net for retries)
+if npm view "$PACKAGE_NAME@$NEW_VERSION" version &>/dev/null; then
+  echo "Version $NEW_VERSION already exists on npm. Skipping."
   exit 0
 fi
 
-# Update package.json if version wasn't already changed
-if [ "$SKIP_INCREMENT" = false ]; then
-  # Update package.json using node to preserve formatting
-  # Pass version via environment variable to avoid shell injection
-  NEW_VERSION="$NEW_VERSION" node -e '
+# Update package.json in working directory only (not committed to git)
+NEW_VERSION="$NEW_VERSION" node -e '
 const fs = require("fs");
 const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
 pkg.version = process.env.NEW_VERSION;
 fs.writeFileSync("package.json", JSON.stringify(pkg, null, 2) + "\n");
 '
-  echo "Updated package.json to version $NEW_VERSION"
-fi
+echo "Set package.json to $NEW_VERSION (working directory only)"
 
-# Configure git
-git config user.name "github-actions[bot]"
-git config user.email "github-actions[bot]@users.noreply.github.com"
+# Build and publish to npm
+pnpm publish --provenance --access public --no-git-checks
+echo "✅ Published $PACKAGE_NAME@$NEW_VERSION"
 
-# Commit and push if there are changes
-if git diff --quiet package.json && git diff --cached --quiet package.json; then
-  echo "No uncommitted changes to package.json. Version $NEW_VERSION already committed."
-else
-  git add package.json
-  git commit -m "chore: bump version to $NEW_VERSION"
-  git push
-  echo "Version bump complete!"
-fi
+# Tag the release for future commit range detection
+git tag "v$NEW_VERSION"
+git push origin "v$NEW_VERSION" || echo "⚠️ Failed to push tag v$NEW_VERSION. Next run may re-analyze these commits."
