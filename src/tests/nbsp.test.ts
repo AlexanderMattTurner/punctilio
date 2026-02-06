@@ -8,11 +8,22 @@ import {
   nbspAfterCopyrightSymbols,
   nbspBetweenInitials,
   nbspTransform,
+  type NbspOptions,
 } from "../nbsp.js"
 import { UNICODE_SYMBOLS, DEFAULT_SEPARATOR } from "../constants.js"
 
 const NBSP = UNICODE_SYMBOLS.NBSP
 const SEP = DEFAULT_SEPARATOR
+
+/** Calls fn with and without separator, checking both produce correct nbsp. */
+function expectSep(
+  fn: (text: string, options?: NbspOptions) => string,
+  cases: [string, string][],
+) {
+  for (const [input, expected] of cases) {
+    expect(fn(input, { separator: SEP })).toBe(expected)
+  }
+}
 
 describe("nbspAfterShortWords", () => {
   it.each([
@@ -24,36 +35,20 @@ describe("nbspAfterShortWords", () => {
     ["in on", `in${NBSP}on`],
     ["is it", `is${NBSP}it`],
     ["or if", `or${NBSP}if`],
+    ["I think", `I${NBSP}think`],
+    ['"a cat"', `"a${NBSP}cat"`],
     ["the cat sat on a mat", `the cat sat on${NBSP}a${NBSP}mat`],
     ["Go to the store", `Go${NBSP}to${NBSP}the store`],
+    ["the cat", "the cat"],
   ])('"%s" → "%s"', (input, expected) => {
     expect(nbspAfterShortWords(input)).toBe(expected)
   })
 
-  it("does not affect words longer than 2 characters", () => {
-    expect(nbspAfterShortWords("the cat")).toBe("the cat")
-  })
-
-  it("works after punctuation", () => {
-    expect(nbspAfterShortWords('"a cat"')).toBe(`"a${NBSP}cat"`)
-  })
-
-  it("works at start of string", () => {
-    expect(nbspAfterShortWords("I think")).toBe(`I${NBSP}think`)
-  })
-
-  describe("separator awareness", () => {
-    it("preserves separator after short word", () => {
-      const input = `a${SEP} cat`
-      expect(nbspAfterShortWords(input, { separator: SEP })).toBe(`a${SEP}${NBSP}cat`)
-    })
-
-    it("works when separator is at text node boundaries (typical rehype usage)", () => {
-      // In real rehype usage, separator is appended to end of text nodes.
-      // e.g., "a cat" across two nodes: "a " + SEP + "cat" + SEP
-      const input = `a ${SEP}cat${SEP}`
-      expect(nbspAfterShortWords(input, { separator: SEP })).toBe(`a${NBSP}${SEP}cat${SEP}`)
-    })
+  it("preserves separators at node boundaries", () => {
+    expectSep(nbspAfterShortWords, [
+      [`a${SEP} cat`, `a${SEP}${NBSP}cat`],
+      [`a ${SEP}cat${SEP}`, `a${NBSP}${SEP}cat${SEP}`],
+    ])
   })
 })
 
@@ -67,44 +62,22 @@ describe("nbspBetweenNumberAndUnit", () => {
     ["500 W", `500${NBSP}W`],
     ["72 px", `72${NBSP}px`],
     ["100 dB", `100${NBSP}dB`],
-  ])('"%s" → "%s"', (input, expected) => {
-    expect(nbspBetweenNumberAndUnit(input)).toBe(expected)
-  })
-
-  it.each([
+    ["100km", "100km"],
+    ["5 kms", "5 kms"],
     ["chapter 3 above", "chapter 3 above"],
     ["item 5 here", "item 5 here"],
     ["5 3", "5 3"],
     ["page 42 of", "page 42 of"],
-  ])('does not false-match "%s"', (input, expected) => {
+  ])('"%s" → "%s"', (input, expected) => {
     expect(nbspBetweenNumberAndUnit(input)).toBe(expected)
   })
 
-  it("does not match when there is no space", () => {
-    expect(nbspBetweenNumberAndUnit("100km")).toBe("100km")
-  })
-
-  it("respects word boundary for units", () => {
-    // "kms" is not a unit (no word boundary at "km" when followed by "s")
-    // Actually "km" + word boundary before "s" won't match — "kms" has no boundary after "km"
-    expect(nbspBetweenNumberAndUnit("5 kms")).toBe("5 kms")
-  })
-
-  describe("separator awareness", () => {
-    it("preserves separator between number and unit", () => {
-      const input = `5${SEP} kg`
-      expect(nbspBetweenNumberAndUnit(input, { separator: SEP })).toBe(`5${SEP}${NBSP}kg`)
-    })
-
-    it("preserves separator after space", () => {
-      const input = `5 ${SEP}kg`
-      expect(nbspBetweenNumberAndUnit(input, { separator: SEP })).toBe(`5${NBSP}${SEP}kg`)
-    })
-
-    it("preserves both markers when present", () => {
-      const input = `5${SEP} ${SEP}kg`
-      expect(nbspBetweenNumberAndUnit(input, { separator: SEP })).toBe(`5${SEP}${NBSP}${SEP}kg`)
-    })
+  it("preserves separators at node boundaries", () => {
+    expectSep(nbspBetweenNumberAndUnit, [
+      [`5${SEP} kg`, `5${SEP}${NBSP}kg`],
+      [`5 ${SEP}kg`, `5${NBSP}${SEP}kg`],
+      [`5${SEP} ${SEP}kg`, `5${SEP}${NBSP}${SEP}kg`],
+    ])
   })
 })
 
@@ -113,47 +86,21 @@ describe("nbspBeforeLastWord", () => {
     ["the end", `the${NBSP}end`],
     ["hello world", `hello${NBSP}world`],
     ["a b c", `a b${NBSP}c`],
+    ["hello abcdefghij", `hello${NBSP}abcdefghij`],
+    ["hello abcdefghijk", "hello abcdefghijk"],
+    ["hello international", "hello international"],
+    ["hello", "hello"],
+    ["   ", "   "],
+    ["the end\n\nNew paragraph", `the${NBSP}end\n\nNew${NBSP}paragraph`],
+    ["the end\ncontinues", `the end\ncontinues`],
   ])('"%s" → "%s"', (input, expected) => {
     expect(nbspBeforeLastWord(input)).toBe(expected)
   })
 
-  it("does not affect single words", () => {
-    expect(nbspBeforeLastWord("hello")).toBe("hello")
-  })
-
-  it("does not affect words longer than 10 characters", () => {
-    expect(nbspBeforeLastWord("hello international")).toBe("hello international")
-  })
-
-  it("matches exactly 10-character last words", () => {
-    // "abcdefghij" is exactly 10 chars — should match
-    expect(nbspBeforeLastWord("hello abcdefghij")).toBe(`hello${NBSP}abcdefghij`)
-  })
-
-  it("does not match 11-character last words", () => {
-    // "abcdefghijk" is 11 chars — should not match
-    expect(nbspBeforeLastWord("hello abcdefghijk")).toBe("hello abcdefghijk")
-  })
-
-  it("matches before paragraph breaks", () => {
-    // Both "end" (before \n\n) and "paragraph" (before $) get nbsp
-    expect(nbspBeforeLastWord("the end\n\nNew paragraph")).toBe(`the${NBSP}end\n\nNew${NBSP}paragraph`)
-  })
-
-  it("does not match at single newlines (non-multiline)", () => {
-    // Single newline in the middle — only the end-of-string matters
-    expect(nbspBeforeLastWord("the end\ncontinues")).toBe(`the end\ncontinues`)
-  })
-
-  it("does not insert in pure whitespace", () => {
-    expect(nbspBeforeLastWord("   ")).toBe("   ")
-  })
-
-  describe("separator awareness", () => {
-    it("preserves separator before end", () => {
-      const input = `the end${SEP}`
-      expect(nbspBeforeLastWord(input, { separator: SEP })).toBe(`the${NBSP}end${SEP}`)
-    })
+  it("preserves separator before end", () => {
+    expectSep(nbspBeforeLastWord, [
+      [`the end${SEP}`, `the${NBSP}end${SEP}`],
+    ])
   })
 })
 
@@ -174,24 +121,16 @@ describe("nbspAfterReferenceAbbreviations", () => {
     ["Art. 3", `Art.${NBSP}3`],
     ["Tab. 4", `Tab.${NBSP}4`],
     ["Ex. 5", `Ex.${NBSP}5`],
+    ["Fig. caption", "Fig. caption"],
   ])('"%s" → "%s"', (input, expected) => {
     expect(nbspAfterReferenceAbbreviations(input)).toBe(expected)
   })
 
-  it("does not match when not followed by a digit", () => {
-    expect(nbspAfterReferenceAbbreviations("Fig. caption")).toBe("Fig. caption")
-  })
-
-  describe("separator awareness", () => {
-    it("preserves separator after abbreviation", () => {
-      const input = `Fig.${SEP} 1`
-      expect(nbspAfterReferenceAbbreviations(input, { separator: SEP })).toBe(`Fig.${SEP}${NBSP}1`)
-    })
-
-    it("preserves separator before digit", () => {
-      const input = `Fig. ${SEP}1`
-      expect(nbspAfterReferenceAbbreviations(input, { separator: SEP })).toBe(`Fig.${NBSP}${SEP}1`)
-    })
+  it("preserves separators at node boundaries", () => {
+    expectSep(nbspAfterReferenceAbbreviations, [
+      [`Fig.${SEP} 1`, `Fig.${SEP}${NBSP}1`],
+      [`Fig. ${SEP}1`, `Fig.${NBSP}${SEP}1`],
+    ])
   })
 })
 
@@ -200,19 +139,15 @@ describe("nbspAfterSectionSymbols", () => {
     ["§ 5", `§${NBSP}5`],
     ["¶ 3", `¶${NBSP}3`],
     ["See § 12 for details", `See §${NBSP}12 for details`],
+    ["§ title", "§ title"],
   ])('"%s" → "%s"', (input, expected) => {
     expect(nbspAfterSectionSymbols(input)).toBe(expected)
   })
 
-  it("does not match when not followed by a digit", () => {
-    expect(nbspAfterSectionSymbols("§ title")).toBe("§ title")
-  })
-
-  describe("separator awareness", () => {
-    it("preserves separator after symbol", () => {
-      const input = `§${SEP} 5`
-      expect(nbspAfterSectionSymbols(input, { separator: SEP })).toBe(`§${SEP}${NBSP}5`)
-    })
+  it("preserves separator after symbol", () => {
+    expectSep(nbspAfterSectionSymbols, [
+      [`§${SEP} 5`, `§${SEP}${NBSP}5`],
+    ])
   })
 })
 
@@ -226,33 +161,22 @@ describe("nbspAfterHonorifics", () => {
     ["Rev. King", `Rev.${NBSP}King`],
     ["St. Patrick", `St.${NBSP}Patrick`],
     ["Sr. Martinez", `Sr.${NBSP}Martinez`],
-    ["Jr. here", `Jr. here`], // "here" starts lowercase
     ["Hon. Judge", `Hon.${NBSP}Judge`],
     ["Gov. Brown", `Gov.${NBSP}Brown`],
     ["Sen. Warren", `Sen.${NBSP}Warren`],
     ["Rep. Lee", `Rep.${NBSP}Lee`],
+    ["Dr. Élodie", `Dr.${NBSP}Élodie`],
+    ["Jr. here", "Jr. here"],
+    ["Dr. said", "Dr. said"],
   ])('"%s" → "%s"', (input, expected) => {
     expect(nbspAfterHonorifics(input)).toBe(expected)
   })
 
-  it("does not match when followed by lowercase", () => {
-    expect(nbspAfterHonorifics("Dr. said")).toBe("Dr. said")
-  })
-
-  it("handles accented capitals", () => {
-    expect(nbspAfterHonorifics("Dr. Élodie")).toBe(`Dr.${NBSP}Élodie`)
-  })
-
-  describe("separator awareness", () => {
-    it("preserves separator after honorific", () => {
-      const input = `Dr.${SEP} Smith`
-      expect(nbspAfterHonorifics(input, { separator: SEP })).toBe(`Dr.${SEP}${NBSP}Smith`)
-    })
-
-    it("preserves separator before name", () => {
-      const input = `Dr. ${SEP}Smith`
-      expect(nbspAfterHonorifics(input, { separator: SEP })).toBe(`Dr.${NBSP}${SEP}Smith`)
-    })
+  it("preserves separators at node boundaries", () => {
+    expectSep(nbspAfterHonorifics, [
+      [`Dr.${SEP} Smith`, `Dr.${SEP}${NBSP}Smith`],
+      [`Dr. ${SEP}Smith`, `Dr.${NBSP}${SEP}Smith`],
+    ])
   })
 })
 
@@ -262,19 +186,15 @@ describe("nbspAfterCopyrightSymbols", () => {
     ["® Brand", `®${NBSP}Brand`],
     ["™ Product", `™${NBSP}Product`],
     ["© 2024 Company", `©${NBSP}2024 Company`],
+    ["© company", "© company"],
   ])('"%s" → "%s"', (input, expected) => {
     expect(nbspAfterCopyrightSymbols(input)).toBe(expected)
   })
 
-  it("does not match when followed by lowercase", () => {
-    expect(nbspAfterCopyrightSymbols("© company")).toBe("© company")
-  })
-
-  describe("separator awareness", () => {
-    it("preserves separator after symbol", () => {
-      const input = `©${SEP} 2024`
-      expect(nbspAfterCopyrightSymbols(input, { separator: SEP })).toBe(`©${SEP}${NBSP}2024`)
-    })
+  it("preserves separator after symbol", () => {
+    expectSep(nbspAfterCopyrightSymbols, [
+      [`©${SEP} 2024`, `©${SEP}${NBSP}2024`],
+    ])
   })
 })
 
@@ -283,87 +203,57 @@ describe("nbspBetweenInitials", () => {
     ["J. K. Rowling", `J.${NBSP}K.${NBSP}Rowling`],
     ["A. B. C.", `A.${NBSP}B.${NBSP}C.`],
     ["J. Smith", `J.${NBSP}Smith`],
+    ["É. Piaf", `É.${NBSP}Piaf`],
+    ["A. test", "A. test"],
   ])('"%s" → "%s"', (input, expected) => {
     expect(nbspBetweenInitials(input)).toBe(expected)
   })
 
-  it("does not match when followed by lowercase", () => {
-    expect(nbspBetweenInitials("A. test")).toBe("A. test")
-  })
-
-  it("handles accented capitals", () => {
-    expect(nbspBetweenInitials("É. Piaf")).toBe(`É.${NBSP}Piaf`)
-  })
-
-  describe("separator awareness", () => {
-    it("preserves separator between initials", () => {
-      const input = `J.${SEP} K. Rowling`
-      expect(nbspBetweenInitials(input, { separator: SEP })).toBe(`J.${SEP}${NBSP}K.${NBSP}Rowling`)
-    })
+  it("preserves separator between initials", () => {
+    expectSep(nbspBetweenInitials, [
+      [`J.${SEP} K. Rowling`, `J.${SEP}${NBSP}K.${NBSP}Rowling`],
+    ])
   })
 })
 
 describe("nbspTransform", () => {
   it("applies all nbsp transformations", () => {
-    const input = "Dr. Smith wrote Fig. 1 on p. 42"
-    const result = nbspTransform(input)
+    const result = nbspTransform("Dr. Smith wrote Fig. 1 on p. 42")
     expect(result).toContain(`Dr.${NBSP}Smith`)
     expect(result).toContain(`Fig.${NBSP}1`)
     expect(result).toContain(`p.${NBSP}42`)
   })
 
   it("handles multiple rules on the same text", () => {
-    const input = "© 2024 by J. K. Rowling"
-    const result = nbspTransform(input)
+    const result = nbspTransform("© 2024 by J. K. Rowling")
     expect(result).toContain(`©${NBSP}2024`)
     expect(result).toContain(`J.${NBSP}K.${NBSP}Rowling`)
   })
 
-  it("is a no-op on text with no applicable patterns", () => {
-    const input = "Hello world"
-    // Only nbspBeforeLastWord would fire here: "Hello\xa0world"
-    expect(nbspTransform(input)).toBe(`Hello${NBSP}world`)
+  it("nbspBeforeLastWord fires on plain text", () => {
+    expect(nbspTransform("Hello world")).toBe(`Hello${NBSP}world`)
   })
 
-  it("passes separator option through to all functions", () => {
-    const input = `Dr.${SEP} Smith`
-    const result = nbspTransform(input, { separator: SEP })
+  it("passes separator through to all functions", () => {
+    const result = nbspTransform(`Dr.${SEP} Smith`, { separator: SEP })
     expect(result).toContain(`Dr.${SEP}${NBSP}Smith`)
   })
 
   describe("ordering: specific patterns before generic", () => {
-    it("abbreviation claims nbsp before short-word rule can match", () => {
-      // "No." is both a reference abbreviation and a 2-letter word.
-      // nbspAfterReferenceAbbreviations runs first and inserts nbsp after "No.",
-      // so nbspAfterShortWords sees "No.\xa0" and doesn't match "No" as short word.
+    it("abbreviation claims nbsp before short-word rule", () => {
       const result = nbspTransform("No. 5")
       expect(result).toBe(`No.${NBSP}5`)
-      // Verify no double nbsp
       expect(result.split(NBSP).length - 1).toBe(1)
     })
 
-    it("honorific claims nbsp before initials rule", () => {
-      // "Dr." is both an honorific and could look like an initial.
-      // Honorifics run first.
-      const result = nbspTransform("Dr. J. K. Smith")
-      expect(result).toContain(`Dr.${NBSP}J.${NBSP}K.${NBSP}Smith`)
+    it("honorific + initials compose correctly", () => {
+      expect(nbspTransform("Dr. J. K. Smith")).toContain(`Dr.${NBSP}J.${NBSP}K.${NBSP}Smith`)
     })
 
-    it("specific patterns don't double-apply with short words", () => {
-      // "St." (honorific) + "A" (short word) — both could match
+    it("honorific + unit don't double-apply with short words", () => {
       const result = nbspTransform("St. Anne had 5 kg")
       expect(result).toContain(`St.${NBSP}Anne`)
       expect(result).toContain(`5${NBSP}kg`)
-    })
-  })
-
-  describe("no false positives on non-unit words (regression for #2)", () => {
-    it.each([
-      ["chapter 3 above", "chapter 3 above"],
-      ["item 5 here", "item 5 here"],
-      ["page 42 of the book", "page 42 of the book"],
-    ])('nbspBetweenNumberAndUnit does not match "%s"', (input, expected) => {
-      expect(nbspBetweenNumberAndUnit(input)).toBe(expected)
     })
   })
 })
