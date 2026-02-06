@@ -1,6 +1,3 @@
-import { existsSync, readFileSync, unlinkSync } from "node:fs"
-import { tmpdir } from "node:os"
-
 import { countSeparators, assertSeparatorCountPreserved, formatErrorString } from "../utils.js"
 import { DEFAULT_SEPARATOR } from "../constants.js"
 
@@ -67,32 +64,22 @@ describe("formatErrorString", () => {
     expect(result).toBe('"short text"')
   })
 
-  it("writes to temp file for strings over 500 chars", () => {
+  it("truncates strings over 500 chars with label and length", () => {
     const longText = "x".repeat(501)
     const result = formatErrorString(longText, "long-test")
 
-    expect(result).toMatch(/^\[written to .+punctilio-error-long-test-\d+\.txt\]$/)
-
-    // Extract filepath and verify file contents
-    const match = result.match(/\[written to (?<path>.+)\]/)
-    const filepath = match?.groups?.path ?? ""
-    expect(filepath).not.toBe("")
-    expect(existsSync(filepath)).toBe(true)
-    expect(readFileSync(filepath, "utf-8")).toBe(longText)
-
-    // Cleanup
-    unlinkSync(filepath)
+    expect(result).toContain("[long-test:")
+    expect(result).toContain("501 chars total")
+    expect(result).toContain("...")
   })
 
-  it("writes to temp directory", () => {
-    const longText = "y".repeat(600)
-    const result = formatErrorString(longText, "tmpdir")
+  it("includes first 500 chars in truncated output", () => {
+    const longText = "a".repeat(300) + "b".repeat(300)
+    const result = formatErrorString(longText, "mixed")
 
-    const match = result.match(/\[written to (?<path>.+)\]/)
-    const filepath = match?.groups?.path ?? ""
-    expect(filepath).not.toBe("")
-    expect(filepath.startsWith(tmpdir())).toBe(true)
-
-    unlinkSync(filepath)
+    // Should contain all 300 a's and first 200 b's (500 total)
+    const expected500 = "a".repeat(300) + "b".repeat(200)
+    expect(result).toContain(JSON.stringify(expected500))
+    expect(result).toContain("600 chars total")
   })
 })

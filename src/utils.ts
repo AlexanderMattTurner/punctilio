@@ -4,29 +4,22 @@
  * @module utils
  */
 
-import { writeFileSync } from "node:fs"
-import { tmpdir } from "node:os"
-import { join } from "node:path"
-
 import { DEFAULT_SEPARATOR } from "./constants.js"
 
-/** Threshold above which strings are written to temp files in error messages. */
+/** Threshold above which strings are truncated in error messages. */
 const ERROR_STRING_THRESHOLD = 500
 
 /**
  * Formats a string for error messages. If the string exceeds the threshold,
- * writes it to a temp file and returns a reference to the file path.
+ * truncates it and shows the length.
  */
 export function formatErrorString(content: string, label: string): string {
   if (content.length <= ERROR_STRING_THRESHOLD) {
     return JSON.stringify(content)
   }
 
-  const timestamp = Date.now()
-  const filename = `punctilio-error-${label}-${timestamp}.txt`
-  const filepath = join(tmpdir(), filename)
-  writeFileSync(filepath, content, "utf-8")
-  return `[written to ${filepath}]`
+  const truncated = content.slice(0, ERROR_STRING_THRESHOLD)
+  return `[${label}: ${JSON.stringify(truncated)}... (${content.length} chars total)]`
 }
 
 export function countSeparators(text: string, separator: string = DEFAULT_SEPARATOR): number {
