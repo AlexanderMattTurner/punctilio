@@ -62,19 +62,32 @@ describe("nbspBetweenNumberAndUnit", () => {
     ["100 km", `100${NBSP}km`],
     ["5 kg", `5${NBSP}kg`],
     ["20 ms", `20${NBSP}ms`],
-    ["3 items", `3${NBSP}items`],
+    ["3 hr", `3${NBSP}hr`],
+    ["10 GB", `10${NBSP}GB`],
+    ["500 W", `500${NBSP}W`],
+    ["72 px", `72${NBSP}px`],
+    ["100 dB", `100${NBSP}dB`],
   ])('"%s" → "%s"', (input, expected) => {
     expect(nbspBetweenNumberAndUnit(input)).toBe(expected)
   })
 
-  it("does not affect number-number sequences", () => {
-    // digit-space-digit gets nbsp too (e.g., "5 3" → "5\xa03")
-    // this is expected behavior — the pattern matches \d + space + \w
-    expect(nbspBetweenNumberAndUnit("5 3")).toBe(`5${NBSP}3`)
+  it.each([
+    ["chapter 3 above", "chapter 3 above"],
+    ["item 5 here", "item 5 here"],
+    ["5 3", "5 3"],
+    ["page 42 of", "page 42 of"],
+  ])('does not false-match "%s"', (input, expected) => {
+    expect(nbspBetweenNumberAndUnit(input)).toBe(expected)
   })
 
   it("does not match when there is no space", () => {
     expect(nbspBetweenNumberAndUnit("100km")).toBe("100km")
+  })
+
+  it("respects word boundary for units", () => {
+    // "kms" is not a unit (no word boundary at "km" when followed by "s")
+    // Actually "km" + word boundary before "s" won't match — "kms" has no boundary after "km"
+    expect(nbspBetweenNumberAndUnit("5 kms")).toBe("5 kms")
   })
 
   describe("separator awareness", () => {
@@ -86,6 +99,11 @@ describe("nbspBetweenNumberAndUnit", () => {
     it("preserves separator after space", () => {
       const input = `5 ${SEP}kg`
       expect(nbspBetweenNumberAndUnit(input, { separator: SEP })).toBe(`5${NBSP}${SEP}kg`)
+    })
+
+    it("preserves both markers when present", () => {
+      const input = `5${SEP} ${SEP}kg`
+      expect(nbspBetweenNumberAndUnit(input, { separator: SEP })).toBe(`5${SEP}${NBSP}${SEP}kg`)
     })
   })
 })
@@ -105,6 +123,16 @@ describe("nbspBeforeLastWord", () => {
 
   it("does not affect words longer than 10 characters", () => {
     expect(nbspBeforeLastWord("hello international")).toBe("hello international")
+  })
+
+  it("matches exactly 10-character last words", () => {
+    // "abcdefghij" is exactly 10 chars — should match
+    expect(nbspBeforeLastWord("hello abcdefghij")).toBe(`hello${NBSP}abcdefghij`)
+  })
+
+  it("does not match 11-character last words", () => {
+    // "abcdefghijk" is 11 chars — should not match
+    expect(nbspBeforeLastWord("hello abcdefghijk")).toBe("hello abcdefghijk")
   })
 
   it("matches before paragraph breaks", () => {
@@ -301,5 +329,41 @@ describe("nbspTransform", () => {
     const input = `Dr.${SEP} Smith`
     const result = nbspTransform(input, { separator: SEP })
     expect(result).toContain(`Dr.${SEP}${NBSP}Smith`)
+  })
+
+  describe("ordering: specific patterns before generic", () => {
+    it("abbreviation claims nbsp before short-word rule can match", () => {
+      // "No." is both a reference abbreviation and a 2-letter word.
+      // nbspAfterReferenceAbbreviations runs first and inserts nbsp after "No.",
+      // so nbspAfterShortWords sees "No.\xa0" and doesn't match "No" as short word.
+      const result = nbspTransform("No. 5")
+      expect(result).toBe(`No.${NBSP}5`)
+      // Verify no double nbsp
+      expect(result.split(NBSP).length - 1).toBe(1)
+    })
+
+    it("honorific claims nbsp before initials rule", () => {
+      // "Dr." is both an honorific and could look like an initial.
+      // Honorifics run first.
+      const result = nbspTransform("Dr. J. K. Smith")
+      expect(result).toContain(`Dr.${NBSP}J.${NBSP}K.${NBSP}Smith`)
+    })
+
+    it("specific patterns don't double-apply with short words", () => {
+      // "St." (honorific) + "A" (short word) — both could match
+      const result = nbspTransform("St. Anne had 5 kg")
+      expect(result).toContain(`St.${NBSP}Anne`)
+      expect(result).toContain(`5${NBSP}kg`)
+    })
+  })
+
+  describe("no false positives on non-unit words (regression for #2)", () => {
+    it.each([
+      ["chapter 3 above", "chapter 3 above"],
+      ["item 5 here", "item 5 here"],
+      ["page 42 of the book", "page 42 of the book"],
+    ])('nbspBetweenNumberAndUnit does not match "%s"', (input, expected) => {
+      expect(nbspBetweenNumberAndUnit(input)).toBe(expected)
+    })
   })
 })
