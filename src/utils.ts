@@ -7,15 +7,29 @@
 import { DEFAULT_SEPARATOR } from "./constants.js"
 
 /** Threshold above which strings are truncated in error messages. */
-const ERROR_STRING_THRESHOLD = 500
+const ERROR_STRING_THRESHOLD = 2000
 
 /**
  * Formats a string for error messages. If the string exceeds the threshold,
- * truncates it and shows the length.
+ * truncates it and shows the total length.
+ *
+ * In Node.js environments, also writes the full content to stderr
+ * so it's available in build logs for debugging.
  */
 export function formatErrorString(content: string, label: string): string {
   if (content.length <= ERROR_STRING_THRESHOLD) {
     return JSON.stringify(content)
+  }
+
+  // In Node.js, write full content to stderr for debugging
+  try {
+    if (typeof globalThis.process?.stderr?.write === "function") {
+      globalThis.process.stderr.write(
+        `\n[punctilio ${label} full content (${content.length} chars)]:\n${content}\n\n`
+      )
+    }
+  } catch {
+    // Ignore — not in Node.js or stderr unavailable
   }
 
   const truncated = content.slice(0, ERROR_STRING_THRESHOLD)
