@@ -109,7 +109,14 @@ export function enDashDateRange(text: string, options: DashOptions = {}): string
 export function minusReplace(text: string, options: DashOptions = {}): string {
   const chr = escapeStringRegexp(options.separator ?? DEFAULT_SEPARATOR)
 
-  // Pattern 1: Spaced math subtraction (e.g., "5 - 3" → "5 − 3")
+  // Pattern 1a: Subtraction of negative number (e.g., "5 - -3" → "5 − −3")
+  // Must come before Pattern 1b so the negative hyphen is consumed first
+  text = text.replaceAll(
+    new RegExp(`(?<=\\d${chr}?) - -(?<num>${chr}?\\d*\\.?\\d+)`, "g"),
+    ` ${MINUS} ${MINUS}$<num>`
+  )
+
+  // Pattern 1b: Spaced math subtraction (e.g., "5 - 3" → "5 − 3")
   // Only when preceded by a digit - this distinguishes "5 - 3" from "Safari) - 9"
   text = text.replaceAll(
     new RegExp(`(?<=\\d${chr}?) - (?<num>${chr}?\\d*\\.?\\d+)`, "g"),

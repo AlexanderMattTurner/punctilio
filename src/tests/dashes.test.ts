@@ -276,10 +276,7 @@ describe("minusReplace", () => {
   })
 
   it("should handle subtraction of negative numbers", () => {
-    // Note: First hyphen doesn't match (not preceded by digit-space pattern),
-    // second hyphen becomes minus. The first hyphen is left for em-dash handling.
-    // "5 - -3" is rare in prose - typically written as "5 − (−3)" or "5 + 3"
-    expect(minusReplace("5 - -3")).toBe(`5 - ${MINUS}3`)
+    expect(minusReplace("5 - -3")).toBe(`5 ${MINUS} ${MINUS}3`)
   })
 })
 
