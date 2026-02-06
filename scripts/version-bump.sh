@@ -78,7 +78,7 @@ RESPONSE=$(curl -s https://api.anthropic.com/v1/messages \
     }')")
 
 # Extract the bump level from Claude's response
-BUMP=$(echo "$RESPONSE" | jq -r '.content[0].text' | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')
+BUMP=$(echo "$RESPONSE" | jq -r '.content[0].text' | head -1 | tr '[:upper:]' '[:lower:]' | awk '{print $1}')
 
 # Validate response - fail if Claude couldn't determine bump type
 if [[ "$BUMP" != "major" && "$BUMP" != "minor" && "$BUMP" != "patch" ]]; then
