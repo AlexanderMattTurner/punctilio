@@ -59,9 +59,26 @@ describe("assertSeparatorCountPreserved", () => {
 })
 
 describe("formatErrorString", () => {
+  let originalWrite: typeof process.stderr.write
+  let stderrOutput: string[]
+
+  beforeEach(() => {
+    originalWrite = process.stderr.write
+    stderrOutput = []
+    process.stderr.write = ((chunk: string) => {
+      stderrOutput.push(chunk)
+      return true
+    }) as typeof process.stderr.write
+  })
+
+  afterEach(() => {
+    process.stderr.write = originalWrite
+  })
+
   it("returns JSON-stringified content for short strings", () => {
     const result = formatErrorString("short text", "test")
     expect(result).toBe('"short text"')
+    expect(stderrOutput).toHaveLength(0)
   })
 
   it("truncates strings over 2000 chars with label and length", () => {
@@ -77,52 +94,24 @@ describe("formatErrorString", () => {
     const longText = "a".repeat(1500) + "b".repeat(1000)
     const result = formatErrorString(longText, "mixed")
 
-    // Should contain all 1500 a's and first 500 b's (2000 total)
     const expected2000 = "a".repeat(1500) + "b".repeat(500)
     expect(result).toContain(JSON.stringify(expected2000))
     expect(result).toContain("2500 chars total")
   })
 
   it("writes full content to stderr in Node.js for long strings", () => {
-    const originalWrite = process.stderr.write
-    const written: string[] = []
-    process.stderr.write = ((chunk: string) => {
-      written.push(chunk)
-      return true
-    }) as typeof process.stderr.write
+    const longText = "z".repeat(2001)
+    formatErrorString(longText, "stderr-test")
 
-    try {
-      const longText = "z".repeat(2001)
-      formatErrorString(longText, "stderr-test")
-
-      expect(written.length).toBe(1)
-      expect(written[0]).toContain("punctilio stderr-test full content")
-      expect(written[0]).toContain(longText)
-    } finally {
-      process.stderr.write = originalWrite
-    }
-  })
-
-  it("does not write to stderr for short strings", () => {
-    const originalWrite = process.stderr.write
-    const written: string[] = []
-    process.stderr.write = ((chunk: string) => {
-      written.push(chunk)
-      return true
-    }) as typeof process.stderr.write
-
-    try {
-      formatErrorString("short", "test")
-      expect(written.length).toBe(0)
-    } finally {
-      process.stderr.write = originalWrite
-    }
+    expect(stderrOutput).toHaveLength(1)
+    expect(stderrOutput[0]).toContain("punctilio stderr-test full content")
+    expect(stderrOutput[0]).toContain(longText)
   })
 
   it("handles strings at exactly the threshold", () => {
     const exactText = "x".repeat(2000)
     const result = formatErrorString(exactText, "exact")
-    // At threshold, should return JSON-stringified (not truncated)
     expect(result).toBe(JSON.stringify(exactText))
+    expect(stderrOutput).toHaveLength(0)
   })
 })
