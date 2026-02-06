@@ -1,6 +1,3 @@
-import { existsSync, readFileSync, unlinkSync } from "node:fs"
-import { tmpdir } from "node:os"
-
 import { countSeparators, assertSeparatorCountPreserved, formatErrorString } from "../utils.js"
 import { DEFAULT_SEPARATOR } from "../constants.js"
 
@@ -67,32 +64,65 @@ describe("formatErrorString", () => {
     expect(result).toBe('"short text"')
   })
 
-  it("writes to temp file for strings over 500 chars", () => {
-    const longText = "x".repeat(501)
+  it("truncates strings over 2000 chars with label and length", () => {
+    const longText = "x".repeat(2001)
     const result = formatErrorString(longText, "long-test")
 
-    expect(result).toMatch(/^\[written to .+punctilio-error-long-test-\d+\.txt\]$/)
-
-    // Extract filepath and verify file contents
-    const match = result.match(/\[written to (?<path>.+)\]/)
-    const filepath = match?.groups?.path ?? ""
-    expect(filepath).not.toBe("")
-    expect(existsSync(filepath)).toBe(true)
-    expect(readFileSync(filepath, "utf-8")).toBe(longText)
-
-    // Cleanup
-    unlinkSync(filepath)
+    expect(result).toContain("[long-test:")
+    expect(result).toContain("2001 chars total")
+    expect(result).toContain("...")
   })
 
-  it("writes to temp directory", () => {
-    const longText = "y".repeat(600)
-    const result = formatErrorString(longText, "tmpdir")
+  it("includes first 2000 chars in truncated output", () => {
+    const longText = "a".repeat(1500) + "b".repeat(1000)
+    const result = formatErrorString(longText, "mixed")
 
-    const match = result.match(/\[written to (?<path>.+)\]/)
-    const filepath = match?.groups?.path ?? ""
-    expect(filepath).not.toBe("")
-    expect(filepath.startsWith(tmpdir())).toBe(true)
+    // Should contain all 1500 a's and first 500 b's (2000 total)
+    const expected2000 = "a".repeat(1500) + "b".repeat(500)
+    expect(result).toContain(JSON.stringify(expected2000))
+    expect(result).toContain("2500 chars total")
+  })
 
-    unlinkSync(filepath)
+  it("writes full content to stderr in Node.js for long strings", () => {
+    const originalWrite = process.stderr.write
+    const written: string[] = []
+    process.stderr.write = ((chunk: string) => {
+      written.push(chunk)
+      return true
+    }) as typeof process.stderr.write
+
+    try {
+      const longText = "z".repeat(2001)
+      formatErrorString(longText, "stderr-test")
+
+      expect(written.length).toBe(1)
+      expect(written[0]).toContain("punctilio stderr-test full content")
+      expect(written[0]).toContain(longText)
+    } finally {
+      process.stderr.write = originalWrite
+    }
+  })
+
+  it("does not write to stderr for short strings", () => {
+    const originalWrite = process.stderr.write
+    const written: string[] = []
+    process.stderr.write = ((chunk: string) => {
+      written.push(chunk)
+      return true
+    }) as typeof process.stderr.write
+
+    try {
+      formatErrorString("short", "test")
+      expect(written.length).toBe(0)
+    } finally {
+      process.stderr.write = originalWrite
+    }
+  })
+
+  it("handles strings at exactly the threshold", () => {
+    const exactText = "x".repeat(2000)
+    const result = formatErrorString(exactText, "exact")
+    // At threshold, should return JSON-stringified (not truncated)
+    expect(result).toBe(JSON.stringify(exactText))
   })
 })

@@ -155,6 +155,12 @@ function convertParentheticalDashes(text: string, sep: string, style: DashStyle)
     const keepTrailing = maybeSpace && sepAfter ? trailing : ""
     return `${sepBefore}${maybeSpace}${localizedDash}${maybeSpace}${sepAfter}${keepTrailing}`
   })
+  // Convert dashes at text node boundaries: separator alone precedes dash (e.g., "word{sep}– rest")
+  // Requires space after the dash to avoid matching number ranges like "1{sep}-{sep}5"
+  text = text.replace(
+    new RegExp(`(?<=[^\\s])(?<sepBefore>${escapedSep})[~${EN_DASH}${EM_DASH}-]+[ ]+(?<sepAfter>${escapedSep}?)`, "g"),
+    `$<sepBefore>${maybeSpace}${localizedDash}${maybeSpace}$<sepAfter>`
+  )
   // Convert multiple dashes: "word--word" or "word---word" or "quote"--"quote"
   const quoteChars = `"'${LEFT_DOUBLE_QUOTE}${RIGHT_DOUBLE_QUOTE}${LEFT_SINGLE_QUOTE}${RIGHT_SINGLE_QUOTE}`
   text = text.replace(

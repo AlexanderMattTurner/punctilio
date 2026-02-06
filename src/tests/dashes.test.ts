@@ -119,6 +119,9 @@ describe("hyphenReplace", () => {
       // American em-dash (Chicago style) consumes surrounding spaces, even across separator boundaries
       [`text ${EM_DASH} ${sep} more text`, `text${EM_DASH}${sep}more text`, "consumes space after separator for em-dash"],
       [`text - ${sep} more`, `text${EM_DASH}${sep}more`, "consumes space after separator with hyphen"],
+      // Separator-only before dash (no space between word and separator): e.g., link text followed by dash
+      [`word${sep}${EN_DASH} rest`, `word${sep}${EM_DASH}rest`, "en-dash after separator without preceding space"],
+      [`word${sep}- rest`, `word${sep}${EM_DASH}rest`, "hyphen after separator without preceding space"],
     ])("%s → %s (%s)", (input, expected) => {
       expect(hyphenReplace(input, { separator: sep })).toBe(expected)
     })
@@ -126,6 +129,7 @@ describe("hyphenReplace", () => {
     it.each([
       // British en-dash (spaced) preserves trailing space after separator
       [`text - ${sep} more`, `text ${EN_DASH} ${sep} more`, "preserves space after separator for en-dash"],
+      [`word${sep}${EN_DASH} rest`, `word${sep} ${EN_DASH} rest`, "en-dash after separator british style"],
     ])("%s → %s (%s)", (input, expected) => {
       expect(hyphenReplace(input, { separator: sep, dashStyle: "british" })).toBe(expected)
     })
