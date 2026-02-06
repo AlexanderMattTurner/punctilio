@@ -36,6 +36,18 @@ export {
   symbolTransform,
   type SymbolOptions,
 } from "./symbols.js"
+export {
+  nbspAfterShortWords,
+  nbspBetweenNumberAndUnit,
+  nbspBeforeLastWord,
+  nbspAfterReferenceAbbreviations,
+  nbspAfterSectionSymbols,
+  nbspAfterHonorifics,
+  nbspAfterCopyrightSymbols,
+  nbspBetweenInitials,
+  nbspTransform,
+  type NbspOptions,
+} from "./nbsp.js"
 
 export interface TransformOptions {
   /**
@@ -116,6 +128,14 @@ export interface TransformOptions {
   ligatures?: boolean
 
   /**
+   * Whether to insert non-breaking spaces in typographically appropriate
+   * locations (after short words, between numbers and units, before
+   * last words to prevent widows, after honorifics, etc.).
+   * Default: false
+   */
+  nbsp?: boolean
+
+  /**
    * Whether to verify that the transformation is idempotent (running twice
    * produces the same result). When enabled, throws an error if the second
    * pass produces a different result than the first.
@@ -128,6 +148,7 @@ export interface TransformOptions {
 import { niceQuotes } from "./quotes.js"
 import { hyphenReplace } from "./dashes.js"
 import { symbolTransform, fractions as fractionsTransform, degrees as degreesTransform, superscriptOrdinal as superscriptTransform, primeMarks, collapseSpaces as collapseSpacesTransform, punctuationLigatures as ligaturesTransform } from "./symbols.js"
+import { nbspTransform as nbspTransformFn } from "./nbsp.js"
 import { assertSeparatorCountPreserved, formatErrorString } from "./utils.js"
 import { DEFAULT_SEPARATOR } from "./constants.js"
 
@@ -147,7 +168,8 @@ export { DEFAULT_SEPARATOR } from "./constants.js"
  * 6. degrees (disabled by default)
  * 7. superscript (disabled by default)
  * 8. ligatures (disabled by default)
- * 9. collapseSpaces (collapses multiple spaces into one)
+ * 9. nbsp (non-breaking spaces, disabled by default)
+ * 10. collapseSpaces (collapses multiple spaces into one)
  *
  * @param text - The text to transform
  * @param options - Configuration options
@@ -173,6 +195,7 @@ const defaultOpts: Required<Omit<TransformOptions, "separator">> = {
   degrees: false,
   superscript: false,
   ligatures: false,
+  nbsp: false,
   collapseSpaces: true,
   checkIdempotency: true,
   punctuationStyle: "american",
@@ -193,7 +216,7 @@ export function transform(text: string, options: TransformOptions = {}): string 
   }
 
   const original = text
-  const { symbols, fractions, degrees, superscript, ligatures, collapseSpaces, checkIdempotency, ...separatorOpts } = { ...defaultOpts, ...options }
+  const { symbols, fractions, degrees, superscript, ligatures, nbsp, collapseSpaces, checkIdempotency, ...separatorOpts } = { ...defaultOpts, ...options }
 
   text = hyphenReplace(text, separatorOpts)
   text = primeMarks(text, separatorOpts)
@@ -217,6 +240,10 @@ export function transform(text: string, options: TransformOptions = {}): string 
 
   if (ligatures) {
     text = ligaturesTransform(text, separatorOpts)
+  }
+
+  if (nbsp) {
+    text = nbspTransformFn(text, separatorOpts)
   }
 
   if (collapseSpaces) {

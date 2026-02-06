@@ -391,6 +391,28 @@ describe("rehypePunctilio", () => {
     })
   })
 
+  describe("nbsp option", () => {
+    const NBSP = UNICODE_SYMBOLS.NBSP
+
+    it("inserts nbsp when option enabled", async () => {
+      const result = await processHtml('<p>Dr. Smith has 5 kg of items.</p>', { nbsp: true })
+      expect(result).toContain(`Dr.${NBSP}Smith`)
+      expect(result).toContain(`5${NBSP}kg`)
+    })
+
+    it("does not insert nbsp when option disabled (default)", async () => {
+      const result = await processHtml('<p>Dr. Smith has 5 kg of items.</p>')
+      expect(result).not.toContain(NBSP)
+    })
+
+    it("works across element boundaries", async () => {
+      const result = await processHtml('<p>See <em>Fig.</em> 1</p>', { nbsp: true })
+      expect(result).toContain(`Fig.`)
+      // The nbsp should appear between Fig. and 1
+      expect(result).toContain(NBSP)
+    })
+  })
+
   describe("coverage edge cases", () => {
     it.each([
       ["space-separated class string", '<p class="foo bar no-transform">"Hello"</p>', { skipClasses: ["no-transform"] }, '<p class="foo bar no-transform">"Hello"</p>'],

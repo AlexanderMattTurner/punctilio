@@ -61,6 +61,8 @@ describe("transform", () => {
       ["superscript enabled", "1st", { superscript: true }, `1${UNICODE_SYMBOLS.SUPERSCRIPT_ST}`],
       ["ligatures disabled", "??", {}, "??"],
       ["ligatures enabled", "??", { ligatures: true }, UNICODE_SYMBOLS.DOUBLE_QUESTION],
+      ["nbsp disabled", "Dr. Smith", {}, "Dr. Smith"],
+      ["nbsp enabled", "Dr. Smith", { nbsp: true }, `Dr.${NBSP}Smith`],
     ] as const)("%s: %s → %s", (_desc, input, options, expected) => {
       expect(transform(input, options)).toBe(expected)
     })
@@ -94,6 +96,36 @@ describe("transform", () => {
       [`foo${NBSP}${NBSP}bar`, `foo${NBSP}${NBSP}bar`, "multiple nbsp"],
     ])("preserves %s when disabled", (input, expected) => {
       expect(transform(input, { collapseSpaces: false })).toBe(expected)
+    })
+  })
+
+  describe("nbsp option", () => {
+    it("inserts nbsp in typographically appropriate places", () => {
+      const result = transform("Dr. Smith wrote Fig. 1 on p. 42", { nbsp: true })
+      expect(result).toContain(`Dr.${NBSP}Smith`)
+      expect(result).toContain(`Fig.${NBSP}1`)
+      expect(result).toContain(`p.${NBSP}42`)
+    })
+
+    it("collapseSpaces cleans up after nbsp", () => {
+      // nbsp may produce adjacent nbsp+space; collapseSpaces collapses them
+      const result = transform("Prof. Wilson arrived", { nbsp: true })
+      expect(result).toContain(`Prof.${NBSP}Wilson`)
+      // No double spaces should remain
+      expect(result).not.toMatch(/ {2}/)
+    })
+
+    it("is idempotent with nbsp enabled", () => {
+      const input = "Dr. Smith has 5 kg of items in § 3"
+      const first = transform(input, { nbsp: true })
+      const second = transform(first, { nbsp: true })
+      expect(second).toBe(first)
+    })
+
+    it("preserves separator count with nbsp enabled", () => {
+      const sep = DEFAULT_SEPARATOR
+      const input = `Dr.${sep} Smith has${sep} 5 kg`
+      expect(() => transform(input, { nbsp: true, separator: sep })).not.toThrow()
     })
   })
 
