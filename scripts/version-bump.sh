@@ -171,16 +171,28 @@ fs.writeFileSync("package.json", JSON.stringify(pkg, null, 2) + "\n");
   echo "Updated package.json to version $NEW_VERSION"
 fi
 
+# Build and publish to npm
+pnpm publish --provenance --access public --no-git-checks
+echo "✅ Package published successfully!"
+
 # Configure git
 git config user.name "github-actions[bot]"
 git config user.email "github-actions[bot]@users.noreply.github.com"
 
-# Commit and push if there are changes
+# Create a PR for the version bump (main branch is protected)
 if git diff --quiet package.json && git diff --cached --quiet package.json; then
   echo "No uncommitted changes to package.json. Version $NEW_VERSION already committed."
 else
+  BRANCH_NAME="chore/bump-version-$NEW_VERSION"
+  git checkout -b "$BRANCH_NAME"
   git add package.json
   git commit -m "chore: bump version to $NEW_VERSION"
-  git push
-  echo "Version bump complete!"
+  git push -u origin "$BRANCH_NAME"
+  echo "🚀 Creating PR for version bump..."
+  gh pr create \
+    --title "chore: bump version to $NEW_VERSION" \
+    --body "Automated version bump to $NEW_VERSION based on semantic commit analysis." \
+    --base main
+  gh pr merge --auto --squash || echo "⚠️ Auto-merge not available. Please merge the PR manually."
+  echo "Version bump PR created!"
 fi
