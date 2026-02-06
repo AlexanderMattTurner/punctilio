@@ -16,6 +16,8 @@ describe("hyphenReplace", () => {
   describe("em dashes from surrounded hyphens", () => {
     it.each([
       ["This is a - hyphen.", `This is a${EM_DASH}hyphen.`],
+      // Parenthetical dash before a digit (not math subtraction)
+      ["Safari) - 9 combinations", `Safari)${EM_DASH}9 combinations`],
       [`This is an ${EM_DASH} em dash.`, `This is an${EM_DASH}em dash.`],
       [`word ${EM_DASH} word`, `word${EM_DASH}word`],
       ["word ---", `word${EM_DASH}`],
@@ -269,6 +271,10 @@ describe("minusReplace", () => {
     ["The value is -10", `The value is ${MINUS}10`],
     [" -3", ` ${MINUS}3`],
     ['"-5"', `"${MINUS}5"`],
+    // Spaced math subtraction (digit before)
+    ["5 - 3", `5 ${MINUS} 3`],
+    ["10 - 5 = 5", `10 ${MINUS} 5 = 5`],
+    ["(100 - 50)", `(100 ${MINUS} 50)`],
   ])('should convert "%s" to use minus sign', (input, expected) => {
     expect(minusReplace(input)).toBe(expected)
   })
@@ -276,6 +282,16 @@ describe("minusReplace", () => {
   it("should not convert hyphens in other contexts", () => {
     expect(minusReplace("well-known")).toBe("well-known")
     expect(minusReplace("re-read")).toBe("re-read")
+  })
+
+  it("should not convert spaced hyphens without digit before (parenthetical)", () => {
+    // These should be left for em-dash conversion, not minus
+    expect(minusReplace("Safari) - 9 combinations")).toBe("Safari) - 9 combinations")
+    expect(minusReplace("word - 5")).toBe("word - 5")
+  })
+
+  it("should handle subtraction of negative numbers", () => {
+    expect(minusReplace("5 - -3")).toBe(`5 ${MINUS} ${MINUS}3`)
   })
 })
 
