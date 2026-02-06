@@ -1,6 +1,6 @@
 import { transform, DEFAULT_SEPARATOR, countSeparators } from "../index.js"
 import { ellipsis } from "../symbols.js"
-import { UNICODE_SYMBOLS, REGEX_SPECIAL_CHARS } from "../constants.js"
+import { UNICODE_SYMBOLS, REGEX_SPECIAL_CHARS, SPACE_CHARS } from "../constants.js"
 
 const {
   LEFT_DOUBLE_QUOTE,
@@ -112,7 +112,7 @@ describe("transform", () => {
       const result = transform("Prof. Wilson arrived", { nbsp: true })
       expect(result).toContain(`Prof.${NBSP}Wilson`)
       // No double spaces should remain
-      expect(result).not.toMatch(/ {2}/)
+      expect(result).not.toMatch(new RegExp(`[${SPACE_CHARS}]{2}`))
     })
 
     it("is idempotent with nbsp enabled", () => {

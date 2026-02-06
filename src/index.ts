@@ -46,6 +46,9 @@ export {
   nbspAfterCopyrightSymbols,
   nbspBetweenInitials,
   nbspTransform,
+  UNITS,
+  HONORIFICS,
+  REFERENCE_ABBREVIATIONS,
   type NbspOptions,
 } from "./nbsp.js"
 

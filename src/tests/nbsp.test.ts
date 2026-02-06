@@ -8,6 +8,9 @@ import {
   nbspAfterCopyrightSymbols,
   nbspBetweenInitials,
   nbspTransform,
+  UNITS,
+  HONORIFICS,
+  REFERENCE_ABBREVIATIONS,
   type NbspOptions,
 } from "../nbsp.js"
 import { UNICODE_SYMBOLS, DEFAULT_SEPARATOR } from "../constants.js"
@@ -15,7 +18,7 @@ import { UNICODE_SYMBOLS, DEFAULT_SEPARATOR } from "../constants.js"
 const NBSP = UNICODE_SYMBOLS.NBSP
 const SEP = DEFAULT_SEPARATOR
 
-/** Calls fn with and without separator, checking both produce correct nbsp. */
+/** Calls fn with separator option, checking all cases produce correct nbsp. */
 function expectSep(
   fn: (text: string, options?: NbspOptions) => string,
   cases: [string, string][],
@@ -53,22 +56,22 @@ describe("nbspAfterShortWords", () => {
 })
 
 describe("nbspBetweenNumberAndUnit", () => {
+  const unitSamples = UNITS.filter((_, i) => i % 7 === 0)
+  it.each(unitSamples.map((u) => [`5 ${u}`, `5${NBSP}${u}`]))(
+    '"%s" → "%s"',
+    (input, expected) => {
+      expect(nbspBetweenNumberAndUnit(input)).toBe(expected)
+    },
+  )
+
   it.each([
-    ["100 km", `100${NBSP}km`],
-    ["5 kg", `5${NBSP}kg`],
-    ["20 ms", `20${NBSP}ms`],
-    ["3 hr", `3${NBSP}hr`],
-    ["10 GB", `10${NBSP}GB`],
-    ["500 W", `500${NBSP}W`],
-    ["72 px", `72${NBSP}px`],
-    ["100 dB", `100${NBSP}dB`],
     ["100km", "100km"],
     ["5 kms", "5 kms"],
     ["chapter 3 above", "chapter 3 above"],
     ["item 5 here", "item 5 here"],
     ["5 3", "5 3"],
     ["page 42 of", "page 42 of"],
-  ])('"%s" → "%s"', (input, expected) => {
+  ])('no match: "%s"', (input, expected) => {
     expect(nbspBetweenNumberAndUnit(input)).toBe(expected)
   })
 
@@ -106,23 +109,9 @@ describe("nbspBeforeLastWord", () => {
 
 describe("nbspAfterReferenceAbbreviations", () => {
   it.each([
-    ["Fig. 1", `Fig.${NBSP}1`],
-    ["Figs. 2", `Figs.${NBSP}2`],
-    ["Vol. 3", `Vol.${NBSP}3`],
-    ["No. 4", `No.${NBSP}4`],
-    ["Nos. 5", `Nos.${NBSP}5`],
-    ["p. 42", `p.${NBSP}42`],
-    ["pp. 10", `pp.${NBSP}10`],
-    ["Ch. 7", `Ch.${NBSP}7`],
-    ["Chap. 8", `Chap.${NBSP}8`],
-    ["Sec. 9", `Sec.${NBSP}9`],
-    ["Eq. 1", `Eq.${NBSP}1`],
-    ["Eqs. 2", `Eqs.${NBSP}2`],
-    ["Art. 3", `Art.${NBSP}3`],
-    ["Tab. 4", `Tab.${NBSP}4`],
-    ["Ex. 5", `Ex.${NBSP}5`],
+    ...REFERENCE_ABBREVIATIONS.map((abbr, i) => [`${abbr}. ${i + 1}`, `${abbr}.${NBSP}${i + 1}`]),
     ["Fig. caption", "Fig. caption"],
-  ])('"%s" → "%s"', (input, expected) => {
+  ] as [string, string][])('"%s" → "%s"', (input, expected) => {
     expect(nbspAfterReferenceAbbreviations(input)).toBe(expected)
   })
 
@@ -152,23 +141,13 @@ describe("nbspAfterSectionSymbols", () => {
 })
 
 describe("nbspAfterHonorifics", () => {
+  const names = ["Smith", "Jones", "Brown", "Davis", "Wilson", "King", "Patrick", "Martinez", "Judge", "Brown", "Warren", "Lee", "Lee"]
   it.each([
-    ["Dr. Smith", `Dr.${NBSP}Smith`],
-    ["Mr. Jones", `Mr.${NBSP}Jones`],
-    ["Mrs. Brown", `Mrs.${NBSP}Brown`],
-    ["Ms. Davis", `Ms.${NBSP}Davis`],
-    ["Prof. Wilson", `Prof.${NBSP}Wilson`],
-    ["Rev. King", `Rev.${NBSP}King`],
-    ["St. Patrick", `St.${NBSP}Patrick`],
-    ["Sr. Martinez", `Sr.${NBSP}Martinez`],
-    ["Hon. Judge", `Hon.${NBSP}Judge`],
-    ["Gov. Brown", `Gov.${NBSP}Brown`],
-    ["Sen. Warren", `Sen.${NBSP}Warren`],
-    ["Rep. Lee", `Rep.${NBSP}Lee`],
+    ...HONORIFICS.map((h, i) => [`${h}. ${names[i]}`, `${h}.${NBSP}${names[i]}`]),
     ["Dr. Élodie", `Dr.${NBSP}Élodie`],
     ["Jr. here", "Jr. here"],
     ["Dr. said", "Dr. said"],
-  ])('"%s" → "%s"', (input, expected) => {
+  ] as [string, string][])('"%s" → "%s"', (input, expected) => {
     expect(nbspAfterHonorifics(input)).toBe(expected)
   })
 

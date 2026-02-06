@@ -13,11 +13,20 @@ import escapeStringRegexp from "escape-string-regexp"
 import { UNICODE_SYMBOLS, ESCAPED_DEFAULT_SEPARATOR } from "./constants.js"
 import type { SymbolOptions } from "./symbols.js"
 
-const { NBSP } = UNICODE_SYMBOLS
+const {
+  NBSP,
+  LEFT_DOUBLE_QUOTE,
+  RIGHT_DOUBLE_QUOTE,
+  LEFT_SINGLE_QUOTE,
+  RIGHT_SINGLE_QUOTE,
+  COPYRIGHT,
+  REGISTERED,
+  TRADEMARK,
+} = UNICODE_SYMBOLS
 
 export type NbspOptions = Pick<SymbolOptions, "separator">
 
-function sep(options: NbspOptions): string {
+function escapedSeparator(options: NbspOptions): string {
   return options.separator
     ? escapeStringRegexp(options.separator)
     : ESCAPED_DEFAULT_SEPARATOR
@@ -32,7 +41,7 @@ const UNICODE_UPPERCASE = "\\p{Lu}"
  * Common units for the number-unit nbsp pattern. Only matches these specific
  * abbreviations after a number to avoid false positives like "chapter 3 above".
  */
-const UNITS = [
+export const UNITS = [
   // Length
   "km", "m", "cm", "mm", "mi", "ft", "in", "yd", "nm", "pm",
   // Mass
@@ -55,9 +64,29 @@ const UNITS = [
   "Pa", "kPa", "MPa", "bar", "psi", "ha",
   // Typography / CSS
   "px", "pt", "em", "rem", "vw", "vh", "dpi",
+  // Finance
+  "MM", "M", "B", "T",
   // Misc
   "dB", "cal", "kcal", "mol",
 ]
+
+export const HONORIFICS = [
+  "Mr", "Mrs", "Ms", "Dr", "Prof", "Rev",
+  "St", "Sr", "Jr", "Hon", "Gov", "Sen", "Rep",
+]
+
+export const REFERENCE_ABBREVIATIONS = [
+  "Fig", "Figs", "Vol", "No", "Nos",
+  "p", "pp", "Ch", "Chap", "Sec",
+  "Eq", "Eqs", "Art", "Tab", "Ex",
+]
+
+// Precomputed regex fragments
+const UNIT_PATTERN = UNITS.join("|")
+const HONORIFIC_PATTERN = HONORIFICS.map((h) => `${h}\\.`).join("|")
+const ABBREVIATION_PATTERN = REFERENCE_ABBREVIATIONS.map((a) => `${a}\\.`).join("|")
+const PUNCTUATION_OR_QUOTE = `[.,!?:;)(${LEFT_DOUBLE_QUOTE}${RIGHT_DOUBLE_QUOTE}\u00AB\u00BB${LEFT_SINGLE_QUOTE}${RIGHT_SINGLE_QUOTE}"]`
+const COPYRIGHT_SYMBOLS = `[${COPYRIGHT}${REGISTERED}${TRADEMARK}]`
 
 /**
  * Adds non-breaking space after short words (1-2 letters) to prevent them from
@@ -66,10 +95,9 @@ const UNITS = [
  * @example "a cat" → "a\u00A0cat", "I am" → "I\u00A0am"
  */
 export function nbspAfterShortWords(text: string, options: NbspOptions = {}): string {
-  const chr = sep(options)
-  const punctuationOrQuote = "[.,!?:;)(\u201C\u201D\u00AB\u00BB\u2018\u2019\"]"
+  const sep = escapedSeparator(options)
   const pattern = new RegExp(
-    `(?<=^|${SPACE}|${punctuationOrQuote}|>)(?<shortWord>[a-zA-Z]{1,2})(?<marker>${chr}?)${SPACE}`,
+    `(?<=^|${SPACE}|${PUNCTUATION_OR_QUOTE}|>)(?<shortWord>[a-zA-Z]{1,2})(?<marker>${sep}?)${SPACE}`,
     "gmu"
   )
   return text.replace(pattern, `$<shortWord>$<marker>${NBSP}`)
@@ -81,10 +109,9 @@ export function nbspAfterShortWords(text: string, options: NbspOptions = {}): st
  * @example "100 km" → "100\u00A0km", "5 kg" → "5\u00A0kg"
  */
 export function nbspBetweenNumberAndUnit(text: string, options: NbspOptions = {}): string {
-  const chr = sep(options)
-  const unitPattern = UNITS.join("|")
+  const sep = escapedSeparator(options)
   const pattern = new RegExp(
-    `(?<digit>\\d)(?<marker1>${chr}?)${SPACE}(?<marker2>${chr}?)(?<unit>${unitPattern})\\b`,
+    `(?<digit>\\d)(?<marker1>${sep}?)${SPACE}(?<marker2>${sep}?)(?<unit>${UNIT_PATTERN})\\b`,
     "gm"
   )
   return text.replace(pattern, `$<digit>$<marker1>${NBSP}$<marker2>$<unit>`)
@@ -98,9 +125,9 @@ export function nbspBetweenNumberAndUnit(text: string, options: NbspOptions = {}
  * true end of string.
  */
 export function nbspBeforeLastWord(text: string, options: NbspOptions = {}): string {
-  const chr = sep(options)
+  const sep = escapedSeparator(options)
   const pattern = new RegExp(
-    `(?<=[\\w${chr}])${SPACE}(?<lastWord>[^\\s${chr}]{1,10})(?<ending>${chr}?(?:\\n\\n|$))`,
+    `(?<=[\\w${sep}])${SPACE}(?<lastWord>[^\\s${sep}]{1,10})(?<ending>${sep}?(?:\\n\\n|$))`,
     "g"
   )
   return text.replace(pattern, `${NBSP}$<lastWord>$<ending>`)
@@ -113,14 +140,9 @@ export function nbspBeforeLastWord(text: string, options: NbspOptions = {}): str
  * @example "Fig. 1" → "Fig.\u00A01", "p. 42" → "p.\u00A042"
  */
 export function nbspAfterReferenceAbbreviations(text: string, options: NbspOptions = {}): string {
-  const chr = sep(options)
-  const abbreviations = [
-    "Fig\\.", "Figs\\.", "Vol\\.", "No\\.", "Nos\\.",
-    "p\\.", "pp\\.", "Ch\\.", "Chap\\.", "Sec\\.",
-    "Eq\\.", "Eqs\\.", "Art\\.", "Tab\\.", "Ex\\.",
-  ]
+  const sep = escapedSeparator(options)
   const pattern = new RegExp(
-    `(?<abbrev>${abbreviations.join("|")})(?<marker>${chr}?)${SPACE}(?=${chr}?\\d)`,
+    `(?<abbrev>${ABBREVIATION_PATTERN})(?<marker>${sep}?)${SPACE}(?=${sep}?\\d)`,
     "g"
   )
   return text.replace(pattern, `$<abbrev>$<marker>${NBSP}`)
@@ -133,9 +155,9 @@ export function nbspAfterReferenceAbbreviations(text: string, options: NbspOptio
  * @example "§ 5" → "§\u00A05"
  */
 export function nbspAfterSectionSymbols(text: string, options: NbspOptions = {}): string {
-  const chr = sep(options)
+  const sep = escapedSeparator(options)
   const pattern = new RegExp(
-    `(?<symbol>[§¶])(?<marker>${chr}?)${SPACE}(?=${chr}?\\d)`,
+    `(?<symbol>[§¶])(?<marker>${sep}?)${SPACE}(?=${sep}?\\d)`,
     "g"
   )
   return text.replace(pattern, `$<symbol>$<marker>${NBSP}`)
@@ -147,28 +169,24 @@ export function nbspAfterSectionSymbols(text: string, options: NbspOptions = {})
  * @example "Dr. Smith" → "Dr.\u00A0Smith", "Mr. Jones" → "Mr.\u00A0Jones"
  */
 export function nbspAfterHonorifics(text: string, options: NbspOptions = {}): string {
-  const chr = sep(options)
-  const honorifics = [
-    "Mr\\.", "Mrs\\.", "Ms\\.", "Dr\\.", "Prof\\.", "Rev\\.",
-    "St\\.", "Sr\\.", "Jr\\.", "Hon\\.", "Gov\\.", "Sen\\.", "Rep\\.",
-  ]
+  const sep = escapedSeparator(options)
   const pattern = new RegExp(
-    `(?<honorific>${honorifics.join("|")})(?<marker>${chr}?)${SPACE}(?=${chr}?${UNICODE_UPPERCASE})`,
+    `(?<honorific>${HONORIFIC_PATTERN})(?<marker>${sep}?)${SPACE}(?=${sep}?${UNICODE_UPPERCASE})`,
     "gu"
   )
   return text.replace(pattern, `$<honorific>$<marker>${NBSP}`)
 }
 
 /**
- * Adds non-breaking space after copyright (©), registered (®), and trademark (™)
+ * Adds non-breaking space after copyright, registered, and trademark
  * symbols when followed by a year or capitalized name.
  *
  * @example "© 2024" → "©\u00A02024", "® Brand" → "®\u00A0Brand"
  */
 export function nbspAfterCopyrightSymbols(text: string, options: NbspOptions = {}): string {
-  const chr = sep(options)
+  const sep = escapedSeparator(options)
   const pattern = new RegExp(
-    `(?<symbol>[©®™])(?<marker>${chr}?)${SPACE}(?=${chr}?[\\d${UNICODE_UPPERCASE}])`,
+    `(?<symbol>${COPYRIGHT_SYMBOLS})(?<marker>${sep}?)${SPACE}(?=${sep}?[\\d${UNICODE_UPPERCASE}])`,
     "gu"
   )
   return text.replace(pattern, `$<symbol>$<marker>${NBSP}`)
@@ -180,31 +198,38 @@ export function nbspAfterCopyrightSymbols(text: string, options: NbspOptions = {
  * @example "J. K. Rowling" → "J.\u00A0K.\u00A0Rowling"
  */
 export function nbspBetweenInitials(text: string, options: NbspOptions = {}): string {
-  const chr = sep(options)
+  const sep = escapedSeparator(options)
   const pattern = new RegExp(
-    `(?<initial>${UNICODE_UPPERCASE}\\.)(?<marker>${chr}?)${SPACE}(?=${chr}?${UNICODE_UPPERCASE})`,
+    `(?<initial>${UNICODE_UPPERCASE}\\.)(?<marker>${sep}?)${SPACE}(?=${sep}?${UNICODE_UPPERCASE})`,
     "gu"
   )
   return text.replace(pattern, `$<initial>$<marker>${NBSP}`)
 }
 
+type NbspFn = (text: string, options: NbspOptions) => string
+
 /**
- * Apply all non-breaking space transformations in sequence.
- *
- * **Ordering matters:** Specific patterns (honorifics, abbreviations, initials)
- * run first so they claim their matches before the generic `nbspAfterShortWords`
- * runs. For example, "No. 5" is matched by `nbspAfterReferenceAbbreviations`
- * (inserting nbsp after the period), which prevents `nbspAfterShortWords` from
- * also matching "No" as a 2-letter short word.
+ * Ordered list of nbsp transforms. Specific patterns (honorifics, abbreviations,
+ * initials) come first so they claim their matches before the generic
+ * `nbspAfterShortWords`. For example, "No. 5" is matched by
+ * `nbspAfterReferenceAbbreviations` first, preventing `nbspAfterShortWords`
+ * from also matching "No" as a 2-letter short word.
  */
+const NBSP_TRANSFORMS: NbspFn[] = [
+  nbspAfterHonorifics,
+  nbspAfterReferenceAbbreviations,
+  nbspAfterSectionSymbols,
+  nbspAfterCopyrightSymbols,
+  nbspBetweenInitials,
+  nbspBetweenNumberAndUnit,
+  nbspAfterShortWords,
+  nbspBeforeLastWord,
+]
+
+/** Apply all non-breaking space transformations in sequence. */
 export function nbspTransform(text: string, options: NbspOptions = {}): string {
-  text = nbspAfterHonorifics(text, options)
-  text = nbspAfterReferenceAbbreviations(text, options)
-  text = nbspAfterSectionSymbols(text, options)
-  text = nbspAfterCopyrightSymbols(text, options)
-  text = nbspBetweenInitials(text, options)
-  text = nbspBetweenNumberAndUnit(text, options)
-  text = nbspAfterShortWords(text, options)
-  text = nbspBeforeLastWord(text, options)
+  for (const fn of NBSP_TRANSFORMS) {
+    text = fn(text, options)
+  }
   return text
 }
