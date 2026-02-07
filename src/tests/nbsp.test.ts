@@ -43,6 +43,10 @@ describe("nbspAfterShortWords", () => {
     ["the cat sat on a mat", `the cat sat on${NBSP}a${NBSP}mat`],
     ["Go to the store", `Go${NBSP}to${NBSP}the store`],
     ["the cat", "the cat"],
+    // Accented Latin short words
+    ["à chat", `à${NBSP}chat`],
+    ["où aller", `où${NBSP}aller`],
+    ["ça va", `ça${NBSP}va`],
   ])('"%s" → "%s"', (input, expected) => {
     expect(nbspAfterShortWords(input)).toBe(expected)
   })
@@ -80,6 +84,12 @@ describe("nbspBetweenNumberAndUnit", () => {
       [`5 ${SEP}kg`, `5${NBSP}${SEP}kg`],
       [`5${SEP} ${SEP}kg`, `5${SEP}${NBSP}${SEP}kg`],
     ])
+  })
+
+  it("does not match unit letter that starts a cross-element word", () => {
+    // "5 m" + SEP + "ade" simulates <span>5 m</span><span>ade</span> ("made")
+    expect(nbspBetweenNumberAndUnit(`5 m${SEP}ade`, { separator: SEP }))
+      .toBe(`5 m${SEP}ade`)
   })
 })
 
@@ -140,7 +150,20 @@ describe("nbspAfterSectionSymbols", () => {
 })
 
 describe("nbspAfterHonorifics", () => {
-  const names = ["Smith", "Jones", "Brown", "Davis", "Wilson", "King", "Patrick", "Martinez", "Judge", "Brown", "Warren", "Lee", "Lee"]
+  const names = [
+    // English
+    "Smith", "Jones", "Brown", "Davis", "Wilson", "King", "Patrick", "Martinez", "Judge", "Brown", "Warren", "Lee", "Lee",
+    // French
+    "Dupont", "Laurent", "Lefebvre",
+    // German / Nordic
+    "Schmidt", "Weber",
+    // Spanish / Portuguese
+    "García", "Rodríguez",
+    // Italian
+    "Rossi", "Bianchi",
+    // Dutch
+    "Bakker", "Jansen",
+  ]
   it.each([
     ...HONORIFICS.map((h, i) => [`${h}. ${names[i]}`, `${h}.${NBSP}${names[i]}`]),
     ["Dr. Élodie", `Dr.${NBSP}Élodie`],
