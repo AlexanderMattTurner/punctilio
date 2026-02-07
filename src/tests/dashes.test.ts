@@ -652,27 +652,30 @@ describe("minusReplace regex-special separators", () => {
   })
 })
 
-describe("minusReplace separator boundary", () => {
-  const sep = DEFAULT_SEPARATOR
+const sep = DEFAULT_SEPARATOR
 
+describe("minusReplace separator boundary", () => {
   it.each([
     ["genuine negative at element start", `${sep}-5${sep}`, `${sep}${MINUS}5${sep}`],
     ["negative in parens across boundary", `(${sep}-5${sep})`, `(${sep}${MINUS}5${sep})`],
-    ["no false negative after digit+sep", `2${sep}-3`, `2${sep}-3`],
-    ["no false negative after letter+sep", `GPT${sep}-3`, `GPT${sep}-3`],
-    ["multi-segment 1-2-3 with seps", `1-${sep}2${sep}-3`, `1-${sep}2${sep}-3`],
   ])("%s", (_desc, input, expected) => {
     expect(minusReplace(input, { separator: sep })).toBe(expected)
+  })
+
+  it.each([
+    ["no false negative after digit+sep", `2${sep}-3`],
+    ["no false negative after letter+sep", `GPT${sep}-3`],
+    ["multi-segment 1-2-3 with seps", `1-${sep}2${sep}-3`],
+  ])("%s", (_desc, input) => {
+    expect(minusReplace(input, { separator: sep })).toBe(input)
   })
 })
 
 describe("hyphenReplace preserves multi-segment numbers across separators", () => {
-  const sep = DEFAULT_SEPARATOR
-
   it.each([
-    ["1-2-3 across elements", `1-${sep}2${sep}-3`, `1-${sep}2${sep}-3`],
-    ["model name across elements", `${sep}GPT${sep}-3`, `${sep}GPT${sep}-3`],
-  ])("%s", (_desc, input, expected) => {
-    expect(hyphenReplace(input, { separator: sep })).toBe(expected)
+    ["1-2-3 across elements", `1-${sep}2${sep}-3`],
+    ["model name across elements", `${sep}GPT${sep}-3`],
+  ])("%s", (_desc, input) => {
+    expect(hyphenReplace(input, { separator: sep })).toBe(input)
   })
 })
