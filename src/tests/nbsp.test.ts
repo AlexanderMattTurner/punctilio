@@ -150,7 +150,20 @@ describe("nbspAfterSectionSymbols", () => {
 })
 
 describe("nbspAfterHonorifics", () => {
-  const names = ["Smith", "Jones", "Brown", "Davis", "Wilson", "King", "Patrick", "Martinez", "Judge", "Brown", "Warren", "Lee", "Lee"]
+  const names = [
+    // English
+    "Smith", "Jones", "Brown", "Davis", "Wilson", "King", "Patrick", "Martinez", "Judge", "Brown", "Warren", "Lee", "Lee",
+    // French
+    "Dupont", "Laurent", "Lefebvre",
+    // German / Nordic
+    "Schmidt", "Weber",
+    // Spanish / Portuguese
+    "García", "Rodríguez",
+    // Italian
+    "Rossi", "Bianchi",
+    // Dutch
+    "Bakker", "Jansen",
+  ]
   it.each([
     ...HONORIFICS.map((h, i) => [`${h}. ${names[i]}`, `${h}.${NBSP}${names[i]}`]),
     ["Dr. Élodie", `Dr.${NBSP}Élodie`],

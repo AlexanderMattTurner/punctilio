@@ -71,14 +71,30 @@ export const UNITS = [
 ]
 
 export const HONORIFICS = [
+  // English
   "Mr", "Mrs", "Ms", "Dr", "Prof", "Rev",
   "St", "Sr", "Jr", "Hon", "Gov", "Sen", "Rep",
+  // French
+  "Mme", "Mlle", "Mgr",
+  // German / Nordic
+  "Hr", "Fr",
+  // Spanish / Portuguese
+  "Sra", "Srta",
+  // Italian
+  "Sig", "Dott",
+  // Dutch
+  "Dhr", "Mevr",
 ]
 
 export const REFERENCE_ABBREVIATIONS = [
+  // English / Latin
   "Fig", "Figs", "Vol", "No", "Nos",
   "p", "pp", "Ch", "Chap", "Sec",
   "Eq", "Eqs", "Art", "Tab", "Ex",
+  // German
+  "Abb", "Bd", "Nr", "Kap",
+  // Romance (Spanish / Portuguese / Italian)
+  "Cap",
 ]
 
 // Precomputed regex fragments
