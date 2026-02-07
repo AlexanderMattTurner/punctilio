@@ -62,16 +62,15 @@ My [`benchmark.mjs`](https://github.com/alexander-turner/punctilio/blob/main/ben
 | English localization | <span class="no-formatting">American / British</span> | ✓ | ✗ | ✗ | ✗ | ✗ |
 | Ligatures | <span class="no-formatting">?? → ⁇</span> | ✓ | ✗ | ✓ | ✗ | ✗ |
 | Non-English quotes | <span class="no-formatting">„Hallo”</span> | ✗ | ✗ | ✓ | ✗ | ~ |
-| Non-breaking spaces | <span class="no-formatting">Chapter 1</span> | ✗ | ✗ | ✗ | ✗ | ✓ |
+| Non-breaking spaces | <span class="no-formatting">Chapter 1</span> | ✓ | ✗ | ✗ | ✗ | ✓ |
 
-`typograf` uniquely inserts non-breaking spaces to prevent bad line breaks (e.g. before numbers, after colons). I might add this to `punctilio` in the future. `punctilio`’s other missing feature is non-English quote support—feel free to make a pull request!
+`punctilio` and `typograf` both insert non-breaking spaces to prevent bad line breaks (e.g. after honorifics, between numbers and units, before orphaned last words). `punctilio`'s remaining missing feature is non-English quote support—feel free to make a pull request!
 
 ### Known limitations of `punctilio`
 
 | Pattern | Behavior | Notes |
 |:--------|:---------|:------|
 | `10' x 12'` | Second `'` not converted | Quote balancing prevents double prime conversion |
-| `No. 3` | Doesn't replace normal space with a non-breaking one | Requires major new feature |
 | German/French quotes | Not supported | `« Bonjour »` requires language detection |
 
 ## Test suite
@@ -115,7 +114,7 @@ For manual DOM walking or custom transforms, use `transformElement` from `puncti
 
 ## Options
 
-`punctilio` doesn’t enable all transformations by default. Fractions and degrees tend to match too aggressively (perfectly applying the degree transformation requires semantic meaning). Superscript letters and punctuation ligatures have spotty font support—on GitHub, this README’s font doesn’t even support the example superscript! Furthermore, `ligatures = true` can change the meaning of text by collapsing question and exclamation marks.
+`punctilio` doesn't enable all transformations by default. Fractions and degrees tend to match too aggressively (perfectly applying the degree transformation requires semantic meaning). Superscript letters and punctuation ligatures have spotty font support—on GitHub, this README's font doesn't even support the example superscript! Furthermore, `ligatures = true` can change the meaning of text by collapsing question and exclamation marks. Non-breaking spaces are also opt-in since they alter whitespace throughout the text.
 
 ```typescript
 transform(text, {
@@ -128,6 +127,7 @@ transform(text, {
   degrees: false,          // 20 C → 20 °C
   superscript: false,      // 1st → 1ˢᵗ
   ligatures: false,        // ??? → ⁇, ?! → ⁈, !? → ⁉, !!! → !
+  nbsp: false,             // non-breaking spaces (after honorifics, between numbers and units, etc.)
   checkIdempotency: true,  // verify transform(transform(x)) === transform(x)
 })
 ```
