@@ -141,7 +141,17 @@ fs.writeFileSync("package.json", JSON.stringify(pkg, null, 2) + "\n");
 echo "Set package.json to $NEW_VERSION (working directory only)"
 
 # Build and publish to npm
-pnpm publish --provenance --access public --no-git-checks
+# Handle "already published" (exit code 1, HTTP 400/409) as success — can happen
+# when npm registry caching causes the earlier safety check to miss an existing version
+if ! PUBLISH_OUTPUT=$(pnpm publish --provenance --access public --no-git-checks 2>&1); then
+  if echo "$PUBLISH_OUTPUT" | grep -q "Cannot publish over previously published version"; then
+    echo "Version $NEW_VERSION already published (detected at publish time). Skipping."
+    exit 0
+  fi
+  echo "$PUBLISH_OUTPUT" >&2
+  exit 1
+fi
+echo "$PUBLISH_OUTPUT"
 echo "✅ Published $PACKAGE_NAME@$NEW_VERSION"
 
 # Tag the release for future commit range detection
