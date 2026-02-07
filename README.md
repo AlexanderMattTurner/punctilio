@@ -64,8 +64,6 @@ My [`benchmark.mjs`](https://github.com/alexander-turner/punctilio/blob/main/ben
 | Non-English quotes | <span class="no-formatting">„Hallo”</span> | ✗ | ✗ | ✓ | ✗ | ~ |
 | Non-breaking spaces | <span class="no-formatting">Chapter 1</span> | ✓ | ✗ | ✗ | ✗ | ✓ |
 
-`punctilio` and `typograf` both insert non-breaking spaces to prevent bad line breaks (e.g. after honorifics, between numbers and units, before orphaned last words). `punctilio`'s remaining missing feature is non-English quote support—feel free to make a pull request!
-
 ### Known limitations of `punctilio`
 
 | Pattern | Behavior | Notes |
