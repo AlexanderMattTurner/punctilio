@@ -66,7 +66,7 @@ export function multiplication(text: string, options: SymbolOptions = {}): strin
   // Match entire multiplication chains in one pass: "5 x 5 x 5" or "5x5x5"
   // Pattern matches: digit(s), then one or more (operator, digit(s)) groups
   const chainPattern = new RegExp(
-    `(\\d+)((?:${chr}?\\s*[xX*]\\s*${chr}?\\d+)+)`,
+    `(?<!\\d)(\\d+)((?:${chr}?\\s*[xX*]\\s*${chr}?\\d+)+)`,
     "g"
   )
 
@@ -87,7 +87,7 @@ export function multiplication(text: string, options: SymbolOptions = {}): strin
 
   // Trailing multiplier: 5x (followed by word boundary - space, punctuation, etc.)
   const wbe = wordBoundaryEnd(chr)
-  const trailingPattern = new RegExp(`(?<num>\\d+${chr}?)[xX*]${wbe}`, "g")
+  const trailingPattern = new RegExp(`(?<!\\d)(?<num>\\d+${chr}?)[xX*]${wbe}`, "g")
   text = text.replace(trailingPattern, (match, num: string) => {
     // Skip if this looks like start of hexadecimal
     if (num === "0") return match

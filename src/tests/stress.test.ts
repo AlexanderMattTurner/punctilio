@@ -113,49 +113,22 @@ describe("ReDoS resistance", () => {
     })
   })
 
-  describe("multiplication() quadratic scaling (KNOWN VULNERABILITY)", () => {
-    // FINDING: multiplication() exhibits O(n²) behavior on digit-only inputs.
-    // The chainPattern regex `(\d+)((?:...)+)` causes V8 to try \d+ at every
-    // position in a digit string, each time scanning to the end. This is
-    // quadratic, not exponential, but enough to DoS with ~50k+ digit inputs.
-    //
-    // Measured scaling:
-    //   n=1k:  ~2ms
-    //   n=5k:  ~42ms
-    //   n=10k: ~177ms
-    //   n=25k: ~1093ms
-    //   n=50k: ~4387ms
-    //
-    // The trailingPattern `(\d+...)[xX*]\b` has the same issue.
-    test("50k digits takes >1s (documenting quadratic behavior)", () => {
-      const start = performance.now()
-      multiplication("1".repeat(50_000))
-      const elapsed = performance.now() - start
-      // This SHOULD be fast (<100ms) but ISN'T — documenting the vulnerability
-      expect(elapsed).toBeGreaterThan(500)
-    })
-
-    test("10k digits is borderline", () => {
-      const start = performance.now()
-      multiplication("1".repeat(10_000))
-      const elapsed = performance.now() - start
-      // Under 500ms but superlinear
-      expect(elapsed).toBeLessThan(1000)
+  describe("multiplication() on large digit inputs", () => {
+    test("50k digits completes fast (regression for quadratic ReDoS fix)", () => {
+      assertFastEnough(() => multiplication("1".repeat(50_000)), "50k digits")
     })
   })
 
-  describe("full transform (excluding known multiplication issue)", () => {
+  describe("full transform on large inputs", () => {
     test("repeated separators in input", () => {
       const input = DEFAULT_SEPARATOR.repeat(10_000)
-      // Separator-only input — should preserve count
       const result = transform(input, { checkIdempotency: false })
       expect(countSeparators(result)).toBe(10_000)
     })
 
-    test("long text without digit-heavy content is fast", () => {
-      // Avoid triggering the known multiplication() issue
-      const input = "Hello world - it's nice... ".repeat(2000)
-      assertFastEnough(() => transform(input, { checkIdempotency: false }), "long text")
+    test("long mixed input is fast", () => {
+      const input = longA + longDigits + longDots + longHyphens
+      assertFastEnough(() => transform(input, { checkIdempotency: false }), "long mixed")
     })
   })
 })
