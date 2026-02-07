@@ -595,6 +595,15 @@ describe("symbolTransform", () => {
   })
 })
 
+describe("multiplication ReDoS regression", () => {
+  it("handles 50k digits without quadratic slowdown", () => {
+    const start = performance.now()
+    multiplication("1".repeat(50_000))
+    // Before fix: ~4400ms (O(n²)). After fix: <50ms (O(n)).
+    expect(performance.now() - start).toBeLessThan(500)
+  })
+})
+
 describe("multiplication edge cases", () => {
   it.each([
     ["1000000x2000000", `1000000${UNICODE_SYMBOLS.MULTIPLICATION}2000000`],
