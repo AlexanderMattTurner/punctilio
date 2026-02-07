@@ -388,6 +388,12 @@ describe("rehypePunctilio", () => {
         const tree = h("div", [h("img")]) as Element
         expect(collectTransformableElements(tree, ignoreNone)).toHaveLength(0)
       })
+
+      it("stops at max recursion depth", () => {
+        let deep: Element = h("p", "deep") as Element
+        for (let i = 0; i < 1100; i++) deep = h("div", [deep]) as Element
+        expect(collectTransformableElements(deep, ignoreNone)).toHaveLength(0)
+      })
     })
   })
 
