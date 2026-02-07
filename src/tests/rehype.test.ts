@@ -64,6 +64,17 @@ describe("rehypePunctilio", () => {
     })
   })
 
+  describe("dashes across element boundaries", () => {
+    it.each([
+      ["multi-segment number preserved", "<p>1-<em>2</em>-3</p>", "<p>1-<em>2</em>-3</p>"],
+      ["model name preserved", "<p><em>GPT</em>-3</p>", "<p><em>GPT</em>-3</p>"],
+      ["simple range still converts", "<p>pages <em>1</em>-5</p>", `<p>pages <em>1</em>${EN_DASH}5</p>`],
+      ["genuine negative at element start", "<p><em>-5</em> degrees</p>", "<p><em>\u22125</em> degrees</p>"],
+    ])("%s", async (_name, html, expected) => {
+      expect(await processHtml(html)).toEqual(expected)
+    })
+  })
+
   describe("skipped elements", () => {
     it.each(["code", "pre", "script", "style", "kbd", "var", "samp"])(
       "skips %s elements",

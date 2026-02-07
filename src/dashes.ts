@@ -47,7 +47,7 @@ export function enDashNumberRange(text: string, options: DashOptions = {}): stri
   const notAfterDash = `(?<![${disallowed}${LATIN_LETTERS}.])`           // prevent Llama-2-7B
   const rangeStart = `(?<start>(?:p\\.?|[${currencies}])?\\d[\\d.,]*${chr}?)`  // p.10, $100, 1,000
   const rangeEnd = `(?<end>${chr}?[${currencies}]?\\d[\\d.,]*)`          // 20, $200, 2,000
-  const moreSegments = `(?<following>(?:${chr}?-${chr}?\\d+)*)`          // -4567 in phone numbers
+  const moreSegments = `(?<following>(?:${chr}?[-${MINUS}]${chr}?\\d+)*)` // -4567 in phone numbers
   const unitSuffix = `(?<suffix>${chr}?(?:[AaPp][Mm]|[xKBTM]))?`         // am/pm, K/M/B
 
   // Positive ranges: 1-5, $100-$200, €5-€10, p.10-15
@@ -124,10 +124,18 @@ export function minusReplace(text: string, options: DashOptions = {}): string {
   )
 
   // Pattern 2: Direct negative numbers (e.g., "-5" → "−5", "(-3)" → "(−3)")
-  // Match after: start of line, whitespace, (, separator, or quotes (straight or curly)
+  // Match after: start of line, whitespace, (, or quotes (straight or curly)
   // No space allowed between hyphen and digit
   text = text.replaceAll(
-    new RegExp(`(?<before>^|[\\s\\("${chr}${LEFT_DOUBLE_QUOTE}${RIGHT_DOUBLE_QUOTE}])-(?<num>\\d*\\.?\\d+)`, "gm"),
+    new RegExp(`(?<before>^|[\\s\\("${LEFT_DOUBLE_QUOTE}${RIGHT_DOUBLE_QUOTE}])-(?<num>\\d*\\.?\\d+)`, "gm"),
+    `$<before>${MINUS}$<num>`
+  )
+
+  // Pattern 2b: Direct negative numbers after separator boundary (e.g., <em>-5</em>)
+  // Only when no word character precedes the separator — prevents both
+  // "2{SEP}-3" in "1-2-3" and "GPT{SEP}-3" from being misidentified as negative 3
+  text = text.replaceAll(
+    new RegExp(`(?<![\\d.,${LATIN_LETTERS}])(?<before>${chr})-(?<num>\\d*\\.?\\d+)`, "gm"),
     `$<before>${MINUS}$<num>`
   )
 
