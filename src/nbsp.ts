@@ -10,7 +10,7 @@
 
 import escapeStringRegexp from "escape-string-regexp"
 
-import { UNICODE_SYMBOLS, ESCAPED_DEFAULT_SEPARATOR } from "./constants.js"
+import { UNICODE_SYMBOLS, ESCAPED_DEFAULT_SEPARATOR, LATIN_LETTERS, wordBoundaryEnd } from "./constants.js"
 import type { SymbolOptions } from "./symbols.js"
 
 const {
@@ -43,31 +43,31 @@ const UNICODE_UPPERCASE = "\\p{Lu}"
  */
 export const UNITS = [
   // Length
-  "km", "m", "cm", "mm", "mi", "ft", "in", "yd", "nm", "pm",
+  "km", "cm", "mm", "mi", "ft", "in", "yd", "nm", "pm", "m",
   // Mass
-  "kg", "g", "mg", "lb", "lbs", "oz", "t",
+  "kg", "mg", "lbs", "lb", "oz", "g", "t",
   // Volume
-  "l", "L", "ml", "mL", "gal", "fl",
+  "ml", "mL", "gal", "fl", "l", "L",
   // Time
-  "s", "ms", "min", "h", "hr", "hrs",
+  "min", "ms", "hr", "hrs", "h", "s",
   // Speed / frequency
-  "Hz", "kHz", "MHz", "GHz", "THz", "rpm",
+  "kHz", "MHz", "GHz", "THz", "rpm", "Hz",
   // Digital
-  "KB", "MB", "GB", "TB", "PB", "kB", "Mb", "Gb", "kbps", "Mbps", "Gbps",
+  "kbps", "Mbps", "Gbps", "KB", "MB", "GB", "TB", "PB", "kB", "Mb", "Gb",
   // Energy / power
-  "W", "kW", "MW", "GW", "J", "kJ", "MJ", "Wh", "kWh", "MWh",
+  "kWh", "MWh", "kW", "MW", "GW", "kJ", "MJ", "Wh", "W", "J",
   // Temperature
   "K",
   // Electrical
-  "V", "kV", "mV", "A", "mA",
+  "kV", "mV", "mA", "V", "A",
   // Pressure / area
-  "Pa", "kPa", "MPa", "bar", "psi", "ha",
+  "kPa", "MPa", "bar", "psi", "ha", "Pa",
   // Typography / CSS
-  "px", "pt", "em", "rem", "vw", "vh", "dpi",
+  "rem", "dpi", "px", "pt", "em", "vw", "vh",
   // Finance
   "MM", "M", "B", "T",
   // Misc
-  "dB", "cal", "kcal", "mol",
+  "kcal", "mol", "cal", "dB",
 ]
 
 export const HONORIFICS = [
@@ -97,7 +97,7 @@ const COPYRIGHT_SYMBOLS = `[${COPYRIGHT}${REGISTERED}${TRADEMARK}]`
 export function nbspAfterShortWords(text: string, options: NbspOptions = {}): string {
   const sep = escapedSeparator(options)
   const pattern = new RegExp(
-    `(?<=^|${SPACE}|${PUNCTUATION_OR_QUOTE}|>)(?<shortWord>[a-zA-Z]{1,2})(?<marker>${sep}?)${SPACE}`,
+    `(?<=^|${SPACE}|${PUNCTUATION_OR_QUOTE}|>)(?<shortWord>[${LATIN_LETTERS}]{1,2})(?<marker>${sep}?)${SPACE}`,
     "gmu"
   )
   return text.replace(pattern, `$<shortWord>$<marker>${NBSP}`)
@@ -110,8 +110,9 @@ export function nbspAfterShortWords(text: string, options: NbspOptions = {}): st
  */
 export function nbspBetweenNumberAndUnit(text: string, options: NbspOptions = {}): string {
   const sep = escapedSeparator(options)
+  const wbe = wordBoundaryEnd(sep)
   const pattern = new RegExp(
-    `(?<digit>\\d)(?<marker1>${sep}?)${SPACE}(?<marker2>${sep}?)(?<unit>${UNIT_PATTERN})\\b`,
+    `(?<digit>\\d)(?<marker1>${sep}?)${SPACE}(?<marker2>${sep}?)(?<unit>${UNIT_PATTERN})${wbe}`,
     "gm"
   )
   return text.replace(pattern, `$<digit>$<marker1>${NBSP}$<marker2>$<unit>`)
