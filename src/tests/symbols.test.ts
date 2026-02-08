@@ -205,6 +205,19 @@ describe("primeMarks", () => {
     ["40° 44' 54\" N", `40° 44${UNICODE_SYMBOLS.PRIME} 54${UNICODE_SYMBOLS.DOUBLE_PRIME} N`],
     ['The board is 12" wide', `The board is 12${UNICODE_SYMBOLS.DOUBLE_PRIME} wide`],
     ['12" long', `12${UNICODE_SYMBOLS.DOUBLE_PRIME} long`],
+    // Multiple primes in one string
+    ["10' x 12'", `10${UNICODE_SYMBOLS.PRIME} x 12${UNICODE_SYMBOLS.PRIME}`],
+    ["The room is 10' x 12' x 8' tall", `The room is 10${UNICODE_SYMBOLS.PRIME} x 12${UNICODE_SYMBOLS.PRIME} x 8${UNICODE_SYMBOLS.PRIME} tall`],
+    ['10" x 12"', `10${UNICODE_SYMBOLS.DOUBLE_PRIME} x 12${UNICODE_SYMBOLS.DOUBLE_PRIME}`],
+    [`5' and 8' boards`, `5${UNICODE_SYMBOLS.PRIME} and 8${UNICODE_SYMBOLS.PRIME} boards`],
+    // Contractions before primes
+    ["it's 5' long", `it's 5${UNICODE_SYMBOLS.PRIME} long`],
+    ["don't measure 8'", `don't measure 8${UNICODE_SYMBOLS.PRIME}`],
+    ["she's 5'10\"", `she's 5${UNICODE_SYMBOLS.PRIME}10${UNICODE_SYMBOLS.DOUBLE_PRIME}`],
+    ["O'Brien's 6' fence", `O'Brien's 6${UNICODE_SYMBOLS.PRIME} fence`],
+    // Possessive plurals before primes
+    ["the dogs' 5' leashes", `the dogs' 5${UNICODE_SYMBOLS.PRIME} leashes`],
+    ["the cats' and dogs' 5' run", `the cats' and dogs' 5${UNICODE_SYMBOLS.PRIME} run`],
   ])('converts "%s" to "%s"', (input, expected) => {
     expect(primeMarks(input)).toBe(expected)
   })
@@ -226,11 +239,33 @@ describe("primeMarks", () => {
     expect(primeMarks(input)).toBe(expected)
   })
 
+  // Feet-inches inside balanced quotes: the balance tracker detects ′ + digits
+  // before a " prime candidate and converts it to ″ regardless of quote balance
+  it.each([
+    ['"He is 5\'10" tall"', `"He is 5${UNICODE_SYMBOLS.PRIME}10${UNICODE_SYMBOLS.DOUBLE_PRIME} tall"`],
+    ['"The shelf is 5\'11" wide"', `"The shelf is 5${UNICODE_SYMBOLS.PRIME}11${UNICODE_SYMBOLS.DOUBLE_PRIME} wide"`],
+  ])('feet-inches inside balanced quotes converts "%s"', (input, expected) => {
+    expect(primeMarks(input)).toBe(expected)
+  })
+
   it("handles separator characters", () => {
     const sep = "\uE000"
     expect(primeMarks(`5${sep}'${sep}10${sep}"`, { separator: sep })).toBe(
       `5${sep}${UNICODE_SYMBOLS.PRIME}${sep}10${sep}${UNICODE_SYMBOLS.DOUBLE_PRIME}`
     )
+  })
+
+  // Separator-aware contractions: the quote classification pattern must recognize
+  // contractions even when separators split the word across HTML element boundaries
+  it.each([
+    // Contraction with separator before the apostrophe: it<sep>'s
+    [`it${"\uE000"}'${"\uE000"}s 5'`, `it${"\uE000"}'${"\uE000"}s 5${UNICODE_SYMBOLS.PRIME}`],
+    // Contraction with separator after the apostrophe: don't
+    [`don${"\uE000"}'t measure 8'`, `don${"\uE000"}'t measure 8${UNICODE_SYMBOLS.PRIME}`],
+    // Trailing apostrophe with separator: dogs<sep>'
+    [`the dogs${"\uE000"}' 5' leashes`, `the dogs${"\uE000"}' 5${UNICODE_SYMBOLS.PRIME} leashes`],
+  ])('separator-aware contraction/trailing in "%s"', (input, expected) => {
+    expect(primeMarks(input, { separator: "\uE000" })).toBe(expected)
   })
 })
 
@@ -658,7 +693,7 @@ describe("prime marks edge cases", () => {
     ['100\'50"', `100${UNICODE_SYMBOLS.PRIME}50${UNICODE_SYMBOLS.DOUBLE_PRIME}`],
     ["5' boards", `5${UNICODE_SYMBOLS.PRIME} boards`],
     ['12" pipe', `12${UNICODE_SYMBOLS.DOUBLE_PRIME} pipe`],
-    ["5', 10'", `5${UNICODE_SYMBOLS.PRIME}, 10'`],
+    ["5', 10'", `5${UNICODE_SYMBOLS.PRIME}, 10${UNICODE_SYMBOLS.PRIME}`],
   ])('handles prime mark edge: "%s"', (input, expected) => {
     expect(primeMarks(input)).toBe(expected)
   })

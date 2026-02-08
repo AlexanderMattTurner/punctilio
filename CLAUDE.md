@@ -22,6 +22,8 @@
 - Prefer throwing errors that "fail loudly" over logging warnings for critical issues
 - Un-nest conditionals where possible; combine related checks into single blocks
 - Create shared helpers when the same logic is needed in multiple places
+- Use descriptive variable names; don't shorten for brevity
+- Split complex regex logic into named helper functions (pattern builder + replace callback)
 
 ### Testing
 
