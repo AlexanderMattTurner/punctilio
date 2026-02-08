@@ -189,10 +189,9 @@ export function primeMarks(text: string, options: SymbolOptions = {}): string {
 
   for (const [quote, prime] of quotePrimePairs) {
     const eq = escapeStringRegexp(quote)
-    const L = LATIN_LETTERS
     // Alternatives matched in priority order (first match wins):
-    const primeCandidate = `(?<digit>\\d)(?<sep>${chr}?)${eq}(?<afterSep>${chr}?)(?![${L}])`
-    const contraction = `(?<=[${L}])(?<contraction>${eq})(?=[${L}])`
+    const primeCandidate = `(?<digit>\\d)(?<sep>${chr}?)${eq}(?<afterSep>${chr}?)(?![${LATIN_LETTERS}])`
+    const contraction = `(?<=[${LATIN_LETTERS}])(?<contraction>${eq})(?=[${LATIN_LETTERS}])`
     const trailing = `(?<=[${L}])(?<trailing>${eq})`
     const bareQuote = eq
     const combinedPattern = new RegExp(
