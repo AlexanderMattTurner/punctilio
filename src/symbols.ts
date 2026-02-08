@@ -171,66 +171,92 @@ export function degrees(text: string, options: SymbolOptions = {}): string {
   )
 }
 
+/**
+ * Build a regex that matches all quote characters in priority order:
+ * 1. Prime candidate: digit + quote + non-letter (e.g., 5', 12")
+ * 2. Contraction: letter + quote + letter (e.g., it's, don't, O'Brien)
+ * 3. Trailing apostrophe: letter + quote + non-letter (e.g., dogs')
+ * 4. Bare quote: anything else (typically preceded by space/start)
+ */
+function buildQuoteClassificationPattern(
+  escapedQuote: string,
+  escapedSeparator: string
+): RegExp {
+  const primeCandidate = `(?<digit>\\d)(?<sep>${escapedSeparator}?)${escapedQuote}(?<afterSep>${escapedSeparator}?)(?![${LATIN_LETTERS}])`
+  const contraction = `(?<=[${LATIN_LETTERS}])(?<contraction>${escapedQuote})(?=[${LATIN_LETTERS}])`
+  const trailingApostrophe = `(?<=[${LATIN_LETTERS}])(?<trailing>${escapedQuote})`
+  const bareQuote = escapedQuote
+  return new RegExp(
+    `${primeCandidate}|${contraction}|${trailingApostrophe}|${bareQuote}`,
+    "g"
+  )
+}
+
+/**
+ * Replace callback that converts prime candidates while respecting quote balance.
+ * Contractions and trailing apostrophes are recognized so they don't poison the
+ * balance tracker. A prime candidate converts only when no unmatched opening
+ * quote precedes it; otherwise it acts as a closing quote.
+ */
+function balancedPrimeReplacer(primeChar: string) {
+  let balance = 0
+  return (...args: unknown[]) => {
+    const fullMatch = args[0] as string
+    const groups = args[args.length - 1] as Record<string, string | undefined>
+
+    // Contraction (letter + quote + letter): skip entirely
+    if (groups.contraction !== undefined) {
+      return fullMatch
+    }
+
+    // Trailing apostrophe (letter + quote + non-letter): close if opener exists, else skip
+    if (groups.trailing !== undefined) {
+      if (balance > 0) balance--
+      return fullMatch
+    }
+
+    const { digit, sep, afterSep } = groups
+    if (digit !== undefined) {
+      // Prime candidate: convert only if no unmatched opening quote
+      if (balance <= 0) {
+        return `${digit}${sep}${primeChar}${afterSep}`
+      }
+      balance--
+      return fullMatch
+    }
+
+    // Bare quote (preceded by space/start): opener or closer
+    if (balance <= 0) {
+      balance = 1
+    } else {
+      balance--
+    }
+    return fullMatch
+  }
+}
+
 /** Convert 5'10" to 5′10″ (prime marks). Call before smart quotes. */
 export function primeMarks(text: string, options: SymbolOptions = {}): string {
-  const chr = options.separator
+  const escapedSeparator = options.separator
     ? escapeStringRegexp(options.separator)
     : ESCAPED_DEFAULT_SEPARATOR
 
-  // Convert quotes to primes by scanning left-to-right and tracking quote balance.
-  // Contractions (letter + quote + letter, e.g. it's, O'Brien) are skipped entirely.
-  // A prime candidate (digit + quote + non-letter) converts only when no unmatched opening
-  // quote precedes it; otherwise it's treated as a closing quote.
-  // Examples: 5' → 5′ ✓, 10' x 12' → 10′ x 12′ ✓, don't measure 8' → 8′ ✓, 'Term 1' ✗
-  const quotePrimePairs = [
+  const quotePrimePairs: [string, string][] = [
     ["'", PRIME],
     ['"', DOUBLE_PRIME],
   ]
 
-  for (const [quote, prime] of quotePrimePairs) {
-    const eq = escapeStringRegexp(quote)
-    // Alternatives matched in priority order (first match wins):
-    const primeCandidate = `(?<digit>\\d)(?<sep>${chr}?)${eq}(?<afterSep>${chr}?)(?![${LATIN_LETTERS}])`
-    const contraction = `(?<=[${LATIN_LETTERS}])(?<contraction>${eq})(?=[${LATIN_LETTERS}])`
-    const trailing = `(?<=[${L}])(?<trailing>${eq})`
-    const bareQuote = eq
-    const combinedPattern = new RegExp(
-      `${primeCandidate}|${contraction}|${trailing}|${bareQuote}`,
-      "g"
-    )
-    let balance = 0
-    text = text.replace(combinedPattern, (...args) => {
-      const fullMatch = args[0] as string
-      const groups = args[args.length - 1] as Record<string, string | undefined>
-      if (groups.contraction !== undefined) {
-        return fullMatch
-      }
-      if (groups.trailing !== undefined) {
-        // Trailing apostrophe (e.g., dogs'): close if there's an opener, otherwise skip
-        if (balance > 0) balance--
-        return fullMatch
-      }
-      const { digit, sep, afterSep } = groups
-      if (digit !== undefined) {
-        // Prime candidate: convert only if no unmatched opening quote
-        if (balance <= 0) {
-          return `${digit}${sep}${prime}${afterSep}`
-        }
-        balance--
-        return fullMatch
-      }
-      // Bare quote (preceded by space/start): opener or closer
-      if (balance <= 0) {
-        balance = 1
-      } else {
-        balance--
-      }
-      return fullMatch
-    })
+  for (const [quote, primeChar] of quotePrimePairs) {
+    const escapedQuote = escapeStringRegexp(quote)
+    const pattern = buildQuoteClassificationPattern(escapedQuote, escapedSeparator)
+    text = text.replace(pattern, balancedPrimeReplacer(primeChar))
   }
 
   // Feet-inches pattern: convert " after ′ + digit (e.g., 5′10" → 5′10″)
-  const feetInchesPattern = new RegExp(`(?<primeAndNum>${PRIME}${chr}?\\d${chr}?)"`, "g")
+  const feetInchesPattern = new RegExp(
+    `(?<primeAndNum>${PRIME}${escapedSeparator}?\\d${escapedSeparator}?)"`,
+    "g"
+  )
   text = text.replace(feetInchesPattern, `$<primeAndNum>${DOUBLE_PRIME}`)
 
   return text
