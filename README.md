@@ -69,7 +69,6 @@ My [`benchmark.mjs`](https://github.com/alexander-turner/punctilio/blob/main/ben
 | Pattern | Behavior | Notes |
 |:--------|:---------|:------|
 | `'Twas a 5' board` | `5'` not converted to `5′` | Leading apostrophe is indistinguishable from an opening quote without semantic understanding |
-| `"Bonjour"` | Not converted to `« Bonjour »` | French/German quotes require language detection |
 
 ## Test suite
 
