@@ -99,11 +99,11 @@ export function multiplication(text: string, options: SymbolOptions = {}): strin
 
 /** Math symbol replacement map: ASCII → Unicode */
 const MATH_SYMBOL_MAP: [RegExp, string][] = [
-  [/!=/g, NOT_EQUAL],
+  [/!=(?!=)/g, NOT_EQUAL],
   [/\+\/-/g, PLUS_MINUS],
   [/\+-/g, PLUS_MINUS],
-  [/<=/g, LESS_EQUAL],
-  [/>=/g, GREATER_EQUAL],
+  [/<=(?!=)/g, LESS_EQUAL],
+  [/>=(?!=)/g, GREATER_EQUAL],
   [/~=/g, APPROXIMATE],
   [/=~/g, APPROXIMATE],
 ]
@@ -118,13 +118,29 @@ export function mathSymbols(text: string): string {
 
 /** Legal symbol replacement map: ASCII → Unicode */
 const LEGAL_SYMBOL_MAP: [RegExp, string][] = [
-  [/\(c\)/gi, COPYRIGHT],
   [/\(r\)/gi, REGISTERED],
   [/\(tm\)/gi, TRADEMARK],
 ]
 
+/** Matches a parenthesized single letter like (a), (b), (d), etc. — excludes (c). */
+const ENUMERATION_LABEL = /\([abd-z]\)/i
+
 /** Convert (c), (r), (tm) to ©, ®, ™. */
 export function legalSymbols(text: string): string {
+  // (c) needs context-aware replacement to avoid false positives:
+  // - Enumerations like "(a), (b), (c), (d)" where (c) is a list label
+  // - Legal subsections like "(c)(2)(A)" where (c) is a section reference
+  text = text.replace(/\(c\)/gi, (match, offset, str) => {
+    // Skip legal subsections: (c)(2)(A) — opening paren immediately follows
+    if (str[offset + 3] === "(") return match
+
+    // Skip enumerations: (a), (b), (c) — preceded by another parenthesized letter
+    const before = str.slice(Math.max(0, offset - 55), offset)
+    if (ENUMERATION_LABEL.test(before)) return match
+
+    return COPYRIGHT
+  })
+
   for (const [pattern, replacement] of LEGAL_SYMBOL_MAP) {
     text = text.replace(pattern, replacement)
   }

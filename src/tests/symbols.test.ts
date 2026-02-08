@@ -108,6 +108,16 @@ describe("mathSymbols", () => {
   ])('converts "%s" to "%s"', (input, expected) => {
     expect(mathSymbols(input)).toBe(expected)
   })
+
+  it.each([
+    ["!==", "!=="],
+    ["x !== y", "x !== y"],
+    ["a !== b !== c", "a !== b !== c"],
+    ["<==", "<=="],
+    [">==", ">=="],
+  ])('preserves multi-char operator "%s"', (input, expected) => {
+    expect(mathSymbols(input)).toBe(expected)
+  })
 })
 
 describe("legalSymbols", () => {
@@ -120,6 +130,16 @@ describe("legalSymbols", () => {
     ["Name (TM)", `Name ${UNICODE_SYMBOLS.TRADEMARK}`],
     ["(c) 2024 (r) Brand(tm)", `${UNICODE_SYMBOLS.COPYRIGHT} 2024 ${UNICODE_SYMBOLS.REGISTERED} Brand${UNICODE_SYMBOLS.TRADEMARK}`],
   ])('converts "%s" to "%s"', (input, expected) => {
+    expect(legalSymbols(input)).toBe(expected)
+  })
+
+  it.each([
+    ["(a), (b), (c), (d)", "(a), (b), (c), (d)"],
+    ["(a), (b), (C), (d)", "(a), (b), (C), (d)"],
+    ["options (A) and (B) and (C)", "options (A) and (B) and (C)"],
+    ["paragraph (c)(2)(A)", "paragraph (c)(2)(A)"],
+    ["section 5(c)(1)", "section 5(c)(1)"],
+  ])('preserves (c) in non-copyright context "%s"', (input, expected) => {
     expect(legalSymbols(input)).toBe(expected)
   })
 })
