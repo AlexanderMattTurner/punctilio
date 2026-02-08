@@ -99,11 +99,11 @@ export function multiplication(text: string, options: SymbolOptions = {}): strin
 
 /** Math symbol replacement map: ASCII → Unicode */
 const MATH_SYMBOL_MAP: [RegExp, string][] = [
-  [/!=/g, NOT_EQUAL],
+  [/!=(?!=)/g, NOT_EQUAL],
   [/\+\/-/g, PLUS_MINUS],
   [/\+-/g, PLUS_MINUS],
-  [/<=/g, LESS_EQUAL],
-  [/>=/g, GREATER_EQUAL],
+  [/<=(?!=)/g, LESS_EQUAL],
+  [/>=(?!=)/g, GREATER_EQUAL],
   [/~=/g, APPROXIMATE],
   [/=~/g, APPROXIMATE],
 ]
@@ -118,13 +118,27 @@ export function mathSymbols(text: string): string {
 
 /** Legal symbol replacement map: ASCII → Unicode */
 const LEGAL_SYMBOL_MAP: [RegExp, string][] = [
-  [/\(c\)/gi, COPYRIGHT],
   [/\(r\)/gi, REGISTERED],
   [/\(tm\)/gi, TRADEMARK],
 ]
 
 /** Convert (c), (r), (tm) to ©, ®, ™. */
 export function legalSymbols(text: string): string {
+  // (c) needs context-aware replacement to avoid false positives in essays,
+  // enumerations like "(a), (b), (c)", and legal citations like "(c)(2)(A)".
+  // Only convert when there's positive copyright evidence:
+  //   - Followed by a 4-digit year (19xx/20xx) within a short window
+  //   - Preceded by the word "copyright"
+  text = text.replace(/\(c\)/gi, (match, offset, str) => {
+    const after = str.slice(offset + 3, offset + 25)
+    if (/^\s*(?:19|20)\d{2}\b/.test(after)) return COPYRIGHT
+
+    const before = str.slice(Math.max(0, offset - 20), offset)
+    if (/\bcopyright\s*$/i.test(before)) return COPYRIGHT
+
+    return match
+  })
+
   for (const [pattern, replacement] of LEGAL_SYMBOL_MAP) {
     text = text.replace(pattern, replacement)
   }
