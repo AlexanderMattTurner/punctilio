@@ -205,6 +205,11 @@ describe("primeMarks", () => {
     ["40° 44' 54\" N", `40° 44${UNICODE_SYMBOLS.PRIME} 54${UNICODE_SYMBOLS.DOUBLE_PRIME} N`],
     ['The board is 12" wide', `The board is 12${UNICODE_SYMBOLS.DOUBLE_PRIME} wide`],
     ['12" long', `12${UNICODE_SYMBOLS.DOUBLE_PRIME} long`],
+    // Multiple primes in one string
+    ["10' x 12'", `10${UNICODE_SYMBOLS.PRIME} x 12${UNICODE_SYMBOLS.PRIME}`],
+    ["The room is 10' x 12' x 8' tall", `The room is 10${UNICODE_SYMBOLS.PRIME} x 12${UNICODE_SYMBOLS.PRIME} x 8${UNICODE_SYMBOLS.PRIME} tall`],
+    ['10" x 12"', `10${UNICODE_SYMBOLS.DOUBLE_PRIME} x 12${UNICODE_SYMBOLS.DOUBLE_PRIME}`],
+    [`5' and 8' boards`, `5${UNICODE_SYMBOLS.PRIME} and 8${UNICODE_SYMBOLS.PRIME} boards`],
   ])('converts "%s" to "%s"', (input, expected) => {
     expect(primeMarks(input)).toBe(expected)
   })
@@ -658,7 +663,7 @@ describe("prime marks edge cases", () => {
     ['100\'50"', `100${UNICODE_SYMBOLS.PRIME}50${UNICODE_SYMBOLS.DOUBLE_PRIME}`],
     ["5' boards", `5${UNICODE_SYMBOLS.PRIME} boards`],
     ['12" pipe', `12${UNICODE_SYMBOLS.DOUBLE_PRIME} pipe`],
-    ["5', 10'", `5${UNICODE_SYMBOLS.PRIME}, 10'`],
+    ["5', 10'", `5${UNICODE_SYMBOLS.PRIME}, 10${UNICODE_SYMBOLS.PRIME}`],
   ])('handles prime mark edge: "%s"', (input, expected) => {
     expect(primeMarks(input)).toBe(expected)
   })

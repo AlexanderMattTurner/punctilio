@@ -177,25 +177,37 @@ export function primeMarks(text: string, options: SymbolOptions = {}): string {
     ? escapeStringRegexp(options.separator)
     : ESCAPED_DEFAULT_SEPARATOR
 
-  // Convert quotes to primes using quote balancing
-  // Only convert if quotes are balanced (even count before) to avoid converting closing quotes
-  // Examples: 5' → 5′ ✓, 12" → 12″ ✓, 'Term 1' → 'Term 1' ✓, "Term 1" → "Term 1" ✓
+  // Convert quotes to primes by scanning left-to-right and tracking quote balance.
+  // A prime candidate (digit + quote + non-letter) converts only when no unmatched opening
+  // quote precedes it; otherwise it's treated as a closing quote.
+  // Examples: 5' → 5′ ✓, 10' x 12' → 10′ x 12′ ✓, 'Term 1' → 'Term 1' ✓
   const quotePrimePairs = [
     ["'", PRIME],
     ['"', DOUBLE_PRIME],
   ]
 
   for (const [quote, prime] of quotePrimePairs) {
-    const pattern = new RegExp(
-      `(?<digit>\\d)(?<sep>${chr}?)${quote}(?<afterSep>${chr}?)(?![${LATIN_LETTERS}])`,
+    const escapedQuote = escapeStringRegexp(quote)
+    // Match prime candidates (digit + quote + non-letter) OR bare quotes for balance tracking
+    const combinedPattern = new RegExp(
+      `(?<digit>\\d)(?<sep>${chr}?)${escapedQuote}(?<afterSep>${chr}?)(?![${LATIN_LETTERS}])|${escapedQuote}`,
       "g"
     )
-    const quoteCountPattern = new RegExp(escapeStringRegexp(quote), "g")
-    text = text.replace(pattern, (match, digit, sep, afterSep, offset) => {
-      const textBefore = text.slice(0, offset)
-      const quoteCount = (textBefore.match(quoteCountPattern) || []).length
-      if (quoteCount % 2 === 0) {
-        return `${digit}${sep}${prime}${afterSep}`
+    let balance = 0
+    text = text.replace(combinedPattern, (match, digit, sep, afterSep) => {
+      if (digit !== undefined) {
+        // Prime candidate: convert only if no unmatched opening quote
+        if (balance <= 0) {
+          return `${digit}${sep}${prime}${afterSep}`
+        }
+        balance--
+        return match
+      }
+      // Non-prime quote: track open/close balance
+      if (balance <= 0) {
+        balance = 1
+      } else {
+        balance--
       }
       return match
     })
