@@ -252,7 +252,9 @@ export function primeMarks(text: string, options: SymbolOptions = {}): string {
     text = text.replace(pattern, balancedPrimeReplacer(primeChar))
   }
 
-  // Feet-inches pattern: convert " after ′ + digit (e.g., 5′10" → 5′10″)
+  // Fallback for feet-inches notation: the loop above processes ' and " in separate
+  // passes, so 5'10" becomes 5′10" after the single-quote pass. This catches any
+  // remaining " that directly follows a prime + digit sequence (e.g., 5′10" → 5′10″).
   const feetInchesPattern = new RegExp(
     `(?<primeAndNum>${PRIME}${escapedSeparator}?\\d${escapedSeparator}?)"`,
     "g"
