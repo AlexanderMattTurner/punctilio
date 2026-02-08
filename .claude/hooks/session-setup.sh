@@ -10,18 +10,18 @@ PROJECT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
 # Helpers
 #######################################
 
-warn() { echo "Warning: $1" >&2; }
-die() {
-  echo "ERROR: $1" >&2
-  exit 1
+SETUP_WARNINGS=0
+warn() {
+  echo "WARNING: $1" >&2
+  SETUP_WARNINGS=$((SETUP_WARNINGS + 1))
 }
 is_root() { [ "$(id -u)" = "0" ]; }
 
-# Install a command via pip if missing
-pip_install_if_missing() {
+# Install a command via uv if missing
+uv_install_if_missing() {
   local cmd="$1" pkg="${2:-$1}"
   if ! command -v "$cmd" &>/dev/null; then
-    pip3 install --quiet "$pkg" || warn "Failed to install $pkg"
+    uv tool install --quiet "$pkg" || warn "Failed to install $pkg"
   fi
 }
 
@@ -76,17 +76,41 @@ git config core.hooksPath .hooks
 # GitHub CLI auth
 #######################################
 
-if [ -n "${GH_TOKEN:-}" ] && command -v gh &>/dev/null; then
-  echo "Configuring GitHub authentication..."
-  echo "$GH_TOKEN" | gh auth login --with-token 2>&1 || warn "Failed to authenticate with GitHub"
+if ! command -v gh &>/dev/null; then
+  warn "gh CLI not found"
+elif [ -z "${GH_TOKEN:-}" ]; then
+  warn "GH_TOKEN is not set — GitHub CLI requires authentication"
+fi
+
+#######################################
+# GitHub repo detection for proxy environments
+#######################################
+
+# In Claude Code web sessions, git remotes use a local proxy URL like:
+#   http://local_proxy@127.0.0.1:18393/git/owner/repo
+# The gh CLI can't detect the GitHub repo from this, so we extract
+# owner/repo and export GH_REPO to make all gh commands work.
+
+if [ -z "${GH_REPO:-}" ]; then
+  remote_url=$(git -C "$PROJECT_DIR" remote get-url origin 2>/dev/null || true)
+  if [[ "$remote_url" =~ /git/([^/]+/[^/]+)$ ]]; then
+    GH_REPO="${BASH_REMATCH[1]}"
+    GH_REPO="${GH_REPO%.git}"
+    export GH_REPO
+    echo "Detected GitHub repo from proxy remote: $GH_REPO"
+    if [ -n "${CLAUDE_ENV_FILE:-}" ]; then
+      echo "export GH_REPO=\"$GH_REPO\"" >>"$CLAUDE_ENV_FILE"
+    fi
+  fi
 fi
 
 #######################################
 # Project dependencies
 #######################################
 
-# Install Node dependencies if package.json exists and node_modules is missing
-if [ -f "$PROJECT_DIR/package.json" ] && [ ! -d "$PROJECT_DIR/node_modules" ]; then
+# Always run install to ensure node_modules is in sync with lockfile
+# (node_modules can be stale even when the lockfile is correct)
+if [ -f "$PROJECT_DIR/package.json" ]; then
   echo "Installing Node dependencies..."
   if command -v pnpm &>/dev/null; then
     pnpm install --silent || warn "Failed to install Node dependencies"
@@ -100,4 +124,8 @@ if [ -f "$PROJECT_DIR/uv.lock" ] && command -v uv &>/dev/null; then
   uv sync --quiet 2>/dev/null || warn "Failed to sync Python dependencies"
 fi
 
-echo "Session setup complete"
+if [ "$SETUP_WARNINGS" -gt 0 ]; then
+  echo "Session setup complete with $SETUP_WARNINGS warning(s)" >&2
+else
+  echo "Session setup complete"
+fi
