@@ -68,7 +68,7 @@ My [`benchmark.mjs`](https://github.com/alexander-turner/punctilio/blob/main/ben
 
 | Pattern | Behavior | Notes |
 |:--------|:---------|:------|
-| `10' x 12'` | Second `'` not converted | Quote balancing prevents double prime conversion |
+| `don't measure 8'` | `8'` not converted to `8′` | Apostrophe in contraction is treated as an opening quote |
 | German/French quotes | Not supported | `« Bonjour »` requires language detection |
 
 ## Test suite
