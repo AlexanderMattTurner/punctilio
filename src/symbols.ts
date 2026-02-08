@@ -122,23 +122,21 @@ const LEGAL_SYMBOL_MAP: [RegExp, string][] = [
   [/\(tm\)/gi, TRADEMARK],
 ]
 
-/** Matches a parenthesized single letter like (a), (b), (d), etc. — excludes (c). */
-const ENUMERATION_LABEL = /\([abd-z]\)/i
-
 /** Convert (c), (r), (tm) to ©, ®, ™. */
 export function legalSymbols(text: string): string {
-  // (c) needs context-aware replacement to avoid false positives:
-  // - Enumerations like "(a), (b), (c), (d)" where (c) is a list label
-  // - Legal subsections like "(c)(2)(A)" where (c) is a section reference
+  // (c) needs context-aware replacement to avoid false positives in essays,
+  // enumerations like "(a), (b), (c)", and legal citations like "(c)(2)(A)".
+  // Only convert when there's positive copyright evidence:
+  //   - Followed by a 4-digit year (19xx/20xx) within a short window
+  //   - Preceded by the word "copyright"
   text = text.replace(/\(c\)/gi, (match, offset, str) => {
-    // Skip legal subsections: (c)(2)(A) — opening paren immediately follows
-    if (str[offset + 3] === "(") return match
+    const after = str.slice(offset + 3, offset + 25)
+    if (/^\s*(?:19|20)\d{2}\b/.test(after)) return COPYRIGHT
 
-    // Skip enumerations: (a), (b), (c) — preceded by another parenthesized letter
-    const before = str.slice(Math.max(0, offset - 55), offset)
-    if (ENUMERATION_LABEL.test(before)) return match
+    const before = str.slice(Math.max(0, offset - 20), offset)
+    if (/\bcopyright\s*$/i.test(before)) return COPYRIGHT
 
-    return COPYRIGHT
+    return match
   })
 
   for (const [pattern, replacement] of LEGAL_SYMBOL_MAP) {

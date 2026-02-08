@@ -122,23 +122,35 @@ describe("mathSymbols", () => {
 
 describe("legalSymbols", () => {
   it.each([
+    // (c) with year → copyright
     ["Copyright (c) 2024", `Copyright ${UNICODE_SYMBOLS.COPYRIGHT} 2024`],
-    ["(C) Acme Inc", `${UNICODE_SYMBOLS.COPYRIGHT} Acme Inc`],
+    ["(c) 2024 (r) Brand(tm)", `${UNICODE_SYMBOLS.COPYRIGHT} 2024 ${UNICODE_SYMBOLS.REGISTERED} Brand${UNICODE_SYMBOLS.TRADEMARK}`],
+    ["(C) 1999 Company", `${UNICODE_SYMBOLS.COPYRIGHT} 1999 Company`],
+    // (c) preceded by "copyright" → copyright
+    ["Copyright (c) Company", `Copyright ${UNICODE_SYMBOLS.COPYRIGHT} Company`],
+    ["copyright (C) by Author", `copyright ${UNICODE_SYMBOLS.COPYRIGHT} by Author`],
+    // (r) and (tm) always convert
     ["Brand(r)", `Brand${UNICODE_SYMBOLS.REGISTERED}`],
     ["Product (R)", `Product ${UNICODE_SYMBOLS.REGISTERED}`],
     ["Name(tm)", `Name${UNICODE_SYMBOLS.TRADEMARK}`],
     ["Name (TM)", `Name ${UNICODE_SYMBOLS.TRADEMARK}`],
-    ["(c) 2024 (r) Brand(tm)", `${UNICODE_SYMBOLS.COPYRIGHT} 2024 ${UNICODE_SYMBOLS.REGISTERED} Brand${UNICODE_SYMBOLS.TRADEMARK}`],
   ])('converts "%s" to "%s"', (input, expected) => {
     expect(legalSymbols(input)).toBe(expected)
   })
 
   it.each([
+    // Enumerations
     ["(a), (b), (c), (d)", "(a), (b), (c), (d)"],
     ["(a), (b), (C), (d)", "(a), (b), (C), (d)"],
     ["options (A) and (B) and (C)", "options (A) and (B) and (C)"],
+    // Legal subsections
     ["paragraph (c)(2)(A)", "paragraph (c)(2)(A)"],
     ["section 5(c)(1)", "section 5(c)(1)"],
+    // Standalone references without copyright context
+    ["subsection (c)", "subsection (c)"],
+    ["the (c) symbol", "the (c) symbol"],
+    ["discussed in (c) above", "discussed in (c) above"],
+    ["(C) Acme Inc", "(C) Acme Inc"],
   ])('preserves (c) in non-copyright context "%s"', (input, expected) => {
     expect(legalSymbols(input)).toBe(expected)
   })
