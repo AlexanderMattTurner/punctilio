@@ -215,6 +215,9 @@ describe("primeMarks", () => {
     ["don't measure 8'", `don't measure 8${UNICODE_SYMBOLS.PRIME}`],
     ["she's 5'10\"", `she's 5${UNICODE_SYMBOLS.PRIME}10${UNICODE_SYMBOLS.DOUBLE_PRIME}`],
     ["O'Brien's 6' fence", `O'Brien's 6${UNICODE_SYMBOLS.PRIME} fence`],
+    // Possessive plurals before primes
+    ["the dogs' 5' leashes", `the dogs' 5${UNICODE_SYMBOLS.PRIME} leashes`],
+    ["the cats' and dogs' 5' run", `the cats' and dogs' 5${UNICODE_SYMBOLS.PRIME} run`],
   ])('converts "%s" to "%s"', (input, expected) => {
     expect(primeMarks(input)).toBe(expected)
   })

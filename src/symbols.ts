@@ -188,15 +188,15 @@ export function primeMarks(text: string, options: SymbolOptions = {}): string {
   ]
 
   for (const [quote, prime] of quotePrimePairs) {
-    const escapedQuote = escapeStringRegexp(quote)
-    // Match (in priority order):
-    // 1. Prime candidate: digit + quote + non-letter → convert or treat as closing quote
-    // 2. Contraction: letter + quote + letter (e.g., it's, don't) → skip, no balance change
-    // 3. Bare quote: anything else → track open/close balance
+    const eq = escapeStringRegexp(quote)
+    const L = LATIN_LETTERS
+    // Alternatives matched in priority order (first match wins):
+    const primeCandidate = `(?<digit>\\d)(?<sep>${chr}?)${eq}(?<afterSep>${chr}?)(?![${L}])`
+    const contraction = `(?<=[${L}])(?<contraction>${eq})(?=[${L}])`
+    const trailing = `(?<=[${L}])(?<trailing>${eq})`
+    const bareQuote = eq
     const combinedPattern = new RegExp(
-      `(?<digit>\\d)(?<sep>${chr}?)${escapedQuote}(?<afterSep>${chr}?)(?![${LATIN_LETTERS}])` +
-      `|(?<=[${LATIN_LETTERS}])(?<contraction>${escapedQuote})(?=[${LATIN_LETTERS}])` +
-      `|${escapedQuote}`,
+      `${primeCandidate}|${contraction}|${trailing}|${bareQuote}`,
       "g"
     )
     let balance = 0
@@ -204,6 +204,11 @@ export function primeMarks(text: string, options: SymbolOptions = {}): string {
       const fullMatch = args[0] as string
       const groups = args[args.length - 1] as Record<string, string | undefined>
       if (groups.contraction !== undefined) {
+        return fullMatch
+      }
+      if (groups.trailing !== undefined) {
+        // Trailing apostrophe (e.g., dogs'): close if there's an opener, otherwise skip
+        if (balance > 0) balance--
         return fullMatch
       }
       const { digit, sep, afterSep } = groups
@@ -215,7 +220,7 @@ export function primeMarks(text: string, options: SymbolOptions = {}): string {
         balance--
         return fullMatch
       }
-      // Non-prime quote: track open/close balance
+      // Bare quote (preceded by space/start): opener or closer
       if (balance <= 0) {
         balance = 1
       } else {
