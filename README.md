@@ -46,22 +46,22 @@ My [`benchmark.mjs`](https://github.com/alexander-turner/punctilio/blob/main/ben
 | Feature | Example | `punctilio` | `smartypants` | `tipograph` | `smartquotes` | `typograf` |
 |--------:|:-------:|:-------:|:-------:|:-------:|:-------:|:-------:|
 | Smart quotes | <span class="no-formatting">"hello" → “hello”</span> | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Leading apostrophe | <span class="no-formatting">'Twas → ’Twas</span> | ✓ | ✗ | ✗ | ~ | ✗ |
+| Leading apostrophe | <span class="no-formatting">'Twas → ’Twas</span> | ✓ | ✗ | ✗ | ◐ | ✗ |
 | Em dash | <span class="no-formatting">-- → —</span> | ✓ | ✓ | ✗ | ✗ | ✓ |
 | En dash (ranges) | <span class="no-formatting">1-5 → 1–5</span> | ✓ | ✗ | ✓ | ✗ | ✗ |
 | Minus sign | <span class="no-formatting">-5 → −5</span> | ✓ | ✗ | ✓ | ✗ | ✗ |
 | Ellipsis | <span class="no-formatting">... → …</span> | ✓ | ✓ | ✓ | ✗ | ✓ |
-| Multiplication | <span class="no-formatting">5x5 → 5×5</span> | ✓ | ✗ | ✗ | ✗ | ~ |
-| Math symbols | <span class="no-formatting">!= → ≠</span> | ✓ | ✗ | ~ | ✗ | ~ |
-| Legal symbols | <span class="no-formatting">(c) → ©</span> | ✓ | ✗ | ~ | ✗ | ✓ |
-| Arrows | <span class="no-formatting">-> → →</span> | ✓ | ✗ | ~ | ✗ | ~ |
+| Multiplication | <span class="no-formatting">5x5 → 5×5</span> | ✓ | ✗ | ✗ | ✗ | ◐ |
+| Math symbols | <span class="no-formatting">!= → ≠</span> | ✓ | ✗ | ◐ | ✗ | ◐ |
+| Legal symbols | <span class="no-formatting">(c) → ©</span> | ✓ | ✗ | ◐ | ✗ | ✓ |
+| Arrows | <span class="no-formatting">-> → →</span> | ✓ | ✗ | ◐ | ✗ | ◐ |
 | Prime marks | <span class="no-formatting">5'10" → 5′10″</span> | ✓ | ✗ | ✓ | ✓ | ✗ |
 | Degrees | <span class="no-formatting">20 C → 20 °C</span> | ✓ | ✗ | ✗ | ✗ | ✓ |
 | Fractions | <span class="no-formatting">1/2 → ½</span> | ✓ | ✗ | ✗ | ✗ | ✓ |
 | Superscripts | <span class="no-formatting">2nd → 2ⁿᵈ</span> | ✓ | ✗ | ✗ | ✗ | ✗ |
 | English localization | <span class="no-formatting">American / British</span> | ✓ | ✗ | ✗ | ✗ | ✗ |
 | Ligatures | <span class="no-formatting">?? → ⁇</span> | ✓ | ✗ | ✓ | ✗ | ✗ |
-| Non-English quotes | <span class="no-formatting">„Hallo”</span> | ✗ | ✗ | ✓ | ✗ | ~ |
+| Non-English quotes | <span class="no-formatting">„Hallo”</span> | ✗ | ✗ | ✓ | ✗ | ◐ |
 | Non-breaking spaces | <span class="no-formatting">Chapter 1</span> | ✓ | ✗ | ✗ | ✗ | ✓ |
 
 ### Known limitations of `punctilio`
