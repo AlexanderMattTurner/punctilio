@@ -254,6 +254,19 @@ describe("primeMarks", () => {
       `5${sep}${UNICODE_SYMBOLS.PRIME}${sep}10${sep}${UNICODE_SYMBOLS.DOUBLE_PRIME}`
     )
   })
+
+  // Separator-aware contractions: the quote classification pattern must recognize
+  // contractions even when separators split the word across HTML element boundaries
+  it.each([
+    // Contraction with separator before the apostrophe: it<sep>'s
+    [`it${"\uE000"}'${"\uE000"}s 5'`, `it${"\uE000"}'${"\uE000"}s 5${UNICODE_SYMBOLS.PRIME}`],
+    // Contraction with separator after the apostrophe: don't
+    [`don${"\uE000"}'t measure 8'`, `don${"\uE000"}'t measure 8${UNICODE_SYMBOLS.PRIME}`],
+    // Trailing apostrophe with separator: dogs<sep>'
+    [`the dogs${"\uE000"}' 5' leashes`, `the dogs${"\uE000"}' 5${UNICODE_SYMBOLS.PRIME} leashes`],
+  ])('separator-aware contraction/trailing in "%s"', (input, expected) => {
+    expect(primeMarks(input, { separator: "\uE000" })).toBe(expected)
+  })
 })
 
 describe("fractions", () => {

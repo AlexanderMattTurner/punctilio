@@ -183,8 +183,8 @@ function buildQuoteClassificationPattern(
   escapedSeparator: string
 ): RegExp {
   const primeCandidate = `(?<digit>\\d)(?<sep>${escapedSeparator}?)${escapedQuote}(?<afterSep>${escapedSeparator}?)(?![${LATIN_LETTERS}])`
-  const contraction = `(?<=[${LATIN_LETTERS}])(?<contraction>${escapedQuote})(?=[${LATIN_LETTERS}])`
-  const trailingApostrophe = `(?<=[${LATIN_LETTERS}])(?<trailing>${escapedQuote})`
+  const contraction = `(?<=[${LATIN_LETTERS}]${escapedSeparator}?)(?<contraction>${escapedQuote})(?=${escapedSeparator}?[${LATIN_LETTERS}])`
+  const trailingApostrophe = `(?<=[${LATIN_LETTERS}]${escapedSeparator}?)(?<trailing>${escapedQuote})`
   const bareQuote = escapedQuote
   return new RegExp(
     `${primeCandidate}|${contraction}|${trailingApostrophe}|${bareQuote}`,
