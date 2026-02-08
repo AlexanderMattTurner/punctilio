@@ -239,6 +239,15 @@ describe("primeMarks", () => {
     expect(primeMarks(input)).toBe(expected)
   })
 
+  // Feet-inches fallback: when balanced quotes prevent the main loop from converting ",
+  // the fallback pattern (′ + digits + ") should still convert the double prime
+  it.each([
+    ['"He is 5\'10" tall"', `"He is 5${UNICODE_SYMBOLS.PRIME}10${UNICODE_SYMBOLS.DOUBLE_PRIME} tall"`],
+    ['"The shelf is 5\'11" wide"', `"The shelf is 5${UNICODE_SYMBOLS.PRIME}11${UNICODE_SYMBOLS.DOUBLE_PRIME} wide"`],
+  ])('feet-inches fallback converts "%s"', (input, expected) => {
+    expect(primeMarks(input)).toBe(expected)
+  })
+
   it("handles separator characters", () => {
     const sep = "\uE000"
     expect(primeMarks(`5${sep}'${sep}10${sep}"`, { separator: sep })).toBe(

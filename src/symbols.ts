@@ -256,7 +256,7 @@ export function primeMarks(text: string, options: SymbolOptions = {}): string {
   // passes, so 5'10" becomes 5′10" after the single-quote pass. This catches any
   // remaining " that directly follows a prime + digit sequence (e.g., 5′10" → 5′10″).
   const feetInchesPattern = new RegExp(
-    `(?<primeAndNum>${PRIME}${escapedSeparator}?\\d${escapedSeparator}?)"`,
+    `(?<primeAndNum>${PRIME}${escapedSeparator}?\\d+${escapedSeparator}?)"`,
     "g"
   )
   text = text.replace(feetInchesPattern, `$<primeAndNum>${DOUBLE_PRIME}`)
