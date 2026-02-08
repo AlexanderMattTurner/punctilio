@@ -85,7 +85,7 @@ Setting aside the benchmark, `punctilio`’s test suite includes 600+ tests at 1
 
 Other typography libraries either transform plain strings or operate on AST nodes individually (`retext-smartypants` [can’t map changes back to HTML](https://github.com/rehypejs/rehype-retext)). But real HTML has text spanning multiple elements—if you concatenate text from `<em>Wait</em>...`, transform it, then try to split it back, youve lost track of where `</em>` belonged. 
 
-`punctilio` introduces _separation boundaries_. First, insert a “separator” character (default: `U+E000`) at each element boundary before transforming (like at the start and end of an `<em>`). Every regex allows this character mid-pattern without breaking matches. For example, `.[SEP]..` still becomes `…[SEP]`. `punctilio` validates the output by ensuring the separator count remains the same. 
+`punctilio` introduces _separation boundaries_. First, insert a “separator” character (default: `U+E000`) at each element boundary before transforming (like at the start and end of an `<em>`). Every regex allows this character mid-pattern without breaking matches. For example, “`.[SEP]..`” still becomes “`…[SEP]`”. `punctilio` validates the output by ensuring the separator count remains the same. 
 
 ```typescript
 import { transform, DEFAULT_SEPARATOR } from 'punctilio'
@@ -112,7 +112,7 @@ For manual DOM walking or custom transforms, use `transformElement` from `puncti
 
 ## Options
 
-`punctilio` doesn't enable all transformations by default. Fractions and degrees tend to match too aggressively (perfectly applying the degree transformation requires semantic meaning). Superscript letters and punctuation ligatures have spotty font support—on GitHub, this README's font doesn't even support the example superscript! Furthermore, `ligatures = true` can change the meaning of text by collapsing question and exclamation marks. Non-breaking spaces are also opt-in since they alter whitespace throughout the text.
+`punctilio` doesn't enable all transformations by default. Fractions and degrees tend to match too aggressively (perfectly applying the degree transformation requires semantic meaning). Superscript letters and punctuation ligatures have spotty font support. Furthermore, `ligatures = true` can change the meaning of text by collapsing question and exclamation marks. Non-breaking spaces are also opt-in since they alter whitespace throughout the text.
 
 ```typescript
 transform(text, {
