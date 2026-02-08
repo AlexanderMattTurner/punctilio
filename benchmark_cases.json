@@ -127,8 +127,19 @@
   "Prime marks - coordinates": [
     ["Location: 45\u00B0 30' 15\"", "Location: 45\u00B0 30\u2032 15\u2033"]
   ],
-  "Prime marks - multiple (quote balancing)": [
-    ["Room is 10' x 12'", "Room is 10\u2032 x 12'"]
+  "Prime marks - multiple": [
+    ["Room is 10' x 12'", "Room is 10\u2032 x 12\u2032"],
+    ["5' and 8' boards", "5\u2032 and 8\u2032 boards"]
+  ],
+  "Prime marks - after contractions": [
+    ["it's 5' long", "it\u2019s 5\u2032 long"],
+    ["don't measure 8'", "don\u2019t measure 8\u2032"]
+  ],
+  "Prime marks - after possessives": [
+    ["the dogs' 5' leashes", "the dogs\u2019 5\u2032 leashes"]
+  ],
+  "Prime marks - leading apostrophe (ambiguous)": [
+    ["'Twas a 5' board", "\u2019Twas a 5\u2032 board"]
   ],
   "Degrees": [
     ["20 C", "20 \u00B0C"],
