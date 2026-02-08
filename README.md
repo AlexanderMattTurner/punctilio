@@ -68,7 +68,7 @@ My [`benchmark.mjs`](https://github.com/alexander-turner/punctilio/blob/main/ben
 
 | Pattern | Behavior | Notes |
 |:--------|:---------|:------|
-| `don't measure 8'` | `8'` not converted to `8′` | Apostrophe in contraction is treated as an opening quote |
+| `the dogs' 5' leashes` | `5'` not converted to `5′` | Possessive-plural apostrophe is indistinguishable from an opening quote |
 | German/French quotes | Not supported | `« Bonjour »` requires language detection |
 
 ## Test suite

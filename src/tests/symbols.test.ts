@@ -210,6 +210,11 @@ describe("primeMarks", () => {
     ["The room is 10' x 12' x 8' tall", `The room is 10${UNICODE_SYMBOLS.PRIME} x 12${UNICODE_SYMBOLS.PRIME} x 8${UNICODE_SYMBOLS.PRIME} tall`],
     ['10" x 12"', `10${UNICODE_SYMBOLS.DOUBLE_PRIME} x 12${UNICODE_SYMBOLS.DOUBLE_PRIME}`],
     [`5' and 8' boards`, `5${UNICODE_SYMBOLS.PRIME} and 8${UNICODE_SYMBOLS.PRIME} boards`],
+    // Contractions before primes
+    ["it's 5' long", `it's 5${UNICODE_SYMBOLS.PRIME} long`],
+    ["don't measure 8'", `don't measure 8${UNICODE_SYMBOLS.PRIME}`],
+    ["she's 5'10\"", `she's 5${UNICODE_SYMBOLS.PRIME}10${UNICODE_SYMBOLS.DOUBLE_PRIME}`],
+    ["O'Brien's 6' fence", `O'Brien's 6${UNICODE_SYMBOLS.PRIME} fence`],
   ])('converts "%s" to "%s"', (input, expected) => {
     expect(primeMarks(input)).toBe(expected)
   })

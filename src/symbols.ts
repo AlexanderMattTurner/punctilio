@@ -178,9 +178,10 @@ export function primeMarks(text: string, options: SymbolOptions = {}): string {
     : ESCAPED_DEFAULT_SEPARATOR
 
   // Convert quotes to primes by scanning left-to-right and tracking quote balance.
+  // Contractions (letter + quote + letter, e.g. it's, O'Brien) are skipped entirely.
   // A prime candidate (digit + quote + non-letter) converts only when no unmatched opening
   // quote precedes it; otherwise it's treated as a closing quote.
-  // Examples: 5' → 5′ ✓, 10' x 12' → 10′ x 12′ ✓, 'Term 1' → 'Term 1' ✓
+  // Examples: 5' → 5′ ✓, 10' x 12' → 10′ x 12′ ✓, don't measure 8' → 8′ ✓, 'Term 1' ✗
   const quotePrimePairs = [
     ["'", PRIME],
     ['"', DOUBLE_PRIME],
@@ -188,20 +189,31 @@ export function primeMarks(text: string, options: SymbolOptions = {}): string {
 
   for (const [quote, prime] of quotePrimePairs) {
     const escapedQuote = escapeStringRegexp(quote)
-    // Match prime candidates (digit + quote + non-letter) OR bare quotes for balance tracking
+    // Match (in priority order):
+    // 1. Prime candidate: digit + quote + non-letter → convert or treat as closing quote
+    // 2. Contraction: letter + quote + letter (e.g., it's, don't) → skip, no balance change
+    // 3. Bare quote: anything else → track open/close balance
     const combinedPattern = new RegExp(
-      `(?<digit>\\d)(?<sep>${chr}?)${escapedQuote}(?<afterSep>${chr}?)(?![${LATIN_LETTERS}])|${escapedQuote}`,
+      `(?<digit>\\d)(?<sep>${chr}?)${escapedQuote}(?<afterSep>${chr}?)(?![${LATIN_LETTERS}])` +
+      `|(?<=[${LATIN_LETTERS}])(?<contraction>${escapedQuote})(?=[${LATIN_LETTERS}])` +
+      `|${escapedQuote}`,
       "g"
     )
     let balance = 0
-    text = text.replace(combinedPattern, (match, digit, sep, afterSep) => {
+    text = text.replace(combinedPattern, (...args) => {
+      const fullMatch = args[0] as string
+      const groups = args[args.length - 1] as Record<string, string | undefined>
+      if (groups.contraction !== undefined) {
+        return fullMatch
+      }
+      const { digit, sep, afterSep } = groups
       if (digit !== undefined) {
         // Prime candidate: convert only if no unmatched opening quote
         if (balance <= 0) {
           return `${digit}${sep}${prime}${afterSep}`
         }
         balance--
-        return match
+        return fullMatch
       }
       // Non-prime quote: track open/close balance
       if (balance <= 0) {
@@ -209,7 +221,7 @@ export function primeMarks(text: string, options: SymbolOptions = {}): string {
       } else {
         balance--
       }
-      return match
+      return fullMatch
     })
   }
 
