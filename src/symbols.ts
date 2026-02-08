@@ -197,8 +197,22 @@ function buildQuoteClassificationPattern(
  * Contractions and trailing apostrophes are recognized so they don't poison the
  * balance tracker. A prime candidate converts only when no unmatched opening
  * quote precedes it; otherwise it acts as a closing quote.
+ *
+ * For double primes (″): since ' and " are processed in separate passes,
+ * 5'10" becomes 5′10" after the single-quote pass. Inside balanced double
+ * quotes (e.g., "He is 5′10" tall"), the balance tracker would normally treat
+ * the " after 10 as a closing quote. To handle this, we check whether the "
+ * is preceded by ′ + digits — if so, it's inches notation and converts
+ * regardless of balance.
  */
-function balancedPrimeReplacer(primeChar: string) {
+function balancedPrimeReplacer(primeChar: string, escapedSeparator: string) {
+  // Pre-compile the feet-inches context pattern for the double-prime pass.
+  // Matches when the text before a prime candidate ends with ′ followed by
+  // any mix of digits and separators (e.g., "5′1" before the "0" in 5′10").
+  const feetInchesContext = primeChar === DOUBLE_PRIME
+    ? new RegExp(`${PRIME}(?:${escapedSeparator}|\\d)*$`)
+    : null
+
   let balance = 0
   return (...args: unknown[]) => {
     const fullMatch = args[0] as string
@@ -220,6 +234,15 @@ function balancedPrimeReplacer(primeChar: string) {
       // Prime candidate: convert only if no unmatched opening quote
       if (balance <= 0) {
         return `${digit}${sep}${primeChar}${afterSep}`
+      }
+      // Inside balanced quotes: check if this is feet-inches notation
+      // (e.g., 5′10" where ″ is inches, not a closing quote)
+      if (feetInchesContext) {
+        const offset = args[args.length - 3] as number
+        const fullString = args[args.length - 2] as string
+        if (feetInchesContext.test(fullString.substring(0, offset))) {
+          return `${digit}${sep}${primeChar}${afterSep}`
+        }
       }
       balance--
       return fullMatch
@@ -249,17 +272,8 @@ export function primeMarks(text: string, options: SymbolOptions = {}): string {
   for (const [quote, primeChar] of quotePrimePairs) {
     const escapedQuote = escapeStringRegexp(quote)
     const pattern = buildQuoteClassificationPattern(escapedQuote, escapedSeparator)
-    text = text.replace(pattern, balancedPrimeReplacer(primeChar))
+    text = text.replace(pattern, balancedPrimeReplacer(primeChar, escapedSeparator))
   }
-
-  // Fallback for feet-inches notation: the loop above processes ' and " in separate
-  // passes, so 5'10" becomes 5′10" after the single-quote pass. This catches any
-  // remaining " that directly follows a prime + digit sequence (e.g., 5′10" → 5′10″).
-  const feetInchesPattern = new RegExp(
-    `(?<primeAndNum>${PRIME}${escapedSeparator}?\\d+${escapedSeparator}?)"`,
-    "g"
-  )
-  text = text.replace(feetInchesPattern, `$<primeAndNum>${DOUBLE_PRIME}`)
 
   return text
 }
