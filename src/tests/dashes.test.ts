@@ -236,14 +236,14 @@ describe("enDashDateRange", () => {
     })
   })
 
-  describe("none style (preserve spacing)", () => {
+  describe("none style (skip entirely)", () => {
     it.each([
-      ["January-March", `January${EN_DASH}March`],
-      ["January - March", `January ${EN_DASH} March`],
-      ["October 2012 - December 2014", `October 2012 ${EN_DASH} December 2014`],
-      ["Oct 2012-Dec 2014", `Oct 2012${EN_DASH}Dec 2014`],
-    ])('should convert "%s" to "%s"', (input, expected) => {
-      expect(enDashDateRange(input, { dashStyle: "none" })).toBe(expected)
+      ["January-March"],
+      ["January - March"],
+      ["October 2012 - December 2014"],
+      ["Oct 2012-Dec 2014"],
+    ])("skips all date range transforms: %s", (input) => {
+      expect(enDashDateRange(input, { dashStyle: "none" })).toBe(input)
     })
   })
 

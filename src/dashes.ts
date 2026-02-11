@@ -90,8 +90,9 @@ export function enDashNumberRange(text: string, options: DashOptions = {}): stri
 
 /** Convert month ranges to en-dash (e.g., "January-March" → "January–March"). */
 export function enDashDateRange(text: string, options: DashOptions = {}): string {
-  const chr = options.separator ? escapeStringRegexp(options.separator) : ESCAPED_DEFAULT_SEPARATOR
   const dashStyle = options.dashStyle ?? "american"
+  if (dashStyle === "none") return text
+  const chr = options.separator ? escapeStringRegexp(options.separator) : ESCAPED_DEFAULT_SEPARATOR
   const wb = wordBoundaryStart(chr)
   const wbe = wordBoundaryEnd(chr)
 
@@ -99,7 +100,7 @@ export function enDashDateRange(text: string, options: DashOptions = {}): string
     new RegExp(`${wb}(?<startMonth>${months})(?<startYear>${chr}? \\d{4})?(?<preSep>${chr}?)(?<preSpace> ?)-(?<postSpace> ?)(?<postSep>${chr}?)(?<endMonth>${months})(?<endYear> \\d{4})?${wbe}`, "g"),
     (...args) => {
       const g = args.at(-1) as Record<string, string>
-      const [pre, post] = dashStyle === "british" ? [" ", " "] : dashStyle === "none" ? [g.preSpace, g.postSpace] : ["", ""]
+      const [pre, post] = dashStyle === "british" ? [" ", " "] : ["", ""]
       return `${g.startMonth}${g.startYear || ""}${g.preSep}${pre}${EN_DASH}${post}${g.postSep}${g.endMonth}${g.endYear || ""}`
     }
   )
