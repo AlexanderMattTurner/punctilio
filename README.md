@@ -54,7 +54,7 @@ My [`benchmark.mjs`](https://github.com/alexander-turner/punctilio/blob/main/ben
 | Ellipsis | <span class="no-formatting">... → …</span> | ✓ | ✓ | ✓ | ✗ | ✓ |
 | Multiplication | <span class="no-formatting">5x5 → 5×5</span> | ✓ | ✗ | ✗ | ✗ | ◐ |
 | Math symbols | <span class="no-formatting">!= → ≠</span> | ✓ | ✗ | ◐ | ✗ | ◐ |
-| Legal symbols | <span class="no-formatting">(c) → ©</span> | ✓ | ✗ | ◐ | ✗ | ✓ |
+| Legal symbols | <span class="no-formatting">(c) 2004 → © 2004</span> | ✓ | ✗ | ◐ | ✗ | ✓ |
 | Arrows | <span class="no-formatting">-> → →</span> | ✓ | ✗ | ◐ | ✗ | ◐ |
 | Prime marks | <span class="no-formatting">5'10" → 5′10″</span> | ✓ | ✗ | ✓ | ✓ | ✗ |
 | Degrees | <span class="no-formatting">20 C → 20 °C</span> | ✓ | ✗ | ✗ | ✗ | ✓ |
