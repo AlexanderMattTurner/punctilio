@@ -4,7 +4,7 @@
 [![Lint](https://github.com/alexander-turner/punctilio/actions/workflows/lint.yml/badge.svg)](https://github.com/alexander-turner/punctilio/actions/workflows/lint.yml)
 [![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen)](https://github.com/alexander-turner/punctilio)
 
-The most feature-complete and reliable English typography package. Transforms plain ASCII punctuation into typographically correct Unicode—even across HTML element boundaries.
+Pretty good at making your text pretty. The most feature-complete and reliable English typography package—transforms plain ASCII punctuation into typographically correct Unicode, even across HTML element boundaries.
 
 **Smart quotes** · **Em/en dashes** · **Ellipses** · **Math symbols** · **Legal symbols** · **Arrows** · **Primes** · **Fractions** · **Superscripts** · **Ligatures** · **Non-breaking spaces** · **HTML-aware**
 
