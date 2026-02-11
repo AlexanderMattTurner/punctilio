@@ -74,17 +74,11 @@ My [`benchmark.mjs`](https://github.com/alexander-turner/punctilio/blob/main/ben
 
 ## Test suite
 
-Setting aside the benchmark, `punctilio`’s test suite includes 1,100+ tests at 100% branch coverage, including edge cases derived from competitor libraries ([`smartquotes`](https://github.com/kellym/smartquotes.js), [`retext-smartypants`](https://github.com/retextjs/retext-smartypants), [`typograf`](https://github.com/typograf/typograf)), and the [Standard Ebooks typography manual](https://standardebooks.org/manual/). Key test categories:
-
-- _Quote handling_: Unicode text, nested quotes, contractions, Irish names (O’Brien), leading apostrophes (’99, ’twas)
-- _Dash transformations_: Year/page/score ranges, model name preservation (Llama-2-7B, GPT-4), phone numbers, ISBNs
-- _Symbol transforms_: Measurements (6′2″), coordinates (40° 44′ N), temperatures, fractions, math symbols
-- _Idempotency_: All transformations are verified to be stable when applied multiple times
-- _Separator boundaries_: Tests verify HTML DOM integration doesn’t break patterns
+Setting aside the benchmark, `punctilio`’s test suite includes 1,100+ tests at 100% branch coverage, including edge cases derived from competitor libraries ([`smartquotes`](https://github.com/kellym/smartquotes.js), [`retext-smartypants`](https://github.com/retextjs/retext-smartypants), [`typograf`](https://github.com/typograf/typograf)), and the [Standard Ebooks typography manual](https://standardebooks.org/manual/). I also verify that all transformations are stable when applied multiple times.
 
 ## Works with HTML DOMs via separation boundaries
 
-Other typography libraries either transform plain strings or operate on AST nodes individually (`retext-smartypants` [can’t map changes back to HTML](https://github.com/rehypejs/rehype-retext)). But real HTML has text spanning multiple elements—if you concatenate text from `<em>Wait</em>...`, transform it, then try to split it back, youve lost track of where `</em>` belonged. 
+Other typography libraries either transform plain strings or operate on AST nodes individually (`retext-smartypants` [can’t map changes back to HTML](https://github.com/rehypejs/rehype-retext)). But real HTML has text spanning multiple elements—if you concatenate text from `<em>Wait</em>...`, transform it, then try to split it back, you’ve lost track of where `</em>` belonged. 
 
 `punctilio` introduces _separation boundaries_. First, insert a “separator” character (default: `U+E000`) at each element boundary before transforming (like at the start and end of an `<em>`). Every regex allows this character mid-pattern without breaking matches. For example, “`.[SEP]..`” still becomes “`…[SEP]`”. `punctilio` validates the output by ensuring the separator count remains the same. 
 
