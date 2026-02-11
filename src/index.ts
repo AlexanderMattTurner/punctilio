@@ -134,7 +134,7 @@ export interface TransformOptions {
    * Whether to insert non-breaking spaces in typographically appropriate
    * locations (after short words, between numbers and units, before
    * last words to prevent widows, after honorifics, etc.).
-   * Default: false
+   * Default: true
    */
   nbsp?: boolean
 
@@ -171,8 +171,8 @@ export { DEFAULT_SEPARATOR } from "./constants.js"
  * 6. degrees (disabled by default)
  * 7. superscript (disabled by default)
  * 8. ligatures (disabled by default)
- * 9. nbsp (non-breaking spaces, disabled by default)
- * 10. collapseSpaces (collapses multiple spaces into one)
+ * 9. collapseSpaces (collapses multiple spaces into one)
+ * 10. nbsp (non-breaking spaces, enabled by default)
  *
  * @param text - The text to transform
  * @param options - Configuration options
@@ -198,7 +198,7 @@ const defaultOpts: Required<Omit<TransformOptions, "separator">> = {
   degrees: false,
   superscript: false,
   ligatures: false,
-  nbsp: false,
+  nbsp: true,
   collapseSpaces: true,
   checkIdempotency: true,
   punctuationStyle: "american",
@@ -245,12 +245,12 @@ export function transform(text: string, options: TransformOptions = {}): string 
     text = ligaturesTransform(text, separatorOpts)
   }
 
-  if (nbsp) {
-    text = nbspTransformFn(text, separatorOpts)
-  }
-
   if (collapseSpaces) {
     text = collapseSpacesTransform(text)
+  }
+
+  if (nbsp) {
+    text = nbspTransformFn(text, separatorOpts)
   }
 
   assertSeparatorCountPreserved(original, text, separator, "transform")
