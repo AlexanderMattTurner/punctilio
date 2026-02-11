@@ -49,7 +49,7 @@ describe("rehypePunctilio", () => {
       ["math symbols", "<p>x != y</p>", `<p>x ${NOT_EQUAL} y</p>`],
       ["legal symbols", "<p>(c) 2024</p>", `<p>${COPYRIGHT} 2024</p>`],
     ])("transforms %s", async (_name, html, expected) => {
-      expect(await processHtml(html)).toEqual(expected)
+      expect(await processHtml(html, { nbsp: false })).toEqual(expected)
     })
   })
 
@@ -60,7 +60,7 @@ describe("rehypePunctilio", () => {
       ["deeply nested", '<div><p><span><strong>"Hello"</strong></span></p></div>', `<div><p><span><strong>${LDQ}Hello${RDQ}</strong></span></p></div>`],
       ["attributes", '<p class="intro" id="first">"Hello"</p>', `<p class="intro" id="first">${LDQ}Hello${RDQ}</p>`],
     ])("preserves %s", async (_name, html, expected) => {
-      expect(await processHtml(html)).toEqual(expected)
+      expect(await processHtml(html, { nbsp: false })).toEqual(expected)
     })
   })
 
@@ -71,7 +71,7 @@ describe("rehypePunctilio", () => {
       ["simple range still converts", "<p>pages <em>1</em>-5</p>", `<p>pages <em>1</em>${EN_DASH}5</p>`],
       ["genuine negative at element start", "<p><em>-5</em> degrees</p>", "<p><em>\u22125</em> degrees</p>"],
     ])("%s", async (_name, html, expected) => {
-      expect(await processHtml(html)).toEqual(expected)
+      expect(await processHtml(html, { nbsp: false })).toEqual(expected)
     })
   })
 
@@ -108,15 +108,15 @@ describe("rehypePunctilio", () => {
 
   describe("transform options passthrough", () => {
     it.each([
-      ["punctuationStyle american", '<p>"Hello."</p>', { punctuationStyle: "american" as const }, `<p>${LDQ}Hello.${RDQ}</p>`],
-      ["punctuationStyle british", '<p>"Hello."</p>', { punctuationStyle: "british" as const }, `<p>${LDQ}Hello${RDQ}.</p>`],
-      ["dashStyle american", "<p>word - word</p>", { dashStyle: "american" as const }, `<p>word${EM_DASH}word</p>`],
-      ["dashStyle british", "<p>word - word</p>", { dashStyle: "british" as const }, `<p>word ${EN_DASH} word</p>`],
-      ["symbols enabled", "<p>5x5</p>", { symbols: true }, `<p>5${MULTIPLICATION}5</p>`],
-      ["symbols disabled", "<p>5x5</p>", { symbols: false }, "<p>5x5</p>"],
-      ["fractions enabled", "<p>1/2 cup</p>", { fractions: true }, `<p>${FRACTION_1_2} cup</p>`],
-      ["fractions disabled", "<p>1/2 cup</p>", { fractions: false }, "<p>1/2 cup</p>"],
-      ["custom separator", '<p>"Hello"</p>', { separator: "\uE001" }, `<p>${LDQ}Hello${RDQ}</p>`],
+      ["punctuationStyle american", '<p>"Hello."</p>', { punctuationStyle: "american" as const, nbsp: false as const }, `<p>${LDQ}Hello.${RDQ}</p>`],
+      ["punctuationStyle british", '<p>"Hello."</p>', { punctuationStyle: "british" as const, nbsp: false as const }, `<p>${LDQ}Hello${RDQ}.</p>`],
+      ["dashStyle american", "<p>word - word</p>", { dashStyle: "american" as const, nbsp: false as const }, `<p>word${EM_DASH}word</p>`],
+      ["dashStyle british", "<p>word - word</p>", { dashStyle: "british" as const, nbsp: false as const }, `<p>word ${EN_DASH} word</p>`],
+      ["symbols enabled", "<p>5x5</p>", { symbols: true, nbsp: false as const }, `<p>5${MULTIPLICATION}5</p>`],
+      ["symbols disabled", "<p>5x5</p>", { symbols: false, nbsp: false as const }, "<p>5x5</p>"],
+      ["fractions enabled", "<p>1/2 cup</p>", { fractions: true, nbsp: false as const }, `<p>${FRACTION_1_2} cup</p>`],
+      ["fractions disabled", "<p>1/2 cup</p>", { fractions: false, nbsp: false as const }, "<p>1/2 cup</p>"],
+      ["custom separator", '<p>"Hello"</p>', { separator: "\uE001", nbsp: false as const }, `<p>${LDQ}Hello${RDQ}</p>`],
     ])("respects %s", async (_name, html, options, expected) => {
       expect(await processHtml(html, options)).toEqual(expected)
     })
@@ -145,7 +145,7 @@ describe("rehypePunctilio", () => {
         `<ul><li>${LDQ}First${RDQ}${EM_DASH}important</li><li>Pages 1${EN_DASH}5</li></ul>`,
       ],
     ])("handles %s", async (_name, html, expected) => {
-      expect(await processHtml(html)).toEqual(expected)
+      expect(await processHtml(html, { nbsp: false })).toEqual(expected)
     })
   })
 
@@ -157,7 +157,7 @@ describe("rehypePunctilio", () => {
       ["emoji", '<p>"Hello 👋"</p>', `<p>${LDQ}Hello 👋${RDQ}</p>`],
       ["links", '<p><a href="https://example.com">"Link"</a></p>', `<p><a href="https://example.com">${LDQ}Link${RDQ}</a></p>`],
     ])("handles %s", async (_name, html, expected) => {
-      expect(await processHtml(html)).toEqual(expected)
+      expect(await processHtml(html, { nbsp: false })).toEqual(expected)
     })
 
     it("is idempotent", async () => {
@@ -417,8 +417,14 @@ describe("rehypePunctilio", () => {
       expect(result).toContain(`5${NBSP}kg`)
     })
 
-    it("does not insert nbsp when option disabled (default)", async () => {
+    it("inserts nbsp by default", async () => {
       const result = await processHtml('<p>Dr. Smith has 5 kg of items.</p>')
+      expect(result).toContain(`Dr.${NBSP}Smith`)
+      expect(result).toContain(`5${NBSP}kg`)
+    })
+
+    it("does not insert nbsp when option disabled", async () => {
+      const result = await processHtml('<p>Dr. Smith has 5 kg of items.</p>', { nbsp: false })
       expect(result).not.toContain(NBSP)
     })
 
@@ -443,13 +449,13 @@ describe("rehypePunctilio", () => {
     })
 
     it("handles skipped child within non-skipped parent", async () => {
-      expect(await processHtml('<div>"Before" <code>"Inside"</code> "After"</div>')).toEqual(
+      expect(await processHtml('<div>"Before" <code>"Inside"</code> "After"</div>', { nbsp: false })).toEqual(
         `<div>${LDQ}Before${RDQ} <code>"Inside"</code> ${LDQ}After${RDQ}</div>`
       )
     })
 
     it("handles mixed skip and non-skip siblings", async () => {
-      expect(await processHtml('<article><p>"Hello"</p><pre>"Code"</pre><p>"World"</p></article>')).toEqual(
+      expect(await processHtml('<article><p>"Hello"</p><pre>"Code"</pre><p>"World"</p></article>', { nbsp: false })).toEqual(
         `<article><p>${LDQ}Hello${RDQ}</p><pre>"Code"</pre><p>${LDQ}World${RDQ}</p></article>`
       )
     })
