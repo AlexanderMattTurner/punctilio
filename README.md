@@ -12,7 +12,7 @@ Pretty good at making your text pretty. The most feature-complete and reliable E
 import { transform } from 'punctilio'
 
 transform('"It\'s a beautiful thing, the destruction of words..." -- 1984')
-// → "It's a beautiful thing, the destruction of words…"—1984
+// → “It’s a beautiful thing, the destruction of words…”—1984
 ```
 
 ```bash
@@ -108,11 +108,11 @@ unified()
   .use(rehypeStringify)
   .process('<p><em>"Wait</em>..." -- she said</p>')
 // → <p><em>"Wait</em>…"—she said</p>
-// The opening quote inside <em> and the closing quote outside it
-// are both resolved correctly across the element boundary.
+//  The opening quote inside <em> and the closing quote outside it
+//  are both resolved correctly across the element boundary.
 ```
 
-For manual DOM walking or custom transforms, use `transformElement` from `punctilio/rehype`. Note: `punctilio` transforms plain text or HTML—not raw Markdown.
+For manual DOM walking or custom transforms, use `transformElement` from `punctilio/rehype`. 
 
 ## Options
 
@@ -134,7 +134,7 @@ transform(text, {
 })
 ```
 
-- Prime marks (`5'10"` → `5′10″`) require semantic understanding to distinguish from closing quotes (e.g. `"Term 1"` should produce closing quotes). `punctilio` counts quotes to heuristically guess whether the matched number at the end of a quote (if not, it requires a prime mark). Other libraries like `tipograph` 0.7.4 use simpler patterns that make more mistakes. That said, `punctilio` is still not perfect and will sometimes wrongly convert to ending quotation marks: `transform('I said "5" sounds right"')` will wrongly produce a closed double quote after the 5” instead of a double prime (correct).
+- Fully general prime mark conversion (e.g. `5'10"` → `5′10″`) requires semantic understanding to distinguish from closing quotes (e.g. `"Term 1"` should produce closing quotes). `punctilio` counts quotes to heuristically guess whether the matched number at the end of a quote (if not, it requires a prime mark). Other libraries like `tipograph` 0.7.4 use simpler patterns that make more mistakes.
 - The `american` style follows the [Chicago Manual of Style](https://www.chicagomanualofstyle.org/):
   - Periods and commas go inside quotation marks (“Hello,” she said.)
   - Unspaced em-dashes between words (word—word)
