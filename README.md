@@ -31,7 +31,6 @@ I tested `punctilio` 1.2.9 against [`smartypants`](https://www.npmjs.com/package
 
 | Input | `smartypants` | `punctilio` |
 |:-----:|:-----------------:|:-------:|
-| She said—"Hi!" | She said—”Hi!” (✗) | She said—“Hi!” (✓) |
 | 5x5 |	5x5 (✗) |	5×5 (✓) |
 
 My [`benchmark.mjs`](https://github.com/alexander-turner/punctilio/blob/main/benchmark.mjs) measures how well libraries handle a [wide range of scenarios](https://github.com/alexander-turner/punctilio/blob/main/benchmark_cases.json). The benchmark normalizes stylistic differences (e.g. non-breaking vs regular space, British vs American dash spacing) for fair comparison.
