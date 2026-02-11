@@ -1,18 +1,20 @@
 > *punctilio* (n.): precise observance of formalities.
 
-Pretty good at making your text pretty. The most feature-complete and reliable English typography package.
+[![Test](https://github.com/alexander-turner/punctilio/actions/workflows/test.yml/badge.svg)](https://github.com/alexander-turner/punctilio/actions/workflows/test.yml)
+[![Lint](https://github.com/alexander-turner/punctilio/actions/workflows/lint.yml/badge.svg)](https://github.com/alexander-turner/punctilio/actions/workflows/lint.yml)
+[![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen)](https://github.com/alexander-turner/punctilio)
+
+The most feature-complete and reliable English typography package. Transforms plain ASCII punctuation into typographically correct Unicode—even across HTML element boundaries.
+
+**Smart quotes** · **Em/en dashes** · **Ellipses** · **Math symbols** · **Legal symbols** · **Arrows** · **Primes** · **Fractions** · **Superscripts** · **Ligatures** · **Non-breaking spaces** · **HTML-aware**
 
 ```typescript
 import { transform } from 'punctilio'
 
 transform('"It\'s a beautiful thing, the destruction of words..." -- 1984')
-// → “It’s a beautiful thing, the destruction of words…”—1984
+// → "It's a beautiful thing, the destruction of words…"—1984
 ```
 
-[![Test](https://github.com/alexander-turner/punctilio/actions/workflows/test.yml/badge.svg)](https://github.com/alexander-turner/punctilio/actions/workflows/test.yml)
-[![Lint](https://github.com/alexander-turner/punctilio/actions/workflows/lint.yml/badge.svg)](https://github.com/alexander-turner/punctilio/actions/workflows/lint.yml)
-[![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen)](https://github.com/alexander-turner/punctilio)
- 
 ```bash
 npm install punctilio
 ```
@@ -102,13 +104,15 @@ import rehypePunctilio from 'punctilio/rehype'
 
 unified()
   .use(rehypeParse)
-  .use(rehypePunctilio, { dashStyle: 'american' })
+  .use(rehypePunctilio)
   .use(rehypeStringify)
-  .process('<p>"Hello..." -- world</p>')
-// → <p>"Hello…"—world</p>
+  .process('<p><em>"Wait</em>..." -- she said</p>')
+// → <p><em>"Wait</em>…"—she said</p>
+// The opening quote inside <em> and the closing quote outside it
+// are both resolved correctly across the element boundary.
 ```
 
-For manual DOM walking or custom transforms, use `transformElement` from `punctilio/rehype`. Note: `punctilio` transforms plain text or HTML—not raw Markdown. 
+For manual DOM walking or custom transforms, use `transformElement` from `punctilio/rehype`. Note: `punctilio` transforms plain text or HTML—not raw Markdown.
 
 ## Options
 
