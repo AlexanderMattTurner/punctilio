@@ -1,6 +1,12 @@
 > *punctilio* (n.): precise observance of formalities.
 
-Pretty good at making your text pretty. The most feature-complete and reliable English typography package.
+[![Test](https://github.com/alexander-turner/punctilio/actions/workflows/test.yml/badge.svg)](https://github.com/alexander-turner/punctilio/actions/workflows/test.yml)
+[![Lint](https://github.com/alexander-turner/punctilio/actions/workflows/lint.yml/badge.svg)](https://github.com/alexander-turner/punctilio/actions/workflows/lint.yml)
+[![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen)](https://github.com/alexander-turner/punctilio)
+
+Pretty good at making your text pretty. The most feature-complete and reliable English typography package. `punctilio` transforms plain ASCII into typographically correct Unicode, even across HTML element boundaries.
+
+**Smart quotes** · **Em/en dashes** · **Ellipses** · **Math symbols** · **Legal symbols** · **Arrows** · **Primes** · **Fractions** · **Superscripts** · **Ligatures** · **Non-breaking spaces** · **HTML-aware** · **Bri’ish localisation support** 
 
 ```typescript
 import { transform } from 'punctilio'
@@ -9,10 +15,6 @@ transform('"It\'s a beautiful thing, the destruction of words..." -- 1984')
 // → “It’s a beautiful thing, the destruction of words…”—1984
 ```
 
-[![Test](https://github.com/alexander-turner/punctilio/actions/workflows/test.yml/badge.svg)](https://github.com/alexander-turner/punctilio/actions/workflows/test.yml)
-[![Lint](https://github.com/alexander-turner/punctilio/actions/workflows/lint.yml/badge.svg)](https://github.com/alexander-turner/punctilio/actions/workflows/lint.yml)
-[![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen)](https://github.com/alexander-turner/punctilio)
- 
 ```bash
 npm install punctilio
 ```
@@ -21,7 +23,7 @@ npm install punctilio
 
 As far as I can tell, `punctilio` is the most reliable and feature-complete. I built `punctilio` for [my website](https://turntrout.com/design). I wrote[^wrote] and sharpened the core regexes sporadically over several months, exhaustively testing edge cases. Eventually, I decided to spin off the functionality into its own package.
 
-[^wrote]: While Claude is the number one contributor to this repository, that’s just because Claude has helped me port my existing code and add minor features. The core regular expressions (e.g. dashes, quotes, multiplication signs) are human-written. Those numerous commits don’t show in this repo’s history.
+[^wrote]: While Claude is the number one contributor to this repository, that’s because Claude helped me port my existing code and added some features. The core regular expressions (e.g. dashes, quotes, multiplication signs) are human-written and were quite delicate. Those numerous commits don’t show in this repo’s history. 
 
 I tested `punctilio` 1.2.9 against [`smartypants`](https://www.npmjs.com/package/smartypants) 0.2.2, [`tipograph`](https://www.npmjs.com/package/tipograph) 0.7.4, [`smartquotes`](https://www.npmjs.com/package/smartquotes) 2.3.2, [`typograf`](https://www.npmjs.com/package/typograf) 7.6.0, and [`retext-smartypants`](https://www.npmjs.com/package/retext-smartypants) 6.2.0.[^python] These other packages have spotty feature coverage and inconsistent impact on text. For example, `smartypants` mishandles quotes after em dashes (though quite hard to see in GitHub’s font) and lacks multiplication sign support.
 
@@ -29,7 +31,6 @@ I tested `punctilio` 1.2.9 against [`smartypants`](https://www.npmjs.com/package
 
 | Input | `smartypants` | `punctilio` |
 |:-----:|:-----------------:|:-------:|
-| She said—"Hi!" | She said—”Hi!” (✗) | She said—“Hi!” (✓) |
 | 5x5 |	5x5 (✗) |	5×5 (✓) |
 
 My [`benchmark.mjs`](https://github.com/alexander-turner/punctilio/blob/main/benchmark.mjs) measures how well libraries handle a [wide range of scenarios](https://github.com/alexander-turner/punctilio/blob/main/benchmark_cases.json). The benchmark normalizes stylistic differences (e.g. non-breaking vs regular space, British vs American dash spacing) for fair comparison.
@@ -53,7 +54,7 @@ My [`benchmark.mjs`](https://github.com/alexander-turner/punctilio/blob/main/ben
 | Ellipsis | <span class="no-formatting">... → …</span> | ✓ | ✓ | ✓ | ✗ | ✓ |
 | Multiplication | <span class="no-formatting">5x5 → 5×5</span> | ✓ | ✗ | ✗ | ✗ | ◐ |
 | Math symbols | <span class="no-formatting">!= → ≠</span> | ✓ | ✗ | ◐ | ✗ | ◐ |
-| Legal symbols | <span class="no-formatting">(c) → ©</span> | ✓ | ✗ | ◐ | ✗ | ✓ |
+| Legal symbols | <span class="no-formatting">(c) 2004 → © 2004</span> | ✓ | ✗ | ◐ | ✗ | ✓ |
 | Arrows | <span class="no-formatting">-> → →</span> | ✓ | ✗ | ◐ | ✗ | ◐ |
 | Prime marks | <span class="no-formatting">5'10" → 5′10″</span> | ✓ | ✗ | ✓ | ✓ | ✗ |
 | Degrees | <span class="no-formatting">20 C → 20 °C</span> | ✓ | ✗ | ✗ | ✗ | ✓ |
@@ -73,17 +74,11 @@ My [`benchmark.mjs`](https://github.com/alexander-turner/punctilio/blob/main/ben
 
 ## Test suite
 
-Setting aside the benchmark, `punctilio`’s test suite includes 600+ tests at 100% branch coverage, including edge cases derived from competitor libraries ([`smartquotes`](https://github.com/kellym/smartquotes.js), [`retext-smartypants`](https://github.com/retextjs/retext-smartypants), [`typograf`](https://github.com/typograf/typograf)), and the [Standard Ebooks typography manual](https://standardebooks.org/manual/). Key test categories:
-
-- _Quote handling_: Unicode text, nested quotes, contractions, Irish names (O’Brien), leading apostrophes (’99, ’twas)
-- _Dash transformations_: Year/page/score ranges, model name preservation (Llama-2-7B, GPT-4), phone numbers, ISBNs
-- _Symbol transforms_: Measurements (6′2″), coordinates (40° 44′ N), temperatures, fractions, math symbols
-- _Idempotency_: All transformations are verified to be stable when applied multiple times
-- _Separator boundaries_: Tests verify HTML DOM integration doesn’t break patterns
+Setting aside the benchmark, `punctilio`’s test suite includes 1,100+ tests at 100% branch coverage, including edge cases derived from competitor libraries ([`smartquotes`](https://github.com/kellym/smartquotes.js), [`retext-smartypants`](https://github.com/retextjs/retext-smartypants), [`typograf`](https://github.com/typograf/typograf)), and the [Standard Ebooks typography manual](https://standardebooks.org/manual/). I also verify that all transformations are stable when applied multiple times.
 
 ## Works with HTML DOMs via separation boundaries
 
-Other typography libraries either transform plain strings or operate on AST nodes individually (`retext-smartypants` [can’t map changes back to HTML](https://github.com/rehypejs/rehype-retext)). But real HTML has text spanning multiple elements—if you concatenate text from `<em>Wait</em>...`, transform it, then try to split it back, youve lost track of where `</em>` belonged. 
+Other typography libraries either transform plain strings or operate on AST nodes individually (`retext-smartypants` [can’t map changes back to HTML](https://github.com/rehypejs/rehype-retext)). But real HTML has text spanning multiple elements—if you concatenate text from `<em>Wait</em>...`, transform it, then try to split it back, you’ve lost track of where `</em>` belonged. 
 
 `punctilio` introduces _separation boundaries_. First, insert a “separator” character (default: `U+E000`) at each element boundary before transforming (like at the start and end of an `<em>`). Every regex allows this character mid-pattern without breaking matches. For example, “`.[SEP]..`” still becomes “`…[SEP]`”. `punctilio` validates the output by ensuring the separator count remains the same. 
 
@@ -102,13 +97,15 @@ import rehypePunctilio from 'punctilio/rehype'
 
 unified()
   .use(rehypeParse)
-  .use(rehypePunctilio, { dashStyle: 'american' })
+  .use(rehypePunctilio)
   .use(rehypeStringify)
-  .process('<p>"Hello..." -- world</p>')
-// → <p>"Hello…"—world</p>
+  .process('<p><em>"Wait</em>..." -- she said</p>')
+// → <p><em>"Wait</em>…"—she said</p>
+//  The opening quote inside <em> and the closing quote outside it
+//  are both resolved correctly across the element boundary.
 ```
 
-For manual DOM walking or custom transforms, use `transformElement` from `punctilio/rehype`. Note: `punctilio` transforms plain text or HTML—not raw Markdown. 
+For manual DOM walking or custom transforms, use `transformElement` from `punctilio/rehype`. 
 
 ## Options
 
@@ -130,7 +127,7 @@ transform(text, {
 })
 ```
 
-- Prime marks (`5'10"` → `5′10″`) require semantic understanding to distinguish from closing quotes (e.g. `"Term 1"` should produce closing quotes). `punctilio` counts quotes to heuristically guess whether the matched number at the end of a quote (if not, it requires a prime mark). Other libraries like `tipograph` 0.7.4 use simpler patterns that make more mistakes. That said, `punctilio` is still not perfect and will sometimes wrongly convert to ending quotation marks: `transform('I said "5" sounds right"')` will wrongly produce a closed double quote after the 5” instead of a double prime (correct).
+- Fully general prime mark conversion (e.g. `5'10"` → `5′10″`) requires semantic understanding to distinguish from closing quotes (e.g. `"Term 1"` should produce closing quotes). `punctilio` counts quotes to heuristically guess whether the matched number at the end of a quote (if not, it requires a prime mark). Other libraries like `tipograph` 0.7.4 use simpler patterns that make more mistakes.
 - The `american` style follows the [Chicago Manual of Style](https://www.chicagomanualofstyle.org/):
   - Periods and commas go inside quotation marks (“Hello,” she said.)
   - Unspaced em-dashes between words (word—word)
