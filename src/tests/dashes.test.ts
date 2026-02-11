@@ -236,14 +236,14 @@ describe("enDashDateRange", () => {
     })
   })
 
-  describe("none style (preserve spacing)", () => {
+  describe("none style (skip entirely)", () => {
     it.each([
-      ["January-March", `January${EN_DASH}March`],
-      ["January - March", `January ${EN_DASH} March`],
-      ["October 2012 - December 2014", `October 2012 ${EN_DASH} December 2014`],
-      ["Oct 2012-Dec 2014", `Oct 2012${EN_DASH}Dec 2014`],
-    ])('should convert "%s" to "%s"', (input, expected) => {
-      expect(enDashDateRange(input, { dashStyle: "none" })).toBe(expected)
+      ["January-March"],
+      ["January - March"],
+      ["October 2012 - December 2014"],
+      ["Oct 2012-Dec 2014"],
+    ])("skips all date range transforms: %s", (input) => {
+      expect(enDashDateRange(input, { dashStyle: "none" })).toBe(input)
     })
   })
 
@@ -493,16 +493,11 @@ describe("dashStyle option", () => {
     it.each([
       ["word - word"],
       ["word -- word"],
-    ])("leaves parenthetical dashes unchanged: %s", (input) => {
+      ["pages 1-5"],
+      ["-5"],
+      ["January-March"],
+    ])("skips all dash transforms: %s", (input) => {
       expect(hyphenReplace(input, { dashStyle: "none" })).toBe(input)
-    })
-
-    it("still converts number ranges", () => {
-      expect(hyphenReplace("pages 1-5", { dashStyle: "none" })).toBe(`pages 1${EN_DASH}5`)
-    })
-
-    it("still converts minus signs", () => {
-      expect(hyphenReplace("-5", { dashStyle: "none" })).toBe(`${MINUS}5`)
     })
   })
 

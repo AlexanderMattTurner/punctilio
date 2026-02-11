@@ -125,7 +125,7 @@ transform(text, {
   punctuationStyle: 'american' | 'british' | 'none',  // default: 'american'
   dashStyle: 'american' | 'british' | 'none',         // default: 'american'
 
-  symbols: true,           // math, legal, arrows, primes
+  symbols: true,           // ellipsis, math, legal, arrows
   collapseSpaces: true,    // normalize whitespace
   fractions: false,        // 1/2 → ½
   degrees: false,          // 20 C → 20 °C
@@ -143,4 +143,5 @@ transform(text, {
 - The `british` style follows [Oxford style](https://www.ox.ac.uk/sites/files/oxford/Style%20Guide%20quick%20reference%20A-Z.pdf):
   - Periods and commas go outside quotation marks (“Hello”, she said.)
   - Spaced en-dashes between words (word – word)
+- Setting either style to `none` skips the entire transform category: `punctuationStyle: 'none'` preserves straight quotes, apostrophes, and prime marks; `dashStyle: 'none'` preserves all hyphens, number ranges, date ranges, and minus signs.
 - `punctilio` is idempotent by design: `transform(transform(text))` always equals `transform(text)`. If performance is critical, set `checkIdempotency: false` to skip the verification pass.

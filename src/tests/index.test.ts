@@ -75,9 +75,17 @@ describe("transform", () => {
     it.each([
       ['"Hello".', undefined, periodInside, "american (default)"],
       ['"Hello."', "british", periodOutside, "british"],
-      ['"Hello".', "none", periodOutside, "none"],
+      ['"Hello".', "none", '"Hello".', "none (skips all quote transforms)"],
     ] as const)("handles %s with %s style", (input, style, expected) => {
       expect(transform(input, { ...(style ? { punctuationStyle: style } : {}), nbsp: false })).toBe(expected)
+    })
+
+    it("none skips prime marks too", () => {
+      expect(transform('5\'10"', { punctuationStyle: "none", nbsp: false })).toBe('5\'10"')
+    })
+
+    it("none skips all quote transforms while other transforms still apply", () => {
+      expect(transform('"Wait..." she said', { punctuationStyle: "none", nbsp: false })).toBe(`"Wait${ELLIPSIS}" she said`)
     })
   })
 
@@ -425,6 +433,23 @@ describe("transform", () => {
       const input = '"Hello." - word'
       const expected = `${LEFT_DOUBLE_QUOTE}Hello.${RIGHT_DOUBLE_QUOTE} ${EN_DASH} word`
       expect(transform(input, { punctuationStyle: "american", dashStyle: "british", nbsp: false })).toEqual(expected)
+    })
+
+    it("skips all dash transforms with dashStyle none", () => {
+      const input = '"Hello" - pages 1-5, -3'
+      const expected = `${LEFT_DOUBLE_QUOTE}Hello${RIGHT_DOUBLE_QUOTE} - pages 1-5, -3`
+      expect(transform(input, { dashStyle: "none", nbsp: false })).toEqual(expected)
+    })
+
+    it("skips everything with both set to none", () => {
+      const input = '"Hello" - pages 1-5'
+      expect(transform(input, { punctuationStyle: "none", dashStyle: "none", nbsp: false })).toBe(input)
+    })
+
+    it("skips quotes but applies dashes with mixed none", () => {
+      const input = '"Hello" - pages 1-5'
+      const expected = `"Hello"${EM_DASH}pages 1${EN_DASH}5`
+      expect(transform(input, { punctuationStyle: "none", dashStyle: "american", nbsp: false })).toEqual(expected)
     })
   })
 

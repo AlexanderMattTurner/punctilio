@@ -81,24 +81,32 @@ export interface TransformOptions {
   collapseSpaces?: boolean
 
   /**
-   * How to handle punctuation placement around quotation marks.
+   * How to handle quotes and punctuation placement.
    *
-   * - `"american"` (default): Chicago style. Periods and commas go inside quotes.
+   * - `"american"` (default): Chicago style. Converts straight quotes to smart
+   *   quotes, converts prime marks, and places periods/commas inside quotes.
    *   Example: "Hello." and "Hello,"
-   * - `"british"`: Oxford style. Periods and commas go outside quotes.
+   * - `"british"`: Oxford style. Converts straight quotes to smart quotes,
+   *   converts prime marks, and places periods/commas outside quotes.
    *   Example: "Hello". and "Hello",
-   * - `"none"`: Don't modify punctuation placement
+   * - `"none"`: Skip all quote and punctuation transforms entirely.
+   *   Straight quotes, apostrophes, and prime marks are left unmodified.
    *
    * Default: "american"
    */
   punctuationStyle?: PunctuationStyle
 
   /**
-   * How to style parenthetical dashes.
+   * How to style dashes.
    *
-   * - `"american"` (default): Chicago style. Unspaced em dash (word—word)
-   * - `"british"`: Oxford style. Spaced en dash (word – word)
-   * - `"none"`: Don't convert parenthetical dashes
+   * - `"american"` (default): Chicago style. Converts parenthetical dashes to
+   *   unspaced em dashes (word—word), number ranges to en dashes (1–5),
+   *   date ranges to en dashes (January–March), and hyphens to minus signs (−5).
+   * - `"british"`: Oxford style. Converts parenthetical dashes to spaced en
+   *   dashes (word – word), with the same number range, date range, and minus
+   *   sign conversions.
+   * - `"none"`: Skip all dash transforms entirely. Hyphens, number ranges,
+   *   date ranges, and minus signs are left unmodified.
    *
    * Default: "american"
    */
@@ -222,7 +230,9 @@ export function transform(text: string, options: TransformOptions = {}): string 
   const { symbols, fractions, degrees, superscript, ligatures, nbsp, collapseSpaces, checkIdempotency, ...separatorOpts } = { ...defaultOpts, ...options }
 
   text = hyphenReplace(text, separatorOpts)
-  text = primeMarks(text, separatorOpts)
+  if (separatorOpts.punctuationStyle !== "none") {
+    text = primeMarks(text, separatorOpts)
+  }
   text = niceQuotes(text, separatorOpts)
 
   if (symbols) {

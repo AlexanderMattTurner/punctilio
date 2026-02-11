@@ -90,8 +90,9 @@ export function enDashNumberRange(text: string, options: DashOptions = {}): stri
 
 /** Convert month ranges to en-dash (e.g., "January-March" → "January–March"). */
 export function enDashDateRange(text: string, options: DashOptions = {}): string {
-  const chr = options.separator ? escapeStringRegexp(options.separator) : ESCAPED_DEFAULT_SEPARATOR
   const dashStyle = options.dashStyle ?? "american"
+  if (dashStyle === "none") return text
+  const chr = options.separator ? escapeStringRegexp(options.separator) : ESCAPED_DEFAULT_SEPARATOR
   const wb = wordBoundaryStart(chr)
   const wbe = wordBoundaryEnd(chr)
 
@@ -99,7 +100,7 @@ export function enDashDateRange(text: string, options: DashOptions = {}): string
     new RegExp(`${wb}(?<startMonth>${months})(?<startYear>${chr}? \\d{4})?(?<preSep>${chr}?)(?<preSpace> ?)-(?<postSpace> ?)(?<postSep>${chr}?)(?<endMonth>${months})(?<endYear> \\d{4})?${wbe}`, "g"),
     (...args) => {
       const g = args.at(-1) as Record<string, string>
-      const [pre, post] = dashStyle === "british" ? [" ", " "] : dashStyle === "none" ? [g.preSpace, g.postSpace] : ["", ""]
+      const [pre, post] = dashStyle === "british" ? [" ", " "] : ["", ""]
       return `${g.startMonth}${g.startYear || ""}${g.preSep}${pre}${EN_DASH}${post}${g.postSep}${g.endMonth}${g.endYear || ""}`
     }
   )
@@ -147,7 +148,6 @@ export function minusReplace(text: string, options: DashOptions = {}): string {
  * Handles patterns like "word - word" → "word—word" (Chicago) or "word – word" (Oxford).
  */
 function convertParentheticalDashes(text: string, sep: string, style: DashStyle): string {
-  if (style === "none") return text
   const localizedDash = style === "british" ? EN_DASH : EM_DASH
   const maybeSpace = style === "british" ? " " : ""
   const escapedSep = escapeStringRegexp(sep)
@@ -216,6 +216,7 @@ function normalizeEmDashSpacing(text: string, sep: string): string {
 export function hyphenReplace(text: string, options: DashOptions = {}): string {
   const sep = options.separator ?? DEFAULT_SEPARATOR
   const style = options.dashStyle ?? "american"
+  if (style === "none") return text
   text = minusReplace(text, options)
   text = convertParentheticalDashes(text, sep, style)
   if (style === "american") text = normalizeEmDashSpacing(text, sep)
