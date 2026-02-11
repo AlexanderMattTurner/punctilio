@@ -147,7 +147,6 @@ export function minusReplace(text: string, options: DashOptions = {}): string {
  * Handles patterns like "word - word" → "word—word" (Chicago) or "word – word" (Oxford).
  */
 function convertParentheticalDashes(text: string, sep: string, style: DashStyle): string {
-  if (style === "none") return text
   const localizedDash = style === "british" ? EN_DASH : EM_DASH
   const maybeSpace = style === "british" ? " " : ""
   const escapedSep = escapeStringRegexp(sep)
@@ -216,6 +215,7 @@ function normalizeEmDashSpacing(text: string, sep: string): string {
 export function hyphenReplace(text: string, options: DashOptions = {}): string {
   const sep = options.separator ?? DEFAULT_SEPARATOR
   const style = options.dashStyle ?? "american"
+  if (style === "none") return text
   text = minusReplace(text, options)
   text = convertParentheticalDashes(text, sep, style)
   if (style === "american") text = normalizeEmDashSpacing(text, sep)

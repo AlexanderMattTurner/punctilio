@@ -493,16 +493,11 @@ describe("dashStyle option", () => {
     it.each([
       ["word - word"],
       ["word -- word"],
-    ])("leaves parenthetical dashes unchanged: %s", (input) => {
+      ["pages 1-5"],
+      ["-5"],
+      ["January-March"],
+    ])("skips all dash transforms: %s", (input) => {
       expect(hyphenReplace(input, { dashStyle: "none" })).toBe(input)
-    })
-
-    it("still converts number ranges", () => {
-      expect(hyphenReplace("pages 1-5", { dashStyle: "none" })).toBe(`pages 1${EN_DASH}5`)
-    })
-
-    it("still converts minus signs", () => {
-      expect(hyphenReplace("-5", { dashStyle: "none" })).toBe(`${MINUS}5`)
     })
   })
 

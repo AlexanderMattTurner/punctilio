@@ -320,12 +320,10 @@ describe("niceQuotes", () => {
         [periodOutsideDouble],
         [periodInsideDouble],
         [commaOutsideDouble],
-      ])("leaves punctuation unchanged: %s", (input) => {
+        ['"Hello".'],
+        ["It's a test"],
+      ])("skips all quote transforms: %s", (input) => {
         expect(niceQuotes(input, { punctuationStyle: "none" })).toBe(input)
-      })
-
-      it("still converts straight quotes to smart quotes", () => {
-        expect(niceQuotes('"Hello".', { punctuationStyle: "none" })).toBe(periodOutsideDouble)
       })
     })
   })

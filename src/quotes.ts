@@ -123,6 +123,7 @@ function applyPunctuationStyle(text: string, sep: string, style: PunctuationStyl
 export function niceQuotes(text: string, options: QuoteOptions = {}): string {
   const sep = options.separator ?? DEFAULT_SEPARATOR
   const punctuationStyle = options.punctuationStyle ?? "american"
+  if (punctuationStyle === "none") return text
 
   text = convertSingleQuotes(text, sep)
   text = convertDoubleQuotes(text, sep)
