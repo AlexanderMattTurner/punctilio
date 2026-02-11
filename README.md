@@ -78,7 +78,7 @@ Setting aside the benchmark, `punctilio`’s test suite includes 1,100+ tests at
 
 ## Works with HTML DOMs via separation boundaries
 
-Other typography libraries either transform plain strings or operate on AST nodes individually (`retext-smartypants` [can’t map changes back to HTML](https://github.com/rehypejs/rehype-retext)). But real HTML has text spanning multiple elements—if you concatenate text from `<em>Wait</em>...`, transform it, then try to split it back, you’ve lost track of where `</em>` belonged. 
+Other typography libraries either transform plain strings (`retext-smartypants` [can’t map changes back to HTML](https://github.com/rehypejs/rehype-retext)) or operate on AST nodes individually. But real HTML has text spanning multiple elements—if you concatenate text from `<em>Wait</em>...`, transform it, then try to split it back, you’ve lost track of where `</em>` belonged. 
 
 `punctilio` introduces _separation boundaries_. First, insert a “separator” character (default: `U+E000`) at each element boundary before transforming (like at the start and end of an `<em>`). Every regex allows this character mid-pattern without breaking matches. For example, “`.[SEP]..`” still becomes “`…[SEP]`”. `punctilio` validates the output by ensuring the separator count remains the same. 
 
