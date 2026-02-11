@@ -78,9 +78,18 @@ Setting aside the benchmark, `punctilio`’s test suite includes 1,100+ tests at
 
 ## Works with HTML DOMs via separation boundaries
 
-Other typography libraries either transform plain strings (`retext-smartypants` [can’t map changes back to HTML](https://github.com/rehypejs/rehype-retext)) or operate on AST nodes individually. But real HTML has text spanning multiple elements—if you concatenate text from `<em>Wait</em>...`, transform it, then try to split it back, you’ve lost track of where `</em>` belonged. 
+Perhaps the most innovative feature of the library is that it properly handles DOMs! (This means it'll also work on Markdown: [convert to HTML](https://github.com/remarkjs/remark), transform with `punctilio`, [convert back to Markdown](https://github.com/JohannesKaufmann/html-to-markdown).)
 
-`punctilio` introduces _separation boundaries_. First, insert a “separator” character (default: `U+E000`) at each element boundary before transforming (like at the start and end of an `<em>`). Every regex allows this character mid-pattern without breaking matches. For example, “`.[SEP]..`” still becomes “`…[SEP]`”. `punctilio` validates the output by ensuring the separator count remains the same. 
+Other typography libraries take one of two approaches, both with drawbacks. 
+
+1.  String-based libraries (like [`smartypants`](https://www.npmjs.com/package/smartypants)) transform plain text but are unaware of HTML structure. If you concatenate text from `<em>Wait</em>...`, transform it into `Wait…`, and then try to convert back—you've lost track of where the `</em>` belongs. 
+2.  AST-based libraries (like [`rehype-retext`](https://github.com/rehypejs/rehype-retext)) process each text node individually, preserving structure but losing cross-node information. A quote that opens inside `<em>"Wait</em>` and closes outside it `..."` spans two text node. Processed independently, the library can't tell whether the final `"` is opening or closing, because it never sees both at once. 
+
+`punctilio` introduces *separation boundaries* to get the best of both worlds:
+
+1.  Flatten the parent container's contents to a string, delimiting element boundaries with a private-use Unicode character (`U+E000`) to avoid unintended matches.
+2.  Every regex allows (and preserves) these characters, treating them as boundaries of a “permeable membrane” through which contextual information flows. For example, `.U+E000..` still becomes `…U+E000`.
+3.  Rehydrate the HTML AST. For all *k*, set element *k*’s text content to the segment starting at separator occurrence *k*.
 
 ```typescript
 import { transform, DEFAULT_SEPARATOR } from 'punctilio'
@@ -100,7 +109,7 @@ unified()
   .use(rehypePunctilio)
   .use(rehypeStringify)
   .process('<p><em>"Wait</em>..." -- she said</p>')
-// → <p><em>"Wait</em>…"—she said</p>
+// → <p><em>“Wait</em>…”—she said</p>
 //  The opening quote inside <em> and the closing quote outside it
 //  are both resolved correctly across the element boundary.
 ```
