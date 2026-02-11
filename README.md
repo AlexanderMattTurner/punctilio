@@ -6,7 +6,7 @@
 
 Pretty good at making your text pretty. The most feature-complete and reliable English typography package—transforms plain ASCII punctuation into typographically correct Unicode, even across HTML element boundaries.
 
-**Smart quotes** · **Em/en dashes** · **Ellipses** · **Math symbols** · **Legal symbols** · **Arrows** · **Primes** · **Fractions** · **Superscripts** · **Ligatures** · **Non-breaking spaces** · **HTML-aware**
+**Smart quotes** · **Em/en dashes** · **Ellipses** · **Math symbols** · **Legal symbols** · **Arrows** · **Primes** · **Fractions** · **Superscripts** · **Ligatures** · **Non-breaking spaces** · **HTML-aware** · **Bri'ish localisation support** 
 
 ```typescript
 import { transform } from 'punctilio'
@@ -75,7 +75,7 @@ My [`benchmark.mjs`](https://github.com/alexander-turner/punctilio/blob/main/ben
 
 ## Test suite
 
-Setting aside the benchmark, `punctilio`’s test suite includes 600+ tests at 100% branch coverage, including edge cases derived from competitor libraries ([`smartquotes`](https://github.com/kellym/smartquotes.js), [`retext-smartypants`](https://github.com/retextjs/retext-smartypants), [`typograf`](https://github.com/typograf/typograf)), and the [Standard Ebooks typography manual](https://standardebooks.org/manual/). Key test categories:
+Setting aside the benchmark, `punctilio`’s test suite includes 1,100+ tests at 100% branch coverage, including edge cases derived from competitor libraries ([`smartquotes`](https://github.com/kellym/smartquotes.js), [`retext-smartypants`](https://github.com/retextjs/retext-smartypants), [`typograf`](https://github.com/typograf/typograf)), and the [Standard Ebooks typography manual](https://standardebooks.org/manual/). Key test categories:
 
 - _Quote handling_: Unicode text, nested quotes, contractions, Irish names (O’Brien), leading apostrophes (’99, ’twas)
 - _Dash transformations_: Year/page/score ranges, model name preservation (Llama-2-7B, GPT-4), phone numbers, ISBNs
