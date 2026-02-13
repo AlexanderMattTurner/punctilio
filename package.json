@@ -13,6 +13,14 @@
     "./rehype": {
       "types": "./dist/rehype.d.ts",
       "import": "./dist/rehype.js"
+    },
+    "./remark": {
+      "types": "./dist/remark.d.ts",
+      "import": "./dist/remark.js"
+    },
+    "./markdown": {
+      "types": "./dist/markdown.d.ts",
+      "import": "./dist/markdown.js"
     }
   },
   "files": [
@@ -40,6 +48,8 @@
     "text-formatting",
     "rehype",
     "rehype-plugin",
+    "remark",
+    "remark-plugin",
     "unified",
     "markdown",
     "html"
@@ -62,6 +72,7 @@
     "@eslint/js": "^9.39.2",
     "@types/hast": "^3.0.4",
     "@types/jest": "^29.5.12",
+    "@types/mdast": "4.0.4",
     "@types/node": "^20.11.0",
     "eslint": "^9.39.2",
     "eslint-plugin-regexp": "^3.0.0",
@@ -69,6 +80,8 @@
     "jest": "^29.7.0",
     "rehype-parse": "9.0.1",
     "rehype-stringify": "10.0.1",
+    "remark-parse": "11.0.0",
+    "remark-stringify": "11.0.0",
     "retext": "9.0.0",
     "retext-smartypants": "6.2.0",
     "smartquotes": "2.3.2",
@@ -81,10 +94,18 @@
     "unified": "11.0.5"
   },
   "peerDependencies": {
-    "unified": "^11.0.0"
+    "unified": "^11.0.0",
+    "remark-parse": "^11.0.0",
+    "remark-stringify": "^11.0.0"
   },
   "peerDependenciesMeta": {
     "unified": {
+      "optional": true
+    },
+    "remark-parse": {
+      "optional": true
+    },
+    "remark-stringify": {
       "optional": true
     }
   },
