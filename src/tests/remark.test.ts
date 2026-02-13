@@ -76,131 +76,62 @@ describe("remarkPunctilio", () => {
 
   describe("inline element boundaries", () => {
     it.each([
-      [
-        "quotes spanning emphasis",
-        '"Hello," *she* said.',
-        `${LDQ}Hello,${RDQ} *she* said.`,
-      ],
-      [
-        "quotes inside emphasis",
-        '*"Hello,"* she said.',
-        `*${LDQ}Hello,${RDQ}* she said.`,
-      ],
-      [
-        "apostrophe in strong",
-        "**It's** fine.",
-        `**It${RSQ}s** fine.`,
-      ],
-      [
-        "dash between elements",
-        "word *one* -- *two* word",
-        `word *one*${EM_DASH}*two* word`,
-      ],
-      [
-        "deeply nested inline elements",
-        '*"Hello **beautiful** world"*',
-        `*${LDQ}Hello **beautiful** world${RDQ}*`,
-      ],
+      ["quotes spanning emphasis", '"Hello," *she* said.', `${LDQ}Hello,${RDQ} *she* said.`],
+      ["quotes inside emphasis", '*"Hello,"* she said.', `*${LDQ}Hello,${RDQ}* she said.`],
+      ["apostrophe in strong", "**It's** fine.", `**It${RSQ}s** fine.`],
+      ["dash between elements", "word *one* -- *two* word", `word *one*${EM_DASH}*two* word`],
+      ["deeply nested elements", '*"Hello **beautiful** world"*', `*${LDQ}Hello **beautiful** world${RDQ}*`],
     ])("handles %s", async (_name, input, expected) => {
       expect(await processMarkdown(input, { nbsp: false })).toEqual(expected)
     })
   })
 
   describe("code preservation", () => {
-    it("does not transform inline code", async () => {
-      expect(await processMarkdown('`"Hello" -- test...`', { nbsp: false })).toEqual(
-        '`"Hello" -- test...`'
-      )
-    })
-
-    it("does not transform fenced code blocks", async () => {
-      const input = '```\n"Hello" -- test...\n```'
-      expect(await processMarkdown(input, { nbsp: false })).toEqual(input)
-    })
-
-    it("does not transform indented code blocks", async () => {
-      const input = '    "Hello" -- test...'
-      const result = await processMarkdown(input, { nbsp: false })
-      // remark-stringify normalizes indented code to fenced code blocks,
-      // but the content should remain untransformed
-      expect(result).toContain('"Hello" -- test...')
+    it.each([
+      ["inline code", '`"Hello" -- test...`'],
+      ["fenced code blocks", '```\n"Hello" -- test...\n```'],
+      ["indented code blocks", '    "Hello" -- test...'],
+    ])("does not transform %s", async (_name, input) => {
+      expect(await processMarkdown(input, { nbsp: false })).toContain('"Hello" -- test...')
     })
 
     it("transforms text alongside inline code", async () => {
-      expect(
-        await processMarkdown('`code` "Hello"', { nbsp: false })
-      ).toEqual(`\`code\` ${LDQ}Hello${RDQ}`)
+      expect(await processMarkdown('`code` "Hello"', { nbsp: false }))
+        .toEqual(`\`code\` ${LDQ}Hello${RDQ}`)
     })
   })
 
-  describe("headings", () => {
+  describe("element types", () => {
     it.each([
       ["h1", '# "Hello"', `# ${LDQ}Hello${RDQ}`],
       ["h2", '## It\'s nice', `## It${RSQ}s nice`],
-      ["h3 with dash", "### Wait -- really?", `### Wait${EM_DASH}really?`],
-    ])("transforms %s content", async (_name, input, expected) => {
-      expect(await processMarkdown(input, { nbsp: false })).toEqual(expected)
-    })
-  })
-
-  describe("lists", () => {
-    it("transforms list item text", async () => {
-      const input = '- "Hello" -- world'
-      const expected = `* ${LDQ}Hello${RDQ}${EM_DASH}world`
+      ["h3", "### Wait -- really?", `### Wait${EM_DASH}really?`],
+      ["list items", '- "Hello" -- world', `* ${LDQ}Hello${RDQ}${EM_DASH}world`],
+      ["blockquotes", '> "Hello," she said.', `> ${LDQ}Hello,${RDQ} she said.`],
+    ])("transforms %s", async (_name, input, expected) => {
       expect(await processMarkdown(input, { nbsp: false })).toEqual(expected)
     })
 
-    it("transforms nested list items", async () => {
-      const input = '- outer "quote"\n  - inner "quote"'
+    it.each([
+      ["nested list items", '- outer "quote"\n  - inner "quote"'],
+      ["link text", '["Hello," she said.](https://example.com)'],
+      ["text around links", '"Hello" [link](url) "world"'],
+      ["text around images", '"Hello" ![img](url) "world"'],
+      ["inline HTML boundaries", '"Hello"<br>"world"'],
+      ["hard line breaks", '"Hello"  \n"world"'],
+    ])("transforms text in %s", async (_name, input) => {
       const result = await processMarkdown(input, { nbsp: false })
-      expect(result).toContain(LDQ)
-      expect(result).toContain(RDQ)
-      expect(result).not.toContain('"')
-    })
-  })
-
-  describe("blockquotes", () => {
-    it("transforms blockquote text", async () => {
-      const input = '> "Hello," she said.'
-      const expected = `> ${LDQ}Hello,${RDQ} she said.`
-      expect(await processMarkdown(input, { nbsp: false })).toEqual(expected)
-    })
-  })
-
-  describe("links", () => {
-    it("transforms link text", async () => {
-      const input = '["Hello," she said.](https://example.com)'
-      const result = await processMarkdown(input, { nbsp: false })
-      expect(result).toContain(LDQ)
-      expect(result).toContain(RDQ)
-      expect(result).not.toContain('"Hello')
-    })
-
-    it("transforms text around links", async () => {
-      const input = '"Hello" [link](url) "world"'
-      const result = await processMarkdown(input, { nbsp: false })
-      expect(result).toContain(LDQ)
-      expect(result).toContain(RDQ)
-      expect(result).not.toMatch(/"Hello"/)
-      expect(result).not.toMatch(/"world"/)
-    })
-  })
-
-  describe("images", () => {
-    it("transforms text around images", async () => {
-      const input = '"Hello" ![img](url) "world"'
-      const result = await processMarkdown(input, { nbsp: false })
-      // Text around images should be transformed
       expect(result).toContain(LDQ)
       expect(result).toContain(RDQ)
     })
   })
 
-  describe("inline HTML", () => {
-    it("transforms text around inline HTML", async () => {
-      const input = '"Hello"<br>"world"'
-      const result = await processMarkdown(input, { nbsp: false })
-      // html nodes are skipped, but surrounding text is still transformed
+  describe("GFM extensions", () => {
+    it.each([
+      ["table cells", '| "Hello" | world |\n| --- | --- |\n| "test" | data |'],
+      ["strikethrough", '~~"Hello" -- world~~'],
+    ])("transforms %s", async (_name, input) => {
+      const result = await processGfmMarkdown(input, { nbsp: false })
       expect(result).toContain(LDQ)
       expect(result).toContain(RDQ)
     })
@@ -208,54 +139,14 @@ describe("remarkPunctilio", () => {
 
   describe("transform options passthrough", () => {
     it.each([
-      [
-        "punctuationStyle american",
-        '"Hello."',
-        { punctuationStyle: "american" as const, nbsp: false as const },
-        `${LDQ}Hello.${RDQ}`,
-      ],
-      [
-        "punctuationStyle british",
-        '"Hello."',
-        { punctuationStyle: "british" as const, nbsp: false as const },
-        `${LDQ}Hello${RDQ}.`,
-      ],
-      [
-        "dashStyle american",
-        "word - word",
-        { dashStyle: "american" as const, nbsp: false as const },
-        `word${EM_DASH}word`,
-      ],
-      [
-        "dashStyle british",
-        "word - word",
-        { dashStyle: "british" as const, nbsp: false as const },
-        `word ${EN_DASH} word`,
-      ],
-      [
-        "symbols disabled",
-        "5x5",
-        { symbols: false, nbsp: false as const },
-        "5x5",
-      ],
-      [
-        "fractions enabled",
-        "1/2 cup",
-        { fractions: true, nbsp: false as const },
-        `${FRACTION_1_2} cup`,
-      ],
-      [
-        "fractions disabled",
-        "1/2 cup",
-        { fractions: false, nbsp: false as const },
-        "1/2 cup",
-      ],
-      [
-        "custom separator",
-        '"Hello"',
-        { separator: "\uE001", nbsp: false as const },
-        `${LDQ}Hello${RDQ}`,
-      ],
+      ["punctuationStyle american", '"Hello."', { punctuationStyle: "american" as const, nbsp: false as const }, `${LDQ}Hello.${RDQ}`],
+      ["punctuationStyle british", '"Hello."', { punctuationStyle: "british" as const, nbsp: false as const }, `${LDQ}Hello${RDQ}.`],
+      ["dashStyle american", "word - word", { dashStyle: "american" as const, nbsp: false as const }, `word${EM_DASH}word`],
+      ["dashStyle british", "word - word", { dashStyle: "british" as const, nbsp: false as const }, `word ${EN_DASH} word`],
+      ["symbols disabled", "5x5", { symbols: false, nbsp: false as const }, "5x5"],
+      ["fractions enabled", "1/2 cup", { fractions: true, nbsp: false as const }, `${FRACTION_1_2} cup`],
+      ["fractions disabled", "1/2 cup", { fractions: false, nbsp: false as const }, "1/2 cup"],
+      ["custom separator", '"Hello"', { separator: "\uE001", nbsp: false as const }, `${LDQ}Hello${RDQ}`],
     ])("respects %s", async (_name, input, options, expected) => {
       expect(await processMarkdown(input, options)).toEqual(expected)
     })
@@ -263,15 +154,7 @@ describe("remarkPunctilio", () => {
 
   describe("complex documents", () => {
     it("transforms a multi-paragraph document", async () => {
-      const input = [
-        '"Hello," she said.',
-        "",
-        "It's a nice day -- isn't it?",
-        "",
-        "Wait...",
-      ].join("\n")
-
-      const result = await processMarkdown(input, { nbsp: false })
+      const result = await processMarkdown('"Hello," she said.\n\nIt\'s a nice day -- isn\'t it?\n\nWait...', { nbsp: false })
       expect(result).toContain(LDQ)
       expect(result).toContain(EM_DASH)
       expect(result).toContain(ELLIPSIS)
@@ -279,63 +162,16 @@ describe("remarkPunctilio", () => {
       expect(result).not.toContain("...")
     })
 
-    it("handles mixed content with code blocks", async () => {
-      const input = [
-        '"Transform this"',
-        "",
-        "```",
-        '"Leave this alone"',
-        "```",
-        "",
-        '"Transform this too"',
-      ].join("\n")
-
-      const result = await processMarkdown(input, { nbsp: false })
-
-      // Paragraphs: transformed
+    it("preserves code blocks among transformed paragraphs", async () => {
+      const result = await processMarkdown('"Transform this"\n\n```\n"Leave this alone"\n```\n\n"Transform this too"', { nbsp: false })
       expect(result).toContain(`${LDQ}Transform this${RDQ}`)
       expect(result).toContain(`${LDQ}Transform this too${RDQ}`)
-      // Code block: untouched
       expect(result).toContain('"Leave this alone"')
     })
   })
 
-  describe("break nodes", () => {
-    it("handles hard line breaks within paragraphs", async () => {
-      // Two trailing spaces create a hard break node in MDAST
-      const input = '"Hello"  \n"world"'
-      const result = await processMarkdown(input, { nbsp: false })
-      expect(result).toContain(LDQ)
-      expect(result).toContain(RDQ)
-    })
-  })
-
-  describe("GFM tables", () => {
-    it("transforms table cell content", async () => {
-      const input = '| "Hello" | world |\n| --- | --- |\n| "test" | data |'
-      const result = await processGfmMarkdown(input, { nbsp: false })
-      expect(result).toContain(LDQ)
-      expect(result).toContain(RDQ)
-      expect(result).not.toMatch(/(?<!\|)\s*"(?!-)/)
-    })
-  })
-
-  describe("GFM strikethrough", () => {
-    it("transforms text inside strikethrough", async () => {
-      const input = '~~"Hello" -- world~~'
-      const result = await processGfmMarkdown(input, { nbsp: false })
-      expect(result).toContain(LDQ)
-      expect(result).toContain(RDQ)
-      expect(result).toContain(EM_DASH)
-    })
-  })
-
-  describe("idempotency", () => {
-    it("produces the same result when run twice", async () => {
-      const input = '"Hello," she said -- "it\'s pages 1-5."'
-      const first = await processMarkdown(input, { nbsp: false })
-      const second = await processMarkdown(first, { nbsp: false })
-      expect(first).toEqual(second)
-    })
+  it("is idempotent", async () => {
+    const first = await processMarkdown('"Hello," she said -- "it\'s pages 1-5."', { nbsp: false })
+    expect(await processMarkdown(first, { nbsp: false })).toEqual(first)
   })
 })
