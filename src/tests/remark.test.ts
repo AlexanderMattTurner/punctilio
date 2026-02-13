@@ -1,5 +1,6 @@
 import { unified } from "unified"
 import remarkParse from "remark-parse"
+import remarkGfm from "remark-gfm"
 import remarkStringify from "remark-stringify"
 import { remarkPunctilio, type RemarkPunctilioOptions } from "../remark.js"
 import { UNICODE_SYMBOLS } from "../constants.js"
@@ -24,6 +25,19 @@ async function processMarkdown(
 ): Promise<string> {
   const result = await unified()
     .use(remarkParse)
+    .use(remarkPunctilio, options)
+    .use(remarkStringify)
+    .process(markdown)
+  return String(result).trimEnd()
+}
+
+async function processGfmMarkdown(
+  markdown: string,
+  options?: RemarkPunctilioOptions
+): Promise<string> {
+  const result = await unified()
+    .use(remarkParse)
+    .use(remarkGfm)
     .use(remarkPunctilio, options)
     .use(remarkStringify)
     .process(markdown)
@@ -81,6 +95,11 @@ describe("remarkPunctilio", () => {
         "dash between elements",
         "word *one* -- *two* word",
         `word *one*${EM_DASH}*two* word`,
+      ],
+      [
+        "deeply nested inline elements",
+        '*"Hello **beautiful** world"*',
+        `*${LDQ}Hello **beautiful** world${RDQ}*`,
       ],
     ])("handles %s", async (_name, input, expected) => {
       expect(await processMarkdown(input, { nbsp: false })).toEqual(expected)
@@ -145,6 +164,45 @@ describe("remarkPunctilio", () => {
       const input = '> "Hello," she said.'
       const expected = `> ${LDQ}Hello,${RDQ} she said.`
       expect(await processMarkdown(input, { nbsp: false })).toEqual(expected)
+    })
+  })
+
+  describe("links", () => {
+    it("transforms link text", async () => {
+      const input = '["Hello," she said.](https://example.com)'
+      const result = await processMarkdown(input, { nbsp: false })
+      expect(result).toContain(LDQ)
+      expect(result).toContain(RDQ)
+      expect(result).not.toContain('"Hello')
+    })
+
+    it("transforms text around links", async () => {
+      const input = '"Hello" [link](url) "world"'
+      const result = await processMarkdown(input, { nbsp: false })
+      expect(result).toContain(LDQ)
+      expect(result).toContain(RDQ)
+      expect(result).not.toMatch(/"Hello"/)
+      expect(result).not.toMatch(/"world"/)
+    })
+  })
+
+  describe("images", () => {
+    it("transforms text around images", async () => {
+      const input = '"Hello" ![img](url) "world"'
+      const result = await processMarkdown(input, { nbsp: false })
+      // Text around images should be transformed
+      expect(result).toContain(LDQ)
+      expect(result).toContain(RDQ)
+    })
+  })
+
+  describe("inline HTML", () => {
+    it("transforms text around inline HTML", async () => {
+      const input = '"Hello"<br>"world"'
+      const result = await processMarkdown(input, { nbsp: false })
+      // html nodes are skipped, but surrounding text is still transformed
+      expect(result).toContain(LDQ)
+      expect(result).toContain(RDQ)
     })
   })
 
@@ -252,13 +310,23 @@ describe("remarkPunctilio", () => {
     })
   })
 
-  describe("tables", () => {
+  describe("GFM tables", () => {
     it("transforms table cell content", async () => {
       const input = '| "Hello" | world |\n| --- | --- |\n| "test" | data |'
-      const result = await processMarkdown(input, { nbsp: false })
+      const result = await processGfmMarkdown(input, { nbsp: false })
       expect(result).toContain(LDQ)
       expect(result).toContain(RDQ)
       expect(result).not.toMatch(/(?<!\|)\s*"(?!-)/)
+    })
+  })
+
+  describe("GFM strikethrough", () => {
+    it("transforms text inside strikethrough", async () => {
+      const input = '~~"Hello" -- world~~'
+      const result = await processGfmMarkdown(input, { nbsp: false })
+      expect(result).toContain(LDQ)
+      expect(result).toContain(RDQ)
+      expect(result).toContain(EM_DASH)
     })
   })
 

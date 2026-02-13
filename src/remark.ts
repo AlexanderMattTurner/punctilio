@@ -36,7 +36,7 @@ const PHRASING_CONTAINERS = new Set(["paragraph", "heading", "tableCell"])
 /**
  * MDAST node types whose text content should not be transformed.
  */
-const SKIP_TYPES = new Set(["inlineCode", "html", "code"])
+const SKIP_TYPES = new Set(["inlineCode", "html"])
 
 /**
  * Recursively collects text nodes from a phrasing content tree,
