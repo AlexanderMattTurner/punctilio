@@ -15,6 +15,8 @@ transform('"It\'s a beautiful thing, the destruction of words..." -- 1984')
 // → “It’s a beautiful thing, the destruction of words…”—1984
 ```
 
+**Format-faithful**: Text→text, Markdown→markdown, HTML→html. Transform typography, preserve structure.
+
 ```bash
 npm install punctilio
 ```
