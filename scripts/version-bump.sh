@@ -90,6 +90,7 @@ RESPONSE=$(curl -s https://api.anthropic.com/v1/messages \
     }')")
 
 # Extract the bump level from Claude's structured tool use response
+echo "API response: $RESPONSE"
 BUMP=$(echo "$RESPONSE" | jq -r '.content[] | select(.type == "tool_use") | .input.bump_type')
 
 # Validate response - fail if Claude couldn't determine bump type
