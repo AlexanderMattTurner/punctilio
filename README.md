@@ -12,7 +12,7 @@ Pretty good at making your text pretty. The most feature-complete and reliable E
 import { transform } from 'punctilio'
 
 transform('"It\'s a beautiful thing, the destruction of words..." -- 1984')
-// → "It's a beautiful thing, the destruction of words…"—1984
+// → “It’s a beautiful thing, the destruction of words…”—1984
 ```
 
 **Format-faithful**: Text→text, Markdown→markdown, HTML→html. Transform typography, preserve structure.
