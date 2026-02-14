@@ -16,9 +16,6 @@ import { transform, type TransformOptions } from "./index.js"
 import { DEFAULT_SEPARATOR } from "./constants.js"
 import { formatErrorString } from "./utils.js"
 
-/**
- * Options for the remark-punctilio plugin.
- */
 export type RemarkPunctilioOptions = TransformOptions
 
 /**

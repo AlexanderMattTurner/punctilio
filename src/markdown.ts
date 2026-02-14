@@ -20,27 +20,21 @@ import { remarkPunctilio, type RemarkPunctilioOptions } from "./remark.js"
  */
 export interface MarkdownOptions extends RemarkPunctilioOptions {
   /**
-   * Character used for emphasis markers in the output.
+   * Character for emphasis (`*text*` vs `_text_`) and strong (`**text**` vs `__text__`).
    * Default: "*"
    */
   emphasisMarker?: "*" | "_"
 
   /**
-   * Character used for strong markers in the output.
+   * Character for strong emphasis (`**text**` vs `__text__`). Must match emphasisMarker.
    * Default: "*"
    */
   strongMarker?: "*" | "_"
 
-  /**
-   * Character used for bullet list markers in the output.
-   * Default: "-"
-   */
+  /** Bullet marker for output consistency. Default: "-" */
   bulletMarker?: "-" | "*" | "+"
 
-  /**
-   * Character used for thematic break (horizontal rule) markers.
-   * Default: "*"
-   */
+  /** Thematic break marker. Default: "-" */
   ruleMarker?: "-" | "*" | "_"
 }
 
@@ -58,13 +52,8 @@ export interface MarkdownOptions extends RemarkPunctilioOptions {
  * ```ts
  * import { transformMarkdown } from 'punctilio/markdown'
  *
- * const result = await transformMarkdown('"Hello," she said -- "it\'s nice."')
- * // → '\u201CHello,\u201D she said\u2014\u201Cit\u2019s nice.\u201D'
- *
- * const british = await transformMarkdown('"Hello", she said', {
- *   punctuationStyle: 'british',
- *   dashStyle: 'british',
- * })
+ * await transformMarkdown('"Hello" -- world')
+ * // → '\u201CHello\u201D\u2014world'
  * ```
  */
 export async function transformMarkdown(
@@ -83,10 +72,11 @@ export async function transformMarkdown(
     .use(remarkParse)
     .use(remarkPunctilio, punctilioOptions)
     .use(remarkStringify, {
-      ...(emphasisMarker !== undefined && { emphasis: emphasisMarker }),
-      ...(strongMarker !== undefined && { strong: strongMarker }),
-      ...(bulletMarker !== undefined && { bullet: bulletMarker }),
-      ...(ruleMarker !== undefined && { rule: ruleMarker }),
+      emphasis: emphasisMarker ?? "*",
+      strong: strongMarker ?? "*",
+      bullet: bulletMarker ?? "-",
+      rule: ruleMarker ?? "-",
+      ...(ruleMarker === "-" || ruleMarker === undefined ? { ruleRepetition: 4 } : {}),
     })
 
   const result = await processor.process(input)
