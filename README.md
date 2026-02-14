@@ -109,10 +109,12 @@ unified()
   .use(rehypePunctilio)
   .use(rehypeStringify)
   .process('<p><em>"Wait</em>..." -- she said</p>')
-// → <p><em>“Wait</em>…”—she said</p>
+// → <p><em>"Wait</em>…"—she said</p>
 //  The opening quote inside <em> and the closing quote outside it
 //  are both resolved correctly across the element boundary.
 ```
+
+For Markdown ASTs via `remark`, use `remarkPunctilio` which applies the same separator technique to preserve inline element boundaries, or use `transformMarkdown` for a simpler Markdown-to-Markdown pipeline.
 
 For manual DOM walking or custom transforms, use `transformElement` from `punctilio/rehype`. 
 

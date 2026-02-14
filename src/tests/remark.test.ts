@@ -117,27 +117,23 @@ describe("remarkPunctilio", () => {
     })
 
     it.each([
-      ["nested list items", '- outer "quote"\n  - inner "quote"'],
-      ["link text", '["Hello," she said.](https://example.com)'],
-      ["text around links", '"Hello" [link](url) "world"'],
-      ["text around images", '"Hello" ![img](url) "world"'],
-      ["inline HTML boundaries", '"Hello"<br>"world"'],
-      ["hard line breaks", '"Hello"  \n"world"'],
-    ])("transforms text in %s", async (_name, input) => {
-      const result = await processMarkdown(input, { nbsp: false })
-      expect(result).toContain(LDQ)
-      expect(result).toContain(RDQ)
+      ["nested list items", '- outer "quote"\n  - inner "quote"', `* outer ${LDQ}quote${RDQ}\n  * inner ${LDQ}quote${RDQ}`],
+      ["link text", '["Hello," she said.](https://example.com)', `[${LDQ}Hello,${RDQ} she said.](https://example.com)`],
+      ["text around links", '"Hello" [link](url) "world"', `${LDQ}Hello${RDQ} [link](url) ${LDQ}world${RDQ}`],
+      ["text around images", '"Hello" ![img](url) "world"', `${LDQ}Hello${RDQ} ![img](url) ${LDQ}world${RDQ}`],
+      ["inline HTML boundaries", '"Hello"<br>"world"', `${LDQ}Hello${RDQ}<br>${LDQ}world${RDQ}`],
+      ["hard line breaks", '"Hello"  \n"world"', `${LDQ}Hello${RDQ}\\\n${LDQ}world${RDQ}`],
+    ])("transforms text in %s", async (_name, input, expected) => {
+      expect(await processMarkdown(input, { nbsp: false })).toEqual(expected)
     })
   })
 
   describe("GFM extensions", () => {
     it.each([
-      ["table cells", '| "Hello" | world |\n| --- | --- |\n| "test" | data |'],
-      ["strikethrough", '~~"Hello" -- world~~'],
-    ])("transforms %s", async (_name, input) => {
-      const result = await processGfmMarkdown(input, { nbsp: false })
-      expect(result).toContain(LDQ)
-      expect(result).toContain(RDQ)
+      ["table cells", '| "Hello" | world |\n| --- | --- |\n| "test" | data |', `| ${LDQ}Hello${RDQ} | world |\n| ------- | ----- |\n| ${LDQ}test${RDQ}  | data  |`],
+      ["strikethrough", '~~"Hello" -- world~~', `~~${LDQ}Hello${RDQ}${EM_DASH}world~~`],
+    ])("transforms %s", async (_name, input, expected) => {
+      expect(await processGfmMarkdown(input, { nbsp: false })).toEqual(expected)
     })
   })
 
@@ -158,19 +154,15 @@ describe("remarkPunctilio", () => {
 
   describe("complex documents", () => {
     it("transforms a multi-paragraph document", async () => {
-      const result = await processMarkdown('"Hello," she said.\n\nIt\'s a nice day -- isn\'t it?\n\nWait...', { nbsp: false })
-      expect(result).toContain(LDQ)
-      expect(result).toContain(EM_DASH)
-      expect(result).toContain(ELLIPSIS)
-      expect(result).not.toContain(" -- ")
-      expect(result).not.toContain("...")
+      const input = '"Hello," she said.\n\nIt\'s a nice day -- isn\'t it?\n\nWait...'
+      const expected = `${LDQ}Hello,${RDQ} she said.\n\nIt${RSQ}s a nice day${EM_DASH}isn${RSQ}t it?\n\nWait${ELLIPSIS}`
+      expect(await processMarkdown(input, { nbsp: false })).toEqual(expected)
     })
 
     it("preserves code blocks among transformed paragraphs", async () => {
-      const result = await processMarkdown('"Transform this"\n\n```\n"Leave this alone"\n```\n\n"Transform this too"', { nbsp: false })
-      expect(result).toContain(`${LDQ}Transform this${RDQ}`)
-      expect(result).toContain(`${LDQ}Transform this too${RDQ}`)
-      expect(result).toContain('"Leave this alone"')
+      const input = '"Transform this"\n\n```\n"Leave this alone"\n```\n\n"Transform this too"'
+      const expected = `${LDQ}Transform this${RDQ}\n\n\`\`\`\n"Leave this alone"\n\`\`\`\n\n${LDQ}Transform this too${RDQ}`
+      expect(await processMarkdown(input, { nbsp: false })).toEqual(expected)
     })
   })
 
