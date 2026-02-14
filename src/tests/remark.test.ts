@@ -92,7 +92,11 @@ describe("remarkPunctilio", () => {
       ["fenced code blocks", '```\n"Hello" -- test...\n```'],
       ["indented code blocks", '    "Hello" -- test...'],
     ])("does not transform %s", async (_name, input) => {
-      expect(await processMarkdown(input, { nbsp: false })).toContain('"Hello" -- test...')
+      const result = await processMarkdown(input, { nbsp: false })
+      expect(result).toContain('"Hello" -- test...')
+      expect(result).not.toContain(LDQ)
+      expect(result).not.toContain(EM_DASH)
+      expect(result).not.toContain(ELLIPSIS)
     })
 
     it("transforms text alongside inline code", async () => {
