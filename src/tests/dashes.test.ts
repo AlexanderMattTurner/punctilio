@@ -111,6 +111,19 @@ describe("hyphenReplace", () => {
     })
   })
 
+  describe("month ranges to en dashes", () => {
+    it.each([
+      ["Jan-Mar", `Jan${EN_DASH}Mar`],
+      ["Mar - Nov", `Mar${EN_DASH}Nov`],
+      ["January - March", `January${EN_DASH}March`],
+      ["October 2012 - December 2014", `October 2012${EN_DASH}December 2014`],
+      ["Jan 2000 - Feb", `Jan 2000${EN_DASH}Feb`],
+      ["March - April 2025", `March${EN_DASH}April 2025`],
+    ])('converts "%s"', (input, expected) => {
+      expect(hyphenReplace(input)).toBe(expected)
+    })
+  })
+
   describe("with separator character", () => {
     const sep = "\uE000"
     it.each([

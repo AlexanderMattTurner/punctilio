@@ -218,9 +218,9 @@ export function hyphenReplace(text: string, options: DashOptions = {}): string {
   const style = options.dashStyle ?? "american"
   if (style === "none") return text
   text = minusReplace(text, options)
+  text = enDashDateRange(text, options)
   text = convertParentheticalDashes(text, sep, style)
   if (style === "american") text = normalizeEmDashSpacing(text, sep)
   text = enDashNumberRange(text, options)
-  text = enDashDateRange(text, options)
   return text
 }
