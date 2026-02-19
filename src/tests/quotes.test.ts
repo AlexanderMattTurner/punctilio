@@ -11,6 +11,9 @@ const {
   ELLIPSIS,
 } = UNICODE_SYMBOLS
 
+/** Enable MLA output for tests that assert the apostrophe codepoint. */
+const MLA = { useModifierLetterApostrophe: true } as const
+
 describe("niceQuotes", () => {
   describe("double quotes", () => {
     it.each([
@@ -50,7 +53,7 @@ describe("niceQuotes", () => {
       // End-of-line quote becomes RIGHT quote
       ['not confident in that plan - "', `not confident in that plan - ${RIGHT_DOUBLE_QUOTE}`],
     ])('should convert double quotes in "%s"', (input, expected) => {
-      expect(niceQuotes(input)).toBe(expected)
+      expect(niceQuotes(input, MLA)).toBe(expected)
     })
   })
 
@@ -83,7 +86,7 @@ describe("niceQuotes", () => {
         `strategy s${MODIFIER_LETTER_APOSTROPHE}s return is good, even as d${MODIFIER_LETTER_APOSTROPHE}s return is bad`,
       ],
     ])('should handle single quotes/apostrophes in "%s"', (input, expected) => {
-      expect(niceQuotes(input)).toBe(expected)
+      expect(niceQuotes(input, MLA)).toBe(expected)
     })
   })
 
@@ -97,7 +100,7 @@ describe("niceQuotes", () => {
       ["the '90s", `the ${MODIFIER_LETTER_APOSTROPHE}90s`],
       ["in '99", `in ${MODIFIER_LETTER_APOSTROPHE}99`],
     ])('handles leading apostrophe in "%s"', (input, expected) => {
-      expect(niceQuotes(input)).toBe(expected)
+      expect(niceQuotes(input, MLA)).toBe(expected)
     })
   })
 
@@ -142,7 +145,7 @@ describe("niceQuotes", () => {
       [`O'Brien's idea`, `O${MODIFIER_LETTER_APOSTROPHE}Brien${MODIFIER_LETTER_APOSTROPHE}s idea`],
       [`The O'Connors`, `The O${MODIFIER_LETTER_APOSTROPHE}Connors`],
     ])('handles Irish/Scottish name apostrophes: "%s"', (input, expected) => {
-      expect(niceQuotes(input)).toBe(expected)
+      expect(niceQuotes(input, MLA)).toBe(expected)
     })
 
     // From smartquotes.js: complex nested quotes
@@ -176,7 +179,7 @@ describe("niceQuotes", () => {
       // Quote with slash separator
       ['"option1"/"option2"', `${LEFT_DOUBLE_QUOTE}option1${RIGHT_DOUBLE_QUOTE}/${LEFT_DOUBLE_QUOTE}option2${RIGHT_DOUBLE_QUOTE}`],
     ])('handles complex pattern: "%s"', (input, expected) => {
-      expect(niceQuotes(input)).toBe(expected)
+      expect(niceQuotes(input, MLA)).toBe(expected)
     })
 
     it("handles multi-line dialogue", () => {
@@ -193,8 +196,8 @@ describe("niceQuotes", () => {
       `I${MODIFIER_LETTER_APOSTROPHE}m already converted`,
       `${LEFT_DOUBLE_QUOTE}nested ${LEFT_SINGLE_QUOTE}quotes${RIGHT_SINGLE_QUOTE}${RIGHT_DOUBLE_QUOTE}`,
     ])('is idempotent for: "%s"', (input) => {
-      expect(niceQuotes(input)).toBe(input)
-      expect(niceQuotes(niceQuotes(input))).toBe(input)
+      expect(niceQuotes(input, MLA)).toBe(input)
+      expect(niceQuotes(niceQuotes(input, MLA), MLA)).toBe(input)
     })
   })
 
@@ -205,7 +208,7 @@ describe("niceQuotes", () => {
       [`don${sep}'t`, `don${sep}${MODIFIER_LETTER_APOSTROPHE}t`, "contractions across separator"],
       [`"test${sep}"`, `${LEFT_DOUBLE_QUOTE}test${sep}${RIGHT_DOUBLE_QUOTE}`, "quotes at separator boundaries"],
     ])("%s → %s (%s)", (input, expected) => {
-      expect(niceQuotes(input, { separator: sep })).toBe(expected)
+      expect(niceQuotes(input, { separator: sep, ...MLA })).toBe(expected)
     })
   })
 
@@ -239,7 +242,7 @@ describe("niceQuotes", () => {
       ["wouldn't've", `wouldn${MODIFIER_LETTER_APOSTROPHE}t${MODIFIER_LETTER_APOSTROPHE}ve`],
       ["couldn't've", `couldn${MODIFIER_LETTER_APOSTROPHE}t${MODIFIER_LETTER_APOSTROPHE}ve`],
     ])('handles double contraction: "%s"', (input, expected) => {
-      expect(niceQuotes(input)).toBe(expected)
+      expect(niceQuotes(input, MLA)).toBe(expected)
     })
   })
 
@@ -337,6 +340,54 @@ describe("niceQuotes", () => {
       ['" "', `${LEFT_DOUBLE_QUOTE} ${RIGHT_DOUBLE_QUOTE}`, "whitespace double"],
     ])("converts %s → %s (%s)", (input, expected) => {
       expect(niceQuotes(input)).toBe(expected)
+    })
+  })
+
+  describe("useModifierLetterApostrophe option", () => {
+    const RSQ = RIGHT_SINGLE_QUOTE
+
+    it("defaults to RSQ for contractions", () => {
+      expect(niceQuotes("don't")).toBe(`don${RSQ}t`)
+    })
+
+    it("defaults to RSQ for possessives", () => {
+      expect(niceQuotes("the dog's bone")).toBe(`the dog${RSQ}s bone`)
+    })
+
+    it("defaults to RSQ for O'Brien-style names", () => {
+      expect(niceQuotes("O'Brien's idea")).toBe(`O${RSQ}Brien${RSQ}s idea`)
+    })
+
+    it("defaults to RSQ for 'n' abbreviation", () => {
+      expect(niceQuotes("Rock 'n' Roll")).toBe(`Rock ${RSQ}n${RSQ} Roll`)
+    })
+
+    it("defaults to RSQ for decades", () => {
+      expect(niceQuotes("the '90s")).toBe(`the ${RSQ}90s`)
+    })
+
+    it("defaults to RSQ for leading apostrophes", () => {
+      expect(niceQuotes("'twas")).toBe(`${RSQ}twas`)
+    })
+
+    it("uses MLA when option is true", () => {
+      expect(niceQuotes("don't", MLA)).toBe(`don${MODIFIER_LETTER_APOSTROPHE}t`)
+    })
+
+    it("RSQ output is idempotent", () => {
+      const inputs = ["don't", "the dog's", "O'Brien", "Rock 'n' Roll", "'90s"]
+      for (const input of inputs) {
+        const first = niceQuotes(input)
+        expect(niceQuotes(first)).toBe(first)
+      }
+    })
+
+    it("MLA output is idempotent", () => {
+      const inputs = ["don't", "the dog's", "O'Brien", "Rock 'n' Roll", "'90s"]
+      for (const input of inputs) {
+        const first = niceQuotes(input, MLA)
+        expect(niceQuotes(first, MLA)).toBe(first)
+      }
     })
   })
 

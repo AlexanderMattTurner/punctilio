@@ -34,11 +34,20 @@ const LDQ = LEFT_DOUBLE_QUOTE
 const RDQ = RIGHT_DOUBLE_QUOTE
 const SEP = DEFAULT_SEPARATOR
 
+/** All stress tests use MLA mode to verify the apostrophe-vs-quote distinction. */
+const MLA_OPTS = { useModifierLetterApostrophe: true } as const
+
+/** Shorthand for niceQuotes with MLA enabled. */
+function mla(input: string, opts?: QuoteOptions) {
+  return niceQuotes(input, { ...MLA_OPTS, ...opts })
+}
+
 /** Assert correctness + idempotency in a single call. */
 function expectQuotes(input: string, expected: string, opts?: QuoteOptions) {
-  const result = niceQuotes(input, opts)
+  const merged = { ...MLA_OPTS, ...opts }
+  const result = niceQuotes(input, merged)
   expect(result).toBe(expected)
-  expect(niceQuotes(result, opts)).toBe(result)
+  expect(niceQuotes(result, merged)).toBe(result)
 }
 
 // ─── Idempotency ────────────────────────────────────────────────────────────
@@ -125,8 +134,8 @@ describe("STRESS: Already-converted text is stable", () => {
     `the dogs${RSQ} owner`,
     `${LSQ}hello${RSQ} ${LDQ}world${RDQ}`,
   ])('stable for: "%s"', (input) => {
-    expect(niceQuotes(input)).toBe(input)
-    expect(niceQuotes(niceQuotes(input))).toBe(input)
+    expect(mla(input)).toBe(input)
+    expect(mla(mla(input))).toBe(input)
   })
 })
 
@@ -139,9 +148,9 @@ describe("STRESS: Triple-application stability", () => {
     `"O'Brien's fish 'n' chips," she said. 'twas the best.`,
     "the dog's owner's car wasn't in the bosses' meeting.",
   ])('triple-stable for: "%s"', (input) => {
-    const once = niceQuotes(input)
-    const twice = niceQuotes(once)
-    const thrice = niceQuotes(twice)
+    const once = mla(input)
+    const twice = mla(once)
+    const thrice = mla(twice)
     expect(twice).toBe(once)
     expect(thrice).toBe(once)
   })
@@ -172,12 +181,12 @@ describe("STRESS: RSQ→MLA normalization (external system input)", () => {
 
   it("does NOT normalize RSQ when it is a closing quote", () => {
     const input = `${LSQ}hello${RSQ} world`
-    expect(niceQuotes(input)).toBe(input)
+    expect(mla(input)).toBe(input)
   })
 
   it("does not convert RSQ after non-Latin character", () => {
     const input = `[test]${RSQ}`
-    expect(niceQuotes(input)).not.toContain(MLA)
+    expect(mla(input)).not.toContain(MLA)
   })
 })
 
@@ -200,20 +209,20 @@ describe("STRESS: 'n' abbreviation boundaries", () => {
     ["punctuation precedes first apostrophe", "said, 'n' is good"],
     ["newline replaces space", "Rock 'n'\nRoll"],
   ])('does not produce MLA-n-MLA: %s', (_label, input) => {
-    expect(niceQuotes(input)).not.toContain(`${MLA}n${MLA}`)
+    expect(mla(input)).not.toContain(`${MLA}n${MLA}`)
   })
 
   it.each([
     ["Rock 'n'Roll", `Rock ${MLA}n${MLA}Roll`],
     ["Rock'n' Roll", undefined], // just verify it doesn't contain ʼnʼ
   ])("partial space: %s", (input, expected) => {
-    const result = niceQuotes(input)
+    const result = mla(input)
     if (expected) {
       expect(result).toBe(expected)
     } else {
       expect(result).not.toContain(`${MLA}n${MLA}`)
     }
-    expect(niceQuotes(result)).toBe(result)
+    expect(mla(result)).toBe(result)
   })
 })
 
@@ -258,8 +267,8 @@ describe("STRESS: Ambiguous / tricky cases", () => {
     `"the dogs' owner"`,
     "a'''b",
   ])('stable: "%s"', (input) => {
-    const result = niceQuotes(input)
-    expect(niceQuotes(result)).toBe(result)
+    const result = mla(input)
+    expect(mla(result)).toBe(result)
   })
 })
 
@@ -279,9 +288,9 @@ describe("STRESS: Separator interactions", () => {
 
   it("'n' with separators around word boundaries", () => {
     const input = `Rock${SEP} 'n' ${SEP}Roll`
-    const result = niceQuotes(input, { separator: SEP })
+    const result = mla(input, { separator: SEP })
     expect(result).toContain(`${MLA}n${MLA}`)
-    expect(niceQuotes(result, { separator: SEP })).toBe(result)
+    expect(mla(result, { separator: SEP })).toBe(result)
   })
 })
 
@@ -325,8 +334,8 @@ describe("STRESS: Multi-line behavior", () => {
 
   it("complex multi-line is idempotent", () => {
     const input = "She said, 'I can't\ngo to O'Brien's\nfish 'n' chips shop.'"
-    const first = niceQuotes(input)
-    expect(niceQuotes(first)).toBe(first)
+    const first = mla(input)
+    expect(mla(first)).toBe(first)
   })
 })
 
@@ -345,8 +354,8 @@ describe("STRESS: Minimal and boundary inputs", () => {
   })
 
   it("handles empty single quotes adjacent to words (stable)", () => {
-    const result = niceQuotes("hello''world")
-    expect(niceQuotes(result)).toBe(result)
+    const result = mla("hello''world")
+    expect(mla(result)).toBe(result)
   })
 
   it.each([
@@ -354,7 +363,7 @@ describe("STRESS: Minimal and boundary inputs", () => {
     ["hello ''", `hello ${LSQ}${RSQ}`],
     ["'' ''", `${LSQ}${RSQ} ${LSQ}${RSQ}`],
   ])('empty quotes: "%s"', (input, expected) => {
-    expect(niceQuotes(input)).toBe(expected)
+    expect(mla(input)).toBe(expected)
   })
 })
 
@@ -366,7 +375,7 @@ describe("STRESS: Decade abbreviations in extended contexts", () => {
   })
 
   it("multiple decades in one sentence", () => {
-    const result = niceQuotes("The '60s, '70s, and '80s were different.")
+    const result = mla("The '60s, '70s, and '80s were different.")
     expect(result).toContain(`${MLA}60s`)
     expect(result).toContain(`${MLA}70s`)
     expect(result).toContain(`${MLA}80s`)
@@ -374,14 +383,14 @@ describe("STRESS: Decade abbreviations in extended contexts", () => {
 
   it("decade inside single quotes — known limitation", () => {
     const input = "she said 'the '90s were great'"
-    const result = niceQuotes(input)
+    const result = mla(input)
     // The apostropheRegex lookahead for 'the stops at the second straight '
     // (before 90s) without finding RSQ, so 'the → MLA.
     // For '90s, the lookahead sees RSQ at great' → opening quote (LSQ).
     expect(result).toContain(`${MLA}the`)
     expect(result).toContain(`${LSQ}90s`)
     expect(result).toContain(`great${RSQ}`)
-    expect(niceQuotes(result)).toBe(result)
+    expect(mla(result)).toBe(result)
   })
 })
 
@@ -398,7 +407,7 @@ describe("STRESS: 'twas-style leading apostrophes in extended contexts", () => {
   })
 
   it("mid-sentence leading apostrophe", () => {
-    expect(niceQuotes("It was 'twas the night")).toContain(`${MLA}twas`)
+    expect(mla("It was 'twas the night")).toContain(`${MLA}twas`)
   })
 })
 
@@ -408,31 +417,31 @@ describe("STRESS: Pathological inputs (backtracking protection)", () => {
   it("handles 1500-char input without closing quote (hits 1000-char lookahead limit)", () => {
     const input = `'${"a".repeat(1500)}`
     const start = performance.now()
-    const result = niceQuotes(input)
+    const result = mla(input)
     expect(performance.now() - start).toBeLessThan(1000)
-    expect(niceQuotes(result)).toBe(result)
+    expect(mla(result)).toBe(result)
   })
 
   it("handles 16 rapid apostrophes", () => {
     const input = "a'b'c'd'e'f'g'h'i'j'k'l'm'n'o'p"
     const start = performance.now()
-    const result = niceQuotes(input)
+    const result = mla(input)
     expect(performance.now() - start).toBeLessThan(1000)
     expect(result).not.toContain("'")
-    expect(niceQuotes(result)).toBe(result)
+    expect(mla(result)).toBe(result)
   })
 
   it("handles alternating quotes and spaces", () => {
     const input = "' ' ' ' ' ' ' ' ' '"
     const start = performance.now()
-    const result = niceQuotes(input)
+    const result = mla(input)
     expect(performance.now() - start).toBeLessThan(1000)
-    expect(niceQuotes(result)).toBe(result)
+    expect(mla(result)).toBe(result)
   })
 
   it("handles 500-char word + possessive", () => {
     const input = `${"a".repeat(500)}'s thing`
-    const result = niceQuotes(input)
+    const result = mla(input)
     expect(result).toContain(MLA)
   })
 })
@@ -471,14 +480,14 @@ describe("STRESS: Kitchen sink — all features combined", () => {
   })
 
   it("possessive plural + contraction in dialogue", () => {
-    const result = niceQuotes(`"The dogs' bones aren't here," she said.`)
+    const result = mla(`"The dogs' bones aren't here," she said.`)
     expect(result).toContain(`dogs${RSQ}`)
     expect(result).toContain(`aren${MLA}t`)
   })
 
   it("kitchen sink with known '90s limitation", () => {
     const input = `"O'Brien's fish 'n' chips shop in the '90s wasn't the dogs' favorite," she said, 'twas better.`
-    const result = niceQuotes(input)
+    const result = mla(input)
     expect(result).toContain(`O${MLA}Brien${MLA}s`)
     expect(result).toContain(`fish ${MLA}n${MLA} chips`)
     // '90s → LSQ (closing quote at dogs' visible in lookahead — known limitation)
@@ -486,6 +495,6 @@ describe("STRESS: Kitchen sink — all features combined", () => {
     expect(result).toContain(`wasn${MLA}t`)
     expect(result).toContain(`dogs${RSQ}`)
     expect(result).toContain(`${MLA}twas`)
-    expect(niceQuotes(result)).toBe(result)
+    expect(mla(result)).toBe(result)
   })
 })

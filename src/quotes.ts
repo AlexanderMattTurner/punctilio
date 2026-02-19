@@ -22,6 +22,15 @@ export interface QuoteOptions {
   separator?: string
   /** "american" (inside), "british" (outside), "none". Default: "american" */
   punctuationStyle?: PunctuationStyle
+  /**
+   * Use modifier letter apostrophe (U+02BC) instead of right single quote
+   * (U+2019) for contractions and possessives. This distinguishes apostrophes
+   * from closing quotes but may break regex patterns that expect standard
+   * quote characters like /don't/ or /O'Brien/.
+   *
+   * Default: false
+   */
+  useModifierLetterApostrophe?: boolean
 }
 
 /** Convert straight single quotes to curly quotes and apostrophes */
@@ -142,6 +151,13 @@ export function niceQuotes(text: string, options: QuoteOptions = {}): string {
   text = convertSingleQuotes(text, sep)
   text = convertDoubleQuotes(text, sep)
   text = applyPunctuationStyle(text, sep, punctuationStyle)
+
+  // Internal processing uses MLA (U+02BC) to distinguish apostrophes from
+  // closing quotes. Convert back to RSQ (U+2019) for regex-friendly output
+  // unless the caller explicitly opts into MLA.
+  if (!options.useModifierLetterApostrophe) {
+    text = text.replaceAll(MODIFIER_LETTER_APOSTROPHE, RIGHT_SINGLE_QUOTE)
+  }
 
   return text
 }

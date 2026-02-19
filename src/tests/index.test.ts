@@ -26,13 +26,13 @@ const {
 describe("transform", () => {
   it("applies both quote and dash transformations", () => {
     const input = '"Hello," she said - "it\'s pages 1-5."'
-    const expected = `${LEFT_DOUBLE_QUOTE}Hello,${RIGHT_DOUBLE_QUOTE} she said${EM_DASH}${LEFT_DOUBLE_QUOTE}it${MODIFIER_LETTER_APOSTROPHE}s pages 1${EN_DASH}5.${RIGHT_DOUBLE_QUOTE}`
+    const expected = `${LEFT_DOUBLE_QUOTE}Hello,${RIGHT_DOUBLE_QUOTE} she said${EM_DASH}${LEFT_DOUBLE_QUOTE}it${RIGHT_SINGLE_QUOTE}s pages 1${EN_DASH}5.${RIGHT_DOUBLE_QUOTE}`
     expect(transform(input, { nbsp: false })).toBe(expected)
   })
 
   it("handles complex mixed content", () => {
     const input = 'I was born in \'99 - "the best year" - and pages 10-20 are my favorite.'
-    const expected = `I was born in ${MODIFIER_LETTER_APOSTROPHE}99${EM_DASH}${LEFT_DOUBLE_QUOTE}the best year${RIGHT_DOUBLE_QUOTE}${EM_DASH}and pages 10${EN_DASH}20 are my favorite.`
+    const expected = `I was born in ${RIGHT_SINGLE_QUOTE}99${EM_DASH}${LEFT_DOUBLE_QUOTE}the best year${RIGHT_DOUBLE_QUOTE}${EM_DASH}and pages 10${EN_DASH}20 are my favorite.`
     expect(transform(input, { nbsp: false })).toBe(expected)
   })
 
@@ -173,9 +173,9 @@ describe("transform", () => {
     describe("punctilio advantages (benchmark cases)", () => {
       it.each([
         // Leading apostrophes - smartypants/tipograph fail these
-        ["'SUP", `${MODIFIER_LETTER_APOSTROPHE}SUP`],
-        ["Rock 'n' Roll", `Rock ${MODIFIER_LETTER_APOSTROPHE}n${MODIFIER_LETTER_APOSTROPHE} Roll`],
-        ["I was born in '99", `I was born in ${MODIFIER_LETTER_APOSTROPHE}99`],
+        ["'SUP", `${RIGHT_SINGLE_QUOTE}SUP`],
+        ["Rock 'n' Roll", `Rock ${RIGHT_SINGLE_QUOTE}n${RIGHT_SINGLE_QUOTE} Roll`],
+        ["I was born in '99", `I was born in ${RIGHT_SINGLE_QUOTE}99`],
         // Em dashes from surrounded hyphens - smartquotes fails
         ["This is a - hyphen.", `This is a${EM_DASH}hyphen.`],
         // Number ranges - smartypants/smartquotes/typograf fail
@@ -224,7 +224,7 @@ describe("transform", () => {
   describe("complex real-world text", () => {
     it("handles dialogue with dashes and quotes", () => {
       const input = '"Wait," she said -- "I don\'t think that\'s right."'
-      const expected = `${LEFT_DOUBLE_QUOTE}Wait,${RIGHT_DOUBLE_QUOTE} she said${EM_DASH}${LEFT_DOUBLE_QUOTE}I don${MODIFIER_LETTER_APOSTROPHE}t think that${MODIFIER_LETTER_APOSTROPHE}s right.${RIGHT_DOUBLE_QUOTE}`
+      const expected = `${LEFT_DOUBLE_QUOTE}Wait,${RIGHT_DOUBLE_QUOTE} she said${EM_DASH}${LEFT_DOUBLE_QUOTE}I don${RIGHT_SINGLE_QUOTE}t think that${RIGHT_SINGLE_QUOTE}s right.${RIGHT_DOUBLE_QUOTE}`
       expect(transform(input, { nbsp: false })).toEqual(expected)
     })
 
@@ -233,6 +233,7 @@ describe("transform", () => {
       const expected = `The API returns x ${NOT_EQUAL} y when a ≤ b and c ≥ d. Error tolerance: ±5%.`
       expect(transform(input, { nbsp: false })).toBe(expected)
     })
+
 
     it("handles measurement text", () => {
       const input = 'He is 6\'2" tall.'
@@ -263,7 +264,7 @@ describe("transform", () => {
     it.each([
       [
         '"Wait..." she said - "it\'s pages 1-5."',
-        `${LEFT_DOUBLE_QUOTE}Wait…${RIGHT_DOUBLE_QUOTE} she said${EM_DASH}${LEFT_DOUBLE_QUOTE}it${MODIFIER_LETTER_APOSTROPHE}s pages 1–5.${RIGHT_DOUBLE_QUOTE}`,
+        `${LEFT_DOUBLE_QUOTE}Wait…${RIGHT_DOUBLE_QUOTE} she said${EM_DASH}${LEFT_DOUBLE_QUOTE}it${RIGHT_SINGLE_QUOTE}s pages 1–5.${RIGHT_DOUBLE_QUOTE}`,
       ],
       [
         "(c) 2024 - Room is 10x12, set to 72 F",
@@ -505,7 +506,7 @@ describe("transform", () => {
   describe("boundary conditions", () => {
     it.each([
       ['"start', `${LEFT_DOUBLE_QUOTE}start`],
-      ["'start", `${MODIFIER_LETTER_APOSTROPHE}start`],
+      ["'start", `${RIGHT_SINGLE_QUOTE}start`],
       ["-5 start", `−5 start`],
       ["...start", `… start`],
       ['end"', `end${RIGHT_DOUBLE_QUOTE}`],

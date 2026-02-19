@@ -8,7 +8,7 @@ import { UNICODE_SYMBOLS } from "../constants.js"
 const {
   LEFT_DOUBLE_QUOTE: LDQ,
   RIGHT_DOUBLE_QUOTE: RDQ,
-  MODIFIER_LETTER_APOSTROPHE: MLA,
+  RIGHT_SINGLE_QUOTE: RSQ,
   EM_DASH,
   EN_DASH,
   ELLIPSIS,
@@ -48,7 +48,7 @@ describe("remarkPunctilio", () => {
   describe("basic transformations (nbsp enabled)", () => {
     it.each([
       ["quotes", '"Hello," she said.', `${LDQ}Hello,${RDQ} she${NBSP}said.`],
-      ["apostrophes", "It's a test.", `It${MLA}s a${NBSP}test.`],
+      ["apostrophes", "It's a test.", `It${RSQ}s a${NBSP}test.`],
       ["em dashes", "Wait -- here it comes.", `Wait${EM_DASH}here it${NBSP}comes.`],
       ["en dashes (number range)", "Pages 1-5", `Pages${NBSP}1${EN_DASH}5`],
       ["ellipses", "Wait...", `Wait${ELLIPSIS}`],
@@ -63,7 +63,7 @@ describe("remarkPunctilio", () => {
   describe("basic transformations (nbsp disabled)", () => {
     it.each([
       ["quotes", '"Hello," she said.', `${LDQ}Hello,${RDQ} she said.`],
-      ["apostrophes", "It's a test.", `It${MLA}s a test.`],
+      ["apostrophes", "It's a test.", `It${RSQ}s a test.`],
       ["em dashes", "Wait -- here it comes.", `Wait${EM_DASH}here it comes.`],
       ["ellipses", "Wait...", `Wait${ELLIPSIS}`],
       ["multiplication", "5x5", `5${MULTIPLICATION}5`],
@@ -78,7 +78,7 @@ describe("remarkPunctilio", () => {
     it.each([
       ["quotes spanning emphasis", '"Hello," *she* said.', `${LDQ}Hello,${RDQ} *she* said.`],
       ["quotes inside emphasis", '*"Hello,"* she said.', `*${LDQ}Hello,${RDQ}* she said.`],
-      ["apostrophe in strong", "**It's** fine.", `**It${MLA}s** fine.`],
+      ["apostrophe in strong", "**It's** fine.", `**It${RSQ}s** fine.`],
       ["dash between elements", "word *one* -- *two* word", `word *one*${EM_DASH}*two* word`],
       ["deeply nested elements", '*"Hello **beautiful** world"*', `*${LDQ}Hello **beautiful** world${RDQ}*`],
     ])("handles %s", async (_name, input, expected) => {
@@ -108,7 +108,7 @@ describe("remarkPunctilio", () => {
   describe("element types", () => {
     it.each([
       ["h1", '# "Hello"', `# ${LDQ}Hello${RDQ}`],
-      ["h2", '## It\'s nice', `## It${MLA}s nice`],
+      ["h2", '## It\'s nice', `## It${RSQ}s nice`],
       ["h3", "### Wait -- really?", `### Wait${EM_DASH}really?`],
       ["list items", '- "Hello" -- world', `* ${LDQ}Hello${RDQ}${EM_DASH}world`],
       ["blockquotes", '> "Hello," she said.', `> ${LDQ}Hello,${RDQ} she said.`],
@@ -155,7 +155,7 @@ describe("remarkPunctilio", () => {
   describe("complex documents", () => {
     it("transforms a multi-paragraph document", async () => {
       const input = '"Hello," she said.\n\nIt\'s a nice day -- isn\'t it?\n\nWait...'
-      const expected = `${LDQ}Hello,${RDQ} she said.\n\nIt${MLA}s a nice day${EM_DASH}isn${MLA}t it?\n\nWait${ELLIPSIS}`
+      const expected = `${LDQ}Hello,${RDQ} she said.\n\nIt${RSQ}s a nice day${EM_DASH}isn${RSQ}t it?\n\nWait${ELLIPSIS}`
       expect(await processMarkdown(input, { nbsp: false })).toEqual(expected)
     })
 

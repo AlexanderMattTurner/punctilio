@@ -4,7 +4,7 @@ import { UNICODE_SYMBOLS } from "../constants.js"
 const {
   LEFT_DOUBLE_QUOTE: LDQ,
   RIGHT_DOUBLE_QUOTE: RDQ,
-  MODIFIER_LETTER_APOSTROPHE: MLA,
+  RIGHT_SINGLE_QUOTE: RSQ,
   EM_DASH,
   ELLIPSIS,
 } = UNICODE_SYMBOLS
@@ -33,7 +33,7 @@ describe("transformMarkdown", () => {
     const expected = [
       `# ${LDQ}Welcome${RDQ}`,
       "",
-      `It${MLA}s great${EM_DASH}isn${MLA}t it?`,
+      `It${RSQ}s great${EM_DASH}isn${RSQ}t it?`,
       "",
       `Wait${ELLIPSIS}`,
       "", // remark-stringify adds trailing newline
