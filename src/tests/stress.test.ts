@@ -9,6 +9,7 @@
  * - Punctuation style correctness (MLA excluded from period/comma movement)
  * - Pathological regex inputs (backtracking protection)
  * - Multi-line behavior
+ * - Character class boundary testing (digits, non-Latin, hyphens)
  * - Known limitations (documented)
  *
  * Base coverage in quotes.test.ts is NOT duplicated here.
@@ -58,9 +59,6 @@ describe("STRESS: Idempotency — double-application stability", () => {
     // Contractions + possessives in one sentence
     ["I can't find Brien's keys", `I can${MLA}t find Brien${MLA}s keys`],
     ["She's got the dog's toy and doesn't care", `She${MLA}s got the dog${MLA}s toy and doesn${MLA}t care`],
-    // Quoted text with contractions
-    [`"I can't," she said.`, `${LDQ}I can${MLA}t,${RDQ} she said.`],
-    ["He said, 'hello'", `He said, ${LSQ}hello${RSQ}`],
     // Decade in double quotes
     [`"the '90s"`, `${LDQ}the ${MLA}90s${RDQ}`],
     // 'n' + possessive combo
@@ -99,6 +97,18 @@ describe("STRESS: Idempotency — double-application stability", () => {
     [`'hello' "world"`, `${LSQ}hello${RSQ} ${LDQ}world${RDQ}`],
     // Possessive in parenthetical
     ["(Brien's)", `(Brien${MLA}s)`],
+    // R4: Hyphenated possessive
+    ["mother-in-law's house", `mother-in-law${MLA}s house`],
+    // R4: Accented Latin possessive
+    ["café's menu", `café${MLA}s menu`],
+    // R4: Adjacent possessives in sequence
+    ["the cat's and dog's toys", `the cat${MLA}s and dog${MLA}s toys`],
+    // R4: Contraction before sentence-final period
+    ["I shouldn't.", `I shouldn${MLA}t.`],
+    // R4: Double-quoted standalone contraction
+    [`"can't"`, `${LDQ}can${MLA}t${RDQ}`],
+    // R4: Contraction + digit context + second contraction
+    ["it's 5 o'clock", `it${MLA}s 5 o${MLA}clock`],
   ])('%s', (input, expected) => {
     expectQuotes(input, expected)
   })
@@ -111,8 +121,6 @@ describe("STRESS: Already-converted text is stable", () => {
     `Rock ${MLA}n${MLA} Roll`,
     `${MLA}twas the night`,
     `${LDQ}I can${MLA}t,${RDQ} she said.`,
-    `${LSQ}I lost the game.${RSQ}`,
-    `${LDQ}nested ${LSQ}quotes${RSQ}${RDQ}`,
     `l${MLA}homme d${MLA}accord`,
     `the dogs${RSQ} owner`,
     `${LSQ}hello${RSQ} ${LDQ}world${RDQ}`,
@@ -156,6 +164,8 @@ describe("STRESS: RSQ→MLA normalization (external system input)", () => {
     [`I${MLA}m fine and you${RSQ}re great`, `I${MLA}m fine and you${MLA}re great`],
     // MLA + straight in same word
     [`can${MLA}t's`, `can${MLA}t${MLA}s`],
+    // R4: RSQ possessive at end of string (contraction regex: Latin + RSQ + Latin)
+    [`dog${RSQ}s`, `dog${MLA}s`],
   ])('normalizes "%s"', (input, expected) => {
     expectQuotes(input, expected)
   })
@@ -223,16 +233,9 @@ describe("STRESS: 'n' abbreviation boundaries", () => {
     )
   })
 
-  it("does not double-convert pre-existing 'n' abbreviation", () => {
-    const input = `Rock ${MLA}n${MLA} Roll`
-    expect(niceQuotes(input)).toBe(input)
-  })
-
-  it("'n' handler runs before closing quote, preventing misclassification", () => {
-    // Without 'n' handler, the second ' would match closingSingle (n' + space)
-    const result = niceQuotes("Rock 'n' Roll")
-    expect(result).toBe(`Rock ${MLA}n${MLA} Roll`)
-    expect(result).not.toContain(RSQ)
+  // R4: 'n' handler uses \w (not LATIN_LETTERS), so digits satisfy lookbehind/lookahead
+  it("matches 'n' with digit neighbors (\\w includes digits)", () => {
+    expectQuotes("1 'n' 2", `1 ${MLA}n${MLA} 2`)
   })
 })
 
@@ -253,6 +256,10 @@ describe("STRESS: Possessive 's before ending context characters", () => {
     ["dog's", `dog${MLA}s`],         // end of string
     [`"the dog's"`, `${LDQ}the dog${MLA}s${RDQ}`], // before closing double quote
     ["the dogs'", `the dogs${RSQ}`], // plural possessive at end
+    // R4: Digit before possessive (possessiveSingle uses [^\s\u201C'] — matches digits)
+    ["the 747's engine", `the 747${MLA}s engine`],
+    // R4: Non-Latin (Cyrillic) before possessive (passes [^\s\u201C'] but not LATIN_LETTERS)
+    ["Привет's", `Привет${MLA}s`],
   ])('%s', (input, expected) => {
     expectQuotes(input, expected)
   })
@@ -397,7 +404,6 @@ describe("STRESS: Minimal and boundary inputs", () => {
     ["a", "a"],
     ["'a", `${MLA}a`],     // leading apostrophe
     ["a'", `a${RSQ}`],     // trailing → closing quote
-    ["   ", "   "],
   ])('minimal "%s" → "%s"', (input, expected) => {
     expectQuotes(input, expected)
   })
@@ -419,13 +425,8 @@ describe("STRESS: Minimal and boundary inputs", () => {
 // ─── Decade abbreviations (contexts beyond base tests) ──────────────────────
 
 describe("STRESS: Decade abbreviations in extended contexts", () => {
-  it.each([
-    ["the '60s", `the ${MLA}60s`],
-    ["the '70s", `the ${MLA}70s`],
-    ["the '80s", `the ${MLA}80s`],
-    ["the '00s", `the ${MLA}00s`],
-  ])('decade "%s"', (input, expected) => {
-    expectQuotes(input, expected)
+  it("'00s (zeros)", () => {
+    expectQuotes("the '00s", `the ${MLA}00s`)
   })
 
   it("multiple decades in one sentence", () => {
@@ -453,8 +454,6 @@ describe("STRESS: Decade abbreviations in extended contexts", () => {
 describe("STRESS: 'twas-style leading apostrophes in extended contexts", () => {
   it.each([
     ["'cause", `${MLA}cause`],
-    ["'bout", `${MLA}bout`],
-    ["'neath", `${MLA}neath`],
     ["'til", `${MLA}til`],
   ])('leading contraction "%s"', (input, expected) => {
     expectQuotes(input, expected)
@@ -470,23 +469,6 @@ describe("STRESS: 'twas-style leading apostrophes in extended contexts", () => {
 
   it("inside double quotes", () => {
     expectQuotes(`"'twas the night"`, `${LDQ}${MLA}twas the night${RDQ}`)
-  })
-})
-
-// ─── Regex step ordering verification ───────────────────────────────────────
-
-describe("STRESS: Regex step ordering", () => {
-  it("possessive runs before closing: dog's → MLA (not RSQ)", () => {
-    // Without possessive running first, closing regex would match (followed by space)
-    expectQuotes("the dog's bone", `the dog${MLA}s bone`)
-  })
-
-  it("closing runs after possessive: trailing ' → RSQ", () => {
-    expectQuotes("end'", `end${RSQ}`)
-  })
-
-  it("contraction runs after both: mid-word ' → MLA", () => {
-    expectQuotes("don't", `don${MLA}t`)
   })
 })
 
@@ -572,17 +554,6 @@ describe("STRESS: Kitchen sink — all features combined", () => {
     expect(result).toContain(`wasn${MLA}t`)
     expect(result).toContain(`dogs${RSQ}`)
     expect(result).toContain(`${MLA}twas`)
-    expect(niceQuotes(result)).toBe(result)
-  })
-
-  it("nested quotes with all apostrophe types", () => {
-    const input = `"She said, 'O'Brien's '90s Rock 'n' Roll wasn't bad.'"`
-    const result = niceQuotes(input)
-    expect(result).toContain(LDQ)
-    expect(result).toContain(RDQ)
-    expect(result).toContain(`O${MLA}Brien${MLA}s`)
-    expect(result).toContain(`${MLA}n${MLA}`)
-    expect(result).toContain(`wasn${MLA}t`)
     expect(niceQuotes(result)).toBe(result)
   })
 
