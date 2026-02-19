@@ -38,6 +38,10 @@ function convertSingleQuotes(text: string, sep: string): string {
   // Full pattern with optional 's' for lookahead detection in apostropheRegex
   const afterEndingSingle = `(?=${escapedSep}?(?:s${escapedSep}?)?(?:[${afterEndingSinglePatterns}]|$))`
 
+  // Handle 'n' abbreviation for "and" (e.g., Rock 'n' Roll) before closing quotes
+  // Both apostrophes are semantically apostrophes, not quotes
+  text = text.replace(new RegExp(`(?<=\\w${escapedSep}? )[']n['](?= ${escapedSep}?\\w)`, "gm"), `${MODIFIER_LETTER_APOSTROPHE}n${MODIFIER_LETTER_APOSTROPHE}`)
+
   // Possessive: 's followed by ending context (e.g., dog's) → U+02BC
   const afterPossessive = `(?=${escapedSep}?s${escapedSep}?(?:[${afterEndingSinglePatterns}]|$))`
   const possessiveSingle = `(?<=[^\\s${LEFT_DOUBLE_QUOTE}'])[']${afterPossessive}`
@@ -51,7 +55,7 @@ function convertSingleQuotes(text: string, sep: string): string {
   const contraction = `(?<=[${LATIN_LETTERS}])['${RIGHT_SINGLE_QUOTE}${MODIFIER_LETTER_APOSTROPHE}](?=${escapedSep}?[${LATIN_LETTERS}])`
   text = text.replace(new RegExp(contraction, "gm"), MODIFIER_LETTER_APOSTROPHE)
 
-  const apostropheWhitelist = `(?=n[${RIGHT_SINGLE_QUOTE}${MODIFIER_LETTER_APOSTROPHE}] )`
+  const apostropheWhitelist = `(?=n${MODIFIER_LETTER_APOSTROPHE} )`
   const endQuoteNotContraction = `(?!${contraction})[${RIGHT_SINGLE_QUOTE}${MODIFIER_LETTER_APOSTROPHE}]${afterEndingSingle}`
   // Limit lookahead scan to 1000 chars to prevent catastrophic backtracking on pathological inputs
   const apostropheRegex = new RegExp(

@@ -62,7 +62,7 @@ describe("niceQuotes", () => {
       ["I don't'nt want to go", `I don${MODIFIER_LETTER_APOSTROPHE}t${MODIFIER_LETTER_APOSTROPHE}nt want to go`],
       ['"\'sup"', `${LEFT_DOUBLE_QUOTE}${MODIFIER_LETTER_APOSTROPHE}sup${RIGHT_DOUBLE_QUOTE}`],
       ["'SUP", `${MODIFIER_LETTER_APOSTROPHE}SUP`],
-      ["Rock 'n' Roll", `Rock ${MODIFIER_LETTER_APOSTROPHE}n${RIGHT_SINGLE_QUOTE} Roll`],
+      ["Rock 'n' Roll", `Rock ${MODIFIER_LETTER_APOSTROPHE}n${MODIFIER_LETTER_APOSTROPHE} Roll`],
       ["I was born in '99", `I was born in ${MODIFIER_LETTER_APOSTROPHE}99`],
       ["'99 tigers weren't a match", `${MODIFIER_LETTER_APOSTROPHE}99 tigers weren${MODIFIER_LETTER_APOSTROPHE}t a match`],
       [
