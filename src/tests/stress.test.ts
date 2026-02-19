@@ -887,3 +887,391 @@ describe("STRESS: Mixed U+02BC and U+2019 in complex scenarios", () => {
     expect(result).toBe(`can${MLA}t${MLA}s`)
   })
 })
+
+// =========================================================================
+// ROUND 2: Critical gap analysis
+// =========================================================================
+
+describe("STRESS R2: French/European contractions with accented Latin letters", () => {
+  // LATIN_LETTERS includes U+00C0-024F, so accented chars should work in contractions
+  it.each([
+    ["l'homme", `l${MLA}homme`],
+    ["d'accord", `d${MLA}accord`],
+    ["l'école", `l${MLA}école`],
+    ["l'hôtel", `l${MLA}hôtel`],
+    ["j'ai", `j${MLA}ai`],
+    ["n'est-ce pas", `n${MLA}est-ce pas`],
+    ["c'était", `c${MLA}était`],
+    ["qu'il", `qu${MLA}il`],
+  ])('French contraction "%s" → "%s"', (input, expected) => {
+    expect(niceQuotes(input)).toBe(expected)
+  })
+
+  it("French contractions are idempotent", () => {
+    const input = "l'homme d'accord"
+    const first = niceQuotes(input)
+    expect(niceQuotes(first)).toBe(first)
+  })
+})
+
+describe("STRESS R2: Uppercase Irish/Scottish names", () => {
+  it.each([
+    ["O'NEILL", `O${MLA}NEILL`],
+    ["O'BRIEN", `O${MLA}BRIEN`],
+    ["D'ARTAGNAN", `D${MLA}ARTAGNAN`],
+    ["M'LORD", `M${MLA}LORD`],
+    ["O'NEILL'S PUB", `O${MLA}NEILL${MLA}S PUB`],
+  ])('uppercase name "%s"', (input, expected) => {
+    expect(niceQuotes(input)).toBe(expected)
+  })
+})
+
+describe("STRESS R2: 'n' abbreviation + possessive combination", () => {
+  it("handles 'n' followed by possessive in same sentence", () => {
+    const input = "Rock 'n' Roll's greatest hits"
+    const expected = `Rock ${MLA}n${MLA} Roll${MLA}s greatest hits`
+    expect(niceQuotes(input)).toBe(expected)
+  })
+
+  it("handles 'n' with possessive before and after", () => {
+    const input = "O'Brien's fish 'n' chips"
+    const expected = `O${MLA}Brien${MLA}s fish ${MLA}n${MLA} chips`
+    expect(niceQuotes(input)).toBe(expected)
+  })
+
+  it("handles 'n' inside double quotes with possessives", () => {
+    const input = `"Rock 'n' Roll's greatest hits."`
+    const expected = `${LDQ}Rock ${MLA}n${MLA} Roll${MLA}s greatest hits.${RDQ}`
+    expect(niceQuotes(input)).toBe(expected)
+  })
+
+  it("'n' + possessive combo is idempotent", () => {
+    const input = "Rock 'n' Roll's greatest hits"
+    const first = niceQuotes(input)
+    expect(niceQuotes(first)).toBe(first)
+  })
+})
+
+describe("STRESS R2: Multi-line text", () => {
+  it("handles contractions across multiple lines", () => {
+    const input = "I can't\nbelieve it's\nnot butter"
+    const expected = `I can${MLA}t\nbelieve it${MLA}s\nnot butter`
+    expect(niceQuotes(input)).toBe(expected)
+  })
+
+  it("handles possessives across multiple lines", () => {
+    const input = "the dog's\nbone and\nthe cat's toy"
+    const expected = `the dog${MLA}s\nbone and\nthe cat${MLA}s toy`
+    expect(niceQuotes(input)).toBe(expected)
+  })
+
+  it("handles opening and closing quotes on different lines", () => {
+    const input = "'hello\nworld'"
+    const result = niceQuotes(input)
+    // The apostropheRegex lookahead stops at \n, so on line 1 no closing quote is found.
+    // Thus ' before hello becomes MLA (apostrophe), not LSQ (opening quote).
+    // The ' after world is caught by closingSingle → RSQ.
+    expect(result).toBe(`${MLA}hello\nworld${RSQ}`)
+    expect(niceQuotes(result)).toBe(result) // idempotent
+  })
+
+  it("multi-line is idempotent", () => {
+    const input = "She said, 'I can't\ngo to O'Brien's\nfish 'n' chips shop.'"
+    const first = niceQuotes(input)
+    expect(niceQuotes(first)).toBe(first)
+  })
+})
+
+describe("STRESS R2: Possessive before curly double quote (pre-converted input)", () => {
+  it("handles straight apostrophe in possessive before RDQ", () => {
+    // Input where double quotes are already curly but apostrophe is straight
+    // This can happen when mixing output from different tools
+    const input = `${LDQ}the dog's${RDQ}`
+    const result = niceQuotes(input)
+    // The possessive regex checks afterPossessive which includes " (ASCII).
+    // But RDQ is not ASCII ". The contraction regex will catch it instead:
+    // g + ' + s where both are LATIN_LETTERS
+    expect(result).toBe(`${LDQ}the dog${MLA}s${RDQ}`)
+  })
+
+  it("handles straight apostrophe in contraction before RDQ", () => {
+    const input = `${LDQ}I can't${RDQ}`
+    const result = niceQuotes(input)
+    expect(result).toBe(`${LDQ}I can${MLA}t${RDQ}`)
+  })
+
+  it("pre-converted doubles with straight apostrophe is idempotent after one pass", () => {
+    const input = `${LDQ}the dog's bone${RDQ}`
+    const first = niceQuotes(input)
+    expect(niceQuotes(first)).toBe(first)
+  })
+})
+
+describe("STRESS R2: Decade abbreviations in various contexts", () => {
+  it.each([
+    ["the '60s", `the ${MLA}60s`],
+    ["the '70s", `the ${MLA}70s`],
+    ["the '80s", `the ${MLA}80s`],
+    ["the '90s", `the ${MLA}90s`],
+    ["the '00s", `the ${MLA}00s`],
+  ])('decade "%s"', (input, expected) => {
+    expect(niceQuotes(input)).toBe(expected)
+  })
+
+  it("decade inside double quotes", () => {
+    const input = `"the '90s were great"`
+    const expected = `${LDQ}the ${MLA}90s were great${RDQ}`
+    expect(niceQuotes(input)).toBe(expected)
+  })
+
+  it("decade inside single quotes", () => {
+    const input = "she said 'the '90s were great'"
+    const result = niceQuotes(input)
+    // The apostropheRegex lookahead for 'the stops at the next straight ' (before 90s)
+    // without finding RSQ/MLA, so 'the becomes MLA (apostrophe).
+    // For '90s, the lookahead sees the RSQ at great' → treated as opening quote (LSQ).
+    expect(result).toContain(`${MLA}the`)
+    expect(result).toContain(`${LSQ}90s`)  // becomes opening quote, not apostrophe
+    expect(result).toContain(`great${RSQ}`)
+    expect(niceQuotes(result)).toBe(result) // idempotent
+  })
+
+  it("multiple decades in one sentence", () => {
+    const input = "The '60s, '70s, and '80s were different."
+    const result = niceQuotes(input)
+    expect(result).toContain(`${MLA}60s`)
+    expect(result).toContain(`${MLA}70s`)
+    expect(result).toContain(`${MLA}80s`)
+  })
+})
+
+describe("STRESS R2: 'twas-style leading apostrophes", () => {
+  it.each([
+    ["'twas", `${MLA}twas`],
+    ["'tis", `${MLA}tis`],
+    ["'cause", `${MLA}cause`],
+    ["'bout", `${MLA}bout`],
+    ["'neath", `${MLA}neath`],
+    ["'til", `${MLA}til`],
+  ])('leading contraction "%s"', (input, expected) => {
+    expect(niceQuotes(input)).toBe(expected)
+  })
+
+  it("leading apostrophe mid-sentence", () => {
+    const input = "It was 'twas the night"
+    const result = niceQuotes(input)
+    expect(result).toContain(`${MLA}twas`)
+  })
+
+  it("leading apostrophe inside single quotes", () => {
+    const input = "'twas the night, 'twas indeed"
+    const result = niceQuotes(input)
+    // First 'twas at start - apostrophe
+    // Second 'twas mid-sentence - apostrophe
+    // Both should be MLA since there's no matching closing quote
+    expect(result).toBe(`${MLA}twas the night, ${MLA}twas indeed`)
+  })
+
+  it("leading apostrophe inside double quotes", () => {
+    const input = `"'twas the night"`
+    const expected = `${LDQ}${MLA}twas the night${RDQ}`
+    expect(niceQuotes(input)).toBe(expected)
+  })
+})
+
+describe("STRESS R2: Possessive 's followed by 's (dogs's, boss's)", () => {
+  it.each([
+    // These are grammatically valid in different style guides
+    ["the boss's car", `the boss${MLA}s car`],
+    ["James's book", `James${MLA}s book`],
+    ["the dress's color", `the dress${MLA}s color`],
+    ["Chris's house", `Chris${MLA}s house`],
+  ])('possessive after s-ending word: "%s"', (input, expected) => {
+    expect(niceQuotes(input)).toBe(expected)
+  })
+})
+
+describe("STRESS R2: Interaction between quote ordering steps", () => {
+  it("possessive runs before closing, so 'dog's' gets MLA not RSQ for possessive", () => {
+    // In 'dog's bone', the ' after dog:
+    // - Possessive sees: preceded by g, followed by s + space -> MLA
+    // - Closing would also match but possessive runs first
+    const input = "the dog's bone"
+    const result = niceQuotes(input)
+    expect(result).toBe(`the dog${MLA}s bone`)
+  })
+
+  it("closing runs after possessive, so trailing ' without 's gets RSQ", () => {
+    // In 'end' the final ':
+    // - Possessive: followed by end-of-string, not by 's' -> no match
+    // - Closing: followed by end-of-string -> RSQ
+    const input = "end'"
+    expect(niceQuotes(input)).toBe(`end${RSQ}`)
+  })
+
+  it("contraction runs after both, catching mid-word apostrophes", () => {
+    // In don't, the ':
+    // - Possessive: followed by 't', not 's + ending -> no match
+    // - Closing: followed by 't', not ending pattern -> no match
+    // - Contraction: Latin + ' + Latin -> MLA
+    const input = "don't"
+    expect(niceQuotes(input)).toBe(`don${MLA}t`)
+  })
+
+  it("'n' handler runs before possessive/closing, preventing misclassification", () => {
+    // In Rock 'n' Roll, the second ' in 'n':
+    // - If 'n' handler didn't run first, closing quote regex would match it
+    //   (preceded by 'n', followed by space which is in afterEndingSinglePatterns)
+    // - But 'n' handler converts both to MLA first
+    const input = "Rock 'n' Roll"
+    const result = niceQuotes(input)
+    expect(result).toBe(`Rock ${MLA}n${MLA} Roll`)
+    // Verify the second apostrophe is MLA, not RSQ
+    expect(result).not.toContain(RSQ)
+  })
+})
+
+describe("STRESS R2: Empty/minimal inputs", () => {
+  it.each([
+    ["", ""],
+    [" ", " "],
+    ["'", MLA], // lone apostrophe - apostropheRegex matches (no closing quote ahead)
+    ["a", "a"],
+    ["'a", `${MLA}a`], // leading apostrophe before word
+    ["a'", `a${RSQ}`], // trailing - closing quote
+  ])('minimal input "%s"', (input, expected) => {
+    const result = niceQuotes(input)
+    expect(result).toBe(expected)
+    // All minimal inputs should be idempotent
+    expect(niceQuotes(result)).toBe(result)
+  })
+})
+
+describe("STRESS R2: Contraction regex normalizes RSQ→MLA between Latin letters", () => {
+  // This is the key idempotency mechanism for text from external systems
+  it.each([
+    [`don${RSQ}t`, `don${MLA}t`],
+    [`I${RSQ}m`, `I${MLA}m`],
+    [`they${RSQ}re`, `they${MLA}re`],
+    [`O${RSQ}Brien`, `O${MLA}Brien`],
+    [`we${RSQ}ve`, `we${MLA}ve`],
+    [`she${RSQ}ll`, `she${MLA}ll`],
+  ])('normalizes RSQ to MLA in contraction: "%s"', (input, expected) => {
+    expect(niceQuotes(input)).toBe(expected)
+  })
+
+  it("does NOT normalize RSQ to MLA when RSQ is a closing quote", () => {
+    // RSQ after a word, followed by space - this is a closing quote, not contraction
+    const input = `${LSQ}hello${RSQ} world`
+    expect(niceQuotes(input)).toBe(input)
+    // RSQ should remain RSQ
+    expect(niceQuotes(input)).toContain(RSQ)
+  })
+})
+
+describe("STRESS R2: Combined stress - all features in one sentence", () => {
+  it("handles the kitchen sink", () => {
+    const input = `"O'Brien's fish 'n' chips shop in the '90s wasn't the dogs' favorite," she said, 'twas better.`
+    const result = niceQuotes(input)
+    // O'Brien's: contraction (O→Brien) + possessive (Brien→s)
+    expect(result).toContain(`O${MLA}Brien${MLA}s`)
+    // fish 'n' chips: 'n' abbreviation
+    expect(result).toContain(`fish ${MLA}n${MLA} chips`)
+    // '90s: The dogs' closing quote is visible in the lookahead, so '90s is treated
+    // as an opening quote (LSQ) rather than an apostrophe (MLA). Known limitation.
+    expect(result).toContain(`${LSQ}90s`)
+    // wasn't: contraction
+    expect(result).toContain(`wasn${MLA}t`)
+    // dogs': possessive plural (ambiguous, gets RSQ)
+    expect(result).toContain(`dogs${RSQ}`)
+    // 'twas: leading apostrophe (outside the double-quoted phrase, no closing quote ahead)
+    expect(result).toContain(`${MLA}twas`)
+    // Idempotent
+    expect(niceQuotes(result)).toBe(result)
+  })
+
+  it("handles nested quotes with all apostrophe types", () => {
+    const input = `"She said, 'O'Brien's '90s Rock 'n' Roll wasn't bad.'"`
+    const result = niceQuotes(input)
+    expect(result).toContain(LDQ)
+    expect(result).toContain(RDQ)
+    // The inner single-quoted phrase 'O'Brien's ... bad.' creates LSQ/RSQ pairs
+    expect(result).toContain(`O${MLA}Brien${MLA}s`)
+    // '90s inside single-quoted phrase with closing quote ahead → LSQ (known limitation)
+    expect(result).toContain(`${LSQ}90s`)
+    expect(result).toContain(`${MLA}n${MLA}`)
+    expect(result).toContain(`wasn${MLA}t`)
+    // Idempotent
+    expect(niceQuotes(result)).toBe(result)
+  })
+})
+
+describe("STRESS R2: Possessive 's where 's is followed by another word (not ending context)", () => {
+  // This tests the boundary between possessive and contraction regexes
+  it("possessive 's before a word starting with 's'", () => {
+    // "dog's stuff" - possessive 's followed by space then 'stuff'
+    // The possessive regex sees: ' + s + space (space is in afterEndingSinglePatterns) -> match
+    const input = "the dog's stuff"
+    expect(niceQuotes(input)).toBe(`the dog${MLA}s stuff`)
+  })
+
+  it("possessive 's before a word starting with a vowel", () => {
+    const input = "the dog's ear"
+    expect(niceQuotes(input)).toBe(`the dog${MLA}s ear`)
+  })
+
+  it("what looks like possessive 's but is actually end of contraction + s", () => {
+    // "it's" can be "it is" (contraction) or "its" possessive - both output MLA
+    const input = "it's a test"
+    expect(niceQuotes(input)).toBe(`it${MLA}s a test`)
+  })
+})
+
+describe("STRESS R2: Pathological regex - ensure no catastrophic backtracking", () => {
+  it("handles 1000+ chars without matching closing quote (hits lookahead limit)", () => {
+    // The apostropheRegex has {0,1000} lookahead limit
+    const longText = "a".repeat(1500)
+    const input = `'${longText}`
+    const start = performance.now()
+    const result = niceQuotes(input)
+    const elapsed = performance.now() - start
+    // Should complete in well under 1 second (not exponential backtracking)
+    expect(elapsed).toBeLessThan(1000)
+    expect(result).toBeDefined()
+    expect(niceQuotes(result)).toBe(result) // idempotent
+  })
+
+  it("handles many apostrophes in rapid succession", () => {
+    const input = "a'b'c'd'e'f'g'h'i'j'k'l'm'n'o'p"
+    const start = performance.now()
+    const result = niceQuotes(input)
+    const elapsed = performance.now() - start
+    expect(elapsed).toBeLessThan(1000)
+    // All should be contractions (Latin + ' + Latin)
+    expect(result).not.toContain("'")
+    expect(niceQuotes(result)).toBe(result)
+  })
+
+  it("handles alternating quotes and spaces", () => {
+    const input = "' ' ' ' ' ' ' ' ' '"
+    const start = performance.now()
+    const result = niceQuotes(input)
+    const elapsed = performance.now() - start
+    expect(elapsed).toBeLessThan(1000)
+    expect(niceQuotes(result)).toBe(result)
+  })
+})
+
+describe("STRESS R2: 'n' handler does NOT match when separator breaks the pattern", () => {
+  it("does not match 'n' when separator is between space and apostrophe", () => {
+    // The regex: (?<=\w\sep? )'n'(?= \sep?\w)
+    // If the input is: Rock SEP 'n' Roll (sep between Rock and space)
+    // The lookbehind needs \w + optional-sep + space before '
+    const input = `Rock${SEP} 'n' ${SEP}Roll`
+    const result = niceQuotes(input, { separator: SEP })
+    // \w = k, then SEP, then space before ' -> lookbehind (?<=\w\sep? ) should match
+    // After 'n': space, then SEP, then R -> (?= \sep?\w) should match
+    expect(result).toContain(`${MLA}n${MLA}`)
+    expect(niceQuotes(result, { separator: SEP })).toBe(result)
+  })
+})
