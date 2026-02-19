@@ -11,6 +11,7 @@ const {
   RIGHT_DOUBLE_QUOTE,
   LEFT_SINGLE_QUOTE,
   RIGHT_SINGLE_QUOTE,
+  MODIFIER_LETTER_APOSTROPHE,
   ELLIPSIS,
 } = UNICODE_SYMBOLS
 
@@ -29,26 +30,35 @@ function convertSingleQuotes(text: string, sep: string): string {
 
   // Handle empty single quotes '' and whitespace-only quotes ' ' first
   // Only match straight quotes, not already-converted curly quotes
-  const singleQuoteChars = `'${LEFT_SINGLE_QUOTE}${RIGHT_SINGLE_QUOTE}`
+  const singleQuoteChars = `'${LEFT_SINGLE_QUOTE}${RIGHT_SINGLE_QUOTE}${MODIFIER_LETTER_APOSTROPHE}`
   text = text.replace(new RegExp(`(?<![${singleQuoteChars}])''(?![${singleQuoteChars}])`, "g"), `${LEFT_SINGLE_QUOTE}${RIGHT_SINGLE_QUOTE}`)
   text = text.replace(new RegExp(`(?<![${singleQuoteChars}])'(\\s+)'(?![${singleQuoteChars}])`, "g"), `${LEFT_SINGLE_QUOTE}$1${RIGHT_SINGLE_QUOTE}`)
 
   const afterEndingSinglePatterns = `\\s\\.!?;,\\)${EM_DASH}\\-\\]"`
+  // Full pattern with optional 's' for lookahead detection in apostropheRegex
   const afterEndingSingle = `(?=${escapedSep}?(?:s${escapedSep}?)?(?:[${afterEndingSinglePatterns}]|$))`
-  const endingSingle = `(?<=[^\\s${LEFT_DOUBLE_QUOTE}'])[']${afterEndingSingle}`
-  text = text.replace(new RegExp(endingSingle, "gm"), RIGHT_SINGLE_QUOTE)
 
-  const contraction = `(?<=[${LATIN_LETTERS}])['${RIGHT_SINGLE_QUOTE}](?=${escapedSep}?[${LATIN_LETTERS}])`
-  text = text.replace(new RegExp(contraction, "gm"), RIGHT_SINGLE_QUOTE)
+  // Possessive: 's followed by ending context (e.g., dog's) → U+02BC
+  const afterPossessive = `(?=${escapedSep}?s${escapedSep}?(?:[${afterEndingSinglePatterns}]|$))`
+  const possessiveSingle = `(?<=[^\\s${LEFT_DOUBLE_QUOTE}'])[']${afterPossessive}`
+  text = text.replace(new RegExp(possessiveSingle, "gm"), MODIFIER_LETTER_APOSTROPHE)
 
-  const apostropheWhitelist = `(?=n${RIGHT_SINGLE_QUOTE} )`
-  const endQuoteNotContraction = `(?!${contraction})${RIGHT_SINGLE_QUOTE}${afterEndingSingle}`
+  // Closing single quote: ending context without 's' → U+2019
+  const afterClosingSingle = `(?=${escapedSep}?(?:[${afterEndingSinglePatterns}]|$))`
+  const closingSingle = `(?<=[^\\s${LEFT_DOUBLE_QUOTE}'])[']${afterClosingSingle}`
+  text = text.replace(new RegExp(closingSingle, "gm"), RIGHT_SINGLE_QUOTE)
+
+  const contraction = `(?<=[${LATIN_LETTERS}])['${RIGHT_SINGLE_QUOTE}${MODIFIER_LETTER_APOSTROPHE}](?=${escapedSep}?[${LATIN_LETTERS}])`
+  text = text.replace(new RegExp(contraction, "gm"), MODIFIER_LETTER_APOSTROPHE)
+
+  const apostropheWhitelist = `(?=n[${RIGHT_SINGLE_QUOTE}${MODIFIER_LETTER_APOSTROPHE}] )`
+  const endQuoteNotContraction = `(?!${contraction})[${RIGHT_SINGLE_QUOTE}${MODIFIER_LETTER_APOSTROPHE}]${afterEndingSingle}`
   // Limit lookahead scan to 1000 chars to prevent catastrophic backtracking on pathological inputs
   const apostropheRegex = new RegExp(
     `(?<=^|[^\\w])'(${apostropheWhitelist}|(?![^${LEFT_SINGLE_QUOTE}'\\n]{0,1000}${endQuoteNotContraction}))`,
     "gm"
   )
-  text = text.replace(apostropheRegex, RIGHT_SINGLE_QUOTE)
+  text = text.replace(apostropheRegex, MODIFIER_LETTER_APOSTROPHE)
 
   const beginningSingle = `(?<beforeContext>(?:^|[\\s${LEFT_DOUBLE_QUOTE}${RIGHT_DOUBLE_QUOTE}${EM_DASH}\\-\\(])${escapedSep}?)['](?=${escapedSep}?\\S)`
   text = text.replace(new RegExp(beginningSingle, "gm"), `$<beforeContext>${LEFT_SINGLE_QUOTE}`)

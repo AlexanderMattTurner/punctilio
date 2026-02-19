@@ -6,6 +6,7 @@ const {
   RIGHT_DOUBLE_QUOTE,
   LEFT_SINGLE_QUOTE,
   RIGHT_SINGLE_QUOTE,
+  MODIFIER_LETTER_APOSTROPHE,
   EM_DASH,
   ELLIPSIS,
 } = UNICODE_SYMBOLS
@@ -27,14 +28,14 @@ describe("niceQuotes", () => {
       ],
       ['"world model";', `${LEFT_DOUBLE_QUOTE}world model${RIGHT_DOUBLE_QUOTE};`],
       ['"party"/"wedding."', `${LEFT_DOUBLE_QUOTE}party${RIGHT_DOUBLE_QUOTE}/${LEFT_DOUBLE_QUOTE}wedding.${RIGHT_DOUBLE_QUOTE}`],
-      ['"Hi \'Trout!"', `${LEFT_DOUBLE_QUOTE}Hi ${RIGHT_SINGLE_QUOTE}Trout!${RIGHT_DOUBLE_QUOTE}`],
+      ['"Hi \'Trout!"', `${LEFT_DOUBLE_QUOTE}Hi ${MODIFIER_LETTER_APOSTROPHE}Trout!${RIGHT_DOUBLE_QUOTE}`],
       [`${LEFT_DOUBLE_QUOTE}scope insensitivity${RIGHT_DOUBLE_QUOTE}`, `${LEFT_DOUBLE_QUOTE}scope insensitivity${RIGHT_DOUBLE_QUOTE}`],
       [
         '"how many ways can this function be implemented?".',
         `${LEFT_DOUBLE_QUOTE}how many ways can this function be implemented?${RIGHT_DOUBLE_QUOTE}.`,
       ],
       ['SSL.")', `SSL.${RIGHT_DOUBLE_QUOTE})`],
-      ["can't multiply\"?", `can${RIGHT_SINGLE_QUOTE}t multiply${RIGHT_DOUBLE_QUOTE}?`],
+      ["can't multiply\"?", `can${MODIFIER_LETTER_APOSTROPHE}t multiply${RIGHT_DOUBLE_QUOTE}?`],
       ['with "scope insensitivity":', `with ${LEFT_DOUBLE_QUOTE}scope insensitivity${RIGHT_DOUBLE_QUOTE}:`],
       ['("the best")', `(${LEFT_DOUBLE_QUOTE}the best${RIGHT_DOUBLE_QUOTE})`],
       ['"This is a quote"...', `${LEFT_DOUBLE_QUOTE}This is a quote${RIGHT_DOUBLE_QUOTE}...`],
@@ -57,16 +58,16 @@ describe("niceQuotes", () => {
     it.each([
       ["He said, 'Hi'", `He said, ${LEFT_SINGLE_QUOTE}Hi${RIGHT_SINGLE_QUOTE}`],
       ["He wanted 'power.'", `He wanted ${LEFT_SINGLE_QUOTE}power.${RIGHT_SINGLE_QUOTE}`],
-      ["I'd", `I${RIGHT_SINGLE_QUOTE}d`],
-      ["I don't'nt want to go", `I don${RIGHT_SINGLE_QUOTE}t${RIGHT_SINGLE_QUOTE}nt want to go`],
-      ['"\'sup"', `${LEFT_DOUBLE_QUOTE}${RIGHT_SINGLE_QUOTE}sup${RIGHT_DOUBLE_QUOTE}`],
-      ["'SUP", `${RIGHT_SINGLE_QUOTE}SUP`],
-      ["Rock 'n' Roll", `Rock ${RIGHT_SINGLE_QUOTE}n${RIGHT_SINGLE_QUOTE} Roll`],
-      ["I was born in '99", `I was born in ${RIGHT_SINGLE_QUOTE}99`],
-      ["'99 tigers weren't a match", `${RIGHT_SINGLE_QUOTE}99 tigers weren${RIGHT_SINGLE_QUOTE}t a match`],
+      ["I'd", `I${MODIFIER_LETTER_APOSTROPHE}d`],
+      ["I don't'nt want to go", `I don${MODIFIER_LETTER_APOSTROPHE}t${MODIFIER_LETTER_APOSTROPHE}nt want to go`],
+      ['"\'sup"', `${LEFT_DOUBLE_QUOTE}${MODIFIER_LETTER_APOSTROPHE}sup${RIGHT_DOUBLE_QUOTE}`],
+      ["'SUP", `${MODIFIER_LETTER_APOSTROPHE}SUP`],
+      ["Rock 'n' Roll", `Rock ${MODIFIER_LETTER_APOSTROPHE}n${RIGHT_SINGLE_QUOTE} Roll`],
+      ["I was born in '99", `I was born in ${MODIFIER_LETTER_APOSTROPHE}99`],
+      ["'99 tigers weren't a match", `${MODIFIER_LETTER_APOSTROPHE}99 tigers weren${MODIFIER_LETTER_APOSTROPHE}t a match`],
       [
         "I'm not the best, haven't you heard?",
-        `I${RIGHT_SINGLE_QUOTE}m not the best, haven${RIGHT_SINGLE_QUOTE}t you heard?`,
+        `I${MODIFIER_LETTER_APOSTROPHE}m not the best, haven${MODIFIER_LETTER_APOSTROPHE}t you heard?`,
       ],
       // Skipped: Complex edge case with 'sup and quoted phrase
       // ["Hey, 'sup 'this is a single quote'", `Hey, ${RIGHT_SINGLE_QUOTE}sup ${LEFT_SINGLE_QUOTE}this is a single quote${RIGHT_SINGLE_QUOTE}`],
@@ -79,7 +80,7 @@ describe("niceQuotes", () => {
       ["('survival incentive')", `(${LEFT_SINGLE_QUOTE}survival incentive${RIGHT_SINGLE_QUOTE})`],
       [
         "strategy s's return is good, even as d's return is bad",
-        `strategy s${RIGHT_SINGLE_QUOTE}s return is good, even as d${RIGHT_SINGLE_QUOTE}s return is bad`,
+        `strategy s${MODIFIER_LETTER_APOSTROPHE}s return is good, even as d${MODIFIER_LETTER_APOSTROPHE}s return is bad`,
       ],
     ])('should handle single quotes/apostrophes in "%s"', (input, expected) => {
       expect(niceQuotes(input)).toBe(expected)
@@ -88,13 +89,13 @@ describe("niceQuotes", () => {
 
   describe("leading apostrophe contractions", () => {
     it.each([
-      ["'twas the night", `${RIGHT_SINGLE_QUOTE}twas the night`],
-      ["'tis the season", `${RIGHT_SINGLE_QUOTE}tis the season`],
-      ["'Twas brillig", `${RIGHT_SINGLE_QUOTE}Twas brillig`],
-      ["'Tis but a scratch", `${RIGHT_SINGLE_QUOTE}Tis but a scratch`],
+      ["'twas the night", `${MODIFIER_LETTER_APOSTROPHE}twas the night`],
+      ["'tis the season", `${MODIFIER_LETTER_APOSTROPHE}tis the season`],
+      ["'Twas brillig", `${MODIFIER_LETTER_APOSTROPHE}Twas brillig`],
+      ["'Tis but a scratch", `${MODIFIER_LETTER_APOSTROPHE}Tis but a scratch`],
       // Decade abbreviations
-      ["the '90s", `the ${RIGHT_SINGLE_QUOTE}90s`],
-      ["in '99", `in ${RIGHT_SINGLE_QUOTE}99`],
+      ["the '90s", `the ${MODIFIER_LETTER_APOSTROPHE}90s`],
+      ["in '99", `in ${MODIFIER_LETTER_APOSTROPHE}99`],
     ])('handles leading apostrophe in "%s"', (input, expected) => {
       expect(niceQuotes(input)).toBe(expected)
     })
@@ -137,9 +138,9 @@ describe("niceQuotes", () => {
 
     // From Standard Ebooks: M'Donald-style names (archaic patterns)
     it.each([
-      [`"M'Lord"`, `${LEFT_DOUBLE_QUOTE}M${RIGHT_SINGLE_QUOTE}Lord${RIGHT_DOUBLE_QUOTE}`],
-      [`O'Brien's idea`, `O${RIGHT_SINGLE_QUOTE}Brien${RIGHT_SINGLE_QUOTE}s idea`],
-      [`The O'Connors`, `The O${RIGHT_SINGLE_QUOTE}Connors`],
+      [`"M'Lord"`, `${LEFT_DOUBLE_QUOTE}M${MODIFIER_LETTER_APOSTROPHE}Lord${RIGHT_DOUBLE_QUOTE}`],
+      [`O'Brien's idea`, `O${MODIFIER_LETTER_APOSTROPHE}Brien${MODIFIER_LETTER_APOSTROPHE}s idea`],
+      [`The O'Connors`, `The O${MODIFIER_LETTER_APOSTROPHE}Connors`],
     ])('handles Irish/Scottish name apostrophes: "%s"', (input, expected) => {
       expect(niceQuotes(input)).toBe(expected)
     })
@@ -165,10 +166,10 @@ describe("niceQuotes", () => {
   describe("complex real-world patterns", () => {
     it.each([
       // Dialogue with attribution
-      ['"I can\'t," she said.', `${LEFT_DOUBLE_QUOTE}I can${RIGHT_SINGLE_QUOTE}t,${RIGHT_DOUBLE_QUOTE} she said.`],
+      ['"I can\'t," she said.', `${LEFT_DOUBLE_QUOTE}I can${MODIFIER_LETTER_APOSTROPHE}t,${RIGHT_DOUBLE_QUOTE} she said.`],
       ['"Why not?" he asked.', `${LEFT_DOUBLE_QUOTE}Why not?${RIGHT_DOUBLE_QUOTE} he asked.`],
       // Multiple contractions
-      ["I'm can't won't don't", `I${RIGHT_SINGLE_QUOTE}m can${RIGHT_SINGLE_QUOTE}t won${RIGHT_SINGLE_QUOTE}t don${RIGHT_SINGLE_QUOTE}t`],
+      ["I'm can't won't don't", `I${MODIFIER_LETTER_APOSTROPHE}m can${MODIFIER_LETTER_APOSTROPHE}t won${MODIFIER_LETTER_APOSTROPHE}t don${MODIFIER_LETTER_APOSTROPHE}t`],
       // Quote within parentheses
       ['("test")', `(${LEFT_DOUBLE_QUOTE}test${RIGHT_DOUBLE_QUOTE})`],
       ["('test')", `(${LEFT_SINGLE_QUOTE}test${RIGHT_SINGLE_QUOTE})`],
@@ -189,7 +190,7 @@ describe("niceQuotes", () => {
     it.each([
       `${LEFT_DOUBLE_QUOTE}already curly${RIGHT_DOUBLE_QUOTE}`,
       `${LEFT_SINGLE_QUOTE}single curly${RIGHT_SINGLE_QUOTE}`,
-      `I${RIGHT_SINGLE_QUOTE}m already converted`,
+      `I${MODIFIER_LETTER_APOSTROPHE}m already converted`,
       `${LEFT_DOUBLE_QUOTE}nested ${LEFT_SINGLE_QUOTE}quotes${RIGHT_SINGLE_QUOTE}${RIGHT_DOUBLE_QUOTE}`,
     ])('is idempotent for: "%s"', (input) => {
       expect(niceQuotes(input)).toBe(input)
@@ -201,7 +202,7 @@ describe("niceQuotes", () => {
     const sep = "\uE000"
     it.each([
       [`"Hello${sep} world"`, `${LEFT_DOUBLE_QUOTE}Hello${sep} world${RIGHT_DOUBLE_QUOTE}`, "preserves separator positions"],
-      [`don${sep}'t`, `don${sep}${RIGHT_SINGLE_QUOTE}t`, "contractions across separator"],
+      [`don${sep}'t`, `don${sep}${MODIFIER_LETTER_APOSTROPHE}t`, "contractions across separator"],
       [`"test${sep}"`, `${LEFT_DOUBLE_QUOTE}test${sep}${RIGHT_DOUBLE_QUOTE}`, "quotes at separator boundaries"],
     ])("%s → %s (%s)", (input, expected) => {
       expect(niceQuotes(input, { separator: sep })).toBe(expected)
@@ -233,10 +234,10 @@ describe("niceQuotes", () => {
 
   describe("consecutive contractions", () => {
     it.each([
-      ["I'd've", `I${RIGHT_SINGLE_QUOTE}d${RIGHT_SINGLE_QUOTE}ve`],
-      ["y'all'd've", `y${RIGHT_SINGLE_QUOTE}all${RIGHT_SINGLE_QUOTE}d${RIGHT_SINGLE_QUOTE}ve`],
-      ["wouldn't've", `wouldn${RIGHT_SINGLE_QUOTE}t${RIGHT_SINGLE_QUOTE}ve`],
-      ["couldn't've", `couldn${RIGHT_SINGLE_QUOTE}t${RIGHT_SINGLE_QUOTE}ve`],
+      ["I'd've", `I${MODIFIER_LETTER_APOSTROPHE}d${MODIFIER_LETTER_APOSTROPHE}ve`],
+      ["y'all'd've", `y${MODIFIER_LETTER_APOSTROPHE}all${MODIFIER_LETTER_APOSTROPHE}d${MODIFIER_LETTER_APOSTROPHE}ve`],
+      ["wouldn't've", `wouldn${MODIFIER_LETTER_APOSTROPHE}t${MODIFIER_LETTER_APOSTROPHE}ve`],
+      ["couldn't've", `couldn${MODIFIER_LETTER_APOSTROPHE}t${MODIFIER_LETTER_APOSTROPHE}ve`],
     ])('handles double contraction: "%s"', (input, expected) => {
       expect(niceQuotes(input)).toBe(expected)
     })

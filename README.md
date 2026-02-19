@@ -149,3 +149,4 @@ transform(text, {
   - Spaced en-dashes between words (word – word)
 - Setting either style to `none` skips the entire transform category: `punctuationStyle: 'none'` preserves straight quotes, apostrophes, and prime marks; `dashStyle: 'none'` preserves all hyphens, number ranges, date ranges, and minus signs.
 - `punctilio` is idempotent by design: `transform(transform(text))` always equals `transform(text)`. If performance is critical, set `checkIdempotency: false` to skip the verification pass.
+- Apostrophes in contractions (don't), possessives (dog's), and leading abbreviations ('twas, '99) use Modifier Letter Apostrophe (U+02BC) rather than Right Single Quotation Mark (U+2019), distinguishing them from closing single quotes.

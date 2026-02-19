@@ -161,10 +161,11 @@ import { hyphenReplace } from "./dashes.js"
 import { symbolTransform, fractions as fractionsTransform, degrees as degreesTransform, superscriptOrdinal as superscriptTransform, primeMarks, collapseSpaces as collapseSpacesTransform, punctuationLigatures as ligaturesTransform } from "./symbols.js"
 import { nbspTransform as nbspTransformFn } from "./nbsp.js"
 import { assertSeparatorCountPreserved, formatErrorString } from "./utils.js"
-import { DEFAULT_SEPARATOR } from "./constants.js"
+import { DEFAULT_SEPARATOR, UNICODE_SYMBOLS } from "./constants.js"
 
 export { assertSeparatorCountPreserved, countSeparators } from "./utils.js"
-export { DEFAULT_SEPARATOR } from "./constants.js"
+export { DEFAULT_SEPARATOR, UNICODE_SYMBOLS } from "./constants.js"
+export const MODIFIER_LETTER_APOSTROPHE = UNICODE_SYMBOLS.MODIFIER_LETTER_APOSTROPHE
 
 /**
  * Applies all typography transformations: smart quotes, proper dashes,

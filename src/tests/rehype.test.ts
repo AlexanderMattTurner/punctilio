@@ -19,6 +19,7 @@ const {
   LEFT_DOUBLE_QUOTE: LDQ,
   RIGHT_DOUBLE_QUOTE: RDQ,
   RIGHT_SINGLE_QUOTE: RSQ,
+  MODIFIER_LETTER_APOSTROPHE: MLA,
   EM_DASH,
   EN_DASH,
   ELLIPSIS,
@@ -41,7 +42,7 @@ describe("rehypePunctilio", () => {
   describe("basic transformations", () => {
     it.each([
       ["quotes", '<p>"Hello," she said.</p>', `<p>${LDQ}Hello,${RDQ} she said.</p>`],
-      ["apostrophes", "<p>It's a test.</p>", `<p>It${RSQ}s a test.</p>`],
+      ["apostrophes", "<p>It's a test.</p>", `<p>It${MLA}s a test.</p>`],
       ["em dashes", "<p>Wait -- here it comes.</p>", `<p>Wait${EM_DASH}here it comes.</p>`],
       ["en dashes", "<p>Pages 1-5</p>", `<p>Pages 1${EN_DASH}5</p>`],
       ["ellipses", "<p>Wait...</p>", `<p>Wait${ELLIPSIS}</p>`],
@@ -127,7 +128,7 @@ describe("rehypePunctilio", () => {
       [
         "article content",
         `<article><h1>"Title's"</h1><p>"quotes" -- dashes</p><p>Pages 1-5</p></article>`,
-        `<article><h1>${LDQ}Title${RSQ}s${RDQ}</h1><p>${LDQ}quotes${RDQ}${EM_DASH}dashes</p><p>Pages 1${EN_DASH}5</p></article>`,
+        `<article><h1>${LDQ}Title${MLA}s${RDQ}</h1><p>${LDQ}quotes${RDQ}${EM_DASH}dashes</p><p>Pages 1${EN_DASH}5</p></article>`,
       ],
       [
         "mixed code and prose",
