@@ -124,6 +124,17 @@ describe("hyphenReplace", () => {
     })
   })
 
+  describe("tilde preservation", () => {
+    it.each([
+      ["word ~ word", "word ~ word"],
+      ["word ~~ word", "word ~~ word"],
+      ["the ~5% range", "the ~5% range"],
+      ["~approximately", "~approximately"],
+    ])('preserves tilde in "%s"', (input) => {
+      expect(hyphenReplace(input)).toBe(input)
+    })
+  })
+
   describe("with separator character", () => {
     const sep = "\uE000"
     it.each([

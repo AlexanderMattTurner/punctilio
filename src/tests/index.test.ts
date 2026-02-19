@@ -389,6 +389,16 @@ describe("transform", () => {
       const input = `Text with ${sep} in it`
       expect(() => transform(input, { separator: sep, nbsp: false })).not.toThrow()
     })
+
+    it("handles separator in fractions", () => {
+      const input = `1${sep}/2`
+      expect(transform(input, { separator: sep, fractions: true, nbsp: false })).toBe(`${sep}${FRACTION_1_2}`)
+    })
+
+    it("handles separator in degrees", () => {
+      const input = `72${sep} F`
+      expect(transform(input, { separator: sep, degrees: true, nbsp: false })).toBe(`72${sep} ${DEGREE}F`)
+    })
   })
 
   describe("additional idempotency", () => {

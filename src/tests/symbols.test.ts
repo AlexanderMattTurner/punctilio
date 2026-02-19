@@ -129,7 +129,7 @@ describe("legalSymbols", () => {
     // (c) preceded by "copyright" → copyright
     ["Copyright (c) Company", `Copyright ${UNICODE_SYMBOLS.COPYRIGHT} Company`],
     ["copyright (C) by Author", `copyright ${UNICODE_SYMBOLS.COPYRIGHT} by Author`],
-    // (r) and (tm) always convert
+    // (r) converts in trademark context
     ["Brand(r)", `Brand${UNICODE_SYMBOLS.REGISTERED}`],
     ["Product (R)", `Product ${UNICODE_SYMBOLS.REGISTERED}`],
     ["Name(tm)", `Name${UNICODE_SYMBOLS.TRADEMARK}`],
@@ -152,6 +152,16 @@ describe("legalSymbols", () => {
     ["discussed in (c) above", "discussed in (c) above"],
     ["(C) Acme Inc", "(C) Acme Inc"],
   ])('preserves (c) in non-copyright context "%s"', (input, expected) => {
+    expect(legalSymbols(input)).toBe(expected)
+  })
+
+  it.each([
+    // (r) in enumerations
+    ["(p), (q), (r), (s)", "(p), (q), (r), (s)"],
+    ["(Q); (R); (S)", "(Q); (R); (S)"],
+    // (r) in legal citations
+    ["See (r)(1)(A)", "See (r)(1)(A)"],
+  ])('preserves (r) in non-trademark context "%s"', (input, expected) => {
     expect(legalSymbols(input)).toBe(expected)
   })
 })

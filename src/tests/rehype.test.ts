@@ -363,6 +363,7 @@ describe("rehypePunctilio", () => {
         ["unmatched opening", "\u201CHello"],
         ["unmatched closing", "Hello\u201D"],
         ["extra opening", "\u201C\u201CHello\u201D"],
+        ["reversed quotes", "\u201DHello\u201C"],
       ])("throws for %s", (_name, input) => {
         expect(() => assertSmartQuotesMatch(input)).toThrow("Mismatched quotes")
       })
