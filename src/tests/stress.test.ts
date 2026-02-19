@@ -184,37 +184,27 @@ describe("STRESS: RSQ→MLA normalization (external system input)", () => {
 // ─── 'n' abbreviation boundaries ────────────────────────────────────────────
 
 describe("STRESS: 'n' abbreviation boundaries", () => {
-  it("does not match at start of string (no preceding word)", () => {
-    expect(niceQuotes("'n' Roll")).not.toContain(`${MLA}n${MLA}`)
-  })
-
-  it("does not match at end of string (no following word)", () => {
-    expect(niceQuotes("Rock 'n'")).not.toBe(`Rock ${MLA}n${MLA}`)
-  })
-
-  it("matches when 'n' is a quoted letter in word context (known false positive)", () => {
-    // (?<=\w\sep? )'n'(?= \sep?\w) matches: "letter" + space + 'n' + space + "is"
-    expect(niceQuotes("the letter 'n' is common")).toBe(`the letter ${MLA}n${MLA} is common`)
-  })
-
-  it("does not match when punctuation precedes the first apostrophe", () => {
-    // ',' is not \w, so lookbehind fails
-    const result = niceQuotes("said, 'n' is good")
-    expect(result).not.toBe(`said, ${MLA}n${MLA} is good`)
-  })
-
-  it("does not match uppercase 'N'", () => {
-    expect(niceQuotes("Rock 'N' Roll")).toBe(`Rock ${LSQ}N${RSQ} Roll`)
-  })
-
-  it("does not match when newline replaces space", () => {
-    expect(niceQuotes("Rock 'n'\nRoll")).not.toContain(`${MLA}n${MLA}`)
+  it.each([
+    ["quoted letter in word context (known false positive)", "the letter 'n' is common", `the letter ${MLA}n${MLA} is common`],
+    ["uppercase 'N'", "Rock 'N' Roll", `Rock ${LSQ}N${RSQ} Roll`],
+    ["multiple 'n' abbreviations", "Rock 'n' Roll and fish 'n' chips", `Rock ${MLA}n${MLA} Roll and fish ${MLA}n${MLA} chips`],
+    // R4: 'n' handler uses \w (not LATIN_LETTERS), so digits satisfy lookbehind/lookahead
+    ["digit neighbors (\\w includes digits)", "1 'n' 2", `1 ${MLA}n${MLA} 2`],
+  ])('%s', (_label, input, expected) => {
+    expectQuotes(input, expected)
   })
 
   it.each([
-    // No space after closing apostrophe → not 'n' handler, but contractions still fire
+    ["start of string (no preceding word)", "'n' Roll"],
+    ["end of string (no following word)", "Rock 'n'"],
+    ["punctuation precedes first apostrophe", "said, 'n' is good"],
+    ["newline replaces space", "Rock 'n'\nRoll"],
+  ])('does not produce MLA-n-MLA: %s', (_label, input) => {
+    expect(niceQuotes(input)).not.toContain(`${MLA}n${MLA}`)
+  })
+
+  it.each([
     ["Rock 'n'Roll", `Rock ${MLA}n${MLA}Roll`],
-    // No space before opening apostrophe → not 'n' handler
     ["Rock'n' Roll", undefined], // just verify it doesn't contain ʼnʼ
   ])("partial space: %s", (input, expected) => {
     const result = niceQuotes(input)
@@ -223,19 +213,7 @@ describe("STRESS: 'n' abbreviation boundaries", () => {
     } else {
       expect(result).not.toContain(`${MLA}n${MLA}`)
     }
-    expect(niceQuotes(result)).toBe(result) // idempotent
-  })
-
-  it("handles multiple 'n' abbreviations", () => {
-    expectQuotes(
-      "Rock 'n' Roll and fish 'n' chips",
-      `Rock ${MLA}n${MLA} Roll and fish ${MLA}n${MLA} chips`,
-    )
-  })
-
-  // R4: 'n' handler uses \w (not LATIN_LETTERS), so digits satisfy lookbehind/lookahead
-  it("matches 'n' with digit neighbors (\\w includes digits)", () => {
-    expectQuotes("1 'n' 2", `1 ${MLA}n${MLA} 2`)
+    expect(niceQuotes(result)).toBe(result)
   })
 })
 
@@ -268,29 +246,19 @@ describe("STRESS: Possessive 's before ending context characters", () => {
 // ─── Ambiguous / tricky cases ───────────────────────────────────────────────
 
 describe("STRESS: Ambiguous / tricky cases", () => {
-  it("possessive plural inside quotes is ambiguous but idempotent", () => {
-    const input = "'the dogs' bowl'"
+  it.each([
+    ["'the dog's'", `${LSQ}the dog${MLA}s${RSQ}`],
+    ["a'b'c'd'e'f", `a${MLA}b${MLA}c${MLA}d${MLA}e${MLA}f`],
+  ])('%s', (input, expected) => {
+    expectQuotes(input, expected)
+  })
+
+  it.each([
+    "'the dogs' bowl'",
+    `"the dogs' owner"`,
+    "a'''b",
+  ])('stable: "%s"', (input) => {
     const result = niceQuotes(input)
-    expect(result).toBeDefined()
-    expect(niceQuotes(result)).toBe(result)
-  })
-
-  it("possessive plural inside double quotes is idempotent", () => {
-    const input = `"the dogs' owner"`
-    const first = niceQuotes(input)
-    expect(niceQuotes(first)).toBe(first)
-  })
-
-  it("'the dog's' has opening quote + possessive + closing quote", () => {
-    expectQuotes("'the dog's'", `${LSQ}the dog${MLA}s${RSQ}`)
-  })
-
-  it("alternating quotes and text: all mid-word → MLA", () => {
-    expectQuotes("a'b'c'd'e'f", `a${MLA}b${MLA}c${MLA}d${MLA}e${MLA}f`)
-  })
-
-  it("triple straight quotes: stable", () => {
-    const result = niceQuotes("a'''b")
     expect(niceQuotes(result)).toBe(result)
   })
 })
@@ -299,26 +267,14 @@ describe("STRESS: Ambiguous / tricky cases", () => {
 
 describe("STRESS: Separator interactions", () => {
   it.each([
-    // Possessive with separator before 's
     [`dog${SEP}'s bone`, `dog${SEP}${MLA}s bone`, "possessive across sep"],
-    // Quote with separator at boundary
     [`'hello${SEP}'`, `${LSQ}hello${SEP}${RSQ}`, "closing after sep"],
-    // Separator before opening quote
     [`${SEP}'hello'`, `${SEP}${LSQ}hello${RSQ}`, "opening after sep"],
-  ])("%s → %s (%s)", (input, expected) => {
-    expect(niceQuotes(input, { separator: SEP })).toBe(expected)
-  })
-
-  it("handles separator between apostrophe and s", () => {
-    expectQuotes(`the dog'${SEP}s bone`, `the dog${MLA}${SEP}s bone`, { separator: SEP })
-  })
-
-  it("handles separator after possessive 's", () => {
-    expectQuotes(`the dog's${SEP} bone`, `the dog${MLA}s${SEP} bone`, { separator: SEP })
-  })
-
-  it("handles separator both between and after possessive", () => {
-    expectQuotes(`the dog'${SEP}s${SEP} bone`, `the dog${MLA}${SEP}s${SEP} bone`, { separator: SEP })
+    [`the dog'${SEP}s bone`, `the dog${MLA}${SEP}s bone`, "sep between apostrophe and s"],
+    [`the dog's${SEP} bone`, `the dog${MLA}s${SEP} bone`, "sep after possessive 's"],
+    [`the dog'${SEP}s${SEP} bone`, `the dog${MLA}${SEP}s${SEP} bone`, "sep both between and after"],
+  ])('%s → %s (%s)', (input, expected) => {
+    expectQuotes(input, expected, { separator: SEP })
   })
 
   it("'n' with separators around word boundaries", () => {
@@ -332,41 +288,26 @@ describe("STRESS: Separator interactions", () => {
 // ─── Punctuation style with apostrophes ─────────────────────────────────────
 
 describe("STRESS: Punctuation style — MLA excluded from period/comma movement", () => {
-  describe("american style", () => {
-    it.each([
-      // MLA: period/comma stay put (MLA is not in the quote character class)
-      [`the dog${MLA}s.`, `the dog${MLA}s.`],
-      [`Brien${MLA}s,`, `Brien${MLA}s,`],
-      [`Brien${MLA}s, hello`, `Brien${MLA}s, hello`],
-      // RSQ: period/comma move inside
-      [`${LSQ}hello${RSQ}.`, `${LSQ}hello.${RSQ}`],
-      [`${LSQ}hello${RSQ},`, `${LSQ}hello,${RSQ}`],
-    ])('american: "%s" → "%s"', (input, expected) => {
-      expect(niceQuotes(input, { punctuationStyle: "american" })).toBe(expected)
-    })
-
-    it("moves period inside closing double quote around possessive", () => {
-      expectQuotes(`"the dog's bone".`, `${LDQ}the dog${MLA}s bone.${RDQ}`, { punctuationStyle: "american" })
-    })
-  })
-
-  describe("british style", () => {
-    it.each([
-      // MLA: period stays put
-      [`Brien${MLA}s.`, `Brien${MLA}s.`],
-      // RSQ: period moves outside
-      [`${LSQ}hello.${RSQ}`, `${LSQ}hello${RSQ}.`],
-      // MLA not in regex char class
-      [`.${MLA}s`, `.${MLA}s`],
-    ])('british: "%s" → "%s"', (input, expected) => {
-      expect(niceQuotes(input, { punctuationStyle: "british" })).toBe(expected)
-    })
-
-    it("moves period outside closing double quote around possessive", () => {
-      expect(
-        niceQuotes(`${LDQ}the dog${MLA}s bone.${RDQ}`, { punctuationStyle: "british" })
-      ).toBe(`${LDQ}the dog${MLA}s bone${RDQ}.`)
-    })
+  it.each([
+    // American: MLA period/comma stay put (MLA is not in the quote character class)
+    [`the dog${MLA}s.`, `the dog${MLA}s.`, "american"],
+    [`Brien${MLA}s,`, `Brien${MLA}s,`, "american"],
+    [`Brien${MLA}s, hello`, `Brien${MLA}s, hello`, "american"],
+    // American: RSQ period/comma move inside
+    [`${LSQ}hello${RSQ}.`, `${LSQ}hello.${RSQ}`, "american"],
+    [`${LSQ}hello${RSQ},`, `${LSQ}hello,${RSQ}`, "american"],
+    // American: period inside closing DQ around possessive (straight → converted)
+    [`"the dog's bone".`, `${LDQ}the dog${MLA}s bone.${RDQ}`, "american"],
+    // British: MLA period stays put
+    [`Brien${MLA}s.`, `Brien${MLA}s.`, "british"],
+    // British: RSQ period moves outside
+    [`${LSQ}hello.${RSQ}`, `${LSQ}hello${RSQ}.`, "british"],
+    // British: MLA not in regex char class
+    [`.${MLA}s`, `.${MLA}s`, "british"],
+    // British: period outside closing DQ around possessive
+    [`${LDQ}the dog${MLA}s bone.${RDQ}`, `${LDQ}the dog${MLA}s bone${RDQ}.`, "british"],
+  ])('%s → %s (%s)', (input, expected, style) => {
+    expectQuotes(input, expected, { punctuationStyle: style as "american" | "british" })
   })
 })
 
@@ -374,17 +315,12 @@ describe("STRESS: Punctuation style — MLA excluded from period/comma movement"
 
 describe("STRESS: Multi-line behavior", () => {
   it.each([
-    // Contractions across lines
     ["I can't\nbelieve it's\nnot butter", `I can${MLA}t\nbelieve it${MLA}s\nnot butter`],
-    // Possessives across lines
     ["the dog's\nbone and\nthe cat's toy", `the dog${MLA}s\nbone and\nthe cat${MLA}s toy`],
+    // Lookahead stops at newline → MLA + RSQ, not LSQ + RSQ
+    ["'hello\nworld'", `${MLA}hello\nworld${RSQ}`],
   ])('multiline: "%s"', (input, expected) => {
     expectQuotes(input, expected)
-  })
-
-  it("apostropheRegex lookahead stops at newline (cross-line quotes → MLA + RSQ, not LSQ + RSQ)", () => {
-    // The \n stops the lookahead from seeing the closing quote on line 2
-    expectQuotes("'hello\nworld'", `${MLA}hello\nworld${RSQ}`)
   })
 
   it("complex multi-line is idempotent", () => {
@@ -455,20 +391,14 @@ describe("STRESS: 'twas-style leading apostrophes in extended contexts", () => {
   it.each([
     ["'cause", `${MLA}cause`],
     ["'til", `${MLA}til`],
-  ])('leading contraction "%s"', (input, expected) => {
+    ["'twas the night, 'twas indeed", `${MLA}twas the night, ${MLA}twas indeed`],
+    [`"'twas the night"`, `${LDQ}${MLA}twas the night${RDQ}`],
+  ])('"%s"', (input, expected) => {
     expectQuotes(input, expected)
   })
 
   it("mid-sentence leading apostrophe", () => {
     expect(niceQuotes("It was 'twas the night")).toContain(`${MLA}twas`)
-  })
-
-  it("multiple leading apostrophes (no closing quote ahead)", () => {
-    expectQuotes("'twas the night, 'twas indeed", `${MLA}twas the night, ${MLA}twas indeed`)
-  })
-
-  it("inside double quotes", () => {
-    expectQuotes(`"'twas the night"`, `${LDQ}${MLA}twas the night${RDQ}`)
   })
 })
 
@@ -510,32 +440,34 @@ describe("STRESS: Pathological inputs (backtracking protection)", () => {
 // ─── Complex combined scenarios ─────────────────────────────────────────────
 
 describe("STRESS: Kitchen sink — all features combined", () => {
-  it("dialogue with possessives, contractions, and 'n'", () => {
-    expectQuotes(
+  it.each([
+    [
+      "dialogue with possessives, contractions, and 'n'",
       `"I can't find O'Brien's cat," she said. "It's the dog's fault."`,
       `${LDQ}I can${MLA}t find O${MLA}Brien${MLA}s cat,${RDQ} she said. ${LDQ}It${MLA}s the dog${MLA}s fault.${RDQ}`,
-    )
-  })
-
-  it("nested quotes with contractions", () => {
-    expectQuotes(
+    ],
+    [
+      "nested quotes with contractions",
       `"She said, 'I can't go,' and left."`,
       `${LDQ}She said, ${LSQ}I can${MLA}t go,${RSQ} and left.${RDQ}`,
-    )
-  })
-
-  it("'n' abbreviation in dialogue", () => {
-    expectQuotes(
+    ],
+    [
+      "'n' abbreviation in dialogue",
       `"Rock 'n' Roll is great," she said.`,
       `${LDQ}Rock ${MLA}n${MLA} Roll is great,${RDQ} she said.`,
-    )
-  })
-
-  it("all types in one sentence (decade, O'Brien, 'n', contraction)", () => {
-    expectQuotes(
+    ],
+    [
+      "all types in one sentence (decade, O'Brien, 'n', contraction)",
       `He said, "the '90s were O'Brien's favorite decade, weren't they?"`,
       `He said, ${LDQ}the ${MLA}90s were O${MLA}Brien${MLA}s favorite decade, weren${MLA}t they?${RDQ}`,
-    )
+    ],
+    [
+      "'n' inside double quotes with possessives",
+      `"Rock 'n' Roll's greatest hits."`,
+      `${LDQ}Rock ${MLA}n${MLA} Roll${MLA}s greatest hits.${RDQ}`,
+    ],
+  ])('%s', (_label, input, expected) => {
+    expectQuotes(input, expected)
   })
 
   it("possessive plural + contraction in dialogue", () => {
@@ -555,12 +487,5 @@ describe("STRESS: Kitchen sink — all features combined", () => {
     expect(result).toContain(`dogs${RSQ}`)
     expect(result).toContain(`${MLA}twas`)
     expect(niceQuotes(result)).toBe(result)
-  })
-
-  it("'n' inside double quotes with possessives", () => {
-    expectQuotes(
-      `"Rock 'n' Roll's greatest hits."`,
-      `${LDQ}Rock ${MLA}n${MLA} Roll${MLA}s greatest hits.${RDQ}`,
-    )
   })
 })
