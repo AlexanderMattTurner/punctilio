@@ -53,11 +53,11 @@ function convertSingleQuotes(text: string, sep: string): string {
   // the general rules produced LSQ+n+RSQ which was fine. But MLA requires both
   // quotes to be MLA (semantic apostrophes), and the general rules can't achieve
   // that: neither quote is in a contraction context (no Latin letter on both sides).
-  text = text.replace(new RegExp(`(?<=\\w${escapedSep}? )[']n['](?= ${escapedSep}?\\w)`, "gm"), `${MODIFIER_LETTER_APOSTROPHE}n${MODIFIER_LETTER_APOSTROPHE}`)
+  text = text.replace(new RegExp(`(?<=\\w${escapedSep}? )['${RIGHT_SINGLE_QUOTE}]n['${RIGHT_SINGLE_QUOTE}](?= ${escapedSep}?\\w)`, "gm"), `${MODIFIER_LETTER_APOSTROPHE}n${MODIFIER_LETTER_APOSTROPHE}`)
 
   // Possessive: 's followed by ending context (e.g., dog's) → U+02BC
   const afterPossessive = `(?=${escapedSep}?s${escapedSep}?(?:[${afterEndingSinglePatterns}]|$))`
-  const possessiveSingle = `(?<=[^\\s${LEFT_DOUBLE_QUOTE}'])[']${afterPossessive}`
+  const possessiveSingle = `(?<=[^\\s${LEFT_DOUBLE_QUOTE}'])['${RIGHT_SINGLE_QUOTE}]${afterPossessive}`
   text = text.replace(new RegExp(possessiveSingle, "gm"), MODIFIER_LETTER_APOSTROPHE)
 
   // Closing single quote: ending context without 's' → U+2019
@@ -72,7 +72,7 @@ function convertSingleQuotes(text: string, sep: string): string {
   const endQuoteNotContraction = `(?!${contraction})[${RIGHT_SINGLE_QUOTE}${MODIFIER_LETTER_APOSTROPHE}]${afterEndingSingle}`
   // Limit lookahead scan to 1000 chars to prevent catastrophic backtracking on pathological inputs
   const apostropheRegex = new RegExp(
-    `(?<=^|[^\\w])'(${apostropheWhitelist}|(?![^${LEFT_SINGLE_QUOTE}'\\n]{0,1000}${endQuoteNotContraction}))`,
+    `(?<=^|[^\\w])['](${apostropheWhitelist}|(?![^${LEFT_SINGLE_QUOTE}'\\n]{0,1000}${endQuoteNotContraction}))`,
     "gm"
   )
   text = text.replace(apostropheRegex, MODIFIER_LETTER_APOSTROPHE)
