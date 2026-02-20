@@ -146,6 +146,27 @@ function applyPunctuationStyle(text: string, sep: string, style: PunctuationStyl
   return text
 }
 
+/** Convert unpaired U+2019 (RIGHT SINGLE QUOTE) to U+02BC (MODIFIER LETTER APOSTROPHE).
+ *  An RSQ with no preceding LSQ opener cannot be a closing quote — it must be
+ *  an apostrophe (plural possessive like dogs', elision like runnin'). */
+function convertUnpairedRightSingleQuotes(text: string, sep: string): string {
+  let openCount = 0
+  const chars = Array.from(text)
+  for (let i = 0; i < chars.length; i++) {
+    if (chars[i] === sep) continue
+    if (chars[i] === LEFT_SINGLE_QUOTE) {
+      openCount++
+    } else if (chars[i] === RIGHT_SINGLE_QUOTE) {
+      if (openCount > 0) {
+        openCount--
+      } else {
+        chars[i] = MODIFIER_LETTER_APOSTROPHE
+      }
+    }
+  }
+  return chars.join("")
+}
+
 /** Convert straight quotes to smart quotes. */
 export function niceQuotes(text: string, options: QuoteOptions = {}): string {
   const sep = options.separator ?? DEFAULT_SEPARATOR
@@ -155,6 +176,10 @@ export function niceQuotes(text: string, options: QuoteOptions = {}): string {
   text = convertSingleQuotes(text, sep)
   text = convertDoubleQuotes(text, sep)
   text = applyPunctuationStyle(text, sep, punctuationStyle)
+
+  if (options.useModifierLetterApostrophe) {
+    text = convertUnpairedRightSingleQuotes(text, sep)
+  }
 
   // MLA is used internally so applyPunctuationStyle can distinguish
   // apostrophes (MLA, don't move) from closing quotes (RSQ, do move).

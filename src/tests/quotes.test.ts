@@ -76,18 +76,22 @@ describe("niceQuotes", () => {
       // ["Hey, 'sup 'this is a single quote'", `Hey, ${RIGHT_SINGLE_QUOTE}sup ${LEFT_SINGLE_QUOTE}this is a single quote${RIGHT_SINGLE_QUOTE}`],
       ["'the best',", `${LEFT_SINGLE_QUOTE}the best,${RIGHT_SINGLE_QUOTE}`],
       ["'I lost the game.'", `${LEFT_SINGLE_QUOTE}I lost the game.${RIGHT_SINGLE_QUOTE}`],
-      ["I hate you.'\"", `I hate you.${RIGHT_SINGLE_QUOTE}${RIGHT_DOUBLE_QUOTE}`],
+      ["I hate you.'\"", `I hate you.${MODIFIER_LETTER_APOSTROPHE}${RIGHT_DOUBLE_QUOTE}`],
       ["The 'function space')", `The ${LEFT_SINGLE_QUOTE}function space${RIGHT_SINGLE_QUOTE})`],
       [`The 'function space'${EM_DASH}`, `The ${LEFT_SINGLE_QUOTE}function space${RIGHT_SINGLE_QUOTE}${EM_DASH}`],
-      ["What do you think?']", `What do you think?${RIGHT_SINGLE_QUOTE}]`],
+      ["What do you think?']", `What do you think?${MODIFIER_LETTER_APOSTROPHE}]`],
       ["('survival incentive')", `(${LEFT_SINGLE_QUOTE}survival incentive${RIGHT_SINGLE_QUOTE})`],
       [
         "strategy s's return is good, even as d's return is bad",
         `strategy s${MODIFIER_LETTER_APOSTROPHE}s return is good, even as d${MODIFIER_LETTER_APOSTROPHE}s return is bad`,
       ],
-      // Possessive plural (trailing apostrophe → closing RSQ)
-      ["the dogs' owner", `the dogs${RIGHT_SINGLE_QUOTE} owner`],
-      ["the bosses' meeting", `the bosses${RIGHT_SINGLE_QUOTE} meeting`],
+      // Possessive plural (trailing apostrophe → MLA when unpaired)
+      ["the dogs' owner", `the dogs${MODIFIER_LETTER_APOSTROPHE} owner`],
+      ["the bosses' meeting", `the bosses${MODIFIER_LETTER_APOSTROPHE} meeting`],
+      // Multiple unpaired trailing apostrophes
+      ["dogs' and cats'", `dogs${MODIFIER_LETTER_APOSTROPHE} and cats${MODIFIER_LETTER_APOSTROPHE}`],
+      // Paired quote + trailing apostrophe in same text
+      ["'the dogs' toys", `${LEFT_SINGLE_QUOTE}the dogs${RIGHT_SINGLE_QUOTE} toys`],
       // Chained possessives
       ["the dog's owner's car", `the dog${MODIFIER_LETTER_APOSTROPHE}s owner${MODIFIER_LETTER_APOSTROPHE}s car`],
       // Hyphenated possessive
@@ -269,7 +273,7 @@ describe("niceQuotes", () => {
       `O${MODIFIER_LETTER_APOSTROPHE}NEILL`,
       `CAN${MODIFIER_LETTER_APOSTROPHE}T`,
       // Plural possessive
-      `the dogs${RIGHT_SINGLE_QUOTE} owner`,
+      `the dogs${MODIFIER_LETTER_APOSTROPHE} owner`,
       // Mixed quote types
       `${LEFT_SINGLE_QUOTE}hello${RIGHT_SINGLE_QUOTE} ${LEFT_DOUBLE_QUOTE}world${RIGHT_DOUBLE_QUOTE}`,
     ])('is idempotent for: "%s"', (input) => {
@@ -307,14 +311,14 @@ describe("niceQuotes", () => {
   describe("unbalanced and edge quotes", () => {
     it.each([
       ['"unclosed', `${LEFT_DOUBLE_QUOTE}unclosed`],
-      ["unclosed'", `unclosed${RIGHT_SINGLE_QUOTE}`],
+      ["unclosed'", `unclosed${MODIFIER_LETTER_APOSTROPHE}`],
       ['""', `${LEFT_DOUBLE_QUOTE}${RIGHT_DOUBLE_QUOTE}`],
       // Minimal inputs
       ["", ""],
       [" ", " "],
       ["'", `${MODIFIER_LETTER_APOSTROPHE}`],
       ["'a", `${MODIFIER_LETTER_APOSTROPHE}a`],
-      ["a'", `a${RIGHT_SINGLE_QUOTE}`],
+      ["a'", `a${MODIFIER_LETTER_APOSTROPHE}`],
     ])('handles edge quote pattern: "%s"', (input, expected) => {
       expect(niceQuotes(input, MLA)).toBe(expected)
     })
@@ -362,8 +366,9 @@ describe("niceQuotes", () => {
       ['"A"\n"B"', `${LEFT_DOUBLE_QUOTE}A${RIGHT_DOUBLE_QUOTE}\n${LEFT_DOUBLE_QUOTE}B${RIGHT_DOUBLE_QUOTE}`],
       // Contractions across lines
       ["I can't\nbelieve it's\nnot butter", `I can${MODIFIER_LETTER_APOSTROPHE}t\nbelieve it${MODIFIER_LETTER_APOSTROPHE}s\nnot butter`],
-      // Newline stops lookahead → MLA (not LSQ) since no closing quote visible
-      ["'hello\nworld'", `${MODIFIER_LETTER_APOSTROPHE}hello\nworld${RIGHT_SINGLE_QUOTE}`],
+      // Newline stops lookahead → MLA (not LSQ) since no closing quote visible;
+      // trailing RSQ is also unpaired (no LSQ opener) → MLA
+      ["'hello\nworld'", `${MODIFIER_LETTER_APOSTROPHE}hello\nworld${MODIFIER_LETTER_APOSTROPHE}`],
     ])('handles multiline: "%s"', (input, expected) => {
       expect(niceQuotes(input, MLA)).toBe(expected)
     })
@@ -512,13 +517,16 @@ describe("niceQuotes", () => {
       })
 
       it.each([
-        [`[test]${RIGHT_SINGLE_QUOTE}`, "bracket"],
         [`${LEFT_SINGLE_QUOTE}Hello.${RIGHT_SINGLE_QUOTE}`, "period"],
         [`${LEFT_SINGLE_QUOTE}Really?${RIGHT_SINGLE_QUOTE}`, "question mark"],
         [`${LEFT_SINGLE_QUOTE}Stop!${RIGHT_SINGLE_QUOTE}`, "exclamation"],
         [`${LEFT_SINGLE_QUOTE}test,${RIGHT_SINGLE_QUOTE} more`, "comma"],
       ])("preserves closing RSQ preceded by non-word char (%s)", (input) => {
         expect(niceQuotes(input, MLA)).toBe(input)
+      })
+
+      it("converts unpaired RSQ to MLA (no LSQ opener)", () => {
+        expect(niceQuotes(`[test]${RIGHT_SINGLE_QUOTE}`, MLA)).toBe(`[test]${MODIFIER_LETTER_APOSTROPHE}`)
       })
 
       it("normalizes RSQ possessive with digit prefix", () => {
