@@ -511,9 +511,18 @@ describe("niceQuotes", () => {
         expect(niceQuotes(input, MLA)).toBe(input)
       })
 
-      it("does not convert RSQ after non-Latin character", () => {
-        const input = `[test]${RIGHT_SINGLE_QUOTE}`
+      it.each([
+        [`[test]${RIGHT_SINGLE_QUOTE}`, "bracket"],
+        [`${LEFT_SINGLE_QUOTE}Hello.${RIGHT_SINGLE_QUOTE}`, "period"],
+        [`${LEFT_SINGLE_QUOTE}Really?${RIGHT_SINGLE_QUOTE}`, "question mark"],
+        [`${LEFT_SINGLE_QUOTE}Stop!${RIGHT_SINGLE_QUOTE}`, "exclamation"],
+        [`${LEFT_SINGLE_QUOTE}test,${RIGHT_SINGLE_QUOTE} more`, "comma"],
+      ])("preserves closing RSQ preceded by non-word char (%s)", (input) => {
         expect(niceQuotes(input, MLA)).toBe(input)
+      })
+
+      it("normalizes RSQ possessive with digit prefix", () => {
+        expect(niceQuotes(`GPT-2${RIGHT_SINGLE_QUOTE}s`, MLA)).toBe(`GPT-2${MODIFIER_LETTER_APOSTROPHE}s`)
       })
     })
   })
