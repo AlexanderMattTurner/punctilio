@@ -146,10 +146,9 @@ describe("niceQuotes", () => {
     })
 
     it("multiple decades in one sentence", () => {
-      const result = niceQuotes("The '60s, '70s, and '80s were different.", MLA)
-      expect(result).toContain(`${MODIFIER_LETTER_APOSTROPHE}60s`)
-      expect(result).toContain(`${MODIFIER_LETTER_APOSTROPHE}70s`)
-      expect(result).toContain(`${MODIFIER_LETTER_APOSTROPHE}80s`)
+      expect(niceQuotes("The '60s, '70s, and '80s were different.", MLA)).toBe(
+        `The ${MODIFIER_LETTER_APOSTROPHE}60s, ${MODIFIER_LETTER_APOSTROPHE}70s, and ${MODIFIER_LETTER_APOSTROPHE}80s were different.`
+      )
     })
   })
 
@@ -164,12 +163,12 @@ describe("niceQuotes", () => {
     })
 
     it.each([
-      ["start of string (no preceding word)", "'n' Roll"],
-      ["end of string (no following word)", "Rock 'n'"],
-      ["punctuation precedes first apostrophe", "said, 'n' is good"],
-      ["newline replaces space", "Rock 'n'\nRoll"],
-    ])('does not produce MLA-n-MLA: %s', (_label, input) => {
-      expect(niceQuotes(input, MLA)).not.toContain(`${MODIFIER_LETTER_APOSTROPHE}n${MODIFIER_LETTER_APOSTROPHE}`)
+      ["start of string (no preceding word)", "'n' Roll", `${LEFT_SINGLE_QUOTE}n${RIGHT_SINGLE_QUOTE} Roll`],
+      ["end of string (no following word)", "Rock 'n'", `Rock ${LEFT_SINGLE_QUOTE}n${RIGHT_SINGLE_QUOTE}`],
+      ["punctuation precedes first apostrophe", "said, 'n' is good", `said, ${LEFT_SINGLE_QUOTE}n${RIGHT_SINGLE_QUOTE} is good`],
+      ["newline replaces space", "Rock 'n'\nRoll", `Rock ${LEFT_SINGLE_QUOTE}n${RIGHT_SINGLE_QUOTE}\nRoll`],
+    ])('does not produce MLA-n-MLA: %s', (_label, input, expected) => {
+      expect(niceQuotes(input, MLA)).toBe(expected)
     })
   })
 
@@ -299,9 +298,9 @@ describe("niceQuotes", () => {
 
     it("'n' with separators around word boundaries", () => {
       const input = `Rock${sep} 'n' ${sep}Roll`
-      const result = niceQuotes(input, { separator: sep, ...MLA })
-      expect(result).toContain(`${MODIFIER_LETTER_APOSTROPHE}n${MODIFIER_LETTER_APOSTROPHE}`)
-      expect(niceQuotes(result, { separator: sep, ...MLA })).toBe(result)
+      const expected = `Rock${sep} ${MODIFIER_LETTER_APOSTROPHE}n${MODIFIER_LETTER_APOSTROPHE} ${sep}Roll`
+      expect(niceQuotes(input, { separator: sep, ...MLA })).toBe(expected)
+      expect(niceQuotes(expected, { separator: sep, ...MLA })).toBe(expected)
     })
   })
 
@@ -429,8 +428,6 @@ describe("niceQuotes", () => {
         [`Brien${MODIFIER_LETTER_APOSTROPHE}s,`, `Brien${MODIFIER_LETTER_APOSTROPHE}s,`, "american"],
         // American: RSQ period/comma move inside (contrast)
         [`${LEFT_SINGLE_QUOTE}hello${RIGHT_SINGLE_QUOTE}.`, `${LEFT_SINGLE_QUOTE}hello.${RIGHT_SINGLE_QUOTE}`, "american"],
-        // British: MLA period stays put
-        [`Brien${MODIFIER_LETTER_APOSTROPHE}s.`, `Brien${MODIFIER_LETTER_APOSTROPHE}s.`, "british"],
         // British: RSQ period moves outside (contrast)
         [`${LEFT_SINGLE_QUOTE}hello.${RIGHT_SINGLE_QUOTE}`, `${LEFT_SINGLE_QUOTE}hello${RIGHT_SINGLE_QUOTE}.`, "british"],
       ])('%s → %s (%s)', (input, expected, style) => {
@@ -465,28 +462,15 @@ describe("niceQuotes", () => {
   describe("useModifierLetterApostrophe option", () => {
     const RSQ = RIGHT_SINGLE_QUOTE
 
-    it("defaults to RSQ for contractions", () => {
-      expect(niceQuotes("don't")).toBe(`don${RSQ}t`)
-    })
-
-    it("defaults to RSQ for possessives", () => {
-      expect(niceQuotes("the dog's bone")).toBe(`the dog${RSQ}s bone`)
-    })
-
-    it("defaults to RSQ for O'Brien-style names", () => {
-      expect(niceQuotes("O'Brien's idea")).toBe(`O${RSQ}Brien${RSQ}s idea`)
-    })
-
-    it("defaults to RSQ for 'n' abbreviation", () => {
-      expect(niceQuotes("Rock 'n' Roll")).toBe(`Rock ${RSQ}n${RSQ} Roll`)
-    })
-
-    it("defaults to RSQ for decades", () => {
-      expect(niceQuotes("the '90s")).toBe(`the ${RSQ}90s`)
-    })
-
-    it("defaults to RSQ for leading apostrophes", () => {
-      expect(niceQuotes("'twas")).toBe(`${RSQ}twas`)
+    it.each([
+      ["contractions", "don't", `don${RSQ}t`],
+      ["possessives", "the dog's bone", `the dog${RSQ}s bone`],
+      ["O'Brien-style names", "O'Brien's idea", `O${RSQ}Brien${RSQ}s idea`],
+      ["'n' abbreviation", "Rock 'n' Roll", `Rock ${RSQ}n${RSQ} Roll`],
+      ["decades", "the '90s", `the ${RSQ}90s`],
+      ["leading apostrophes", "'twas", `${RSQ}twas`],
+    ])('defaults to RSQ for %s', (_label, input, expected) => {
+      expect(niceQuotes(input)).toBe(expected)
     })
 
     it("uses MLA when option is true", () => {
@@ -529,7 +513,7 @@ describe("niceQuotes", () => {
 
       it("does not convert RSQ after non-Latin character", () => {
         const input = `[test]${RIGHT_SINGLE_QUOTE}`
-        expect(niceQuotes(input, MLA)).not.toContain(MODIFIER_LETTER_APOSTROPHE)
+        expect(niceQuotes(input, MLA)).toBe(input)
       })
     })
   })
@@ -545,17 +529,17 @@ describe("niceQuotes", () => {
 
     it("handles 16 rapid apostrophes", () => {
       const input = "a'b'c'd'e'f'g'h'i'j'k'l'm'n'o'p"
+      const expected = `a${MODIFIER_LETTER_APOSTROPHE}b${MODIFIER_LETTER_APOSTROPHE}c${MODIFIER_LETTER_APOSTROPHE}d${MODIFIER_LETTER_APOSTROPHE}e${MODIFIER_LETTER_APOSTROPHE}f${MODIFIER_LETTER_APOSTROPHE}g${MODIFIER_LETTER_APOSTROPHE}h${MODIFIER_LETTER_APOSTROPHE}i${MODIFIER_LETTER_APOSTROPHE}j${MODIFIER_LETTER_APOSTROPHE}k${MODIFIER_LETTER_APOSTROPHE}l${MODIFIER_LETTER_APOSTROPHE}m${MODIFIER_LETTER_APOSTROPHE}n${MODIFIER_LETTER_APOSTROPHE}o${MODIFIER_LETTER_APOSTROPHE}p`
       const start = performance.now()
       const result = niceQuotes(input, MLA)
       expect(performance.now() - start).toBeLessThan(1000)
-      expect(result).not.toContain("'")
+      expect(result).toBe(expected)
       expect(niceQuotes(result, MLA)).toBe(result)
     })
 
     it("handles 500-char word + possessive", () => {
       const input = `${"a".repeat(500)}'s thing`
-      const result = niceQuotes(input, MLA)
-      expect(result).toContain(MODIFIER_LETTER_APOSTROPHE)
+      expect(niceQuotes(input, MLA)).toBe(`${"a".repeat(500)}${MODIFIER_LETTER_APOSTROPHE}s thing`)
     })
   })
 

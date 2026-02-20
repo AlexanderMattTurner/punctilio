@@ -25,8 +25,10 @@ export interface QuoteOptions {
   /**
    * Use modifier letter apostrophe (U+02BC) instead of right single quote
    * (U+2019) for contractions and possessives. This distinguishes apostrophes
-   * from closing quotes but may break regex patterns that expect standard
-   * quote characters like /don't/ or /O'Brien/.
+   * from closing quotes in most cases, though some ambiguous patterns (e.g.,
+   * `dogs'` vs a closing single quote) cannot be resolved without semantic
+   * understanding. May also break downstream regex patterns that expect
+   * standard quote characters like /don\u2019t/ or /O\u2019Brien/.
    *
    * Default: false
    */
@@ -47,8 +49,11 @@ function convertSingleQuotes(text: string, sep: string): string {
   // Full pattern with optional 's' for lookahead detection in apostropheRegex
   const afterEndingSingle = `(?=${escapedSep}?(?:s${escapedSep}?)?(?:[${afterEndingSinglePatterns}]|$))`
 
-  // Handle 'n' abbreviation for "and" (e.g., Rock 'n' Roll) before closing quotes
-  // Both apostrophes are semantically apostrophes, not quotes
+  // Handle 'n' abbreviation (Rock 'n' Roll) before other single-quote rules.
+  // Both surrounding quotes are semantic apostrophes, but the general rules
+  // would classify the first as opening (LSQ) and second as closing (RSQ)
+  // since they're space-separated. This is the only common pattern where
+  // space-quote-letter-quote-space means abbreviation, not quoting.
   text = text.replace(new RegExp(`(?<=\\w${escapedSep}? )[']n['](?= ${escapedSep}?\\w)`, "gm"), `${MODIFIER_LETTER_APOSTROPHE}n${MODIFIER_LETTER_APOSTROPHE}`)
 
   // Possessive: 's followed by ending context (e.g., dog's) → U+02BC
@@ -152,9 +157,9 @@ export function niceQuotes(text: string, options: QuoteOptions = {}): string {
   text = convertDoubleQuotes(text, sep)
   text = applyPunctuationStyle(text, sep, punctuationStyle)
 
-  // Internal processing uses MLA (U+02BC) to distinguish apostrophes from
-  // closing quotes. Convert back to RSQ (U+2019) for regex-friendly output
-  // unless the caller explicitly opts into MLA.
+  // MLA is used internally so applyPunctuationStyle can distinguish
+  // apostrophes (MLA, don't move) from closing quotes (RSQ, do move).
+  // Convert back to RSQ unless the caller opts into the distinction.
   if (!options.useModifierLetterApostrophe) {
     text = text.replaceAll(MODIFIER_LETTER_APOSTROPHE, RIGHT_SINGLE_QUOTE)
   }

@@ -158,8 +158,10 @@ export interface TransformOptions {
   /**
    * Use modifier letter apostrophe (U+02BC) instead of right single quote
    * (U+2019) for contractions and possessives. This distinguishes apostrophes
-   * from closing quotes but may break regex patterns that expect standard
-   * quote characters like /don't/ or /O'Brien/.
+   * from closing quotes in most cases, though some ambiguous patterns (e.g.,
+   * `dogs'` vs a closing single quote) cannot be resolved without semantic
+   * understanding. May also break downstream regex patterns that expect
+   * standard quote characters like /don\u2019t/ or /O\u2019Brien/.
    *
    * Default: false
    */
@@ -245,9 +247,11 @@ export function transform(text: string, options: TransformOptions = {}): string 
   if (separatorOpts.punctuationStyle !== "none") {
     text = primeMarks(text, separatorOpts)
   }
-  // Always use MLA internally so downstream transforms (especially NBSP)
-  // see apostrophes as letter-like, not as word-boundary punctuation.
-  // The final MLA→RSQ conversion happens after all transforms.
+  // niceQuotes must output MLA here regardless of the user's option,
+  // because NBSP's PUNCTUATION_OR_QUOTE class includes RSQ but not MLA.
+  // Without this, apostrophes in "don't" would act as word boundaries
+  // during NBSP insertion. The final MLA→RSQ conversion at line 286
+  // runs after all transforms complete.
   text = niceQuotes(text, { ...separatorOpts, useModifierLetterApostrophe: true })
 
   if (symbols) {
