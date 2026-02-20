@@ -52,6 +52,7 @@ export const UNICODE_SYMBOLS = {
   RIGHT_DOUBLE_QUOTE: "\u201D",
   LEFT_SINGLE_QUOTE: "\u2018",
   RIGHT_SINGLE_QUOTE: "\u2019",
+  MODIFIER_LETTER_APOSTROPHE: "\u02BC",
   NBSP: "\u00A0",
   // Superscript ordinal suffixes
   SUPERSCRIPT_ST: "\u02E2\u1D57", // ˢᵗ

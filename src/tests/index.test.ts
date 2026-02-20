@@ -233,6 +233,7 @@ describe("transform", () => {
       expect(transform(input, { nbsp: false })).toBe(expected)
     })
 
+
     it("handles measurement text", () => {
       const input = 'He is 6\'2" tall.'
       const expected = `He is 6${PRIME}2${DOUBLE_PRIME} tall.`
