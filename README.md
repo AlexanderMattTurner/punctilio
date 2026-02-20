@@ -137,6 +137,7 @@ transform(text, {
   ligatures: false,        // ??? → ⁇, ?! → ⁈, !? → ⁉, !!! → !
   nbsp: true,              // non-breaking spaces (after honorifics, between numbers and units, etc.)
   checkIdempotency: true,  // verify transform(transform(x)) === transform(x)
+  useModifierLetterApostrophe: false, // output distinct codepoints for apostrophes vs end-single-quotes
 })
 ```
 
