@@ -49,11 +49,10 @@ function convertSingleQuotes(text: string, sep: string): string {
   // Full pattern with optional 's' for lookahead detection in apostropheRegex
   const afterEndingSingle = `(?=${escapedSep}?(?:s${escapedSep}?)?(?:[${afterEndingSinglePatterns}]|$))`
 
-  // Handle 'n' abbreviation (Rock 'n' Roll) before other single-quote rules.
-  // Both surrounding quotes are semantic apostrophes, but the general rules
-  // would classify the first as opening (LSQ) and second as closing (RSQ)
-  // since they're space-separated. This is the only common pattern where
-  // space-quote-letter-quote-space means abbreviation, not quoting.
+  // Handle 'n' abbreviation (Rock 'n' Roll). Before MLA this wasn't needed —
+  // the general rules produced LSQ+n+RSQ which was fine. But MLA requires both
+  // quotes to be MLA (semantic apostrophes), and the general rules can't achieve
+  // that: neither quote is in a contraction context (no Latin letter on both sides).
   text = text.replace(new RegExp(`(?<=\\w${escapedSep}? )[']n['](?= ${escapedSep}?\\w)`, "gm"), `${MODIFIER_LETTER_APOSTROPHE}n${MODIFIER_LETTER_APOSTROPHE}`)
 
   // Possessive: 's followed by ending context (e.g., dog's) → U+02BC
