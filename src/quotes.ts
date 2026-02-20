@@ -80,6 +80,30 @@ function convertSingleQuotes(text: string, sep: string): string {
   const beginningSingle = `(?<beforeContext>(?:^|[\\s${LEFT_DOUBLE_QUOTE}${RIGHT_DOUBLE_QUOTE}${EM_DASH}\\-\\(])${escapedSep}?)['](?=${escapedSep}?\\S)`
   text = text.replace(new RegExp(beginningSingle, "gm"), `$<beforeContext>${LEFT_SINGLE_QUOTE}`)
 
+  // Unmatched trailing RSQ after s/S → MLA (plural possessives like dogs', Bayes')
+  // Tracks LSQ/RSQ balance left-to-right so that paired closing quotes (e.g.,
+  // 'yes' where s precedes RSQ) remain RSQ.
+  let singleQuoteBalance = 0
+  text = text.replace(
+    new RegExp(`[${LEFT_SINGLE_QUOTE}${RIGHT_SINGLE_QUOTE}]`, "g"),
+    (match, offset) => {
+      if (match === LEFT_SINGLE_QUOTE) {
+        singleQuoteBalance++
+        return match
+      }
+      if (singleQuoteBalance > 0) {
+        singleQuoteBalance--
+        return match
+      }
+      let i = offset - 1
+      while (i >= 0 && text[i] === sep) i--
+      if (i >= 0 && (text[i] === "s" || text[i] === "S")) {
+        return MODIFIER_LETTER_APOSTROPHE
+      }
+      return match
+    }
+  )
+
   return text
 }
 

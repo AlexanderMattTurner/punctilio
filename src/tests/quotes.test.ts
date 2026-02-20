@@ -85,9 +85,9 @@ describe("niceQuotes", () => {
         "strategy s's return is good, even as d's return is bad",
         `strategy s${MODIFIER_LETTER_APOSTROPHE}s return is good, even as d${MODIFIER_LETTER_APOSTROPHE}s return is bad`,
       ],
-      // Possessive plural (trailing apostrophe → closing RSQ)
-      ["the dogs' owner", `the dogs${RIGHT_SINGLE_QUOTE} owner`],
-      ["the bosses' meeting", `the bosses${RIGHT_SINGLE_QUOTE} meeting`],
+      // Possessive plural (trailing apostrophe after s → MLA)
+      ["the dogs' owner", `the dogs${MODIFIER_LETTER_APOSTROPHE} owner`],
+      ["the bosses' meeting", `the bosses${MODIFIER_LETTER_APOSTROPHE} meeting`],
       // Chained possessives
       ["the dog's owner's car", `the dog${MODIFIER_LETTER_APOSTROPHE}s owner${MODIFIER_LETTER_APOSTROPHE}s car`],
       // Hyphenated possessive
@@ -124,6 +124,46 @@ describe("niceQuotes", () => {
       [`'hello' "world"`, `${LEFT_SINGLE_QUOTE}hello${RIGHT_SINGLE_QUOTE} ${LEFT_DOUBLE_QUOTE}world${RIGHT_DOUBLE_QUOTE}`],
     ])('should handle single quotes/apostrophes in "%s"', (input, expected) => {
       expect(niceQuotes(input, MLA)).toBe(expected)
+    })
+  })
+
+  describe("plural possessive apostrophes", () => {
+    it.each([
+      // Basic plural possessives → MLA (no matching opening quote)
+      ["the dogs' owner", `the dogs${MODIFIER_LETTER_APOSTROPHE} owner`],
+      ["the models' behavior", `the models${MODIFIER_LETTER_APOSTROPHE} behavior`],
+      ["the players' strategies", `the players${MODIFIER_LETTER_APOSTROPHE} strategies`],
+      // Name ending in s + possessive without extra s
+      ["Bayes' rule", `Bayes${MODIFIER_LETTER_APOSTROPHE} rule`],
+      ["Thomas' gaze", `Thomas${MODIFIER_LETTER_APOSTROPHE} gaze`],
+      // Multiple plural possessives
+      ["dogs' and cats' toys", `dogs${MODIFIER_LETTER_APOSTROPHE} and cats${MODIFIER_LETTER_APOSTROPHE} toys`],
+      // Mixed: plural possessive + quoted phrase
+      ["dogs' and 'hello'", `dogs${MODIFIER_LETTER_APOSTROPHE} and ${LEFT_SINGLE_QUOTE}hello${RIGHT_SINGLE_QUOTE}`],
+      // Closing quote after s stays RSQ when matched with LSQ
+      ["'yes'", `${LEFT_SINGLE_QUOTE}yes${RIGHT_SINGLE_QUOTE}`],
+      ["'dogs'", `${LEFT_SINGLE_QUOTE}dogs${RIGHT_SINGLE_QUOTE}`],
+      ["He said 'yes' today", `He said ${LEFT_SINGLE_QUOTE}yes${RIGHT_SINGLE_QUOTE} today`],
+      ["'he tells' stories", `${LEFT_SINGLE_QUOTE}he tells${RIGHT_SINGLE_QUOTE} stories`],
+      // Closing quote after s + trailing possessive
+      ["'cats' and dogs'", `${LEFT_SINGLE_QUOTE}cats${RIGHT_SINGLE_QUOTE} and dogs${MODIFIER_LETTER_APOSTROPHE}`],
+      // Uppercase S
+      ["the DOGS' owner", `the DOGS${MODIFIER_LETTER_APOSTROPHE} owner`],
+      // Possessive at end of text
+      ["belongs to the dogs'", `belongs to the dogs${MODIFIER_LETTER_APOSTROPHE}`],
+      // Prisoners' Dilemma (real-world from error list)
+      ["Prisoners' Dilemma", `Prisoners${MODIFIER_LETTER_APOSTROPHE} Dilemma`],
+    ])('handles plural possessive: "%s"', (input, expected) => {
+      expect(niceQuotes(input, MLA)).toBe(expected)
+    })
+
+    it.each([
+      `the dogs${MODIFIER_LETTER_APOSTROPHE} owner`,
+      `Bayes${MODIFIER_LETTER_APOSTROPHE} rule`,
+      `dogs${MODIFIER_LETTER_APOSTROPHE} and ${LEFT_SINGLE_QUOTE}cats${RIGHT_SINGLE_QUOTE}`,
+    ])('plural possessive is idempotent: "%s"', (input) => {
+      expect(niceQuotes(input, MLA)).toBe(input)
+      expect(niceQuotes(niceQuotes(input, MLA), MLA)).toBe(input)
     })
   })
 
@@ -269,7 +309,7 @@ describe("niceQuotes", () => {
       `O${MODIFIER_LETTER_APOSTROPHE}NEILL`,
       `CAN${MODIFIER_LETTER_APOSTROPHE}T`,
       // Plural possessive
-      `the dogs${RIGHT_SINGLE_QUOTE} owner`,
+      `the dogs${MODIFIER_LETTER_APOSTROPHE} owner`,
       // Mixed quote types
       `${LEFT_SINGLE_QUOTE}hello${RIGHT_SINGLE_QUOTE} ${LEFT_DOUBLE_QUOTE}world${RIGHT_DOUBLE_QUOTE}`,
     ])('is idempotent for: "%s"', (input) => {
@@ -294,6 +334,13 @@ describe("niceQuotes", () => {
       [`'hello${sep}'`, `${LEFT_SINGLE_QUOTE}hello${sep}${RIGHT_SINGLE_QUOTE}`, "closing quote after separator"],
     ])("%s → %s (%s)", (input, expected) => {
       expect(niceQuotes(input, { separator: sep, ...MLA })).toBe(expected)
+    })
+
+    it("plural possessive across separator", () => {
+      const input = `dogs${sep}' food`
+      const expected = `dogs${sep}${MODIFIER_LETTER_APOSTROPHE} food`
+      expect(niceQuotes(input, { separator: sep, ...MLA })).toBe(expected)
+      expect(niceQuotes(expected, { separator: sep, ...MLA })).toBe(expected)
     })
 
     it("'n' with separators around word boundaries", () => {
@@ -465,6 +512,7 @@ describe("niceQuotes", () => {
     it.each([
       ["contractions", "don't", `don${RSQ}t`],
       ["possessives", "the dog's bone", `the dog${RSQ}s bone`],
+      ["plural possessives", "the dogs' owner", `the dogs${RSQ} owner`],
       ["O'Brien-style names", "O'Brien's idea", `O${RSQ}Brien${RSQ}s idea`],
       ["'n' abbreviation", "Rock 'n' Roll", `Rock ${RSQ}n${RSQ} Roll`],
       ["decades", "the '90s", `the ${RSQ}90s`],
@@ -478,7 +526,7 @@ describe("niceQuotes", () => {
     })
 
     it("RSQ output is idempotent", () => {
-      const inputs = ["don't", "the dog's", "O'Brien", "Rock 'n' Roll", "'90s"]
+      const inputs = ["don't", "the dog's", "the dogs'", "O'Brien", "Rock 'n' Roll", "'90s"]
       for (const input of inputs) {
         const first = niceQuotes(input)
         expect(niceQuotes(first)).toBe(first)
@@ -486,7 +534,7 @@ describe("niceQuotes", () => {
     })
 
     it("MLA output is idempotent", () => {
-      const inputs = ["don't", "the dog's", "O'Brien", "Rock 'n' Roll", "'90s"]
+      const inputs = ["don't", "the dog's", "the dogs'", "O'Brien", "Rock 'n' Roll", "'90s"]
       for (const input of inputs) {
         const first = niceQuotes(input, MLA)
         expect(niceQuotes(first, MLA)).toBe(first)
@@ -523,6 +571,15 @@ describe("niceQuotes", () => {
 
       it("normalizes RSQ possessive with digit prefix", () => {
         expect(niceQuotes(`GPT-2${RIGHT_SINGLE_QUOTE}s`, MLA)).toBe(`GPT-2${MODIFIER_LETTER_APOSTROPHE}s`)
+      })
+
+      it("normalizes RSQ plural possessive to MLA", () => {
+        expect(niceQuotes(`the dogs${RIGHT_SINGLE_QUOTE} owner`, MLA)).toBe(`the dogs${MODIFIER_LETTER_APOSTROPHE} owner`)
+      })
+
+      it("preserves RSQ plural possessive when matched with LSQ", () => {
+        const input = `${LEFT_SINGLE_QUOTE}dogs${RIGHT_SINGLE_QUOTE} and more`
+        expect(niceQuotes(input, MLA)).toBe(input)
       })
     })
   })
