@@ -85,9 +85,6 @@ describe("niceQuotes", () => {
         "strategy s's return is good, even as d's return is bad",
         `strategy s${MODIFIER_LETTER_APOSTROPHE}s return is good, even as d${MODIFIER_LETTER_APOSTROPHE}s return is bad`,
       ],
-      // Possessive plural (trailing apostrophe after s → MLA)
-      ["the dogs' owner", `the dogs${MODIFIER_LETTER_APOSTROPHE} owner`],
-      ["the bosses' meeting", `the bosses${MODIFIER_LETTER_APOSTROPHE} meeting`],
       // Chained possessives
       ["the dog's owner's car", `the dog${MODIFIER_LETTER_APOSTROPHE}s owner${MODIFIER_LETTER_APOSTROPHE}s car`],
       // Hyphenated possessive
@@ -129,30 +126,21 @@ describe("niceQuotes", () => {
 
   describe("plural possessive apostrophes", () => {
     it.each([
-      // Basic plural possessives → MLA (no matching opening quote)
-      ["the dogs' owner", `the dogs${MODIFIER_LETTER_APOSTROPHE} owner`],
+      // Unmatched trailing s' → MLA
       ["the models' behavior", `the models${MODIFIER_LETTER_APOSTROPHE} behavior`],
-      ["the players' strategies", `the players${MODIFIER_LETTER_APOSTROPHE} strategies`],
-      // Name ending in s + possessive without extra s
       ["Bayes' rule", `Bayes${MODIFIER_LETTER_APOSTROPHE} rule`],
       ["Thomas' gaze", `Thomas${MODIFIER_LETTER_APOSTROPHE} gaze`],
-      // Multiple plural possessives
       ["dogs' and cats' toys", `dogs${MODIFIER_LETTER_APOSTROPHE} and cats${MODIFIER_LETTER_APOSTROPHE} toys`],
-      // Mixed: plural possessive + quoted phrase
+      ["belongs to the dogs'", `belongs to the dogs${MODIFIER_LETTER_APOSTROPHE}`],
+      ["the DOGS' owner", `the DOGS${MODIFIER_LETTER_APOSTROPHE} owner`],
+      ["Prisoners' Dilemma", `Prisoners${MODIFIER_LETTER_APOSTROPHE} Dilemma`],
+      // Mixed possessive + quoted phrase
       ["dogs' and 'hello'", `dogs${MODIFIER_LETTER_APOSTROPHE} and ${LEFT_SINGLE_QUOTE}hello${RIGHT_SINGLE_QUOTE}`],
-      // Closing quote after s stays RSQ when matched with LSQ
+      ["'cats' and dogs'", `${LEFT_SINGLE_QUOTE}cats${RIGHT_SINGLE_QUOTE} and dogs${MODIFIER_LETTER_APOSTROPHE}`],
+      // Matched closing quote after s stays RSQ
       ["'yes'", `${LEFT_SINGLE_QUOTE}yes${RIGHT_SINGLE_QUOTE}`],
       ["'dogs'", `${LEFT_SINGLE_QUOTE}dogs${RIGHT_SINGLE_QUOTE}`],
-      ["He said 'yes' today", `He said ${LEFT_SINGLE_QUOTE}yes${RIGHT_SINGLE_QUOTE} today`],
       ["'he tells' stories", `${LEFT_SINGLE_QUOTE}he tells${RIGHT_SINGLE_QUOTE} stories`],
-      // Closing quote after s + trailing possessive
-      ["'cats' and dogs'", `${LEFT_SINGLE_QUOTE}cats${RIGHT_SINGLE_QUOTE} and dogs${MODIFIER_LETTER_APOSTROPHE}`],
-      // Uppercase S
-      ["the DOGS' owner", `the DOGS${MODIFIER_LETTER_APOSTROPHE} owner`],
-      // Possessive at end of text
-      ["belongs to the dogs'", `belongs to the dogs${MODIFIER_LETTER_APOSTROPHE}`],
-      // Prisoners' Dilemma (real-world from error list)
-      ["Prisoners' Dilemma", `Prisoners${MODIFIER_LETTER_APOSTROPHE} Dilemma`],
     ])('handles plural possessive: "%s"', (input, expected) => {
       expect(niceQuotes(input, MLA)).toBe(expected)
     })
@@ -164,6 +152,53 @@ describe("niceQuotes", () => {
     ])('plural possessive is idempotent: "%s"', (input) => {
       expect(niceQuotes(input, MLA)).toBe(input)
       expect(niceQuotes(niceQuotes(input, MLA), MLA)).toBe(input)
+    })
+
+    it("stress: many possessives interleaved with quotes", () => {
+      // 50 alternating possessives and quoted phrases
+      const pairs = Array.from({ length: 50 }, (_, i) =>
+        i % 2 === 0 ? `dogs'` : `'yes'`
+      )
+      const input = pairs.join(" ")
+      const result = niceQuotes(input, MLA)
+      // Every dogs' → MLA, every 'yes' → LSQ+yes+RSQ
+      const expectedParts = Array.from({ length: 50 }, (_, i) =>
+        i % 2 === 0
+          ? `dogs${MODIFIER_LETTER_APOSTROPHE}`
+          : `${LEFT_SINGLE_QUOTE}yes${RIGHT_SINGLE_QUOTE}`
+      )
+      expect(result).toBe(expectedParts.join(" "))
+      expect(niceQuotes(result, MLA)).toBe(result)
+    })
+
+    it("stress: 200 consecutive plural possessives", () => {
+      const words = ["dogs'", "cats'", "Bayes'", "Thomas'", "PLAYERS'"]
+      const input = Array.from({ length: 200 }, (_, i) => words[i % words.length]).join(" ")
+      const start = performance.now()
+      const result = niceQuotes(input, MLA)
+      expect(performance.now() - start).toBeLessThan(1000)
+      // All should be MLA (no LSQ to pair with)
+      expect(result).not.toContain(RIGHT_SINGLE_QUOTE)
+      expect(result).not.toContain("'")
+      expect(niceQuotes(result, MLA)).toBe(result)
+    })
+
+    it("stress: deeply nested alternating pattern", () => {
+      // Pattern: 'a' dogs' 'b' cats' 'c' ...
+      const possessives = ["dogs", "cats", "items", "players", "Bayes"]
+      const input = Array.from({ length: 30 }, (_, i) =>
+        i % 2 === 0 ? `'word${i}'` : `${possessives[i % possessives.length]}'`
+      ).join(" ")
+      const result = niceQuotes(input, MLA)
+      // Quoted words get LSQ/RSQ, possessives get MLA
+      for (let i = 0; i < 30; i++) {
+        if (i % 2 === 0) {
+          expect(result).toContain(`${LEFT_SINGLE_QUOTE}word${i}${RIGHT_SINGLE_QUOTE}`)
+        } else {
+          expect(result).toContain(`${possessives[i % possessives.length]}${MODIFIER_LETTER_APOSTROPHE}`)
+        }
+      }
+      expect(niceQuotes(result, MLA)).toBe(result)
     })
   })
 

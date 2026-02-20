@@ -42,8 +42,8 @@ function convertSingleQuotes(text: string, sep: string): string {
   // Handle empty single quotes '' and whitespace-only quotes ' ' first
   // Only match straight quotes, not already-converted curly quotes
   const singleQuoteChars = `'${LEFT_SINGLE_QUOTE}${RIGHT_SINGLE_QUOTE}${MODIFIER_LETTER_APOSTROPHE}`
-  text = text.replace(new RegExp(`(?<![${singleQuoteChars}])''(?![${singleQuoteChars}])`, "g"), `${LEFT_SINGLE_QUOTE}${RIGHT_SINGLE_QUOTE}`)
-  text = text.replace(new RegExp(`(?<![${singleQuoteChars}])'(\\s+)'(?![${singleQuoteChars}])`, "g"), `${LEFT_SINGLE_QUOTE}$1${RIGHT_SINGLE_QUOTE}`)
+  text = text.replace(new RegExp(`(?<![${singleQuoteChars}\\w])''(?![${singleQuoteChars}\\w])`, "g"), `${LEFT_SINGLE_QUOTE}${RIGHT_SINGLE_QUOTE}`)
+  text = text.replace(new RegExp(`(?<![${singleQuoteChars}\\w])'(\\s+)'(?![${singleQuoteChars}\\w])`, "g"), `${LEFT_SINGLE_QUOTE}$1${RIGHT_SINGLE_QUOTE}`)
 
   const afterEndingSinglePatterns = `\\s\\.!?;,\\)${EM_DASH}\\-\\]"`
   // Full pattern with optional 's' for lookahead detection in apostropheRegex
