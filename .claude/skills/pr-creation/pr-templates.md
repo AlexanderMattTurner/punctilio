@@ -2,6 +2,14 @@
 
 ## PR Creation Command
 
+First, check if a PR already exists for the current branch:
+
+```bash
+EXISTING_PR=$(gh pr list --head "$(git branch --show-current)" --json number --jq '.[0].number' 2>/dev/null)
+```
+
+If `EXISTING_PR` is non-empty, update the existing PR with `gh pr edit` instead of creating a new one.
+
 ```bash
 gh pr create --title "<type>: <description>" --body "$(cat <<'EOF'
 ## Summary
@@ -12,6 +20,12 @@ gh pr create --title "<type>: <description>" --body "$(cat <<'EOF'
 
 ## Testing
 <How the changes were tested>
+
+## Lessons Learned
+<Optional: generalizable insights that could improve the template for all projects>
+<Leave this section empty or omit it if there are no lessons worth sharing>
+<Examples: "CLAUDE.md should mention X", "The pre-push hook should also check Y",
+ "Template sync should handle Z edge case">
 
 https://claude.ai/code/session_...
 EOF
@@ -34,6 +48,7 @@ Use imperative mood with a Conventional Commits type prefix:
 - Focus the summary on the "why", not the "what"
 - List concrete changes
 - Note any breaking changes
+- Include a "Lessons Learned" section if you discovered generalizable insights that could improve the template (this triggers the phone-home workflow to suggest improvements to the template repo)
 - Include the Claude session URL at the end
 
 ## Updating PR Description After Additional Commits
@@ -48,6 +63,9 @@ gh pr edit --body "$(cat <<'EOF'
 
 ## Testing
 <Updated testing information>
+
+## Lessons Learned
+<Optional: generalizable insights from this session>
 
 https://claude.ai/code/session_...
 EOF
