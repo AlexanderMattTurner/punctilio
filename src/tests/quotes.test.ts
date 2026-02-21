@@ -1,4 +1,4 @@
-import { niceQuotes } from "../quotes.js"
+import { niceQuotes, classifyApostrophes } from "../quotes.js"
 import { UNICODE_SYMBOLS, DEFAULT_SEPARATOR } from "../constants.js"
 
 const {
@@ -10,9 +10,6 @@ const {
   EM_DASH,
   ELLIPSIS,
 } = UNICODE_SYMBOLS
-
-/** Enable MLA output for tests that assert the apostrophe codepoint. */
-const MLA = { useModifierLetterApostrophe: true } as const
 
 describe("niceQuotes", () => {
   describe("double quotes", () => {
@@ -52,7 +49,7 @@ describe("niceQuotes", () => {
       // End-of-line quote becomes RIGHT quote
       ['not confident in that plan - "', `not confident in that plan - ${RIGHT_DOUBLE_QUOTE}`],
     ])('should convert double quotes in "%s"', (input, expected) => {
-      expect(niceQuotes(input, MLA)).toBe(expected)
+      expect(classifyApostrophes(input)).toBe(expected)
     })
   })
 
@@ -117,7 +114,7 @@ describe("niceQuotes", () => {
       // Closing RSQ then opening LDQ
       [`'hello' "world"`, `${LEFT_SINGLE_QUOTE}hello${RIGHT_SINGLE_QUOTE} ${LEFT_DOUBLE_QUOTE}world${RIGHT_DOUBLE_QUOTE}`],
     ])('should handle single quotes/apostrophes in "%s"', (input, expected) => {
-      expect(niceQuotes(input, MLA)).toBe(expected)
+      expect(classifyApostrophes(input)).toBe(expected)
     })
   })
 
@@ -139,7 +136,7 @@ describe("niceQuotes", () => {
       ["'dogs'", `${LEFT_SINGLE_QUOTE}dogs${RIGHT_SINGLE_QUOTE}`],
       ["'he tells' stories", `${LEFT_SINGLE_QUOTE}he tells${RIGHT_SINGLE_QUOTE} stories`],
     ])('handles plural possessive: "%s"', (input, expected) => {
-      expect(niceQuotes(input, MLA)).toBe(expected)
+      expect(classifyApostrophes(input)).toBe(expected)
     })
 
     it.each([
@@ -147,8 +144,8 @@ describe("niceQuotes", () => {
       `Bayes${MODIFIER_LETTER_APOSTROPHE} rule`,
       `dogs${MODIFIER_LETTER_APOSTROPHE} and ${LEFT_SINGLE_QUOTE}cats${RIGHT_SINGLE_QUOTE}`,
     ])('plural possessive is idempotent: "%s"', (input) => {
-      expect(niceQuotes(input, MLA)).toBe(input)
-      expect(niceQuotes(niceQuotes(input, MLA), MLA)).toBe(input)
+      expect(classifyApostrophes(input)).toBe(input)
+      expect(classifyApostrophes(classifyApostrophes(input))).toBe(input)
     })
 
     it("stress: many possessives interleaved with quotes", () => {
@@ -157,7 +154,7 @@ describe("niceQuotes", () => {
         i % 2 === 0 ? `dogs'` : `'yes'`
       )
       const input = pairs.join(" ")
-      const result = niceQuotes(input, MLA)
+      const result = classifyApostrophes(input)
       // Every dogs' → MLA, every 'yes' → LSQ+yes+RSQ
       const expectedParts = Array.from({ length: 50 }, (_, i) =>
         i % 2 === 0
@@ -165,19 +162,19 @@ describe("niceQuotes", () => {
           : `${LEFT_SINGLE_QUOTE}yes${RIGHT_SINGLE_QUOTE}`
       )
       expect(result).toBe(expectedParts.join(" "))
-      expect(niceQuotes(result, MLA)).toBe(result)
+      expect(classifyApostrophes(result)).toBe(result)
     })
 
     it("stress: 200 consecutive plural possessives", () => {
       const words = ["dogs'", "cats'", "Bayes'", "Thomas'", "PLAYERS'"]
       const input = Array.from({ length: 200 }, (_, i) => words[i % words.length]).join(" ")
       const start = performance.now()
-      const result = niceQuotes(input, MLA)
+      const result = classifyApostrophes(input)
       expect(performance.now() - start).toBeLessThan(1000)
       // All should be MLA (no LSQ to pair with)
       expect(result).not.toContain(RIGHT_SINGLE_QUOTE)
       expect(result).not.toContain("'")
-      expect(niceQuotes(result, MLA)).toBe(result)
+      expect(classifyApostrophes(result)).toBe(result)
     })
 
     it("stress: deeply nested alternating pattern", () => {
@@ -186,7 +183,7 @@ describe("niceQuotes", () => {
       const input = Array.from({ length: 30 }, (_, i) =>
         i % 2 === 0 ? `'word${i}'` : `${possessives[i % possessives.length]}'`
       ).join(" ")
-      const result = niceQuotes(input, MLA)
+      const result = classifyApostrophes(input)
       // Quoted words get LSQ/RSQ, possessives get MLA
       for (let i = 0; i < 30; i++) {
         if (i % 2 === 0) {
@@ -195,7 +192,7 @@ describe("niceQuotes", () => {
           expect(result).toContain(`${possessives[i % possessives.length]}${MODIFIER_LETTER_APOSTROPHE}`)
         }
       }
-      expect(niceQuotes(result, MLA)).toBe(result)
+      expect(classifyApostrophes(result)).toBe(result)
     })
   })
 
@@ -214,11 +211,11 @@ describe("niceQuotes", () => {
       ["'twas the night, 'twas indeed", `${MODIFIER_LETTER_APOSTROPHE}twas the night, ${MODIFIER_LETTER_APOSTROPHE}twas indeed`],
       [`"'twas the night"`, `${LEFT_DOUBLE_QUOTE}${MODIFIER_LETTER_APOSTROPHE}twas the night${RIGHT_DOUBLE_QUOTE}`],
     ])('handles leading apostrophe in "%s"', (input, expected) => {
-      expect(niceQuotes(input, MLA)).toBe(expected)
+      expect(classifyApostrophes(input)).toBe(expected)
     })
 
     it("multiple decades in one sentence", () => {
-      expect(niceQuotes("The '60s, '70s, and '80s were different.", MLA)).toBe(
+      expect(classifyApostrophes("The '60s, '70s, and '80s were different.")).toBe(
         `The ${MODIFIER_LETTER_APOSTROPHE}60s, ${MODIFIER_LETTER_APOSTROPHE}70s, and ${MODIFIER_LETTER_APOSTROPHE}80s were different.`
       )
     })
@@ -231,7 +228,7 @@ describe("niceQuotes", () => {
       ["digit neighbors (\\w includes digits)", "1 'n' 2", `1 ${MODIFIER_LETTER_APOSTROPHE}n${MODIFIER_LETTER_APOSTROPHE} 2`],
       ["known false positive: quoted letter", "the letter 'n' is common", `the letter ${MODIFIER_LETTER_APOSTROPHE}n${MODIFIER_LETTER_APOSTROPHE} is common`],
     ])('%s', (_label, input, expected) => {
-      expect(niceQuotes(input, MLA)).toBe(expected)
+      expect(classifyApostrophes(input)).toBe(expected)
     })
 
     it.each([
@@ -240,7 +237,7 @@ describe("niceQuotes", () => {
       ["punctuation precedes first apostrophe", "said, 'n' is good", `said, ${LEFT_SINGLE_QUOTE}n${RIGHT_SINGLE_QUOTE} is good`],
       ["newline replaces space", "Rock 'n'\nRoll", `Rock ${LEFT_SINGLE_QUOTE}n${RIGHT_SINGLE_QUOTE}\nRoll`],
     ])('does not produce MLA-n-MLA: %s', (_label, input, expected) => {
-      expect(niceQuotes(input, MLA)).toBe(expected)
+      expect(classifyApostrophes(input)).toBe(expected)
     })
   })
 
@@ -277,7 +274,7 @@ describe("niceQuotes", () => {
       [`O'Brien's idea`, `O${MODIFIER_LETTER_APOSTROPHE}Brien${MODIFIER_LETTER_APOSTROPHE}s idea`],
       [`The O'Connors`, `The O${MODIFIER_LETTER_APOSTROPHE}Connors`],
     ])('handles Irish/Scottish name apostrophes: "%s"', (input, expected) => {
-      expect(niceQuotes(input, MLA)).toBe(expected)
+      expect(classifyApostrophes(input)).toBe(expected)
     })
 
     // From smartquotes.js: complex nested quotes
@@ -311,7 +308,7 @@ describe("niceQuotes", () => {
       // Quote with slash separator
       ['"option1"/"option2"', `${LEFT_DOUBLE_QUOTE}option1${RIGHT_DOUBLE_QUOTE}/${LEFT_DOUBLE_QUOTE}option2${RIGHT_DOUBLE_QUOTE}`],
     ])('handles complex pattern: "%s"', (input, expected) => {
-      expect(niceQuotes(input, MLA)).toBe(expected)
+      expect(classifyApostrophes(input)).toBe(expected)
     })
 
     it("handles multi-line dialogue", () => {
@@ -337,8 +334,8 @@ describe("niceQuotes", () => {
       // Mixed quote types
       `${LEFT_SINGLE_QUOTE}hello${RIGHT_SINGLE_QUOTE} ${LEFT_DOUBLE_QUOTE}world${RIGHT_DOUBLE_QUOTE}`,
     ])('is idempotent for: "%s"', (input) => {
-      expect(niceQuotes(input, MLA)).toBe(input)
-      expect(niceQuotes(niceQuotes(input, MLA), MLA)).toBe(input)
+      expect(classifyApostrophes(input)).toBe(input)
+      expect(classifyApostrophes(classifyApostrophes(input))).toBe(input)
     })
   })
 
@@ -357,21 +354,21 @@ describe("niceQuotes", () => {
       // Closing after separator
       [`'hello${sep}'`, `${LEFT_SINGLE_QUOTE}hello${sep}${RIGHT_SINGLE_QUOTE}`, "closing quote after separator"],
     ])("%s → %s (%s)", (input, expected) => {
-      expect(niceQuotes(input, { separator: sep, ...MLA })).toBe(expected)
+      expect(classifyApostrophes(input, { separator: sep })).toBe(expected)
     })
 
     it("plural possessive across separator", () => {
       const input = `dogs${sep}' food`
       const expected = `dogs${sep}${MODIFIER_LETTER_APOSTROPHE} food`
-      expect(niceQuotes(input, { separator: sep, ...MLA })).toBe(expected)
-      expect(niceQuotes(expected, { separator: sep, ...MLA })).toBe(expected)
+      expect(classifyApostrophes(input, { separator: sep })).toBe(expected)
+      expect(classifyApostrophes(expected, { separator: sep })).toBe(expected)
     })
 
     it("'n' with separators around word boundaries", () => {
       const input = `Rock${sep} 'n' ${sep}Roll`
       const expected = `Rock${sep} ${MODIFIER_LETTER_APOSTROPHE}n${MODIFIER_LETTER_APOSTROPHE} ${sep}Roll`
-      expect(niceQuotes(input, { separator: sep, ...MLA })).toBe(expected)
-      expect(niceQuotes(expected, { separator: sep, ...MLA })).toBe(expected)
+      expect(classifyApostrophes(input, { separator: sep })).toBe(expected)
+      expect(classifyApostrophes(expected, { separator: sep })).toBe(expected)
     })
   })
 
@@ -387,7 +384,7 @@ describe("niceQuotes", () => {
       ["'a", `${MODIFIER_LETTER_APOSTROPHE}a`],
       ["a'", `a${RIGHT_SINGLE_QUOTE}`],
     ])('handles edge quote pattern: "%s"', (input, expected) => {
-      expect(niceQuotes(input, MLA)).toBe(expected)
+      expect(classifyApostrophes(input)).toBe(expected)
     })
   })
 
@@ -411,7 +408,7 @@ describe("niceQuotes", () => {
       ["wouldn't've", `wouldn${MODIFIER_LETTER_APOSTROPHE}t${MODIFIER_LETTER_APOSTROPHE}ve`],
       ["couldn't've", `couldn${MODIFIER_LETTER_APOSTROPHE}t${MODIFIER_LETTER_APOSTROPHE}ve`],
     ])('handles double contraction: "%s"', (input, expected) => {
-      expect(niceQuotes(input, MLA)).toBe(expected)
+      expect(classifyApostrophes(input)).toBe(expected)
     })
   })
 
@@ -424,7 +421,7 @@ describe("niceQuotes", () => {
       // Newline stops lookahead → MLA (not LSQ) since no closing quote visible
       ["'hello\nworld'", `${MODIFIER_LETTER_APOSTROPHE}hello\nworld${RIGHT_SINGLE_QUOTE}`],
     ])('handles multiline: "%s"', (input, expected) => {
-      expect(niceQuotes(input, MLA)).toBe(expected)
+      expect(classifyApostrophes(input)).toBe(expected)
     })
   })
 
@@ -490,7 +487,7 @@ describe("niceQuotes", () => {
         // British: RSQ period moves outside (contrast)
         [`${LEFT_SINGLE_QUOTE}hello.${RIGHT_SINGLE_QUOTE}`, `${LEFT_SINGLE_QUOTE}hello${RIGHT_SINGLE_QUOTE}.`, "british"],
       ])('%s → %s (%s)', (input, expected, style) => {
-        expect(niceQuotes(input, { punctuationStyle: style as "american" | "british", ...MLA })).toBe(expected)
+        expect(classifyApostrophes(input, { punctuationStyle: style as "american" | "british" })).toBe(expected)
       })
     })
 
@@ -518,7 +515,7 @@ describe("niceQuotes", () => {
     })
   })
 
-  describe("useModifierLetterApostrophe option", () => {
+  describe("niceQuotes vs classifyApostrophes", () => {
     const RSQ = RIGHT_SINGLE_QUOTE
 
     it.each([
@@ -533,8 +530,8 @@ describe("niceQuotes", () => {
       expect(niceQuotes(input)).toBe(expected)
     })
 
-    it("uses MLA when option is true", () => {
-      expect(niceQuotes("don't", MLA)).toBe(`don${MODIFIER_LETTER_APOSTROPHE}t`)
+    it("classifyApostrophes uses MLA for apostrophes", () => {
+      expect(classifyApostrophes("don't")).toBe(`don${MODIFIER_LETTER_APOSTROPHE}t`)
     })
 
     it("RSQ output is idempotent", () => {
@@ -545,11 +542,11 @@ describe("niceQuotes", () => {
       }
     })
 
-    it("MLA output is idempotent", () => {
+    it("classifyApostrophes output is idempotent", () => {
       const inputs = ["don't", "the dog's", "the dogs'", "O'Brien", "Rock 'n' Roll", "'90s"]
       for (const input of inputs) {
-        const first = niceQuotes(input, MLA)
-        expect(niceQuotes(first, MLA)).toBe(first)
+        const first = classifyApostrophes(input)
+        expect(classifyApostrophes(first)).toBe(first)
       }
     })
 
@@ -563,12 +560,12 @@ describe("niceQuotes", () => {
         // Mixed MLA + RSQ in same text
         [`I${MODIFIER_LETTER_APOSTROPHE}m fine and you${RIGHT_SINGLE_QUOTE}re great`, `I${MODIFIER_LETTER_APOSTROPHE}m fine and you${MODIFIER_LETTER_APOSTROPHE}re great`],
       ])('normalizes RSQ contraction "%s"', (input, expected) => {
-        expect(niceQuotes(input, MLA)).toBe(expected)
+        expect(classifyApostrophes(input)).toBe(expected)
       })
 
       it("does NOT normalize RSQ when it is a closing quote", () => {
         const input = `${LEFT_SINGLE_QUOTE}hello${RIGHT_SINGLE_QUOTE} world`
-        expect(niceQuotes(input, MLA)).toBe(input)
+        expect(classifyApostrophes(input)).toBe(input)
       })
 
       it.each([
@@ -578,20 +575,20 @@ describe("niceQuotes", () => {
         [`${LEFT_SINGLE_QUOTE}Stop!${RIGHT_SINGLE_QUOTE}`, "exclamation"],
         [`${LEFT_SINGLE_QUOTE}test,${RIGHT_SINGLE_QUOTE} more`, "comma"],
       ])("preserves closing RSQ preceded by non-word char (%s)", (input) => {
-        expect(niceQuotes(input, MLA)).toBe(input)
+        expect(classifyApostrophes(input)).toBe(input)
       })
 
       it("normalizes RSQ possessive with digit prefix", () => {
-        expect(niceQuotes(`GPT-2${RIGHT_SINGLE_QUOTE}s`, MLA)).toBe(`GPT-2${MODIFIER_LETTER_APOSTROPHE}s`)
+        expect(classifyApostrophes(`GPT-2${RIGHT_SINGLE_QUOTE}s`)).toBe(`GPT-2${MODIFIER_LETTER_APOSTROPHE}s`)
       })
 
       it("normalizes RSQ plural possessive to MLA", () => {
-        expect(niceQuotes(`the dogs${RIGHT_SINGLE_QUOTE} owner`, MLA)).toBe(`the dogs${MODIFIER_LETTER_APOSTROPHE} owner`)
+        expect(classifyApostrophes(`the dogs${RIGHT_SINGLE_QUOTE} owner`)).toBe(`the dogs${MODIFIER_LETTER_APOSTROPHE} owner`)
       })
 
       it("preserves RSQ plural possessive when matched with LSQ", () => {
         const input = `${LEFT_SINGLE_QUOTE}dogs${RIGHT_SINGLE_QUOTE} and more`
-        expect(niceQuotes(input, MLA)).toBe(input)
+        expect(classifyApostrophes(input)).toBe(input)
       })
     })
   })
@@ -600,24 +597,24 @@ describe("niceQuotes", () => {
     it("handles 1500-char input without closing quote", () => {
       const input = `'${"a".repeat(1500)}`
       const start = performance.now()
-      const result = niceQuotes(input, MLA)
+      const result = classifyApostrophes(input)
       expect(performance.now() - start).toBeLessThan(1000)
-      expect(niceQuotes(result, MLA)).toBe(result)
+      expect(classifyApostrophes(result)).toBe(result)
     })
 
     it("handles 16 rapid apostrophes", () => {
       const input = "a'b'c'd'e'f'g'h'i'j'k'l'm'n'o'p"
       const expected = `a${MODIFIER_LETTER_APOSTROPHE}b${MODIFIER_LETTER_APOSTROPHE}c${MODIFIER_LETTER_APOSTROPHE}d${MODIFIER_LETTER_APOSTROPHE}e${MODIFIER_LETTER_APOSTROPHE}f${MODIFIER_LETTER_APOSTROPHE}g${MODIFIER_LETTER_APOSTROPHE}h${MODIFIER_LETTER_APOSTROPHE}i${MODIFIER_LETTER_APOSTROPHE}j${MODIFIER_LETTER_APOSTROPHE}k${MODIFIER_LETTER_APOSTROPHE}l${MODIFIER_LETTER_APOSTROPHE}m${MODIFIER_LETTER_APOSTROPHE}n${MODIFIER_LETTER_APOSTROPHE}o${MODIFIER_LETTER_APOSTROPHE}p`
       const start = performance.now()
-      const result = niceQuotes(input, MLA)
+      const result = classifyApostrophes(input)
       expect(performance.now() - start).toBeLessThan(1000)
       expect(result).toBe(expected)
-      expect(niceQuotes(result, MLA)).toBe(result)
+      expect(classifyApostrophes(result)).toBe(result)
     })
 
     it("handles 500-char word + possessive", () => {
       const input = `${"a".repeat(500)}'s thing`
-      expect(niceQuotes(input, MLA)).toBe(`${"a".repeat(500)}${MODIFIER_LETTER_APOSTROPHE}s thing`)
+      expect(classifyApostrophes(input)).toBe(`${"a".repeat(500)}${MODIFIER_LETTER_APOSTROPHE}s thing`)
     })
   })
 

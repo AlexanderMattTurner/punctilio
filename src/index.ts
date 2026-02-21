@@ -8,7 +8,7 @@
  * @packageDocumentation
  */
 
-export { niceQuotes, type QuoteOptions, type PunctuationStyle } from "./quotes.js"
+export { niceQuotes, classifyApostrophes, type QuoteOptions, type PunctuationStyle } from "./quotes.js"
 import type { PunctuationStyle } from "./quotes.js"
 export {
   hyphenReplace,
@@ -155,17 +155,6 @@ export interface TransformOptions {
    */
   checkIdempotency?: boolean
 
-  /**
-   * Use modifier letter apostrophe (U+02BC) instead of right single quote
-   * (U+2019) for contractions and possessives. This distinguishes apostrophes
-   * from closing quotes in most cases, though some ambiguous patterns (e.g.,
-   * `dogs'` vs a closing single quote) cannot be resolved without semantic
-   * understanding. May also break downstream regex patterns that expect
-   * standard quote characters like /don\u2019t/ or /O\u2019Brien/.
-   *
-   * Default: false
-   */
-  useModifierLetterApostrophe?: boolean
 }
 
 import { niceQuotes } from "./quotes.js"
@@ -224,7 +213,6 @@ const defaultOpts: Required<Omit<TransformOptions, "separator">> = {
   checkIdempotency: true,
   punctuationStyle: "american",
   dashStyle: "american",
-  useModifierLetterApostrophe: false,
 }
 
 export function transform(text: string, options: TransformOptions = {}): string {
@@ -241,18 +229,13 @@ export function transform(text: string, options: TransformOptions = {}): string 
   }
 
   const original = text
-  const { symbols, fractions, degrees, superscript, ligatures, nbsp, collapseSpaces, checkIdempotency, useModifierLetterApostrophe, ...separatorOpts } = { ...defaultOpts, ...options }
+  const { symbols, fractions, degrees, superscript, ligatures, nbsp, collapseSpaces, checkIdempotency, ...separatorOpts } = { ...defaultOpts, ...options }
 
   text = hyphenReplace(text, separatorOpts)
   if (separatorOpts.punctuationStyle !== "none") {
     text = primeMarks(text, separatorOpts)
   }
-  // niceQuotes must output MLA here regardless of the user's option,
-  // because NBSP's PUNCTUATION_OR_QUOTE class includes RSQ but not MLA.
-  // Without this, apostrophes in "don't" would act as word boundaries
-  // during NBSP insertion. The final MLA→RSQ conversion at line 286
-  // runs after all transforms complete.
-  text = niceQuotes(text, { ...separatorOpts, useModifierLetterApostrophe: true })
+  text = niceQuotes(text, separatorOpts)
 
   if (symbols) {
     text = symbolTransform(text, separatorOpts)
@@ -283,12 +266,6 @@ export function transform(text: string, options: TransformOptions = {}): string 
   }
 
   assertSeparatorCountPreserved(original, text, separator, "transform")
-
-  // Convert MLA→RSQ for regex-friendly output, after all transforms
-  // (especially NBSP which relies on MLA being letter-like).
-  if (!useModifierLetterApostrophe) {
-    text = text.replaceAll(UNICODE_SYMBOLS.MODIFIER_LETTER_APOSTROPHE, UNICODE_SYMBOLS.RIGHT_SINGLE_QUOTE)
-  }
 
   if (checkIdempotency) {
     const secondPass = transform(text, { ...options, checkIdempotency: false })
