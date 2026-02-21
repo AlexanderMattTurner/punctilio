@@ -6,12 +6,12 @@ This directory contains configuration and skills for Claude Code.
 
 ```
 .claude/
-├── settings.json               # Claude Code hooks configuration
+├── settings.json              # Claude Code hooks configuration
 ├── hooks/
-│   ├── session-setup.sh       # Runs on session start (installs tools, configures git)
-│   ├── pre-push-check.sh     # Runs before git push / gh pr (build, lint, typecheck)
-│   ├── lib-checks.sh         # Shared library with utility functions for hooks
-│   └── verify-ci-on-stop.sh  # Runs on session stop (blocks if checks fail)
+│   ├── session-setup.sh      # Runs on session start (installs tools, configures git)
+│   ├── pre-push-check.sh    # Runs before git push / gh pr (build, lint, typecheck)
+│   ├── verify_ci.py          # Runs on session stop (blocks if checks fail, max 3 retries)
+│   └── lib-checks.sh        # Shared bash helpers (exists, has_script)
 └── skills/
     └── pr-creation/       # PR creation workflow with self-critique
         ├── SKILL.md       # Main skill entrypoint
@@ -27,7 +27,7 @@ When Claude Code starts a session, it automatically runs `session-setup.sh` whic
 
 1. **Installs tools**: shfmt, gh (GitHub CLI), jq, shellcheck
 2. **Configures git hooks**: Sets `core.hooksPath` to `.hooks/`
-3. **Validates GitHub CLI auth**: Warns if `gh` or `GH_TOKEN` is missing
+3. **Validates GitHub CLI auth**: Fails fast if `GH_TOKEN` is missing
 4. **Detects GitHub repo**: Extracts `owner/repo` from proxy remotes in web sessions
 5. **Installs dependencies**: Node (pnpm/npm) and Python (uv) if applicable
 
@@ -44,11 +44,13 @@ Only runs scripts that are actually configured in `package.json` — skips place
 
 ### Stop Hook
 
-When Claude finishes a session, `verify-ci-on-stop.sh` blocks completion if any checks fail:
+When Claude finishes a session, `verify_ci.py` blocks completion if any checks fail:
 
 - Runs test, lint, and typecheck (superset of pre-push checks — adds tests)
 - Returns `decision: "block"` with failure details so Claude continues fixing issues
 - Returns `decision: "approve"` if all checks pass
+- **Retry limit**: After 3 failed attempts (configurable via `MAX_STOP_RETRIES`), approves anyway with a warning to prevent infinite token burn
+- Written in Python for reliability — reads `package.json` directly, no `jq` dependency
 
 ### Skills
 
