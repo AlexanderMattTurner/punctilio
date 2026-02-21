@@ -22,17 +22,6 @@ export interface QuoteOptions {
   separator?: string
   /** "american" (inside), "british" (outside), "none". Default: "american" */
   punctuationStyle?: PunctuationStyle
-  /**
-   * Use modifier letter apostrophe (U+02BC) instead of right single quote
-   * (U+2019) for contractions and possessives. This distinguishes apostrophes
-   * from closing quotes in most cases, though some ambiguous patterns (e.g.,
-   * `dogs'` vs a closing single quote) cannot be resolved without semantic
-   * understanding. May also break downstream regex patterns that expect
-   * standard quote characters like /don\u2019t/ or /O\u2019Brien/.
-   *
-   * Default: false
-   */
-  useModifierLetterApostrophe?: boolean
 }
 
 /** Convert straight single quotes to curly quotes and apostrophes */
@@ -177,8 +166,8 @@ function applyPunctuationStyle(text: string, sep: string, style: PunctuationStyl
   return text
 }
 
-/** Convert straight quotes to smart quotes. */
-export function niceQuotes(text: string, options: QuoteOptions = {}): string {
+/** Shared quote-processing pipeline. Returns text with MLA for apostrophes. */
+function processQuotes(text: string, options: QuoteOptions): string {
   const sep = options.separator ?? DEFAULT_SEPARATOR
   const punctuationStyle = options.punctuationStyle ?? "american"
   if (punctuationStyle === "none") return text
@@ -187,12 +176,27 @@ export function niceQuotes(text: string, options: QuoteOptions = {}): string {
   text = convertDoubleQuotes(text, sep)
   text = applyPunctuationStyle(text, sep, punctuationStyle)
 
+  return text
+}
+
+/** Convert straight quotes to smart quotes. */
+export function niceQuotes(text: string, options: QuoteOptions = {}): string {
   // MLA is used internally so applyPunctuationStyle can distinguish
   // apostrophes (MLA, don't move) from closing quotes (RSQ, do move).
-  // Convert back to RSQ unless the caller opts into the distinction.
-  if (!options.useModifierLetterApostrophe) {
-    text = text.replaceAll(MODIFIER_LETTER_APOSTROPHE, RIGHT_SINGLE_QUOTE)
-  }
+  // Always convert back to RSQ for standard output per Unicode.
+  return processQuotes(text, options).replaceAll(MODIFIER_LETTER_APOSTROPHE, RIGHT_SINGLE_QUOTE)
+}
 
-  return text
+/**
+ * Classify apostrophes vs. closing single quotes.
+ *
+ * Returns the text with smart quotes applied, where apostrophes are
+ * U+02BC (MODIFIER LETTER APOSTROPHE) and closing single quotes are
+ * U+2019 (RIGHT SINGLE QUOTATION MARK).
+ *
+ * For display output, use {@link niceQuotes} or `transform()` instead,
+ * which use U+2019 for both per the Unicode Standard.
+ */
+export function classifyApostrophes(text: string, options: QuoteOptions = {}): string {
+  return processQuotes(text, options)
 }

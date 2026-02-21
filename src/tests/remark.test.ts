@@ -48,7 +48,7 @@ describe("remarkPunctilio", () => {
   describe("basic transformations (nbsp enabled)", () => {
     it.each([
       ["quotes", '"Hello," she said.', `${LDQ}Hello,${RDQ} she${NBSP}said.`],
-      ["apostrophes", "It's a test.", `It${RSQ}s a${NBSP}test.`],
+      ["apostrophes", "It's a test.", `It${RSQ}s${NBSP}a${NBSP}test.`],
       ["em dashes", "Wait -- here it comes.", `Wait${EM_DASH}here it${NBSP}comes.`],
       ["en dashes (number range)", "Pages 1-5", `Pages${NBSP}1${EN_DASH}5`],
       ["ellipses", "Wait...", `Wait${ELLIPSIS}`],

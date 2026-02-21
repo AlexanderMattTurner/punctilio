@@ -137,7 +137,6 @@ transform(text, {
   ligatures: false,        // ??? → ⁇, ?! → ⁈, !? → ⁉, !!! → !
   nbsp: true,              // non-breaking spaces (after honorifics, between numbers and units, etc.)
   checkIdempotency: true,  // verify transform(transform(x)) === transform(x)
-  useModifierLetterApostrophe: false, // output distinct codepoints for apostrophes vs end-single-quotes
 })
 ```
 
@@ -150,4 +149,4 @@ transform(text, {
   - Spaced en-dashes between words (word – word)
 - Setting either style to `none` skips the entire transform category: `punctuationStyle: 'none'` preserves straight quotes, apostrophes, and prime marks; `dashStyle: 'none'` preserves all hyphens, number ranges, date ranges, and minus signs.
 - `punctilio` is idempotent by design: `transform(transform(text))` always equals `transform(text)`. If performance is critical, set `checkIdempotency: false` to skip the verification pass.
-- When `useModifierLetterApostrophe` is enabled, apostrophes use Modifier Letter Apostrophe (U+02BC) while closing single quotes use Right Single Quotation Mark (U+2019), producing semantically distinct codepoints in most cases. Contractions (don't), possessives (dog's), and leading abbreviations ('twas, '99) all output U+02BC. Bare trailing possessives like `dogs'` remain ambiguous. This option is off by default since U+02BC may not be matched by downstream regex patterns that expect standard quote characters.
+- Use `classifyApostrophes(text)` to distinguish apostrophes from closing single quotes. It returns text with apostrophes as U+02BC (MODIFIER LETTER APOSTROPHE) and closing quotes as U+2019 (RIGHT SINGLE QUOTATION MARK). Per the [Unicode Standard](https://www.unicode.org/versions/Unicode16.0.0/core-spec/chapter-6/#G30602), `transform()` and `niceQuotes()` use U+2019 for both in their output.
