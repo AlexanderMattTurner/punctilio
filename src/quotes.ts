@@ -42,8 +42,9 @@ function convertSingleQuotes(text: string, sep: string): string {
   // Handle empty single quotes '' and whitespace-only quotes ' ' first
   // Only match straight quotes, not already-converted curly quotes
   const singleQuoteChars = `'${LEFT_SINGLE_QUOTE}${RIGHT_SINGLE_QUOTE}${MODIFIER_LETTER_APOSTROPHE}`
-  text = text.replace(new RegExp(`(?<![${singleQuoteChars}])''(?![${singleQuoteChars}])`, "g"), `${LEFT_SINGLE_QUOTE}${RIGHT_SINGLE_QUOTE}`)
-  text = text.replace(new RegExp(`(?<![${singleQuoteChars}])'(\\s+)'(?![${singleQuoteChars}])`, "g"), `${LEFT_SINGLE_QUOTE}$1${RIGHT_SINGLE_QUOTE}`)
+  const singleQuoteOrWord = `[${singleQuoteChars}\\w]`
+  text = text.replace(new RegExp(`(?<!${singleQuoteOrWord})''(?!${singleQuoteOrWord})`, "g"), `${LEFT_SINGLE_QUOTE}${RIGHT_SINGLE_QUOTE}`)
+  text = text.replace(new RegExp(`(?<!${singleQuoteOrWord})'(\\s+)'(?!${singleQuoteOrWord})`, "g"), `${LEFT_SINGLE_QUOTE}$1${RIGHT_SINGLE_QUOTE}`)
 
   const afterEndingSinglePatterns = `\\s\\.!?;,\\)${EM_DASH}\\-\\]"`
   // Full pattern with optional 's' for lookahead detection in apostropheRegex
@@ -80,7 +81,37 @@ function convertSingleQuotes(text: string, sep: string): string {
   const beginningSingle = `(?<beforeContext>(?:^|[\\s${LEFT_DOUBLE_QUOTE}${RIGHT_DOUBLE_QUOTE}${EM_DASH}\\-\\(])${escapedSep}?)['](?=${escapedSep}?\\S)`
   text = text.replace(new RegExp(beginningSingle, "gm"), `$<beforeContext>${LEFT_SINGLE_QUOTE}`)
 
+  text = convertUnmatchedPluralPossessives(text, sep)
+
   return text
+}
+
+/**
+ * Convert unmatched RSQ after s/S to MLA (plural possessives like dogs', Bayes').
+ * Tracks LSQ/RSQ balance left-to-right so that paired closing quotes
+ * (e.g., 'yes' where s precedes RSQ) remain RSQ.
+ */
+function convertUnmatchedPluralPossessives(text: string, sep: string): string {
+  let singleQuoteBalance = 0
+  return text.replace(
+    new RegExp(`[${LEFT_SINGLE_QUOTE}${RIGHT_SINGLE_QUOTE}]`, "g"),
+    (match, offset) => {
+      if (match === LEFT_SINGLE_QUOTE) {
+        singleQuoteBalance++
+        return match
+      }
+      if (singleQuoteBalance > 0) {
+        singleQuoteBalance--
+        return match
+      }
+      let i = offset - 1
+      while (i >= 0 && text[i] === sep) i--
+      if (i >= 0 && (text[i] === "s" || text[i] === "S")) {
+        return MODIFIER_LETTER_APOSTROPHE
+      }
+      return match
+    }
+  )
 }
 
 /** Convert straight double quotes to curly quotes */
