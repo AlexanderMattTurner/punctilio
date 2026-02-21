@@ -116,32 +116,38 @@ export function mathSymbols(text: string): string {
   return text
 }
 
-/** Legal symbol replacement map: ASCII → Unicode */
-const LEGAL_SYMBOL_MAP: [RegExp, string][] = [
-  [/\(r\)/gi, REGISTERED],
-  [/\(tm\)/gi, TRADEMARK],
-]
+/**
+ * Context-aware replacement for legal symbols like (c), (r), (tm).
+ * Extracts surrounding text and delegates the convert/skip decision to a predicate.
+ */
+function contextAwareLegalReplace(
+  text: string,
+  pattern: RegExp,
+  replacement: string,
+  shouldConvert: (before: string, after: string) => boolean,
+): string {
+  return text.replace(pattern, (match: string, offset: number, str: string) => {
+    const before = str.slice(Math.max(0, offset - 25), offset)
+    const after = str.slice(offset + match.length, offset + match.length + 25)
+    return shouldConvert(before, after) ? replacement : match
+  })
+}
 
 /** Convert (c), (r), (tm) to ©, ®, ™. */
 export function legalSymbols(text: string): string {
-  // (c) needs context-aware replacement to avoid false positives in essays,
-  // enumerations like "(a), (b), (c)", and legal citations like "(c)(2)(A)".
-  // Only convert when there's positive copyright evidence:
-  //   - Followed by a 4-digit year (19xx/20xx) within a short window
-  //   - Preceded by the word "copyright"
-  text = text.replace(/\(c\)/gi, (match, offset, str) => {
-    const after = str.slice(offset + 3, offset + 25)
-    if (/^\s*(?:19|20)\d{2}\b/.test(after)) return COPYRIGHT
+  // (c) → © only with positive copyright evidence (year or "copyright" keyword)
+  text = contextAwareLegalReplace(text, /\(c\)/gi, COPYRIGHT, (before, after) =>
+    /^\s*(?:19|20)\d{2}\b/.test(after) || /\bcopyright\s*$/i.test(before)
+  )
 
-    const before = str.slice(Math.max(0, offset - 20), offset)
-    if (/\bcopyright\s*$/i.test(before)) return COPYRIGHT
+  // (r) → ® unless in enumeration "(q), (r)" or legal citation "(r)(1)" context
+  text = contextAwareLegalReplace(text, /\(r\)/gi, REGISTERED, (before, after) =>
+    !/\([a-z]\)[,;]\s*$/i.test(before) && !/^\(\d/.test(after)
+  )
 
-    return match
-  })
+  // (tm) → ™ unconditionally
+  text = text.replace(/\(tm\)/gi, TRADEMARK)
 
-  for (const [pattern, replacement] of LEGAL_SYMBOL_MAP) {
-    text = text.replace(pattern, replacement)
-  }
   return text
 }
 

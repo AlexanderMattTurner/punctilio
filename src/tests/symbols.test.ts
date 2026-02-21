@@ -129,7 +129,7 @@ describe("legalSymbols", () => {
     // (c) preceded by "copyright" → copyright
     ["Copyright (c) Company", `Copyright ${UNICODE_SYMBOLS.COPYRIGHT} Company`],
     ["copyright (C) by Author", `copyright ${UNICODE_SYMBOLS.COPYRIGHT} by Author`],
-    // (r) and (tm) always convert
+    // (r) converts in trademark context
     ["Brand(r)", `Brand${UNICODE_SYMBOLS.REGISTERED}`],
     ["Product (R)", `Product ${UNICODE_SYMBOLS.REGISTERED}`],
     ["Name(tm)", `Name${UNICODE_SYMBOLS.TRADEMARK}`],
@@ -152,6 +152,16 @@ describe("legalSymbols", () => {
     ["discussed in (c) above", "discussed in (c) above"],
     ["(C) Acme Inc", "(C) Acme Inc"],
   ])('preserves (c) in non-copyright context "%s"', (input, expected) => {
+    expect(legalSymbols(input)).toBe(expected)
+  })
+
+  it.each([
+    // (r) in enumerations
+    ["(p), (q), (r), (s)", "(p), (q), (r), (s)"],
+    ["(Q); (R); (S)", "(Q); (R); (S)"],
+    // (r) in legal citations
+    ["See (r)(1)(A)", "See (r)(1)(A)"],
+  ])('preserves (r) in non-trademark context "%s"', (input, expected) => {
     expect(legalSymbols(input)).toBe(expected)
   })
 })
@@ -227,14 +237,14 @@ describe("primeMarks", () => {
     ['He is 6\'2" tall', `He is 6${UNICODE_SYMBOLS.PRIME}2${UNICODE_SYMBOLS.DOUBLE_PRIME} tall`],
     ["The board is 8' long", `The board is 8${UNICODE_SYMBOLS.PRIME} long`],
     ['12"', `12${UNICODE_SYMBOLS.DOUBLE_PRIME}`],
-    ["Location: 45° 30' 15\"", `Location: 45° 30${UNICODE_SYMBOLS.PRIME} 15${UNICODE_SYMBOLS.DOUBLE_PRIME}`],
+    [`Location: 45${UNICODE_SYMBOLS.DEGREE} 30' 15"`, `Location: 45${UNICODE_SYMBOLS.DEGREE} 30${UNICODE_SYMBOLS.PRIME} 15${UNICODE_SYMBOLS.DOUBLE_PRIME}`],
     ["don't", "don't"],
     ["it's", "it's"],
     ["'Twas the night", "'Twas the night"],
     ["'hello'", "'hello'"],
     ['"test"', '"test"'],
     ['The ceiling is 9\'6" high', `The ceiling is 9${UNICODE_SYMBOLS.PRIME}6${UNICODE_SYMBOLS.DOUBLE_PRIME} high`],
-    ["40° 44' 54\" N", `40° 44${UNICODE_SYMBOLS.PRIME} 54${UNICODE_SYMBOLS.DOUBLE_PRIME} N`],
+    [`40${UNICODE_SYMBOLS.DEGREE} 44' 54" N`, `40${UNICODE_SYMBOLS.DEGREE} 44${UNICODE_SYMBOLS.PRIME} 54${UNICODE_SYMBOLS.DOUBLE_PRIME} N`],
     ['The board is 12" wide', `The board is 12${UNICODE_SYMBOLS.DOUBLE_PRIME} wide`],
     ['12" long', `12${UNICODE_SYMBOLS.DOUBLE_PRIME} long`],
     // Multiple primes in one string
@@ -534,9 +544,9 @@ describe("competitor-derived edge cases", () => {
   // From Standard Ebooks: coordinates
   describe("coordinate notation", () => {
     it.each([
-      ["40° 44' 54\" N", `40° 44${UNICODE_SYMBOLS.PRIME} 54${UNICODE_SYMBOLS.DOUBLE_PRIME} N`],
-      ["74° 0' 21\" W", `74° 0${UNICODE_SYMBOLS.PRIME} 21${UNICODE_SYMBOLS.DOUBLE_PRIME} W`],
-      ["51° 30' N", `51° 30${UNICODE_SYMBOLS.PRIME} N`],
+      [`40${UNICODE_SYMBOLS.DEGREE} 44' 54" N`, `40${UNICODE_SYMBOLS.DEGREE} 44${UNICODE_SYMBOLS.PRIME} 54${UNICODE_SYMBOLS.DOUBLE_PRIME} N`],
+      [`74${UNICODE_SYMBOLS.DEGREE} 0' 21" W`, `74${UNICODE_SYMBOLS.DEGREE} 0${UNICODE_SYMBOLS.PRIME} 21${UNICODE_SYMBOLS.DOUBLE_PRIME} W`],
+      [`51${UNICODE_SYMBOLS.DEGREE} 30' N`, `51${UNICODE_SYMBOLS.DEGREE} 30${UNICODE_SYMBOLS.PRIME} N`],
     ])('converts coordinates: "%s"', (input, expected) => {
       expect(primeMarks(input)).toBe(expected)
     })

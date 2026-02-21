@@ -69,7 +69,7 @@ describe("rehypePunctilio", () => {
       ["multi-segment number preserved", "<p>1-<em>2</em>-3</p>", "<p>1-<em>2</em>-3</p>"],
       ["model name preserved", "<p><em>GPT</em>-3</p>", "<p><em>GPT</em>-3</p>"],
       ["simple range still converts", "<p>pages <em>1</em>-5</p>", `<p>pages <em>1</em>${EN_DASH}5</p>`],
-      ["genuine negative at element start", "<p><em>-5</em> degrees</p>", "<p><em>\u22125</em> degrees</p>"],
+      ["genuine negative at element start", "<p><em>-5</em> degrees</p>", `<p><em>${UNICODE_SYMBOLS.MINUS}5</em> degrees</p>`],
     ])("%s", async (_name, html, expected) => {
       expect(await processHtml(html, { nbsp: false })).toEqual(expected)
     })
@@ -259,8 +259,8 @@ describe("rehypePunctilio", () => {
 
       it("applies custom transforms", () => {
         const element = h("p", "pages 1-5") as Element
-        transformElement(element, (s) => s.replace(/-/g, "–"), ignoreNone, DEFAULT_SEPARATOR)
-        expect((element.children[0] as Text).value).toBe("pages 1–5")
+        transformElement(element, (s) => s.replace(/-/g, EN_DASH), ignoreNone, DEFAULT_SEPARATOR)
+        expect((element.children[0] as Text).value).toBe(`pages 1${EN_DASH}5`)
       })
 
       it("handles missing children gracefully", () => {
@@ -351,8 +351,8 @@ describe("rehypePunctilio", () => {
 
     describe("assertSmartQuotesMatch", () => {
       it.each([
-        ["matched double quotes", "\u201CHello\u201D"],
-        ["nested quotes", "\u201COuter \u201Cinner\u201D outer\u201D"],
+        ["matched double quotes", `${LDQ}Hello${RDQ}`],
+        ["nested quotes", `${LDQ}Outer ${LDQ}inner${RDQ} outer${RDQ}`],
         ["empty string", ""],
         ["no quotes", "Hello, world!"],
       ])("passes for %s", (_name, input) => {
@@ -360,9 +360,10 @@ describe("rehypePunctilio", () => {
       })
 
       it.each([
-        ["unmatched opening", "\u201CHello"],
-        ["unmatched closing", "Hello\u201D"],
-        ["extra opening", "\u201C\u201CHello\u201D"],
+        ["unmatched opening", `${LDQ}Hello`],
+        ["unmatched closing", `Hello${RDQ}`],
+        ["extra opening", `${LDQ}${LDQ}Hello${RDQ}`],
+        ["reversed quotes", `${RDQ}Hello${LDQ}`],
       ])("throws for %s", (_name, input) => {
         expect(() => assertSmartQuotesMatch(input)).toThrow("Mismatched quotes")
       })

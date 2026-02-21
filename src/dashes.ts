@@ -26,7 +26,7 @@ export const numberRangeDisallowedPrefixes = ["-", EN_DASH, EM_DASH, MINUS] as c
 export const months = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December",
-  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jan", "Feb", "Mar", "Apr", "Jun",
   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
 ].join("|")
 
@@ -155,7 +155,7 @@ function convertParentheticalDashes(text: string, sep: string, style: DashStyle)
   // Convert spaced dashes: "word - word" or "word — word"
   // When a separator follows the dash, preserve trailing spaces (they belong to the next text segment).
   const spacedDashPattern = new RegExp(
-    `(?<=[^\\s]|^)(?<sepBefore>${escapedSep}?)[ ]+[~${EN_DASH}${EM_DASH}-]+(?!-*>)[ ]*(?<sepAfter>${escapedSep}?)(?<trailing>[ ]*)(?=\\S|$)`, "g"
+    `(?<=[^\\s]|^)(?<sepBefore>${escapedSep}?)[ ]+[${EN_DASH}${EM_DASH}-]+(?!-*>)[ ]*(?<sepAfter>${escapedSep}?)(?<trailing>[ ]*)(?=\\S|$)`, "g"
   )
   text = text.replace(spacedDashPattern, (_match, sepBefore, sepAfter, trailing) => {
     // For British style (spaced en-dash), preserve trailing spaces after separator
@@ -166,13 +166,13 @@ function convertParentheticalDashes(text: string, sep: string, style: DashStyle)
   // Convert dashes at text node boundaries: separator alone precedes dash (e.g., "word{sep}– rest")
   // Requires space after the dash to avoid matching number ranges like "1{sep}-{sep}5"
   text = text.replace(
-    new RegExp(`(?<=[^\\s])(?<sepBefore>${escapedSep})[~${EN_DASH}${EM_DASH}-]+[ ]+(?<sepAfter>${escapedSep}?)`, "g"),
+    new RegExp(`(?<=[^\\s])(?<sepBefore>${escapedSep})[${EN_DASH}${EM_DASH}-]+[ ]+(?<sepAfter>${escapedSep}?)`, "g"),
     `$<sepBefore>${maybeSpace}${localizedDash}${maybeSpace}$<sepAfter>`
   )
   // Convert multiple dashes: "word--word" or "word---word" or "quote"--"quote"
   const quoteChars = `"'${LEFT_DOUBLE_QUOTE}${RIGHT_DOUBLE_QUOTE}${LEFT_SINGLE_QUOTE}${RIGHT_SINGLE_QUOTE}`
   text = text.replace(
-    new RegExp(`(?<=[${LATIN_LETTERS}\\d${quoteChars}])(?<sepBefore>${escapedSep}?)[~${EN_DASH}${EM_DASH}-]{2,}(?<sepAfter>${escapedSep}?)(?=[${LATIN_LETTERS}${quoteChars} ])`, "g"),
+    new RegExp(`(?<=[${LATIN_LETTERS}\\d${quoteChars}])(?<sepBefore>${escapedSep}?)[${EN_DASH}${EM_DASH}-]{2,}(?<sepAfter>${escapedSep}?)(?=[${LATIN_LETTERS}${quoteChars} ])`, "g"),
     `$<sepBefore>${maybeSpace}${localizedDash}${maybeSpace}$<sepAfter>`
   )
   // Convert dashes at start of line

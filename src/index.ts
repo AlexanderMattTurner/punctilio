@@ -242,11 +242,11 @@ export function transform(text: string, options: TransformOptions = {}): string 
   }
 
   if (fractions) {
-    text = fractionsTransform(text)
+    text = fractionsTransform(text, separatorOpts)
   }
 
   if (degrees) {
-    text = degreesTransform(text)
+    text = degreesTransform(text, separatorOpts)
   }
 
   if (superscript) {

@@ -183,15 +183,19 @@ export function getFirstTextNode(
 export function assertSmartQuotesMatch(input: string): void {
   if (!input) return
 
-  const quoteMap: Record<string, string> = { "\u201C": "\u201D", "\u201D": "\u201C" }
+  const openers = new Set(["\u201C"])   // left double quote opens
+  const closerToOpener: Record<string, string> = { "\u201D": "\u201C" }  // right closes left
   const stack: string[] = []
 
   for (const char of input) {
-    if (char in quoteMap) {
-      if (stack.length > 0 && quoteMap[stack[stack.length - 1]] === char) {
+    if (openers.has(char)) {
+      stack.push(char)
+    } else if (char in closerToOpener) {
+      if (stack.length > 0 && stack[stack.length - 1] === closerToOpener[char]) {
         stack.pop()
       } else {
-        stack.push(char)
+        // Unmatched closer
+        throw new Error(`Mismatched quotes in ${input}`)
       }
     }
   }
