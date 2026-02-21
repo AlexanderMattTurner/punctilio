@@ -15,7 +15,7 @@ import {
 } from "../nbsp.js"
 import { UNICODE_SYMBOLS, DEFAULT_SEPARATOR } from "../constants.js"
 
-const NBSP = UNICODE_SYMBOLS.NBSP
+const { NBSP, COPYRIGHT, REGISTERED, TRADEMARK } = UNICODE_SYMBOLS
 const SEP = DEFAULT_SEPARATOR
 
 /** Calls fn with separator option, checking all cases produce correct nbsp. */
@@ -183,18 +183,18 @@ describe("nbspAfterHonorifics", () => {
 
 describe("nbspAfterCopyrightSymbols", () => {
   it.each([
-    ["© 2024", `©${NBSP}2024`],
-    ["® Brand", `®${NBSP}Brand`],
-    ["™ Product", `™${NBSP}Product`],
-    ["© 2024 Company", `©${NBSP}2024 Company`],
-    ["© company", "© company"],
+    [`${COPYRIGHT} 2024`, `${COPYRIGHT}${NBSP}2024`],
+    [`${REGISTERED} Brand`, `${REGISTERED}${NBSP}Brand`],
+    [`${TRADEMARK} Product`, `${TRADEMARK}${NBSP}Product`],
+    [`${COPYRIGHT} 2024 Company`, `${COPYRIGHT}${NBSP}2024 Company`],
+    [`${COPYRIGHT} company`, `${COPYRIGHT} company`],
   ])('"%s" → "%s"', (input, expected) => {
     expect(nbspAfterCopyrightSymbols(input)).toBe(expected)
   })
 
   it("preserves separator after symbol", () => {
     expectSep(nbspAfterCopyrightSymbols, [
-      [`©${SEP} 2024`, `©${SEP}${NBSP}2024`],
+      [`${COPYRIGHT}${SEP} 2024`, `${COPYRIGHT}${SEP}${NBSP}2024`],
     ])
   })
 })
@@ -224,8 +224,8 @@ describe("nbspTransform", () => {
   })
 
   it("handles multiple rules on the same text", () => {
-    expect(nbspTransform("© 2024 by J. K. Rowling"))
-      .toBe(`©${NBSP}2024 by${NBSP}J.${NBSP}K.${NBSP}Rowling`)
+    expect(nbspTransform(`${COPYRIGHT} 2024 by J. K. Rowling`))
+      .toBe(`${COPYRIGHT}${NBSP}2024 by${NBSP}J.${NBSP}K.${NBSP}Rowling`)
   })
 
   it("nbspBeforeLastWord fires on plain text", () => {
