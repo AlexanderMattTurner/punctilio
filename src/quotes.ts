@@ -42,8 +42,9 @@ function convertSingleQuotes(text: string, sep: string): string {
   // Handle empty single quotes '' and whitespace-only quotes ' ' first
   // Only match straight quotes, not already-converted curly quotes
   const singleQuoteChars = `'${LEFT_SINGLE_QUOTE}${RIGHT_SINGLE_QUOTE}${MODIFIER_LETTER_APOSTROPHE}`
-  text = text.replace(new RegExp(`(?<![${singleQuoteChars}\\w])''(?![${singleQuoteChars}\\w])`, "g"), `${LEFT_SINGLE_QUOTE}${RIGHT_SINGLE_QUOTE}`)
-  text = text.replace(new RegExp(`(?<![${singleQuoteChars}\\w])'(\\s+)'(?![${singleQuoteChars}\\w])`, "g"), `${LEFT_SINGLE_QUOTE}$1${RIGHT_SINGLE_QUOTE}`)
+  const singleQuoteOrWord = `[${singleQuoteChars}\\w]`
+  text = text.replace(new RegExp(`(?<!${singleQuoteOrWord})''(?!${singleQuoteOrWord})`, "g"), `${LEFT_SINGLE_QUOTE}${RIGHT_SINGLE_QUOTE}`)
+  text = text.replace(new RegExp(`(?<!${singleQuoteOrWord})'(\\s+)'(?!${singleQuoteOrWord})`, "g"), `${LEFT_SINGLE_QUOTE}$1${RIGHT_SINGLE_QUOTE}`)
 
   const afterEndingSinglePatterns = `\\s\\.!?;,\\)${EM_DASH}\\-\\]"`
   // Full pattern with optional 's' for lookahead detection in apostropheRegex
@@ -80,11 +81,19 @@ function convertSingleQuotes(text: string, sep: string): string {
   const beginningSingle = `(?<beforeContext>(?:^|[\\s${LEFT_DOUBLE_QUOTE}${RIGHT_DOUBLE_QUOTE}${EM_DASH}\\-\\(])${escapedSep}?)['](?=${escapedSep}?\\S)`
   text = text.replace(new RegExp(beginningSingle, "gm"), `$<beforeContext>${LEFT_SINGLE_QUOTE}`)
 
-  // Unmatched trailing RSQ after s/S → MLA (plural possessives like dogs', Bayes')
-  // Tracks LSQ/RSQ balance left-to-right so that paired closing quotes (e.g.,
-  // 'yes' where s precedes RSQ) remain RSQ.
+  text = convertUnmatchedPluralPossessives(text, sep)
+
+  return text
+}
+
+/**
+ * Convert unmatched RSQ after s/S to MLA (plural possessives like dogs', Bayes').
+ * Tracks LSQ/RSQ balance left-to-right so that paired closing quotes
+ * (e.g., 'yes' where s precedes RSQ) remain RSQ.
+ */
+function convertUnmatchedPluralPossessives(text: string, sep: string): string {
   let singleQuoteBalance = 0
-  text = text.replace(
+  return text.replace(
     new RegExp(`[${LEFT_SINGLE_QUOTE}${RIGHT_SINGLE_QUOTE}]`, "g"),
     (match, offset) => {
       if (match === LEFT_SINGLE_QUOTE) {
@@ -103,8 +112,6 @@ function convertSingleQuotes(text: string, sep: string): string {
       return match
     }
   )
-
-  return text
 }
 
 /** Convert straight double quotes to curly quotes */
