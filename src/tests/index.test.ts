@@ -11,6 +11,9 @@ const {
   ELLIPSIS,
   MULTIPLICATION,
   NOT_EQUAL,
+  PLUS_MINUS,
+  LESS_EQUAL,
+  GREATER_EQUAL,
   COPYRIGHT,
   NBSP,
   PRIME,
@@ -18,6 +21,7 @@ const {
   TRADEMARK,
   REGISTERED,
   DEGREE,
+  MINUS,
   FRACTION_1_2,
   SUPERSCRIPT_ST,
 } = UNICODE_SYMBOLS
@@ -183,11 +187,11 @@ describe("transform", () => {
         // Date ranges - all competitors fail
         ["January-March", `January${EN_DASH}March`],
         // Minus signs - most competitors fail
-        ["-5", `−5`],
-        ["(-5)", `(−5)`],
+        ["-5", `${MINUS}5`],
+        ["(-5)", `(${MINUS}5)`],
         // Prime marks - smartypants/typograf fail
-        ['5\'10"', `5′10″`],
-        ['He is 6\'2" tall', `He is 6′2″ tall`],
+        ['5\'10"', `5${PRIME}10${DOUBLE_PRIME}`],
+        ['He is 6\'2" tall', `He is 6${PRIME}2${DOUBLE_PRIME} tall`],
       ])('correctly transforms: "%s"', (input, expected) => {
         expect(transform(input, { symbols: true, degrees: true, nbsp: false })).toBe(expected)
       })
@@ -229,7 +233,7 @@ describe("transform", () => {
 
     it("handles technical documentation", () => {
       const input = 'The API returns x != y when a <= b and c >= d. Error tolerance: +-5%.'
-      const expected = `The API returns x ${NOT_EQUAL} y when a ≤ b and c ≥ d. Error tolerance: ±5%.`
+      const expected = `The API returns x ${NOT_EQUAL} y when a ${LESS_EQUAL} b and c ${GREATER_EQUAL} d. Error tolerance: ${PLUS_MINUS}5%.`
       expect(transform(input, { nbsp: false })).toBe(expected)
     })
 
@@ -262,11 +266,11 @@ describe("transform", () => {
     it.each([
       [
         '"Wait..." she said - "it\'s pages 1-5."',
-        `${LEFT_DOUBLE_QUOTE}Wait…${RIGHT_DOUBLE_QUOTE} she said${EM_DASH}${LEFT_DOUBLE_QUOTE}it${RIGHT_SINGLE_QUOTE}s pages 1–5.${RIGHT_DOUBLE_QUOTE}`,
+        `${LEFT_DOUBLE_QUOTE}Wait${ELLIPSIS}${RIGHT_DOUBLE_QUOTE} she said${EM_DASH}${LEFT_DOUBLE_QUOTE}it${RIGHT_SINGLE_QUOTE}s pages 1${EN_DASH}5.${RIGHT_DOUBLE_QUOTE}`,
       ],
       [
         "(c) 2024 - Room is 10x12, set to 72 F",
-        `${COPYRIGHT} 2024${EM_DASH}Room is 10×12, set to 72 °F`,
+        `${COPYRIGHT} 2024${EM_DASH}Room is 10${MULTIPLICATION}12, set to 72 ${DEGREE}F`,
       ],
     ])('handles complex transform: "%s"', (input, expected) => {
       expect(transform(input, { degrees: true, nbsp: false })).toBe(expected)
@@ -312,7 +316,7 @@ describe("transform", () => {
       const count = 50
       const input = "pages 1-5 ".repeat(count)
       const result = transform(input, { nbsp: false })
-      const enDashCount = (result.match(/–/g) || []).length
+      const enDashCount = (result.match(new RegExp(EN_DASH, "g")) || []).length
       expect(enDashCount).toBe(count)
     })
 
@@ -320,7 +324,7 @@ describe("transform", () => {
       const count = 50
       const input = "Wait... ".repeat(count)
       const result = transform(input, { nbsp: false })
-      const ellipsisCount = (result.match(/…/g) || []).length
+      const ellipsisCount = (result.match(new RegExp(ELLIPSIS, "g")) || []).length
       expect(ellipsisCount).toBe(count)
     })
   })
@@ -372,7 +376,7 @@ describe("transform", () => {
 
     it.each([
       [`word${sep} - ${sep}word`, `word${sep}${EM_DASH}${sep}word`],
-      [`1${sep}-${sep}5`, `1${sep}–${sep}5`],
+      [`1${sep}-${sep}5`, `1${sep}${EN_DASH}${sep}5`],
     ])('handles separator in dashes', (input, expected) => {
       expect(transform(input, { separator: sep, nbsp: false })).toBe(expected)
     })
@@ -416,10 +420,10 @@ describe("transform", () => {
     it.each([
       `${LEFT_DOUBLE_QUOTE}Hello${RIGHT_DOUBLE_QUOTE}`,
       `word${EM_DASH}word`,
-      `1–5`,
-      `Wait…`,
-      `5×5`,
-      `20${NBSP}°C`,
+      `1${EN_DASH}5`,
+      `Wait${ELLIPSIS}`,
+      `5${MULTIPLICATION}5`,
+      `20${NBSP}${DEGREE}C`,
       `${COPYRIGHT}${NBSP}2024`,
     ])('stable for: "%s"', (input) => {
       expect(transform(input)).toBe(input)
@@ -515,12 +519,12 @@ describe("transform", () => {
     it.each([
       ['"start', `${LEFT_DOUBLE_QUOTE}start`],
       ["'start", `${RIGHT_SINGLE_QUOTE}start`],
-      ["-5 start", `−5 start`],
-      ["...start", `… start`],
+      ["-5 start", `${MINUS}5 start`],
+      ["...start", `${ELLIPSIS} start`],
       ['end"', `end${RIGHT_DOUBLE_QUOTE}`],
       ["end'", `end${RIGHT_SINGLE_QUOTE}`],
-      ["end...", `end…`],
-      ["5x", `5×`],
+      ["end...", `end${ELLIPSIS}`],
+      ["5x", `5${MULTIPLICATION}`],
     ])('handles boundary: "%s"', (input, expected) => {
       expect(transform(input, { nbsp: false })).toBe(expected)
     })
