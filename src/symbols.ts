@@ -142,7 +142,7 @@ export function legalSymbols(text: string): string {
 
   // (r) → ® unless in enumeration "(q), (r)" or legal citation "(r)(1)" context
   text = contextAwareLegalReplace(text, /\(r\)/gi, REGISTERED, (before, after) =>
-    !/\([a-zA-Z]\)[,;]\s*$/.test(before) && !/^\(\d/.test(after)
+    !/\([a-z]\)[,;]\s*$/i.test(before) && !/^\(\d/.test(after)
   )
 
   // (tm) → ™ unconditionally
