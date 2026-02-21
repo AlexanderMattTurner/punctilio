@@ -10,7 +10,7 @@ Find-in-page does not match U+02BC MODIFIER LETTER APOSTROPHE when searching wit
 
 ## Component
 
-Blink>Editing>FindInPage
+Blink>Editing
 
 ## Description
 
