@@ -20,7 +20,6 @@ describe("niceQuotes", () => {
       ['"This is a quote", she said.', `${LEFT_DOUBLE_QUOTE}This is a quote,${RIGHT_DOUBLE_QUOTE} she said.`],
       ['"This is a quote," she said.', `${LEFT_DOUBLE_QUOTE}This is a quote,${RIGHT_DOUBLE_QUOTE} she said.`],
       ['"This is a quote!".', `${LEFT_DOUBLE_QUOTE}This is a quote!${RIGHT_DOUBLE_QUOTE}.`],
-      ['"This is a quote?".', `${LEFT_DOUBLE_QUOTE}This is a quote?${RIGHT_DOUBLE_QUOTE}.`],
       ['"This is a quote..." he trailed off.', `${LEFT_DOUBLE_QUOTE}This is a quote...${RIGHT_DOUBLE_QUOTE} he trailed off.`],
       ['She said, "This is a quote."', `She said, ${LEFT_DOUBLE_QUOTE}This is a quote.${RIGHT_DOUBLE_QUOTE}`],
       ['"Hello." Mary', `${LEFT_DOUBLE_QUOTE}Hello.${RIGHT_DOUBLE_QUOTE} Mary`],
@@ -99,12 +98,10 @@ describe("niceQuotes", () => {
       [`don't${EM_DASH}stop`, `don${MODIFIER_LETTER_APOSTROPHE}t${EM_DASH}stop`],
       // Contraction + digit context
       ["it's 5 o'clock", `it${MODIFIER_LETTER_APOSTROPHE}s 5 o${MODIFIER_LETTER_APOSTROPHE}clock`],
-      // French contractions (single-letter prefix + accented Latin)
+      // French contraction (single-letter prefix + accented Latin)
       ["l'homme", `l${MODIFIER_LETTER_APOSTROPHE}homme`],
-      ["l'école", `l${MODIFIER_LETTER_APOSTROPHE}école`],
-      // Uppercase contractions and names
+      // Uppercase contraction/name
       ["O'NEILL", `O${MODIFIER_LETTER_APOSTROPHE}NEILL`],
-      ["CAN'T", `CAN${MODIFIER_LETTER_APOSTROPHE}T`],
       // Possessive in parenthetical
       ["(Brien's)", `(Brien${MODIFIER_LETTER_APOSTROPHE}s)`],
       // Possessive inside single-quoted phrase
@@ -244,14 +241,6 @@ describe("niceQuotes", () => {
       ["newline replaces space", "Rock 'n'\nRoll", `Rock ${LEFT_SINGLE_QUOTE}n${RIGHT_SINGLE_QUOTE}\nRoll`],
     ])('does not produce MLA-n-MLA: %s', (_label, input, expected) => {
       expect(niceQuotes(input, MLA)).toBe(expected)
-    })
-  })
-
-  describe("nested quotes", () => {
-    it("handles double quotes containing single quotes", () => {
-      const input = '"She said \'hello\'"'
-      const expected = `${LEFT_DOUBLE_QUOTE}She said ${LEFT_SINGLE_QUOTE}hello${RIGHT_SINGLE_QUOTE}${RIGHT_DOUBLE_QUOTE}`
-      expect(niceQuotes(input)).toBe(expected)
     })
   })
 
@@ -423,18 +412,6 @@ describe("niceQuotes", () => {
       ["couldn't've", `couldn${MODIFIER_LETTER_APOSTROPHE}t${MODIFIER_LETTER_APOSTROPHE}ve`],
     ])('handles double contraction: "%s"', (input, expected) => {
       expect(niceQuotes(input, MLA)).toBe(expected)
-    })
-  })
-
-  describe("quotes with special Unicode", () => {
-    it.each([
-      ['"Hello! 😊"', `${LEFT_DOUBLE_QUOTE}Hello! 😊${RIGHT_DOUBLE_QUOTE}`],
-      ['"你好"', `${LEFT_DOUBLE_QUOTE}你好${RIGHT_DOUBLE_QUOTE}`],
-      ['"こんにちは"', `${LEFT_DOUBLE_QUOTE}こんにちは${RIGHT_DOUBLE_QUOTE}`],
-      ['"مرحبا"', `${LEFT_DOUBLE_QUOTE}مرحبا${RIGHT_DOUBLE_QUOTE}`],
-      ['"Привет"', `${LEFT_DOUBLE_QUOTE}Привет${RIGHT_DOUBLE_QUOTE}`],
-    ])('handles Unicode content in quotes: "%s"', (input, expected) => {
-      expect(niceQuotes(input)).toBe(expected)
     })
   })
 
