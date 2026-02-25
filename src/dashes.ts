@@ -14,7 +14,7 @@ export interface DashOptions {
   dashStyle?: DashStyle
 }
 
-const { EN_DASH, EM_DASH, MINUS, LEFT_DOUBLE_QUOTE, RIGHT_DOUBLE_QUOTE, LEFT_SINGLE_QUOTE, RIGHT_SINGLE_QUOTE } = UNICODE_SYMBOLS
+const { EN_DASH, EM_DASH, MINUS, WORD_JOINER, LEFT_DOUBLE_QUOTE, RIGHT_DOUBLE_QUOTE, LEFT_SINGLE_QUOTE, RIGHT_SINGLE_QUOTE } = UNICODE_SYMBOLS
 
 /**
  * Characters that, when preceding a number, prevent it from being
@@ -212,6 +212,22 @@ function normalizeEmDashSpacing(text: string, sep: string): string {
   return text
 }
 
+/**
+ * Prevent em dashes from wrapping to the start of a new line.
+ *
+ * Unicode classifies em dash (U+2014) with line break class B2, giving browsers
+ * a line break opportunity before it. This causes em dashes to appear orphaned at
+ * the start of a new line. Inserting a Word Joiner (U+2060) before each em dash
+ * suppresses that break opportunity, keeping the em dash attached to the preceding word.
+ *
+ * Uses idempotent string operations: strips any existing word joiners before em dashes
+ * first, then re-inserts them, so the function can be safely called multiple times.
+ */
+const wordJoinerEmDash = `${WORD_JOINER}${EM_DASH}`
+export function preventEmDashLineBreak(text: string): string {
+  return text.replaceAll(wordJoinerEmDash, EM_DASH).replaceAll(EM_DASH, wordJoinerEmDash)
+}
+
 /** Full dash transformation. */
 export function hyphenReplace(text: string, options: DashOptions = {}): string {
   const sep = options.separator ?? DEFAULT_SEPARATOR
@@ -222,5 +238,6 @@ export function hyphenReplace(text: string, options: DashOptions = {}): string {
   text = convertParentheticalDashes(text, sep, style)
   if (style === "american") text = normalizeEmDashSpacing(text, sep)
   text = enDashNumberRange(text, options)
+  text = preventEmDashLineBreak(text)
   return text
 }

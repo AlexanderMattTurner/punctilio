@@ -1,4 +1,4 @@
-import { hyphenReplace, enDashNumberRange, enDashDateRange, minusReplace, numberRangeDisallowedPrefixes } from "../dashes.js"
+import { hyphenReplace, enDashNumberRange, enDashDateRange, minusReplace, preventEmDashLineBreak, numberRangeDisallowedPrefixes } from "../dashes.js"
 import { DEFAULT_SEPARATOR, UNICODE_SYMBOLS } from "../constants.js"
 
 const {
@@ -6,11 +6,15 @@ const {
   RIGHT_DOUBLE_QUOTE,
   LEFT_SINGLE_QUOTE,
   RIGHT_SINGLE_QUOTE,
-  EM_DASH,
+  EM_DASH: RAW_EM_DASH,
   EN_DASH,
   MINUS,
   ELLIPSIS,
+  WORD_JOINER,
 } = UNICODE_SYMBOLS
+
+// hyphenReplace prepends a word joiner before em dashes to prevent line wrapping
+const EM_DASH = `${WORD_JOINER}${RAW_EM_DASH}`
 
 describe("hyphenReplace", () => {
   describe("em dashes from surrounded hyphens", () => {
@@ -18,23 +22,23 @@ describe("hyphenReplace", () => {
       ["This is a - hyphen.", `This is a${EM_DASH}hyphen.`],
       // Parenthetical dash before a digit (not math subtraction)
       ["Safari) - 9 combinations", `Safari)${EM_DASH}9 combinations`],
-      [`This is an ${EM_DASH} em dash.`, `This is an${EM_DASH}em dash.`],
-      [`word ${EM_DASH} word`, `word${EM_DASH}word`],
+      [`This is an ${RAW_EM_DASH} em dash.`, `This is an${EM_DASH}em dash.`],
+      [`word ${RAW_EM_DASH} word`, `word${EM_DASH}word`],
       ["word ---", `word${EM_DASH}`],
-      [`word${EM_DASH} word`, `word${EM_DASH}word`],
-      [`word ${EM_DASH}word`, `word${EM_DASH}word`],
+      [`word${RAW_EM_DASH} word`, `word${EM_DASH}word`],
+      [`word ${RAW_EM_DASH}word`, `word${EM_DASH}word`],
       ['"I love dogs." - Me', `"I love dogs."${EM_DASH}Me`],
       ["- Me", `${EM_DASH} Me`],
       ["-- Me", `${EM_DASH} Me`],
       ["Hi-- what do you think?", `Hi${EM_DASH}what do you think?`],
       [
-        `${EM_DASH}such behaviors still have to be retrodicted`,
+        `${RAW_EM_DASH}such behaviors still have to be retrodicted`,
         `${EM_DASH}such behaviors still have to be retrodicted`,
       ],
-      [`emphasis" ${EM_DASH}`, `emphasis"${EM_DASH}`],
+      [`emphasis" ${RAW_EM_DASH}`, `emphasis"${EM_DASH}`],
       ["- Intro text\n then more", `${EM_DASH} Intro text\n then more`],
       [
-        `reward${ELLIPSIS} ${EM_DASH} [Model-based RL, Desires, Brains, Wireheading](https://www.alignmentforum.org/posts/K5ikTdaNymfWXQHFb/model-based-rl-desires-brains-wireheading#Self_aware_desires_1__wireheading)`,
+        `reward${ELLIPSIS} ${RAW_EM_DASH} [Model-based RL, Desires, Brains, Wireheading](https://www.alignmentforum.org/posts/K5ikTdaNymfWXQHFb/model-based-rl-desires-brains-wireheading#Self_aware_desires_1__wireheading)`,
         `reward${ELLIPSIS}${EM_DASH}[Model-based RL, Desires, Brains, Wireheading](https://www.alignmentforum.org/posts/K5ikTdaNymfWXQHFb/model-based-rl-desires-brains-wireheading#Self_aware_desires_1__wireheading)`,
       ],
       ["a browser- or OS-specific fashion", "a browser- or OS-specific fashion"],
@@ -70,9 +74,9 @@ describe("hyphenReplace", () => {
 
   describe("spaces around em dashes", () => {
     it.each([
-      [`word ${EM_DASH} another`, `word${EM_DASH}another`],
-      [`word${EM_DASH}  another`, `word${EM_DASH}another`],
-      [`word  ${EM_DASH}another`, `word${EM_DASH}another`],
+      [`word ${RAW_EM_DASH} another`, `word${EM_DASH}another`],
+      [`word${RAW_EM_DASH}  another`, `word${EM_DASH}another`],
+      [`word  ${RAW_EM_DASH}another`, `word${EM_DASH}another`],
     ])('removes spaces in "%s"', (input, expected) => {
       expect(hyphenReplace(input)).toBe(expected)
     })
@@ -80,7 +84,6 @@ describe("hyphenReplace", () => {
 
   describe("quote-to-quote em dash (Chicago: no spaces)", () => {
     it.each([
-      // Chicago style: no spaces around em-dashes, even between quotes
       `"Hello."${EM_DASH}"World"`,
       `'Hi.'${EM_DASH}'There'`,
       `${LEFT_DOUBLE_QUOTE}Hello.${RIGHT_DOUBLE_QUOTE}${EM_DASH}${LEFT_DOUBLE_QUOTE}World${RIGHT_DOUBLE_QUOTE}`,
@@ -92,9 +95,9 @@ describe("hyphenReplace", () => {
 
   describe("em dashes at start of line", () => {
     it.each([
-      [`${EM_DASH}Start of line`, `${EM_DASH} Start of line`],
-      [`Line 1\n${EM_DASH}Line 2`, `Line 1\n${EM_DASH} Line 2`],
-      [`${EM_DASH} Already correct`, `${EM_DASH} Already correct`],
+      [`${RAW_EM_DASH}Start of line`, `${EM_DASH} Start of line`],
+      [`Line 1\n${RAW_EM_DASH}Line 2`, `Line 1\n${EM_DASH} Line 2`],
+      [`${RAW_EM_DASH} Already correct`, `${EM_DASH} Already correct`],
     ])('handles "%s"', (input, expected) => {
       expect(hyphenReplace(input)).toBe(expected)
     })
@@ -141,7 +144,7 @@ describe("hyphenReplace", () => {
       [`word${sep} - ${sep}another`, `word${sep}${EM_DASH}${sep}another`, "em dash context"],
       [`pages 1${sep}-${sep}5`, `pages 1${sep}${EN_DASH}${sep}5`, "number ranges"],
       // American em-dash (Chicago style) consumes surrounding spaces, even across separator boundaries
-      [`text ${EM_DASH} ${sep} more text`, `text${EM_DASH}${sep}more text`, "consumes space after separator for em-dash"],
+      [`text ${RAW_EM_DASH} ${sep} more text`, `text${EM_DASH}${sep}more text`, "consumes space after separator for em-dash"],
       [`text - ${sep} more`, `text${EM_DASH}${sep}more`, "consumes space after separator with hyphen"],
       // Separator-only before dash (no space between word and separator): e.g., link text followed by dash
       [`word${sep}${EN_DASH} rest`, `word${sep}${EM_DASH}rest`, "en-dash after separator without preceding space"],
@@ -505,7 +508,7 @@ describe("dashStyle option", () => {
 
     it("converts existing em-dashes to spaced en-dashes", () => {
       // Oxford style uses spaced en-dashes, so em-dashes get converted
-      expect(hyphenReplace(`word ${EM_DASH} word`, { dashStyle: "british" })).toBe(`word ${EN_DASH} word`)
+      expect(hyphenReplace(`word ${RAW_EM_DASH} word`, { dashStyle: "british" })).toBe(`word ${EN_DASH} word`)
     })
 
     it("converts date ranges with spaced en dash", () => {
@@ -531,8 +534,8 @@ describe("dashStyle option", () => {
       "word -- word",
       "since--as you know",
       "Hello. -- Author",
-      `word${EM_DASH}word`,
-      `"Quote."${EM_DASH}Author`,
+      `word${RAW_EM_DASH}word`,
+      `"Quote."${RAW_EM_DASH}Author`,
     ]
 
     it.each(testCases)(
@@ -620,8 +623,8 @@ describe("social media patterns", () => {
 describe("mixed dash types", () => {
   it.each([
     [`pages 1${EN_DASH}5`, `pages 1${EN_DASH}5`],
-    [`word${EM_DASH}word`, `word${EM_DASH}word`],
-    [`pages 1-5 and word${EM_DASH}word`, `pages 1${EN_DASH}5 and word${EM_DASH}word`],
+    [`word${RAW_EM_DASH}word`, `word${EM_DASH}word`],
+    [`pages 1-5 and word${RAW_EM_DASH}word`, `pages 1${EN_DASH}5 and word${EM_DASH}word`],
   ])('handles mixed dashes: "%s"', (input, expected) => {
     expect(hyphenReplace(input)).toBe(expected)
   })
@@ -696,5 +699,32 @@ describe("hyphenReplace preserves multi-segment numbers across separators", () =
     ["model name across elements", `${sep}GPT${sep}-3`],
   ])("%s", (_desc, input) => {
     expect(hyphenReplace(input, { separator: sep })).toBe(input)
+  })
+})
+
+describe("preventEmDashLineBreak", () => {
+  it("inserts word joiner before em dashes", () => {
+    expect(preventEmDashLineBreak(`word${RAW_EM_DASH}word`)).toBe(`word${WORD_JOINER}${RAW_EM_DASH}word`)
+  })
+
+  it("is idempotent", () => {
+    const input = `word${RAW_EM_DASH}word`
+    const once = preventEmDashLineBreak(input)
+    const twice = preventEmDashLineBreak(once)
+    expect(twice).toBe(once)
+  })
+
+  it("handles text with no em dashes", () => {
+    expect(preventEmDashLineBreak("no dashes here")).toBe("no dashes here")
+  })
+
+  it("handles multiple em dashes", () => {
+    const input = `a${RAW_EM_DASH}b${RAW_EM_DASH}c`
+    const expected = `a${WORD_JOINER}${RAW_EM_DASH}b${WORD_JOINER}${RAW_EM_DASH}c`
+    expect(preventEmDashLineBreak(input)).toBe(expected)
+  })
+
+  it("does not affect en dashes", () => {
+    expect(preventEmDashLineBreak(`1${EN_DASH}5`)).toBe(`1${EN_DASH}5`)
   })
 })
