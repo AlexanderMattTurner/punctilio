@@ -68,4 +68,11 @@ describe("transformMarkdown", () => {
     const result = await transformMarkdown('"Hello"')
     expect(result.trimEnd()).toEqual(`${LDQ}Hello${RDQ}`)
   })
+
+  it("escapes both opening and closing brackets in phrasing content", async () => {
+    const result = await transformMarkdown("See references [1][4][5][6] for details.", {
+      nbsp: false,
+    })
+    expect(result.trimEnd()).toEqual("See references \\[1\\]\\[4\\]\\[5\\]\\[6\\] for details.")
+  })
 })
