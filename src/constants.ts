@@ -65,8 +65,21 @@ export const UNICODE_SYMBOLS = {
   EXCLAMATION_QUESTION: "\u2049", // ⁉
   DOUBLE_EXCLAMATION: "\u203C", // ‼
   INTERROBANG: "\u203D", // ‽
+  // CJK fullwidth punctuation
   FULLWIDTH_EXCLAMATION: "\uFF01", // ！
   FULLWIDTH_QUESTION: "\uFF1F", // ？
+  FULLWIDTH_PERIOD: "\uFF0E", // ．
+  FULLWIDTH_COMMA: "\uFF0C", // ，
+  FULLWIDTH_SEMICOLON: "\uFF1B", // ；
+  FULLWIDTH_COLON: "\uFF1A", // ：
+  // CJK ideographic punctuation
+  IDEOGRAPHIC_FULL_STOP: "\u3002", // 。
+  IDEOGRAPHIC_COMMA: "\u3001", // 、
+  // Arabic punctuation
+  ARABIC_QUESTION_MARK: "\u061F", // ؟
+  ARABIC_SEMICOLON: "\u061B", // ؛
+  // Greek punctuation
+  GREEK_QUESTION_MARK: "\u037E", // ; (visually identical to ASCII semicolon)
 } as const
 
 /**

@@ -16,7 +16,31 @@ const {
   INTERROBANG,
   FULLWIDTH_EXCLAMATION,
   FULLWIDTH_QUESTION,
+  FULLWIDTH_PERIOD,
+  FULLWIDTH_COMMA,
+  FULLWIDTH_SEMICOLON,
+  FULLWIDTH_COLON,
+  IDEOGRAPHIC_FULL_STOP,
+  IDEOGRAPHIC_COMMA,
+  ARABIC_QUESTION_MARK,
+  ARABIC_SEMICOLON,
+  GREEK_QUESTION_MARK,
 } = UNICODE_SYMBOLS
+
+/** All terminal punctuation marks: [symbol, display label] */
+const TERMINAL_MARKS: [string, string][] = [
+  ["!", "!"], ["?", "?"], [".", "."], [",", ","], [";", ";"], [":", ":"],
+  [ELLIPSIS, "…"],
+  [DOUBLE_QUESTION, "⁇"], [QUESTION_EXCLAMATION, "⁈"],
+  [EXCLAMATION_QUESTION, "⁉"], [DOUBLE_EXCLAMATION, "‼"],
+  [INTERROBANG, "‽"],
+  [FULLWIDTH_EXCLAMATION, "！"], [FULLWIDTH_QUESTION, "？"],
+  [FULLWIDTH_PERIOD, "．"], [FULLWIDTH_COMMA, "，"],
+  [FULLWIDTH_SEMICOLON, "；"], [FULLWIDTH_COLON, "："],
+  [IDEOGRAPHIC_FULL_STOP, "。"], [IDEOGRAPHIC_COMMA, "、"],
+  [ARABIC_QUESTION_MARK, "؟"], [ARABIC_SEMICOLON, "؛"],
+  [GREEK_QUESTION_MARK, "Greek ;"],
+]
 
 describe("niceQuotes", () => {
   describe("double quotes", () => {
@@ -485,47 +509,45 @@ describe("niceQuotes", () => {
     })
 
     describe("terminal punctuation blocks movement", () => {
-      it.each([
-        // Commas stay outside after ! and ?
-        [`${LEFT_DOUBLE_QUOTE}Stop!${RIGHT_DOUBLE_QUOTE},`, "comma after !"],
-        [`${LEFT_DOUBLE_QUOTE}Why?${RIGHT_DOUBLE_QUOTE},`, "comma after ?"],
-        [`${LEFT_SINGLE_QUOTE}Stop!${RIGHT_SINGLE_QUOTE},`, "comma after ! (single)"],
-        // Periods stay outside after ! and ?
-        [`${LEFT_DOUBLE_QUOTE}Stop!${RIGHT_DOUBLE_QUOTE}.`, "period after !"],
-        [`${LEFT_DOUBLE_QUOTE}Why?${RIGHT_DOUBLE_QUOTE}.`, "period after ?"],
-        // Standard punctuation also blocks (no double-punctuation inside quotes)
-        [`${LEFT_DOUBLE_QUOTE}Test:${RIGHT_DOUBLE_QUOTE},`, "comma after :"],
-        [`${LEFT_DOUBLE_QUOTE}Test;${RIGHT_DOUBLE_QUOTE},`, "comma after ;"],
-        [`${LEFT_DOUBLE_QUOTE}Test,${RIGHT_DOUBLE_QUOTE},`, "comma after ,"],
-        [`${LEFT_DOUBLE_QUOTE}Test.${RIGHT_DOUBLE_QUOTE},`, "comma after ."],
-        [`${LEFT_DOUBLE_QUOTE}Wait${ELLIPSIS}${RIGHT_DOUBLE_QUOTE},`, "comma after …"],
-        // Punctuation ligatures
-        [`${LEFT_DOUBLE_QUOTE}What${DOUBLE_QUESTION}${RIGHT_DOUBLE_QUOTE},`, "comma after ⁇"],
-        [`${LEFT_DOUBLE_QUOTE}What${QUESTION_EXCLAMATION}${RIGHT_DOUBLE_QUOTE},`, "comma after ⁈"],
-        [`${LEFT_DOUBLE_QUOTE}What${EXCLAMATION_QUESTION}${RIGHT_DOUBLE_QUOTE},`, "comma after ⁉"],
-        [`${LEFT_DOUBLE_QUOTE}What${DOUBLE_EXCLAMATION}${RIGHT_DOUBLE_QUOTE},`, "comma after ‼"],
-        [`${LEFT_DOUBLE_QUOTE}What${DOUBLE_QUESTION}${RIGHT_DOUBLE_QUOTE}.`, "period after ⁇"],
-        [`${LEFT_DOUBLE_QUOTE}What${EXCLAMATION_QUESTION}${RIGHT_DOUBLE_QUOTE}.`, "period after ⁉"],
-        // Interrobang and fullwidth CJK punctuation
-        [`${LEFT_DOUBLE_QUOTE}Really${INTERROBANG}${RIGHT_DOUBLE_QUOTE},`, "comma after ‽"],
-        [`${LEFT_DOUBLE_QUOTE}Really${INTERROBANG}${RIGHT_DOUBLE_QUOTE}.`, "period after ‽"],
-        [`${LEFT_DOUBLE_QUOTE}Stop${FULLWIDTH_EXCLAMATION}${RIGHT_DOUBLE_QUOTE},`, "comma after ！"],
-        [`${LEFT_DOUBLE_QUOTE}What${FULLWIDTH_QUESTION}${RIGHT_DOUBLE_QUOTE},`, "comma after ？"],
-        [`${LEFT_DOUBLE_QUOTE}Stop${FULLWIDTH_EXCLAMATION}${RIGHT_DOUBLE_QUOTE}.`, "period after ！"],
-        [`${LEFT_DOUBLE_QUOTE}What${FULLWIDTH_QUESTION}${RIGHT_DOUBLE_QUOTE}.`, "period after ？"],
-      ])("american does not move punctuation inside: %s (%s)", (input) => {
+      // American: comma outside stays outside for every terminal mark
+      it.each(
+        TERMINAL_MARKS.map(([mark, label]) => [
+          `${LEFT_DOUBLE_QUOTE}Test${mark}${RIGHT_DOUBLE_QUOTE},`, `comma after ${label}`,
+        ])
+      )("american comma stays outside: %s (%s)", (input) => {
         expect(niceQuotes(input, { punctuationStyle: "american" })).toBe(input)
       })
 
-      it.each([
-        // British: commas/periods stay inside after terminal punctuation
-        [`${LEFT_DOUBLE_QUOTE}Stop!,${RIGHT_DOUBLE_QUOTE}`, "comma after !"],
-        [`${LEFT_DOUBLE_QUOTE}Why?,${RIGHT_DOUBLE_QUOTE}`, "comma after ?"],
-        [`${LEFT_DOUBLE_QUOTE}What${DOUBLE_QUESTION},${RIGHT_DOUBLE_QUOTE}`, "comma after ⁇"],
-        [`${LEFT_DOUBLE_QUOTE}What${EXCLAMATION_QUESTION},${RIGHT_DOUBLE_QUOTE}`, "comma after ⁉"],
-        [`${LEFT_DOUBLE_QUOTE}Really${INTERROBANG},${RIGHT_DOUBLE_QUOTE}`, "comma after ‽"],
-        [`${LEFT_DOUBLE_QUOTE}Stop${FULLWIDTH_EXCLAMATION},${RIGHT_DOUBLE_QUOTE}`, "comma after ！"],
-      ])("british does not move punctuation outside: %s (%s)", (input) => {
+      // American: period outside stays outside for every terminal mark
+      it.each(
+        TERMINAL_MARKS.map(([mark, label]) => [
+          `${LEFT_DOUBLE_QUOTE}Test${mark}${RIGHT_DOUBLE_QUOTE}.`, `period after ${label}`,
+        ])
+      )("american period stays outside: %s (%s)", (input) => {
+        expect(niceQuotes(input, { punctuationStyle: "american" })).toBe(input)
+      })
+
+      // American: single quotes work the same as double
+      it("american comma stays outside for single quotes", () => {
+        expect(niceQuotes(`${LEFT_SINGLE_QUOTE}Stop!${RIGHT_SINGLE_QUOTE},`, { punctuationStyle: "american" }))
+          .toBe(`${LEFT_SINGLE_QUOTE}Stop!${RIGHT_SINGLE_QUOTE},`)
+      })
+
+      // British: comma inside stays inside for every terminal mark
+      it.each(
+        TERMINAL_MARKS.map(([mark, label]) => [
+          `${LEFT_DOUBLE_QUOTE}Test${mark},${RIGHT_DOUBLE_QUOTE}`, `comma after ${label}`,
+        ])
+      )("british comma stays inside: %s (%s)", (input) => {
+        expect(niceQuotes(input, { punctuationStyle: "british" })).toBe(input)
+      })
+
+      // British: period inside stays inside for every terminal mark
+      it.each(
+        TERMINAL_MARKS.map(([mark, label]) => [
+          `${LEFT_DOUBLE_QUOTE}Test${mark}.${RIGHT_DOUBLE_QUOTE}`, `period after ${label}`,
+        ])
+      )("british period stays inside: %s (%s)", (input) => {
         expect(niceQuotes(input, { punctuationStyle: "british" })).toBe(input)
       })
     })

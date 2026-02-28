@@ -20,14 +20,36 @@ const {
   INTERROBANG,
   FULLWIDTH_EXCLAMATION,
   FULLWIDTH_QUESTION,
+  FULLWIDTH_PERIOD,
+  FULLWIDTH_COMMA,
+  FULLWIDTH_SEMICOLON,
+  FULLWIDTH_COLON,
+  IDEOGRAPHIC_FULL_STOP,
+  IDEOGRAPHIC_COMMA,
+  ARABIC_QUESTION_MARK,
+  ARABIC_SEMICOLON,
+  GREEK_QUESTION_MARK,
 } = UNICODE_SYMBOLS
 
 /**
  * Character class fragment for punctuation that signals a quote is "already terminated".
  * Used in negative lookbehinds to prevent moving commas/periods inside quotes
  * that already end with sentence-ending or clause-ending punctuation.
+ *
+ * Covers: ASCII (!?.,;:), ellipsis (…), punctuation ligatures (⁇⁈⁉‼),
+ * interrobang (‽), CJK fullwidth (！？．，；：), CJK ideographic (。、),
+ * Arabic (؟؛), and Greek question mark (;).
  */
-const TERMINAL_PUNCTUATION = `!?.,;:${ELLIPSIS}${DOUBLE_QUESTION}${QUESTION_EXCLAMATION}${EXCLAMATION_QUESTION}${DOUBLE_EXCLAMATION}${INTERROBANG}${FULLWIDTH_EXCLAMATION}${FULLWIDTH_QUESTION}`
+const TERMINAL_PUNCTUATION = [
+  "!?.,;:",
+  ELLIPSIS,
+  DOUBLE_QUESTION, QUESTION_EXCLAMATION, EXCLAMATION_QUESTION, DOUBLE_EXCLAMATION,
+  INTERROBANG,
+  FULLWIDTH_EXCLAMATION, FULLWIDTH_QUESTION, FULLWIDTH_PERIOD, FULLWIDTH_COMMA, FULLWIDTH_SEMICOLON, FULLWIDTH_COLON,
+  IDEOGRAPHIC_FULL_STOP, IDEOGRAPHIC_COMMA,
+  ARABIC_QUESTION_MARK, ARABIC_SEMICOLON,
+  GREEK_QUESTION_MARK,
+].join("")
 
 export type PunctuationStyle = "american" | "british" | "none"
 
