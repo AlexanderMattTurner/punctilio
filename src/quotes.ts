@@ -12,7 +12,6 @@ const {
   LEFT_SINGLE_QUOTE,
   RIGHT_SINGLE_QUOTE,
   MODIFIER_LETTER_APOSTROPHE,
-  ELLIPSIS,
 } = UNICODE_SYMBOLS
 
 /** Joined string of all terminal punctuation characters for use in regex character classes. */
