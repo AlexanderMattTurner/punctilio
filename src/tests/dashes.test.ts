@@ -151,6 +151,8 @@ describe("hyphenReplace", () => {
       [`word${sep}- rest`, `word${sep}${EM_DASH}rest`, "hyphen after separator without preceding space"],
       // Spaced hyphen with separator after: "word -<sep> another" is a parenthetical dash, not suspended
       [`word -${sep} another`, `word${EM_DASH}${sep}another`, "hyphen before separator-space is parenthetical"],
+      // Suspended hyphen across separator boundary: hyphen attached to word through separator
+      [`and -${sep}women`, `and -${sep}women`, "suspended hyphen across separator preserved"],
     ])("%s → %s (%s)", (input, expected) => {
       expect(hyphenReplace(input, { separator: sep })).toBe(expected)
     })
