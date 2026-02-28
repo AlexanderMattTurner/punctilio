@@ -5,9 +5,13 @@ const {
   LEFT_DOUBLE_QUOTE: LDQ,
   RIGHT_DOUBLE_QUOTE: RDQ,
   RIGHT_SINGLE_QUOTE: RSQ,
-  EM_DASH,
+  EM_DASH: RAW_EM_DASH,
   ELLIPSIS,
+  WORD_JOINER,
 } = UNICODE_SYMBOLS
+
+// hyphenReplace prepends a word joiner before em dashes to prevent line wrapping
+const EM_DASH = `${WORD_JOINER}${RAW_EM_DASH}`
 
 describe("transformMarkdown", () => {
   it("transforms basic typography", async () => {

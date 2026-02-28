@@ -728,3 +728,75 @@ describe("preventEmDashLineBreak", () => {
     expect(preventEmDashLineBreak(`1${EN_DASH}5`)).toBe(`1${EN_DASH}5`)
   })
 })
+
+describe("word joiner robustness", () => {
+  it("hyphenReplace strips pre-existing word joiners before processing", () => {
+    // Input already has word joiners from a prior pass; should produce same result as clean input
+    const withJoiners = `word${WORD_JOINER}${RAW_EM_DASH}word`
+    const without = `word${RAW_EM_DASH}word`
+    expect(hyphenReplace(withJoiners)).toBe(hyphenReplace(without))
+  })
+
+  it("American→British style conversion works with pre-existing word joiners", () => {
+    // Simulate: text was transformed American, then re-transformed British
+    const american = hyphenReplace("word - word", { dashStyle: "american" })
+    expect(american).toBe(`word${EM_DASH}word`)
+    const british = hyphenReplace(american, { dashStyle: "british" })
+    expect(british).toBe(`word ${EN_DASH} word`)
+  })
+
+  it("British→American style conversion works with pre-existing word joiners", () => {
+    const british = hyphenReplace("word - word", { dashStyle: "british" })
+    expect(british).toBe(`word ${EN_DASH} word`)
+    const american = hyphenReplace(british, { dashStyle: "american" })
+    expect(american).toBe(`word${EM_DASH}word`)
+  })
+
+  it("repeated hyphenReplace calls are idempotent", () => {
+    const inputs = [
+      "word - word",
+      "a -- b -- c",
+      "- Start of line",
+      `word${RAW_EM_DASH}word`,
+      '"Quote." - Author',
+    ]
+    for (const input of inputs) {
+      const first = hyphenReplace(input)
+      const second = hyphenReplace(first)
+      const third = hyphenReplace(second)
+      expect(second).toBe(first)
+      expect(third).toBe(first)
+    }
+  })
+
+  it("handles many consecutive em dashes", () => {
+    const input = `a${RAW_EM_DASH}b${RAW_EM_DASH}c${RAW_EM_DASH}d${RAW_EM_DASH}e`
+    const result = hyphenReplace(input)
+    // Each em dash should have exactly one word joiner before it
+    const emDashCount = (result.match(new RegExp(RAW_EM_DASH, "g")) || []).length
+    const joinerCount = (result.match(new RegExp(WORD_JOINER, "g")) || []).length
+    expect(emDashCount).toBe(4)
+    expect(joinerCount).toBe(4)
+  })
+
+  it("no stray word joiners when dashStyle is 'none'", () => {
+    const input = "word - word"
+    const result = hyphenReplace(input, { dashStyle: "none" })
+    expect(result).toBe(input)
+    expect(result).not.toContain(WORD_JOINER)
+  })
+
+  it("British style produces no word joiners (no em dashes in output)", () => {
+    const result = hyphenReplace("word - word", { dashStyle: "british" })
+    expect(result).not.toContain(WORD_JOINER)
+    expect(result).not.toContain(RAW_EM_DASH)
+  })
+
+  it("word joiner does not leak into en dash ranges", () => {
+    const result = hyphenReplace("pages 1-5 and word - word")
+    expect(result).toBe(`pages 1${EN_DASH}5 and word${EM_DASH}word`)
+    // Word joiner only before em dashes, not en dashes
+    const enDashIdx = result.indexOf(EN_DASH)
+    expect(result[enDashIdx - 1]).not.toBe(WORD_JOINER)
+  })
+})

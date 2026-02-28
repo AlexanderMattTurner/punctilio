@@ -9,7 +9,7 @@ const {
   LEFT_DOUBLE_QUOTE: LDQ,
   RIGHT_DOUBLE_QUOTE: RDQ,
   RIGHT_SINGLE_QUOTE: RSQ,
-  EM_DASH,
+  EM_DASH: RAW_EM_DASH,
   EN_DASH,
   ELLIPSIS,
   MULTIPLICATION,
@@ -17,7 +17,11 @@ const {
   COPYRIGHT,
   NBSP,
   FRACTION_1_2,
+  WORD_JOINER,
 } = UNICODE_SYMBOLS
+
+// hyphenReplace prepends a word joiner before em dashes to prevent line wrapping
+const EM_DASH = `${WORD_JOINER}${RAW_EM_DASH}`
 
 async function processMarkdown(
   markdown: string,

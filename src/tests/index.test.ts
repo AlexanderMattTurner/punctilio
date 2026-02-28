@@ -6,7 +6,7 @@ const {
   LEFT_DOUBLE_QUOTE,
   RIGHT_DOUBLE_QUOTE,
   RIGHT_SINGLE_QUOTE,
-  EM_DASH,
+  EM_DASH: RAW_EM_DASH,
   EN_DASH,
   ELLIPSIS,
   MULTIPLICATION,
@@ -24,7 +24,11 @@ const {
   MINUS,
   FRACTION_1_2,
   SUPERSCRIPT_ST,
+  WORD_JOINER,
 } = UNICODE_SYMBOLS
+
+// hyphenReplace prepends a word joiner before em dashes to prevent line wrapping
+const EM_DASH = `${WORD_JOINER}${RAW_EM_DASH}`
 
 describe("transform", () => {
   it("applies both quote and dash transformations", () => {
@@ -592,6 +596,63 @@ describe("transform", () => {
       const start = performance.now()
       transform(input)
       expect(performance.now() - start).toBeLessThan(MAX_TIMEOUT_MS)
+    })
+  })
+
+  describe("word joiner and quote interaction", () => {
+    it.each([
+      // Closing quote followed by em dash
+      ['"best year" - and more', `${LEFT_DOUBLE_QUOTE}best year${RIGHT_DOUBLE_QUOTE}${EM_DASH}and more`],
+      // Opening quote preceded by em dash
+      ['word - "hello"', `word${EM_DASH}${LEFT_DOUBLE_QUOTE}hello${RIGHT_DOUBLE_QUOTE}`],
+      // Both sides
+      ['"first" - "second"', `${LEFT_DOUBLE_QUOTE}first${RIGHT_DOUBLE_QUOTE}${EM_DASH}${LEFT_DOUBLE_QUOTE}second${RIGHT_DOUBLE_QUOTE}`],
+      // Single quotes around em dash
+      ["it's - isn't it", `it${RIGHT_SINGLE_QUOTE}s${EM_DASH}isn${RIGHT_SINGLE_QUOTE}t it`],
+      // Multiple em dashes in one sentence with quotes
+      ['"Wait" - stop - "go"', `${LEFT_DOUBLE_QUOTE}Wait${RIGHT_DOUBLE_QUOTE}${EM_DASH}stop${EM_DASH}${LEFT_DOUBLE_QUOTE}go${RIGHT_DOUBLE_QUOTE}`],
+    ])('handles quotes with em dashes: "%s"', (input, expected) => {
+      expect(transform(input, { nbsp: false })).toBe(expected)
+    })
+
+    it("word joiner is present before every em dash in output", () => {
+      const input = '"first" - "second" - "third"'
+      const result = transform(input, { nbsp: false })
+      // Find all em dashes and check each has a word joiner before it
+      for (let i = 0; i < result.length; i++) {
+        if (result[i] === RAW_EM_DASH) {
+          expect(result[i - 1]).toBe(WORD_JOINER)
+        }
+      }
+    })
+
+    it("separator + closing quote + em dash works correctly", () => {
+      const sep = DEFAULT_SEPARATOR
+      const input = `"Hello${sep}" - test`
+      const result = transform(input, { separator: sep, nbsp: false })
+      expect(result).toBe(`${LEFT_DOUBLE_QUOTE}Hello${sep}${RIGHT_DOUBLE_QUOTE}${EM_DASH}test`)
+    })
+
+    it("transform is idempotent with em dashes and quotes", () => {
+      const inputs = [
+        '"first" - "second"',
+        '"Wait..." she said - "it\'s pages 1-5."',
+        '\'99 - "the best year" - and more',
+        '"Quote." - Author - "Another quote."',
+      ]
+      for (const input of inputs) {
+        const first = transform(input, { nbsp: false })
+        const second = transform(first, { nbsp: false })
+        expect(second).toBe(first)
+      }
+    })
+
+    it("style conversion roundtrip: American→British→American", () => {
+      const input = '"Hello" - "World"'
+      const american = transform(input, { dashStyle: "american", nbsp: false })
+      const british = transform(american, { dashStyle: "british", nbsp: false })
+      const backToAmerican = transform(british, { dashStyle: "american", nbsp: false })
+      expect(backToAmerican).toBe(american)
     })
   })
 })
