@@ -1,5 +1,5 @@
 import { niceQuotes, classifyApostrophes } from "../quotes.js"
-import { UNICODE_SYMBOLS, DEFAULT_SEPARATOR } from "../constants.js"
+import { UNICODE_SYMBOLS, DEFAULT_SEPARATOR, TERMINAL_PUNCTUATION } from "../constants.js"
 
 const {
   LEFT_DOUBLE_QUOTE,
@@ -474,6 +474,44 @@ describe("niceQuotes", () => {
 
       it("still converts straight quotes to smart quotes", () => {
         expect(niceQuotes('"Hello."', { punctuationStyle: "british" })).toBe(periodOutsideDouble)
+      })
+    })
+
+    describe("terminal punctuation blocks movement", () => {
+      // American: comma outside stays outside for every terminal mark
+      it.each(TERMINAL_PUNCTUATION.map((mark) => [`${LEFT_DOUBLE_QUOTE}Test${mark}${RIGHT_DOUBLE_QUOTE},`]))(
+        "american comma stays outside: %s", (input) => {
+          expect(niceQuotes(input, { punctuationStyle: "american" })).toBe(input)
+        })
+
+      // American: period outside stays outside for every terminal mark
+      it.each(TERMINAL_PUNCTUATION.map((mark) => [`${LEFT_DOUBLE_QUOTE}Test${mark}${RIGHT_DOUBLE_QUOTE}.`]))(
+        "american period stays outside: %s", (input) => {
+          expect(niceQuotes(input, { punctuationStyle: "american" })).toBe(input)
+        })
+
+      // American: single quotes work the same as double
+      it("american comma stays outside for single quotes", () => {
+        expect(niceQuotes(`${LEFT_SINGLE_QUOTE}Stop!${RIGHT_SINGLE_QUOTE},`, { punctuationStyle: "american" }))
+          .toBe(`${LEFT_SINGLE_QUOTE}Stop!${RIGHT_SINGLE_QUOTE},`)
+      })
+
+      // British: comma inside always moves outside (even after terminal punctuation)
+      // Exclude "." — the period regex also fires, creating a cascading double-movement
+      it.each(TERMINAL_PUNCTUATION.filter((m) => m !== ".").map((mark) => [
+        `${LEFT_DOUBLE_QUOTE}Test${mark},${RIGHT_DOUBLE_QUOTE}`,
+        `${LEFT_DOUBLE_QUOTE}Test${mark}${RIGHT_DOUBLE_QUOTE},`,
+      ]))("british comma moves outside: %s → %s", (input, expected) => {
+        expect(niceQuotes(input, { punctuationStyle: "british" })).toBe(expected)
+      })
+
+      // British: period inside always moves outside (even after terminal punctuation)
+      // Exclude "," — the comma regex also fires, creating a cascading double-movement
+      it.each(TERMINAL_PUNCTUATION.filter((m) => m !== ",").map((mark) => [
+        `${LEFT_DOUBLE_QUOTE}Test${mark}.${RIGHT_DOUBLE_QUOTE}`,
+        `${LEFT_DOUBLE_QUOTE}Test${mark}${RIGHT_DOUBLE_QUOTE}.`,
+      ]))("british period moves outside: %s → %s", (input, expected) => {
+        expect(niceQuotes(input, { punctuationStyle: "british" })).toBe(expected)
       })
     })
 
