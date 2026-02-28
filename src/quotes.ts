@@ -13,7 +13,14 @@ const {
   RIGHT_SINGLE_QUOTE,
   MODIFIER_LETTER_APOSTROPHE,
   ELLIPSIS,
+  DOUBLE_QUESTION,
+  QUESTION_EXCLAMATION,
+  EXCLAMATION_QUESTION,
+  DOUBLE_EXCLAMATION,
 } = UNICODE_SYMBOLS
+
+/** Character class fragment for punctuation that signals a quote is "already terminated". */
+const TERMINAL_PUNCTUATION = `!?${DOUBLE_QUESTION}${QUESTION_EXCLAMATION}${EXCLAMATION_QUESTION}${DOUBLE_EXCLAMATION}`
 
 export type PunctuationStyle = "american" | "british" | "none"
 
@@ -137,14 +144,14 @@ function applyPunctuationStyle(text: string, sep: string, style: PunctuationStyl
   if (style === "american") {
     // Period outside → inside: "Hello". → "Hello."
     const periodOutsideRegex = new RegExp(
-      `(?<![!?:\\.${ELLIPSIS}])(?<sepBefore>${escapedSep}?)(?<quote>[${RIGHT_SINGLE_QUOTE}${RIGHT_DOUBLE_QUOTE}])(?<sepAfter>${escapedSep}?)(?!\\.\\.\\.)\\.`,
+      `(?<![${TERMINAL_PUNCTUATION}:\\.${ELLIPSIS}])(?<sepBefore>${escapedSep}?)(?<quote>[${RIGHT_SINGLE_QUOTE}${RIGHT_DOUBLE_QUOTE}])(?<sepAfter>${escapedSep}?)(?!\\.\\.\\.)\\.`,
       "g"
     )
     text = text.replace(periodOutsideRegex, "$<sepBefore>.$<quote>$<sepAfter>")
 
     // Comma outside → inside: "Hello", → "Hello,"
     const commaOutsideRegex = new RegExp(
-      `(?<sepBefore>${escapedSep}?)(?<quote>[${RIGHT_SINGLE_QUOTE}${RIGHT_DOUBLE_QUOTE}])(?<sepAfter>${escapedSep}?),`,
+      `(?<![${TERMINAL_PUNCTUATION}])(?<sepBefore>${escapedSep}?)(?<quote>[${RIGHT_SINGLE_QUOTE}${RIGHT_DOUBLE_QUOTE}])(?<sepAfter>${escapedSep}?),`,
       "g"
     )
     text = text.replace(commaOutsideRegex, "$<sepBefore>,$<quote>$<sepAfter>")
@@ -158,7 +165,7 @@ function applyPunctuationStyle(text: string, sep: string, style: PunctuationStyl
 
     // Comma inside → outside: "Hello," → "Hello",
     const commaInsideRegex = new RegExp(
-      `(?<![!?]),(?<sepAndQuote>${escapedSep}?[${RIGHT_DOUBLE_QUOTE}${RIGHT_SINGLE_QUOTE}])`,
+      `(?<![${TERMINAL_PUNCTUATION}]),(?<sepAndQuote>${escapedSep}?[${RIGHT_DOUBLE_QUOTE}${RIGHT_SINGLE_QUOTE}])`,
       "g"
     )
     text = text.replace(commaInsideRegex, "$<sepAndQuote>,")
