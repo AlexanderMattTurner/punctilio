@@ -1,6 +1,6 @@
 import { transform, DEFAULT_SEPARATOR, countSeparators } from "../index.js"
 import { ellipsis } from "../symbols.js"
-import { UNICODE_SYMBOLS, REGEX_SPECIAL_CHARS } from "../constants.js"
+import { UNICODE_SYMBOLS, REGEX_SPECIAL_CHARS, NOWRAP_EM_DASH } from "../constants.js"
 
 const {
   LEFT_DOUBLE_QUOTE,
@@ -24,25 +24,26 @@ const {
   MINUS,
   FRACTION_1_2,
   SUPERSCRIPT_ST,
+  WORD_JOINER,
 } = UNICODE_SYMBOLS
 
 describe("transform", () => {
   it("applies both quote and dash transformations", () => {
     const input = '"Hello," she said - "it\'s pages 1-5."'
-    const expected = `${LEFT_DOUBLE_QUOTE}Hello,${RIGHT_DOUBLE_QUOTE} she said${EM_DASH}${LEFT_DOUBLE_QUOTE}it${RIGHT_SINGLE_QUOTE}s pages 1${EN_DASH}5.${RIGHT_DOUBLE_QUOTE}`
+    const expected = `${LEFT_DOUBLE_QUOTE}Hello,${RIGHT_DOUBLE_QUOTE} she said${NOWRAP_EM_DASH}${LEFT_DOUBLE_QUOTE}it${RIGHT_SINGLE_QUOTE}s pages 1${EN_DASH}5.${RIGHT_DOUBLE_QUOTE}`
     expect(transform(input, { nbsp: false })).toBe(expected)
   })
 
   it("handles complex mixed content", () => {
     const input = 'I was born in \'99 - "the best year" - and pages 10-20 are my favorite.'
-    const expected = `I was born in ${RIGHT_SINGLE_QUOTE}99${EM_DASH}${LEFT_DOUBLE_QUOTE}the best year${RIGHT_DOUBLE_QUOTE}${EM_DASH}and pages 10${EN_DASH}20 are my favorite.`
+    const expected = `I was born in ${RIGHT_SINGLE_QUOTE}99${NOWRAP_EM_DASH}${LEFT_DOUBLE_QUOTE}the best year${RIGHT_DOUBLE_QUOTE}${NOWRAP_EM_DASH}and pages 10${EN_DASH}20 are my favorite.`
     expect(transform(input, { nbsp: false })).toBe(expected)
   })
 
   it("preserves separator character", () => {
     const sep = DEFAULT_SEPARATOR
     const input = `"Hello${sep}" - test`
-    expect(transform(input, { separator: sep, nbsp: false })).toBe(`${LEFT_DOUBLE_QUOTE}Hello${sep}${RIGHT_DOUBLE_QUOTE}${EM_DASH}test`)
+    expect(transform(input, { separator: sep, nbsp: false })).toBe(`${LEFT_DOUBLE_QUOTE}Hello${sep}${RIGHT_DOUBLE_QUOTE}${NOWRAP_EM_DASH}test`)
   })
 
   describe("symbol transforms", () => {
@@ -180,7 +181,7 @@ describe("transform", () => {
         ["Rock 'n' Roll", `Rock ${RIGHT_SINGLE_QUOTE}n${RIGHT_SINGLE_QUOTE} Roll`],
         ["I was born in '99", `I was born in ${RIGHT_SINGLE_QUOTE}99`],
         // Em dashes from surrounded hyphens - smartquotes fails
-        ["This is a - hyphen.", `This is a${EM_DASH}hyphen.`],
+        ["This is a - hyphen.", `This is a${NOWRAP_EM_DASH}hyphen.`],
         // Number ranges - smartypants/smartquotes/typograf fail
         ["Pages 1-5", `Pages 1${EN_DASH}5`],
         ["2000-2020", `2000${EN_DASH}2020`],
@@ -227,7 +228,7 @@ describe("transform", () => {
   describe("complex real-world text", () => {
     it("handles dialogue with dashes and quotes", () => {
       const input = '"Wait," she said -- "I don\'t think that\'s right."'
-      const expected = `${LEFT_DOUBLE_QUOTE}Wait,${RIGHT_DOUBLE_QUOTE} she said${EM_DASH}${LEFT_DOUBLE_QUOTE}I don${RIGHT_SINGLE_QUOTE}t think that${RIGHT_SINGLE_QUOTE}s right.${RIGHT_DOUBLE_QUOTE}`
+      const expected = `${LEFT_DOUBLE_QUOTE}Wait,${RIGHT_DOUBLE_QUOTE} she said${NOWRAP_EM_DASH}${LEFT_DOUBLE_QUOTE}I don${RIGHT_SINGLE_QUOTE}t think that${RIGHT_SINGLE_QUOTE}s right.${RIGHT_DOUBLE_QUOTE}`
       expect(transform(input, { nbsp: false })).toEqual(expected)
     })
 
@@ -267,11 +268,11 @@ describe("transform", () => {
     it.each([
       [
         '"Wait..." she said - "it\'s pages 1-5."',
-        `${LEFT_DOUBLE_QUOTE}Wait${ELLIPSIS}${RIGHT_DOUBLE_QUOTE} she said${EM_DASH}${LEFT_DOUBLE_QUOTE}it${RIGHT_SINGLE_QUOTE}s pages 1${EN_DASH}5.${RIGHT_DOUBLE_QUOTE}`,
+        `${LEFT_DOUBLE_QUOTE}Wait${ELLIPSIS}${RIGHT_DOUBLE_QUOTE} she said${NOWRAP_EM_DASH}${LEFT_DOUBLE_QUOTE}it${RIGHT_SINGLE_QUOTE}s pages 1${EN_DASH}5.${RIGHT_DOUBLE_QUOTE}`,
       ],
       [
         "(c) 2024 - Room is 10x12, set to 72 F",
-        `${COPYRIGHT} 2024${EM_DASH}Room is 10${MULTIPLICATION}12, set to 72 ${DEGREE}F`,
+        `${COPYRIGHT} 2024${NOWRAP_EM_DASH}Room is 10${MULTIPLICATION}12, set to 72 ${DEGREE}F`,
       ],
     ])('handles complex transform: "%s"', (input, expected) => {
       expect(transform(input, { degrees: true, nbsp: false })).toBe(expected)
@@ -343,7 +344,7 @@ describe("transform", () => {
   describe("option combinations", () => {
     it("applies all optional transforms together", () => {
       const input = "1st place: 1/2 at 72 F - wow!!"
-      const expected = `1${SUPERSCRIPT_ST} place: ${FRACTION_1_2} at 72 ${DEGREE}F${EM_DASH}wow!`
+      const expected = `1${SUPERSCRIPT_ST} place: ${FRACTION_1_2} at 72 ${DEGREE}F${NOWRAP_EM_DASH}wow!`
       expect(transform(input, {
         fractions: true,
         degrees: true,
@@ -376,7 +377,7 @@ describe("transform", () => {
     })
 
     it.each([
-      [`word${sep} - ${sep}word`, `word${sep}${EM_DASH}${sep}word`],
+      [`word${sep} - ${sep}word`, `word${sep}${NOWRAP_EM_DASH}${sep}word`],
       [`1${sep}-${sep}5`, `1${sep}${EN_DASH}${sep}5`],
     ])('handles separator in dashes', (input, expected) => {
       expect(transform(input, { separator: sep, nbsp: false })).toBe(expected)
@@ -420,7 +421,7 @@ describe("transform", () => {
 
     it.each([
       `${LEFT_DOUBLE_QUOTE}Hello${RIGHT_DOUBLE_QUOTE}`,
-      `word${EM_DASH}word`,
+      `word${NOWRAP_EM_DASH}word`,
       `1${EN_DASH}5`,
       `Wait${ELLIPSIS}`,
       `5${MULTIPLICATION}5`,
@@ -434,7 +435,7 @@ describe("transform", () => {
   describe("style combinations", () => {
     it("applies American conventions throughout", () => {
       const input = '"Hello." - word - "World."'
-      const expected = `${LEFT_DOUBLE_QUOTE}Hello.${RIGHT_DOUBLE_QUOTE}${EM_DASH}word${EM_DASH}${LEFT_DOUBLE_QUOTE}World.${RIGHT_DOUBLE_QUOTE}`
+      const expected = `${LEFT_DOUBLE_QUOTE}Hello.${RIGHT_DOUBLE_QUOTE}${NOWRAP_EM_DASH}word${NOWRAP_EM_DASH}${LEFT_DOUBLE_QUOTE}World.${RIGHT_DOUBLE_QUOTE}`
       expect(transform(input, { punctuationStyle: "american", dashStyle: "american", nbsp: false })).toEqual(expected)
     })
 
@@ -463,7 +464,7 @@ describe("transform", () => {
 
     it("skips quotes but applies dashes with mixed none", () => {
       const input = '"Hello" - pages 1-5'
-      const expected = `"Hello"${EM_DASH}pages 1${EN_DASH}5`
+      const expected = `"Hello"${NOWRAP_EM_DASH}pages 1${EN_DASH}5`
       expect(transform(input, { punctuationStyle: "none", dashStyle: "american", nbsp: false })).toEqual(expected)
     })
   })
@@ -592,6 +593,19 @@ describe("transform", () => {
       const start = performance.now()
       transform(input)
       expect(performance.now() - start).toBeLessThan(MAX_TIMEOUT_MS)
+    })
+  })
+
+  describe("word joiner and quote interaction", () => {
+    it("word joiner is present before every em dash in output", () => {
+      const result = transform('"first" - "second" - "third"', { nbsp: false })
+      expect(result).not.toMatch(new RegExp(`(?<!${WORD_JOINER})${EM_DASH}`))
+    })
+
+    it("style conversion roundtrip: American→British→American", () => {
+      const american = transform('"Hello" - "World"', { dashStyle: "american", nbsp: false })
+      const british = transform(american, { dashStyle: "british", nbsp: false })
+      expect(transform(british, { dashStyle: "american", nbsp: false })).toBe(american)
     })
   })
 })

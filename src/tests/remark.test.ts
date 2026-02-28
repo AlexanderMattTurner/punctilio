@@ -3,13 +3,12 @@ import remarkParse from "remark-parse"
 import remarkGfm from "remark-gfm"
 import remarkStringify from "remark-stringify"
 import { remarkPunctilio, type RemarkPunctilioOptions } from "../remark.js"
-import { UNICODE_SYMBOLS } from "../constants.js"
+import { UNICODE_SYMBOLS, NOWRAP_EM_DASH } from "../constants.js"
 
 const {
   LEFT_DOUBLE_QUOTE: LDQ,
   RIGHT_DOUBLE_QUOTE: RDQ,
   RIGHT_SINGLE_QUOTE: RSQ,
-  EM_DASH,
   EN_DASH,
   ELLIPSIS,
   MULTIPLICATION,
@@ -49,7 +48,7 @@ describe("remarkPunctilio", () => {
     it.each([
       ["quotes", '"Hello," she said.', `${LDQ}Hello,${RDQ} she${NBSP}said.`],
       ["apostrophes", "It's a test.", `It${RSQ}s${NBSP}a${NBSP}test.`],
-      ["em dashes", "Wait -- here it comes.", `Wait${EM_DASH}here it${NBSP}comes.`],
+      ["em dashes", "Wait -- here it comes.", `Wait${NOWRAP_EM_DASH}here it${NBSP}comes.`],
       ["en dashes (number range)", "Pages 1-5", `Pages${NBSP}1${EN_DASH}5`],
       ["ellipses", "Wait...", `Wait${ELLIPSIS}`],
       ["multiplication", "5x5", `5${MULTIPLICATION}5`],
@@ -64,7 +63,7 @@ describe("remarkPunctilio", () => {
     it.each([
       ["quotes", '"Hello," she said.', `${LDQ}Hello,${RDQ} she said.`],
       ["apostrophes", "It's a test.", `It${RSQ}s a test.`],
-      ["em dashes", "Wait -- here it comes.", `Wait${EM_DASH}here it comes.`],
+      ["em dashes", "Wait -- here it comes.", `Wait${NOWRAP_EM_DASH}here it comes.`],
       ["ellipses", "Wait...", `Wait${ELLIPSIS}`],
       ["multiplication", "5x5", `5${MULTIPLICATION}5`],
       ["math symbols", "x != y", `x ${NOT_EQUAL} y`],
@@ -79,7 +78,7 @@ describe("remarkPunctilio", () => {
       ["quotes spanning emphasis", '"Hello," *she* said.', `${LDQ}Hello,${RDQ} *she* said.`],
       ["quotes inside emphasis", '*"Hello,"* she said.', `*${LDQ}Hello,${RDQ}* she said.`],
       ["apostrophe in strong", "**It's** fine.", `**It${RSQ}s** fine.`],
-      ["dash between elements", "word *one* -- *two* word", `word *one*${EM_DASH}*two* word`],
+      ["dash between elements", "word *one* -- *two* word", `word *one*${NOWRAP_EM_DASH}*two* word`],
       ["deeply nested elements", '*"Hello **beautiful** world"*', `*${LDQ}Hello **beautiful** world${RDQ}*`],
     ])("handles %s", async (_name, input, expected) => {
       expect(await processMarkdown(input, { nbsp: false })).toEqual(expected)
@@ -95,7 +94,7 @@ describe("remarkPunctilio", () => {
       const result = await processMarkdown(input, { nbsp: false })
       expect(result).toContain('"Hello" -- test...')
       expect(result).not.toContain(LDQ)
-      expect(result).not.toContain(EM_DASH)
+      expect(result).not.toContain(NOWRAP_EM_DASH)
       expect(result).not.toContain(ELLIPSIS)
     })
 
@@ -109,8 +108,8 @@ describe("remarkPunctilio", () => {
     it.each([
       ["h1", '# "Hello"', `# ${LDQ}Hello${RDQ}`],
       ["h2", '## It\'s nice', `## It${RSQ}s nice`],
-      ["h3", "### Wait -- really?", `### Wait${EM_DASH}really?`],
-      ["list items", '- "Hello" -- world', `* ${LDQ}Hello${RDQ}${EM_DASH}world`],
+      ["h3", "### Wait -- really?", `### Wait${NOWRAP_EM_DASH}really?`],
+      ["list items", '- "Hello" -- world', `* ${LDQ}Hello${RDQ}${NOWRAP_EM_DASH}world`],
       ["blockquotes", '> "Hello," she said.', `> ${LDQ}Hello,${RDQ} she said.`],
     ])("transforms %s", async (_name, input, expected) => {
       expect(await processMarkdown(input, { nbsp: false })).toEqual(expected)
@@ -131,7 +130,7 @@ describe("remarkPunctilio", () => {
   describe("GFM extensions", () => {
     it.each([
       ["table cells", '| "Hello" | world |\n| --- | --- |\n| "test" | data |', `| ${LDQ}Hello${RDQ} | world |\n| ------- | ----- |\n| ${LDQ}test${RDQ}  | data  |`],
-      ["strikethrough", '~~"Hello" -- world~~', `~~${LDQ}Hello${RDQ}${EM_DASH}world~~`],
+      ["strikethrough", '~~"Hello" -- world~~', `~~${LDQ}Hello${RDQ}${NOWRAP_EM_DASH}world~~`],
     ])("transforms %s", async (_name, input, expected) => {
       expect(await processGfmMarkdown(input, { nbsp: false })).toEqual(expected)
     })
@@ -141,7 +140,7 @@ describe("remarkPunctilio", () => {
     it.each([
       ["punctuationStyle american", '"Hello."', { punctuationStyle: "american" as const, nbsp: false as const }, `${LDQ}Hello.${RDQ}`],
       ["punctuationStyle british", '"Hello."', { punctuationStyle: "british" as const, nbsp: false as const }, `${LDQ}Hello${RDQ}.`],
-      ["dashStyle american", "word - word", { dashStyle: "american" as const, nbsp: false as const }, `word${EM_DASH}word`],
+      ["dashStyle american", "word - word", { dashStyle: "american" as const, nbsp: false as const }, `word${NOWRAP_EM_DASH}word`],
       ["dashStyle british", "word - word", { dashStyle: "british" as const, nbsp: false as const }, `word ${EN_DASH} word`],
       ["symbols disabled", "5x5", { symbols: false, nbsp: false as const }, "5x5"],
       ["fractions enabled", "1/2 cup", { fractions: true, nbsp: false as const }, `${FRACTION_1_2} cup`],
@@ -155,7 +154,7 @@ describe("remarkPunctilio", () => {
   describe("complex documents", () => {
     it("transforms a multi-paragraph document", async () => {
       const input = '"Hello," she said.\n\nIt\'s a nice day -- isn\'t it?\n\nWait...'
-      const expected = `${LDQ}Hello,${RDQ} she said.\n\nIt${RSQ}s a nice day${EM_DASH}isn${RSQ}t it?\n\nWait${ELLIPSIS}`
+      const expected = `${LDQ}Hello,${RDQ} she said.\n\nIt${RSQ}s a nice day${NOWRAP_EM_DASH}isn${RSQ}t it?\n\nWait${ELLIPSIS}`
       expect(await processMarkdown(input, { nbsp: false })).toEqual(expected)
     })
 

@@ -233,6 +233,9 @@ export function hyphenReplace(text: string, options: DashOptions = {}): string {
   const sep = options.separator ?? DEFAULT_SEPARATOR
   const style = options.dashStyle ?? "american"
   if (style === "none") return text
+  // Strip word joiners before em dashes so internal regex patterns match correctly.
+  // preventEmDashLineBreak() at the end re-adds them.
+  text = text.replaceAll(wordJoinerEmDash, EM_DASH)
   text = minusReplace(text, options)
   text = enDashDateRange(text, options)
   text = convertParentheticalDashes(text, sep, style)
