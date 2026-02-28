@@ -77,6 +77,10 @@ export async function transformMarkdown(
       bullet: bulletMarker ?? "-",
       rule: ruleMarker ?? "-",
       ...(ruleMarker === "-" || ruleMarker === undefined ? { ruleRepetition: 4 } : {}),
+      // remark-stringify escapes opening brackets but not closing brackets,
+      // producing `\[1]` instead of `\[1\]`. This can cause issues when the
+      // output is re-parsed by markdown renderers.
+      unsafe: [{ character: "]", inConstruct: "phrasing" }],
     })
 
   const result = await processor.process(input)
