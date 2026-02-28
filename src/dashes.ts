@@ -158,7 +158,7 @@ function convertParentheticalDashes(text: string, sep: string, style: DashStyle)
   // from suspended/hanging hyphens ("Yes-men and -women").
   // Em/en dashes and multiple hyphens can have zero trailing spaces.
   const spacedDashPattern = new RegExp(
-    `(?<=[^\\s]|^)(?<sepBefore>${escapedSep}?)[ ]+(?:[${EN_DASH}${EM_DASH}][-${EN_DASH}${EM_DASH}]*|-{2,}|-(?=[ ]))(?!-*>)[ ]*(?<sepAfter>${escapedSep}?)(?<trailing>[ ]*)(?=\\S|$)`, "g"
+    `(?<=[^\\s]|^)(?<sepBefore>${escapedSep}?)[ ]+(?:[${EN_DASH}${EM_DASH}][-${EN_DASH}${EM_DASH}]*|-{2,}|-(?=[ ${escapedSep}]))(?!-*>)[ ]*(?<sepAfter>${escapedSep}?)(?<trailing>[ ]*)(?=\\S|$)`, "g"
   )
   text = text.replace(spacedDashPattern, (_match, sepBefore, sepAfter, trailing) => {
     // For British style (spaced en-dash), preserve trailing spaces after separator
