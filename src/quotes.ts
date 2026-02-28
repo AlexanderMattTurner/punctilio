@@ -17,10 +17,17 @@ const {
   QUESTION_EXCLAMATION,
   EXCLAMATION_QUESTION,
   DOUBLE_EXCLAMATION,
+  INTERROBANG,
+  FULLWIDTH_EXCLAMATION,
+  FULLWIDTH_QUESTION,
 } = UNICODE_SYMBOLS
 
-/** Character class fragment for punctuation that signals a quote is "already terminated". */
-const TERMINAL_PUNCTUATION = `!?${DOUBLE_QUESTION}${QUESTION_EXCLAMATION}${EXCLAMATION_QUESTION}${DOUBLE_EXCLAMATION}`
+/**
+ * Character class fragment for punctuation that signals a quote is "already terminated".
+ * Used in negative lookbehinds to prevent moving commas/periods inside quotes
+ * that already end with sentence-ending or clause-ending punctuation.
+ */
+const TERMINAL_PUNCTUATION = `!?.,;:${ELLIPSIS}${DOUBLE_QUESTION}${QUESTION_EXCLAMATION}${EXCLAMATION_QUESTION}${DOUBLE_EXCLAMATION}${INTERROBANG}${FULLWIDTH_EXCLAMATION}${FULLWIDTH_QUESTION}`
 
 export type PunctuationStyle = "american" | "british" | "none"
 
@@ -144,7 +151,7 @@ function applyPunctuationStyle(text: string, sep: string, style: PunctuationStyl
   if (style === "american") {
     // Period outside → inside: "Hello". → "Hello."
     const periodOutsideRegex = new RegExp(
-      `(?<![${TERMINAL_PUNCTUATION}:\\.${ELLIPSIS}])(?<sepBefore>${escapedSep}?)(?<quote>[${RIGHT_SINGLE_QUOTE}${RIGHT_DOUBLE_QUOTE}])(?<sepAfter>${escapedSep}?)(?!\\.\\.\\.)\\.`,
+      `(?<![${TERMINAL_PUNCTUATION}])(?<sepBefore>${escapedSep}?)(?<quote>[${RIGHT_SINGLE_QUOTE}${RIGHT_DOUBLE_QUOTE}])(?<sepAfter>${escapedSep}?)(?!\\.\\.\\.)\\.`,
       "g"
     )
     text = text.replace(periodOutsideRegex, "$<sepBefore>.$<quote>$<sepAfter>")
@@ -158,7 +165,7 @@ function applyPunctuationStyle(text: string, sep: string, style: PunctuationStyl
   } else if (style === "british") {
     // Period inside → outside: "Hello." → "Hello".
     const periodInsideRegex = new RegExp(
-      `(?<![!?:\\.${ELLIPSIS}])(?<sepBefore>${escapedSep}?)\\.(?<sepMiddle>${escapedSep}?)(?<quote>[${RIGHT_SINGLE_QUOTE}${RIGHT_DOUBLE_QUOTE}])`,
+      `(?<![${TERMINAL_PUNCTUATION}])(?<sepBefore>${escapedSep}?)\\.(?<sepMiddle>${escapedSep}?)(?<quote>[${RIGHT_SINGLE_QUOTE}${RIGHT_DOUBLE_QUOTE}])`,
       "g"
     )
     text = text.replace(periodInsideRegex, "$<sepBefore>$<sepMiddle>$<quote>.")

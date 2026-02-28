@@ -64,6 +64,9 @@ export const UNICODE_SYMBOLS = {
   QUESTION_EXCLAMATION: "\u2048", // ⁈
   EXCLAMATION_QUESTION: "\u2049", // ⁉
   DOUBLE_EXCLAMATION: "\u203C", // ‼
+  INTERROBANG: "\u203D", // ‽
+  FULLWIDTH_EXCLAMATION: "\uFF01", // ！
+  FULLWIDTH_QUESTION: "\uFF1F", // ？
 } as const
 
 /**

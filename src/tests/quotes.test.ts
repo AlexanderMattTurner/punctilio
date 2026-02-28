@@ -13,6 +13,9 @@ const {
   QUESTION_EXCLAMATION,
   EXCLAMATION_QUESTION,
   DOUBLE_EXCLAMATION,
+  INTERROBANG,
+  FULLWIDTH_EXCLAMATION,
+  FULLWIDTH_QUESTION,
 } = UNICODE_SYMBOLS
 
 describe("niceQuotes", () => {
@@ -484,32 +487,44 @@ describe("niceQuotes", () => {
     describe("terminal punctuation blocks movement", () => {
       it.each([
         // Commas stay outside after ! and ?
-        [`${LEFT_DOUBLE_QUOTE}Stop!${RIGHT_DOUBLE_QUOTE},`, "comma after ! (double)"],
+        [`${LEFT_DOUBLE_QUOTE}Stop!${RIGHT_DOUBLE_QUOTE},`, "comma after !"],
+        [`${LEFT_DOUBLE_QUOTE}Why?${RIGHT_DOUBLE_QUOTE},`, "comma after ?"],
         [`${LEFT_SINGLE_QUOTE}Stop!${RIGHT_SINGLE_QUOTE},`, "comma after ! (single)"],
-        [`${LEFT_DOUBLE_QUOTE}Why?${RIGHT_DOUBLE_QUOTE},`, "comma after ? (double)"],
-        [`${LEFT_SINGLE_QUOTE}Why?${RIGHT_SINGLE_QUOTE},`, "comma after ? (single)"],
-        // Periods stay outside after ! and ? (existing behavior, verify preserved)
-        [`${LEFT_DOUBLE_QUOTE}Stop!${RIGHT_DOUBLE_QUOTE}.`, "period after ! (double)"],
-        [`${LEFT_DOUBLE_QUOTE}Why?${RIGHT_DOUBLE_QUOTE}.`, "period after ? (double)"],
-        // Punctuation ligatures block both commas and periods
+        // Periods stay outside after ! and ?
+        [`${LEFT_DOUBLE_QUOTE}Stop!${RIGHT_DOUBLE_QUOTE}.`, "period after !"],
+        [`${LEFT_DOUBLE_QUOTE}Why?${RIGHT_DOUBLE_QUOTE}.`, "period after ?"],
+        // Standard punctuation also blocks (no double-punctuation inside quotes)
+        [`${LEFT_DOUBLE_QUOTE}Test:${RIGHT_DOUBLE_QUOTE},`, "comma after :"],
+        [`${LEFT_DOUBLE_QUOTE}Test;${RIGHT_DOUBLE_QUOTE},`, "comma after ;"],
+        [`${LEFT_DOUBLE_QUOTE}Test,${RIGHT_DOUBLE_QUOTE},`, "comma after ,"],
+        [`${LEFT_DOUBLE_QUOTE}Test.${RIGHT_DOUBLE_QUOTE},`, "comma after ."],
+        [`${LEFT_DOUBLE_QUOTE}Wait${ELLIPSIS}${RIGHT_DOUBLE_QUOTE},`, "comma after …"],
+        // Punctuation ligatures
         [`${LEFT_DOUBLE_QUOTE}What${DOUBLE_QUESTION}${RIGHT_DOUBLE_QUOTE},`, "comma after ⁇"],
         [`${LEFT_DOUBLE_QUOTE}What${QUESTION_EXCLAMATION}${RIGHT_DOUBLE_QUOTE},`, "comma after ⁈"],
         [`${LEFT_DOUBLE_QUOTE}What${EXCLAMATION_QUESTION}${RIGHT_DOUBLE_QUOTE},`, "comma after ⁉"],
         [`${LEFT_DOUBLE_QUOTE}What${DOUBLE_EXCLAMATION}${RIGHT_DOUBLE_QUOTE},`, "comma after ‼"],
         [`${LEFT_DOUBLE_QUOTE}What${DOUBLE_QUESTION}${RIGHT_DOUBLE_QUOTE}.`, "period after ⁇"],
-        [`${LEFT_DOUBLE_QUOTE}What${QUESTION_EXCLAMATION}${RIGHT_DOUBLE_QUOTE}.`, "period after ⁈"],
         [`${LEFT_DOUBLE_QUOTE}What${EXCLAMATION_QUESTION}${RIGHT_DOUBLE_QUOTE}.`, "period after ⁉"],
-        [`${LEFT_DOUBLE_QUOTE}What${DOUBLE_EXCLAMATION}${RIGHT_DOUBLE_QUOTE}.`, "period after ‼"],
-      ])("does not move punctuation inside: %s (%s)", (input) => {
+        // Interrobang and fullwidth CJK punctuation
+        [`${LEFT_DOUBLE_QUOTE}Really${INTERROBANG}${RIGHT_DOUBLE_QUOTE},`, "comma after ‽"],
+        [`${LEFT_DOUBLE_QUOTE}Really${INTERROBANG}${RIGHT_DOUBLE_QUOTE}.`, "period after ‽"],
+        [`${LEFT_DOUBLE_QUOTE}Stop${FULLWIDTH_EXCLAMATION}${RIGHT_DOUBLE_QUOTE},`, "comma after ！"],
+        [`${LEFT_DOUBLE_QUOTE}What${FULLWIDTH_QUESTION}${RIGHT_DOUBLE_QUOTE},`, "comma after ？"],
+        [`${LEFT_DOUBLE_QUOTE}Stop${FULLWIDTH_EXCLAMATION}${RIGHT_DOUBLE_QUOTE}.`, "period after ！"],
+        [`${LEFT_DOUBLE_QUOTE}What${FULLWIDTH_QUESTION}${RIGHT_DOUBLE_QUOTE}.`, "period after ？"],
+      ])("american does not move punctuation inside: %s (%s)", (input) => {
         expect(niceQuotes(input, { punctuationStyle: "american" })).toBe(input)
       })
 
       it.each([
-        // British: commas stay inside after ! and ? (should not move outside)
-        [`${LEFT_DOUBLE_QUOTE}Stop!,${RIGHT_DOUBLE_QUOTE}`, "comma after ! stays inside (british)"],
-        [`${LEFT_DOUBLE_QUOTE}Why?,${RIGHT_DOUBLE_QUOTE}`, "comma after ? stays inside (british)"],
-        [`${LEFT_DOUBLE_QUOTE}What${DOUBLE_QUESTION},${RIGHT_DOUBLE_QUOTE}`, "comma after ⁇ stays inside (british)"],
-        [`${LEFT_DOUBLE_QUOTE}What${EXCLAMATION_QUESTION},${RIGHT_DOUBLE_QUOTE}`, "comma after ⁉ stays inside (british)"],
+        // British: commas/periods stay inside after terminal punctuation
+        [`${LEFT_DOUBLE_QUOTE}Stop!,${RIGHT_DOUBLE_QUOTE}`, "comma after !"],
+        [`${LEFT_DOUBLE_QUOTE}Why?,${RIGHT_DOUBLE_QUOTE}`, "comma after ?"],
+        [`${LEFT_DOUBLE_QUOTE}What${DOUBLE_QUESTION},${RIGHT_DOUBLE_QUOTE}`, "comma after ⁇"],
+        [`${LEFT_DOUBLE_QUOTE}What${EXCLAMATION_QUESTION},${RIGHT_DOUBLE_QUOTE}`, "comma after ⁉"],
+        [`${LEFT_DOUBLE_QUOTE}Really${INTERROBANG},${RIGHT_DOUBLE_QUOTE}`, "comma after ‽"],
+        [`${LEFT_DOUBLE_QUOTE}Stop${FULLWIDTH_EXCLAMATION},${RIGHT_DOUBLE_QUOTE}`, "comma after ！"],
       ])("british does not move punctuation outside: %s (%s)", (input) => {
         expect(niceQuotes(input, { punctuationStyle: "british" })).toBe(input)
       })
