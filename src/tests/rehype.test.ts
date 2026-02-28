@@ -13,24 +13,19 @@ import {
   assertSmartQuotesMatch,
   collectTransformableElements,
 } from "../rehype.js"
-import { UNICODE_SYMBOLS, DEFAULT_SEPARATOR } from "../constants.js"
+import { UNICODE_SYMBOLS, DEFAULT_SEPARATOR, NOWRAP_EM_DASH } from "../constants.js"
 
 const {
   LEFT_DOUBLE_QUOTE: LDQ,
   RIGHT_DOUBLE_QUOTE: RDQ,
   RIGHT_SINGLE_QUOTE: RSQ,
-  EM_DASH: RAW_EM_DASH,
   EN_DASH,
   ELLIPSIS,
   MULTIPLICATION,
   NOT_EQUAL,
   COPYRIGHT,
   FRACTION_1_2,
-  WORD_JOINER,
 } = UNICODE_SYMBOLS
-
-// hyphenReplace prepends a word joiner before em dashes to prevent line wrapping
-const EM_DASH = `${WORD_JOINER}${RAW_EM_DASH}`
 
 async function processHtml(html: string, options?: RehypePunctilioOptions): Promise<string> {
   const result = await unified()
@@ -46,7 +41,7 @@ describe("rehypePunctilio", () => {
     it.each([
       ["quotes", '<p>"Hello," she said.</p>', `<p>${LDQ}Hello,${RDQ} she said.</p>`],
       ["apostrophes", "<p>It's a test.</p>", `<p>It${RSQ}s a test.</p>`],
-      ["em dashes", "<p>Wait -- here it comes.</p>", `<p>Wait${EM_DASH}here it comes.</p>`],
+      ["em dashes", "<p>Wait -- here it comes.</p>", `<p>Wait${NOWRAP_EM_DASH}here it comes.</p>`],
       ["en dashes", "<p>Pages 1-5</p>", `<p>Pages 1${EN_DASH}5</p>`],
       ["ellipses", "<p>Wait...</p>", `<p>Wait${ELLIPSIS}</p>`],
       ["multiplication", "<p>5x5</p>", `<p>5${MULTIPLICATION}5</p>`],
@@ -114,7 +109,7 @@ describe("rehypePunctilio", () => {
     it.each([
       ["punctuationStyle american", '<p>"Hello."</p>', { punctuationStyle: "american" as const, nbsp: false as const }, `<p>${LDQ}Hello.${RDQ}</p>`],
       ["punctuationStyle british", '<p>"Hello."</p>', { punctuationStyle: "british" as const, nbsp: false as const }, `<p>${LDQ}Hello${RDQ}.</p>`],
-      ["dashStyle american", "<p>word - word</p>", { dashStyle: "american" as const, nbsp: false as const }, `<p>word${EM_DASH}word</p>`],
+      ["dashStyle american", "<p>word - word</p>", { dashStyle: "american" as const, nbsp: false as const }, `<p>word${NOWRAP_EM_DASH}word</p>`],
       ["dashStyle british", "<p>word - word</p>", { dashStyle: "british" as const, nbsp: false as const }, `<p>word ${EN_DASH} word</p>`],
       ["symbols enabled", "<p>5x5</p>", { symbols: true, nbsp: false as const }, `<p>5${MULTIPLICATION}5</p>`],
       ["symbols disabled", "<p>5x5</p>", { symbols: false, nbsp: false as const }, "<p>5x5</p>"],
@@ -131,12 +126,12 @@ describe("rehypePunctilio", () => {
       [
         "article content",
         `<article><h1>"Title's"</h1><p>"quotes" -- dashes</p><p>Pages 1-5</p></article>`,
-        `<article><h1>${LDQ}Title${RSQ}s${RDQ}</h1><p>${LDQ}quotes${RDQ}${EM_DASH}dashes</p><p>Pages 1${EN_DASH}5</p></article>`,
+        `<article><h1>${LDQ}Title${RSQ}s${RDQ}</h1><p>${LDQ}quotes${RDQ}${NOWRAP_EM_DASH}dashes</p><p>Pages 1${EN_DASH}5</p></article>`,
       ],
       [
         "mixed code and prose",
         '<p>The function <code>getValue()</code> returns "the value" -- useful.</p>',
-        `<p>The function <code>getValue()</code> returns ${LDQ}the value${RDQ}${EM_DASH}useful.</p>`,
+        `<p>The function <code>getValue()</code> returns ${LDQ}the value${RDQ}${NOWRAP_EM_DASH}useful.</p>`,
       ],
       [
         "table content",
@@ -146,7 +141,7 @@ describe("rehypePunctilio", () => {
       [
         "list content",
         '<ul><li>"First" -- important</li><li>Pages 1-5</li></ul>',
-        `<ul><li>${LDQ}First${RDQ}${EM_DASH}important</li><li>Pages 1${EN_DASH}5</li></ul>`,
+        `<ul><li>${LDQ}First${RDQ}${NOWRAP_EM_DASH}important</li><li>Pages 1${EN_DASH}5</li></ul>`,
       ],
     ])("handles %s", async (_name, html, expected) => {
       expect(await processHtml(html, { nbsp: false })).toEqual(expected)

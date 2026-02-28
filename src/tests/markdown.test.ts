@@ -1,17 +1,12 @@
 import { transformMarkdown } from "../markdown.js"
-import { UNICODE_SYMBOLS } from "../constants.js"
+import { UNICODE_SYMBOLS, NOWRAP_EM_DASH } from "../constants.js"
 
 const {
   LEFT_DOUBLE_QUOTE: LDQ,
   RIGHT_DOUBLE_QUOTE: RDQ,
   RIGHT_SINGLE_QUOTE: RSQ,
-  EM_DASH: RAW_EM_DASH,
   ELLIPSIS,
-  WORD_JOINER,
 } = UNICODE_SYMBOLS
-
-// hyphenReplace prepends a word joiner before em dashes to prevent line wrapping
-const EM_DASH = `${WORD_JOINER}${RAW_EM_DASH}`
 
 describe("transformMarkdown", () => {
   it("transforms basic typography", async () => {
@@ -37,7 +32,7 @@ describe("transformMarkdown", () => {
     const expected = [
       `# ${LDQ}Welcome${RDQ}`,
       "",
-      `It${RSQ}s great${EM_DASH}isn${RSQ}t it?`,
+      `It${RSQ}s great${NOWRAP_EM_DASH}isn${RSQ}t it?`,
       "",
       `Wait${ELLIPSIS}`,
       "", // remark-stringify adds trailing newline

@@ -68,6 +68,11 @@ export const UNICODE_SYMBOLS = {
 } as const
 
 /**
+ * Em dash preceded by a word joiner to prevent line-break before the dash.
+ */
+export const NOWRAP_EM_DASH = `${UNICODE_SYMBOLS.WORD_JOINER}${UNICODE_SYMBOLS.EM_DASH}`
+
+/**
  * Character class pattern for Latin letters including European accented characters.
  * Use inside regex character classes: `[${LATIN_LETTERS}]`
  *
