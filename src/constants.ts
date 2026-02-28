@@ -83,6 +83,27 @@ export const UNICODE_SYMBOLS = {
 } as const
 
 /**
+ * All terminal punctuation characters that signal a quote is "already terminated".
+ * Covers ASCII, ellipsis, punctuation ligatures, interrobang, CJK fullwidth,
+ * CJK ideographic, Arabic, and Greek question mark.
+ *
+ * Used as a regex character class fragment in quotes.ts and as a test fixture.
+ */
+export const TERMINAL_PUNCTUATION = [
+  "!", "?", ".", ",", ";", ":",
+  UNICODE_SYMBOLS.ELLIPSIS,
+  UNICODE_SYMBOLS.DOUBLE_QUESTION, UNICODE_SYMBOLS.QUESTION_EXCLAMATION,
+  UNICODE_SYMBOLS.EXCLAMATION_QUESTION, UNICODE_SYMBOLS.DOUBLE_EXCLAMATION,
+  UNICODE_SYMBOLS.INTERROBANG,
+  UNICODE_SYMBOLS.FULLWIDTH_EXCLAMATION, UNICODE_SYMBOLS.FULLWIDTH_QUESTION,
+  UNICODE_SYMBOLS.FULLWIDTH_PERIOD, UNICODE_SYMBOLS.FULLWIDTH_COMMA,
+  UNICODE_SYMBOLS.FULLWIDTH_SEMICOLON, UNICODE_SYMBOLS.FULLWIDTH_COLON,
+  UNICODE_SYMBOLS.IDEOGRAPHIC_FULL_STOP, UNICODE_SYMBOLS.IDEOGRAPHIC_COMMA,
+  UNICODE_SYMBOLS.ARABIC_QUESTION_MARK, UNICODE_SYMBOLS.ARABIC_SEMICOLON,
+  UNICODE_SYMBOLS.GREEK_QUESTION_MARK,
+] as const
+
+/**
  * Character class pattern for Latin letters including European accented characters.
  * Use inside regex character classes: `[${LATIN_LETTERS}]`
  *

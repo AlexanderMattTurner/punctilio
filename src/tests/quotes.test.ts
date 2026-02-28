@@ -1,5 +1,5 @@
 import { niceQuotes, classifyApostrophes } from "../quotes.js"
-import { UNICODE_SYMBOLS, DEFAULT_SEPARATOR } from "../constants.js"
+import { UNICODE_SYMBOLS, DEFAULT_SEPARATOR, TERMINAL_PUNCTUATION } from "../constants.js"
 
 const {
   LEFT_DOUBLE_QUOTE,
@@ -9,38 +9,7 @@ const {
   MODIFIER_LETTER_APOSTROPHE,
   EM_DASH,
   ELLIPSIS,
-  DOUBLE_QUESTION,
-  QUESTION_EXCLAMATION,
-  EXCLAMATION_QUESTION,
-  DOUBLE_EXCLAMATION,
-  INTERROBANG,
-  FULLWIDTH_EXCLAMATION,
-  FULLWIDTH_QUESTION,
-  FULLWIDTH_PERIOD,
-  FULLWIDTH_COMMA,
-  FULLWIDTH_SEMICOLON,
-  FULLWIDTH_COLON,
-  IDEOGRAPHIC_FULL_STOP,
-  IDEOGRAPHIC_COMMA,
-  ARABIC_QUESTION_MARK,
-  ARABIC_SEMICOLON,
-  GREEK_QUESTION_MARK,
 } = UNICODE_SYMBOLS
-
-/** All terminal punctuation marks: [symbol, display label] */
-const TERMINAL_MARKS: [string, string][] = [
-  ["!", "!"], ["?", "?"], [".", "."], [",", ","], [";", ";"], [":", ":"],
-  [ELLIPSIS, "…"],
-  [DOUBLE_QUESTION, "⁇"], [QUESTION_EXCLAMATION, "⁈"],
-  [EXCLAMATION_QUESTION, "⁉"], [DOUBLE_EXCLAMATION, "‼"],
-  [INTERROBANG, "‽"],
-  [FULLWIDTH_EXCLAMATION, "！"], [FULLWIDTH_QUESTION, "？"],
-  [FULLWIDTH_PERIOD, "．"], [FULLWIDTH_COMMA, "，"],
-  [FULLWIDTH_SEMICOLON, "；"], [FULLWIDTH_COLON, "："],
-  [IDEOGRAPHIC_FULL_STOP, "。"], [IDEOGRAPHIC_COMMA, "、"],
-  [ARABIC_QUESTION_MARK, "؟"], [ARABIC_SEMICOLON, "؛"],
-  [GREEK_QUESTION_MARK, "Greek ;"],
-]
 
 describe("niceQuotes", () => {
   describe("double quotes", () => {
@@ -510,22 +479,16 @@ describe("niceQuotes", () => {
 
     describe("terminal punctuation blocks movement", () => {
       // American: comma outside stays outside for every terminal mark
-      it.each(
-        TERMINAL_MARKS.map(([mark, label]) => [
-          `${LEFT_DOUBLE_QUOTE}Test${mark}${RIGHT_DOUBLE_QUOTE},`, `comma after ${label}`,
-        ])
-      )("american comma stays outside: %s (%s)", (input) => {
-        expect(niceQuotes(input, { punctuationStyle: "american" })).toBe(input)
-      })
+      it.each(TERMINAL_PUNCTUATION.map((mark) => [`${LEFT_DOUBLE_QUOTE}Test${mark}${RIGHT_DOUBLE_QUOTE},`]))(
+        "american comma stays outside: %s", (input) => {
+          expect(niceQuotes(input, { punctuationStyle: "american" })).toBe(input)
+        })
 
       // American: period outside stays outside for every terminal mark
-      it.each(
-        TERMINAL_MARKS.map(([mark, label]) => [
-          `${LEFT_DOUBLE_QUOTE}Test${mark}${RIGHT_DOUBLE_QUOTE}.`, `period after ${label}`,
-        ])
-      )("american period stays outside: %s (%s)", (input) => {
-        expect(niceQuotes(input, { punctuationStyle: "american" })).toBe(input)
-      })
+      it.each(TERMINAL_PUNCTUATION.map((mark) => [`${LEFT_DOUBLE_QUOTE}Test${mark}${RIGHT_DOUBLE_QUOTE}.`]))(
+        "american period stays outside: %s", (input) => {
+          expect(niceQuotes(input, { punctuationStyle: "american" })).toBe(input)
+        })
 
       // American: single quotes work the same as double
       it("american comma stays outside for single quotes", () => {
@@ -533,22 +496,22 @@ describe("niceQuotes", () => {
           .toBe(`${LEFT_SINGLE_QUOTE}Stop!${RIGHT_SINGLE_QUOTE},`)
       })
 
-      // British: comma inside stays inside for every terminal mark
-      it.each(
-        TERMINAL_MARKS.map(([mark, label]) => [
-          `${LEFT_DOUBLE_QUOTE}Test${mark},${RIGHT_DOUBLE_QUOTE}`, `comma after ${label}`,
-        ])
-      )("british comma stays inside: %s (%s)", (input) => {
-        expect(niceQuotes(input, { punctuationStyle: "british" })).toBe(input)
+      // British: comma inside always moves outside (even after terminal punctuation)
+      // Exclude "." — the period regex also fires, creating a cascading double-movement
+      it.each(TERMINAL_PUNCTUATION.filter((m) => m !== ".").map((mark) => [
+        `${LEFT_DOUBLE_QUOTE}Test${mark},${RIGHT_DOUBLE_QUOTE}`,
+        `${LEFT_DOUBLE_QUOTE}Test${mark}${RIGHT_DOUBLE_QUOTE},`,
+      ]))("british comma moves outside: %s → %s", (input, expected) => {
+        expect(niceQuotes(input, { punctuationStyle: "british" })).toBe(expected)
       })
 
-      // British: period inside stays inside for every terminal mark
-      it.each(
-        TERMINAL_MARKS.map(([mark, label]) => [
-          `${LEFT_DOUBLE_QUOTE}Test${mark}.${RIGHT_DOUBLE_QUOTE}`, `period after ${label}`,
-        ])
-      )("british period stays inside: %s (%s)", (input) => {
-        expect(niceQuotes(input, { punctuationStyle: "british" })).toBe(input)
+      // British: period inside always moves outside (even after terminal punctuation)
+      // Exclude "," — the comma regex also fires, creating a cascading double-movement
+      it.each(TERMINAL_PUNCTUATION.filter((m) => m !== ",").map((mark) => [
+        `${LEFT_DOUBLE_QUOTE}Test${mark}.${RIGHT_DOUBLE_QUOTE}`,
+        `${LEFT_DOUBLE_QUOTE}Test${mark}${RIGHT_DOUBLE_QUOTE}.`,
+      ]))("british period moves outside: %s → %s", (input, expected) => {
+        expect(niceQuotes(input, { punctuationStyle: "british" })).toBe(expected)
       })
     })
 
