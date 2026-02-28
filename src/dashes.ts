@@ -154,8 +154,11 @@ function convertParentheticalDashes(text: string, sep: string, style: DashStyle)
 
   // Convert spaced dashes: "word - word" or "word — word"
   // When a separator follows the dash, preserve trailing spaces (they belong to the next text segment).
+  // A single plain hyphen directly before a word character (through optional separators) is a
+  // suspended/hanging hyphen ("Yes-men and -women"), not a parenthetical dash — skip it.
+  // Em/en dashes and multiple hyphens can have zero trailing spaces.
   const spacedDashPattern = new RegExp(
-    `(?<=[^\\s]|^)(?<sepBefore>${escapedSep}?)[ ]+[${EN_DASH}${EM_DASH}-]+(?!-*>)[ ]*(?<sepAfter>${escapedSep}?)(?<trailing>[ ]*)(?=\\S|$)`, "g"
+    `(?<=[^\\s]|^)(?<sepBefore>${escapedSep}?)[ ]+(?:[${EN_DASH}${EM_DASH}][-${EN_DASH}${EM_DASH}]*|-{2,}|-(?!${escapedSep}*[${LATIN_LETTERS}\\d]))(?!-*>)[ ]*(?<sepAfter>${escapedSep}?)(?<trailing>[ ]*)(?=\\S|$)`, "g"
   )
   text = text.replace(spacedDashPattern, (_match, sepBefore, sepAfter, trailing) => {
     // For British style (spaced en-dash), preserve trailing spaces after separator

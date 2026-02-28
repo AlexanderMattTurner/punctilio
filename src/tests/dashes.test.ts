@@ -38,6 +38,9 @@ describe("hyphenReplace", () => {
         `reward${ELLIPSIS}${EM_DASH}[Model-based RL, Desires, Brains, Wireheading](https://www.alignmentforum.org/posts/K5ikTdaNymfWXQHFb/model-based-rl-desires-brains-wireheading#Self_aware_desires_1__wireheading)`,
       ],
       ["a browser- or OS-specific fashion", "a browser- or OS-specific fashion"],
+      // Suspended/hanging hyphens: prefix shared with a preceding compound
+      ["Yes-men and -women", "Yes-men and -women"],
+      ["the over- and -supply of widgets", "the over- and -supply of widgets"],
       ["since--as you know", `since${EM_DASH}as you know`],
       // Arrow patterns should be preserved (not converted to em-dashes)
       ["word -> arrow", "word -> arrow"],
@@ -146,6 +149,10 @@ describe("hyphenReplace", () => {
       // Separator-only before dash (no space between word and separator): e.g., link text followed by dash
       [`word${sep}${EN_DASH} rest`, `word${sep}${EM_DASH}rest`, "en-dash after separator without preceding space"],
       [`word${sep}- rest`, `word${sep}${EM_DASH}rest`, "hyphen after separator without preceding space"],
+      // Spaced hyphen with separator after: "word -<sep> another" is a parenthetical dash, not suspended
+      [`word -${sep} another`, `word${EM_DASH}${sep}another`, "hyphen before separator-space is parenthetical"],
+      // Suspended hyphen across separator boundary: hyphen attached to word through separator
+      [`and -${sep}women`, `and -${sep}women`, "suspended hyphen across separator preserved"],
     ])("%s → %s (%s)", (input, expected) => {
       expect(hyphenReplace(input, { separator: sep })).toBe(expected)
     })
