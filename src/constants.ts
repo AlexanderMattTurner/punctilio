@@ -197,3 +197,26 @@ export function spaceBoundaryStart(escapedSeparator: string): string {
 export function spaceBoundaryEnd(escapedSeparator: string): string {
   return `(?=[\\s${escapedSeparator}]|$)`
 }
+
+/**
+ * Cache for compiled RegExp objects keyed by `pattern + '\0' + flags`.
+ * Avoids recompiling identical regexes on every function call (common
+ * when using the default separator).
+ */
+const regexCache = new Map<string, RegExp>()
+
+/**
+ * Returns a cached RegExp for the given pattern and flags.
+ * Resets `lastIndex` before returning to prevent stale state when
+ * callers use `.test()` or `.exec()` on global-flag regexes.
+ */
+export function cachedRegExp(pattern: string, flags: string): RegExp {
+  const key = `${pattern}\0${flags}`
+  let re = regexCache.get(key)
+  if (!re) {
+    re = new RegExp(pattern, flags)
+    regexCache.set(key, re)
+  }
+  re.lastIndex = 0
+  return re
+}

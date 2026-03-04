@@ -36,6 +36,27 @@ export function formatErrorString(content: string, label: string): string {
   return `[${label}: ${JSON.stringify(truncated)}... (${content.length} chars total)]`
 }
 
+/**
+ * Throws if any text node contains the separator character, which would
+ * corrupt the split/join mechanism used by the rehype and remark plugins.
+ *
+ * @param textValues - The raw text values to check
+ * @param separator - The separator character
+ * @throws Error if the separator is found in any text value
+ */
+export function assertSeparatorAbsent(textValues: string[], separator: string): void {
+  for (const value of textValues) {
+    if (!value.includes(separator)) continue
+
+    const codePoint = `U+${separator.codePointAt(0)!.toString(16).toUpperCase().padStart(4, "0")}`
+    throw new Error(
+      `Text contains the separator character ${codePoint} which is used internally by punctilio ` +
+      `to track element boundaries. Pass a different character via the "separator" option.\n` +
+      `Text: ${formatErrorString(value, "input")}`
+    )
+  }
+}
+
 export function countSeparators(text: string, separator: string = DEFAULT_SEPARATOR): number {
   let count = 0
   for (const char of text) {

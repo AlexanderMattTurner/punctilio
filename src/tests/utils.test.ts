@@ -1,5 +1,22 @@
-import { countSeparators, assertSeparatorCountPreserved, formatErrorString } from "../utils.js"
+import { assertSeparatorAbsent, countSeparators, assertSeparatorCountPreserved, formatErrorString } from "../utils.js"
 import { DEFAULT_SEPARATOR } from "../constants.js"
+
+describe("assertSeparatorAbsent", () => {
+  it.each([
+    ["no values", [], DEFAULT_SEPARATOR],
+    ["clean values", ["hello", "world"], DEFAULT_SEPARATOR],
+  ])("does not throw: %s", (_desc, values, separator) => {
+    expect(() => assertSeparatorAbsent(values, separator)).not.toThrow()
+  })
+
+  it.each([
+    ["default separator", [`hello${DEFAULT_SEPARATOR}world`], DEFAULT_SEPARATOR, /U\+E000/],
+    ["custom separator", ["hello|world"], "|", /U\+007C/],
+    ["separator in middle element", ["clean", `has${DEFAULT_SEPARATOR}sep`, "also clean"], DEFAULT_SEPARATOR, /separator character/],
+  ])("throws: %s", (_desc, values, separator, expectedPattern) => {
+    expect(() => assertSeparatorAbsent(values, separator)).toThrow(expectedPattern)
+  })
+})
 
 describe("countSeparators", () => {
   it.each([

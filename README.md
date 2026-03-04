@@ -136,7 +136,7 @@ transform(text, {
   superscript: false,      // 1st → 1ˢᵗ
   ligatures: false,        // ??? → ⁇, ?! → ⁈, !? → ⁉, !!! → !
   nbsp: true,              // non-breaking spaces (after honorifics, between numbers and units, etc.)
-  checkIdempotency: true,  // verify transform(transform(x)) === transform(x)
+  checkIdempotency: false,  // verify transform(transform(x)) === transform(x)
 })
 ```
 
@@ -148,5 +148,5 @@ transform(text, {
   - Periods and commas go outside quotation marks (“Hello”, she said.)
   - Spaced en-dashes between words (word – word)
 - Setting either style to `none` skips the entire transform category: `punctuationStyle: 'none'` preserves straight quotes, apostrophes, and prime marks; `dashStyle: 'none'` preserves all hyphens, number ranges, date ranges, and minus signs.
-- `punctilio` is idempotent by design: `transform(transform(text))` always equals `transform(text)`. If performance is critical, set `checkIdempotency: false` to skip the verification pass.
+- `punctilio` is idempotent by design: `transform(transform(text))` always equals `transform(text)`. You can verify this by setting `checkIdempotency: true`.
 - Use `classifyApostrophes(text)` to distinguish apostrophes from closing single quotes. It returns text with apostrophes as U+02BC (MODIFIER LETTER APOSTROPHE) and closing quotes as U+2019 (RIGHT SINGLE QUOTATION MARK). Per the [Unicode Standard](https://www.unicode.org/versions/Unicode16.0.0/core-spec/chapter-6/#G30602), `transform()` and `niceQuotes()` use U+2019 for both in their output.
