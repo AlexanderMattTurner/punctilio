@@ -1,9 +1,21 @@
 #!/bin/bash
 
 # Install git hooks from scripts/hooks to .git/hooks
+# Only runs in the punctilio repo itself — not when installed as a dependency.
 
 HOOKS_DIR="scripts/hooks"
 GIT_HOOKS_DIR=".git/hooks"
+
+# Guard: only install hooks when running inside the punctilio repo.
+# When installed as a dependency, scripts/hooks won't exist and the remote won't match.
+if [ ! -d "$HOOKS_DIR" ]; then
+  exit 0
+fi
+
+REMOTE_URL=$(git remote get-url origin 2>/dev/null || true)
+if [[ "$REMOTE_URL" != *"punctilio"* ]]; then
+  exit 0
+fi
 
 if [ ! -d "$GIT_HOOKS_DIR" ]; then
   echo "❌ .git/hooks directory not found. Are you in a git repository?"

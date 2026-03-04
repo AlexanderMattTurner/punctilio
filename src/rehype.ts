@@ -14,7 +14,7 @@ import { visitParents } from "unist-util-visit-parents"
 
 import { transform, type TransformOptions } from "./index.js"
 import { DEFAULT_SEPARATOR } from "./constants.js"
-import { formatErrorString } from "./utils.js"
+import { assertSeparatorAbsent, formatErrorString } from "./utils.js"
 
 /**
  * Options for the rehype-punctilio plugin.
@@ -257,6 +257,8 @@ export function transformElement(
     return
   }
 
+  assertSeparatorAbsent(textNodes.map((n) => n.value), separator)
+
   // Append marker and concatenate all text nodes
   const markedContent = textNodes.map((n) => n.value + separator).join("")
 
@@ -461,8 +463,17 @@ export function rehypePunctilio(
     return false
   }
 
+  // Default idempotency check to false in plugin context — the separator
+  // count check already guards against corruption, and the double-pass
+  // penalty compounds across every block-level element.
+  const pluginOptions = {
+    checkIdempotency: false,
+    ...transformOptions,
+    separator,
+  }
+
   const transformFn = (text: string): string => {
-    return transform(text, { ...transformOptions, separator })
+    return transform(text, pluginOptions)
   }
 
   return (tree: Root) => {

@@ -3,7 +3,7 @@
  */
 
 import escapeStringRegexp from "escape-string-regexp"
-import { UNICODE_SYMBOLS, ESCAPED_DEFAULT_SEPARATOR, LATIN_LETTERS, wordBoundaryEnd, SPACE_CHARS, spaceBoundaryStart, spaceBoundaryEnd } from "./constants.js"
+import { UNICODE_SYMBOLS, ESCAPED_DEFAULT_SEPARATOR, LATIN_LETTERS, wordBoundaryEnd, SPACE_CHARS, spaceBoundaryStart, spaceBoundaryEnd, cachedRegExp } from "./constants.js"
 
 export interface SymbolOptions {
   /** Boundary marker for HTML element boundaries. Default: "\uE000" */
@@ -47,12 +47,12 @@ export function ellipsis(text: string, options: SymbolOptions = {}): string {
 
   // Convert consecutive or spaced dots: ... or . . . → …
   // Captures preserve any separators between dots
-  const pattern = new RegExp(`\\.[${SPACE_CHARS}]?(${chr})?\\.([${SPACE_CHARS}]?)(${chr})?\\.`, "g")
+  const pattern = cachedRegExp(`\\.[${SPACE_CHARS}]?(${chr})?\\.([${SPACE_CHARS}]?)(${chr})?\\.`, "g")
   text = text.replace(pattern, (_match, sep1, _space, sep2) => {
     return ELLIPSIS + (sep1 || "") + (sep2 || "")
   })
 
-  text = text.replace(new RegExp(`${ELLIPSIS}(?=[${LATIN_LETTERS}\\d])`, "gu"), `${ELLIPSIS} `)
+  text = text.replace(cachedRegExp(`${ELLIPSIS}(?=[${LATIN_LETTERS}\\d])`, "gu"), `${ELLIPSIS} `)
 
   return text
 }
@@ -65,7 +65,7 @@ export function multiplication(text: string, options: SymbolOptions = {}): strin
 
   // Match entire multiplication chains in one pass: "5 x 5 x 5" or "5x5x5"
   // Pattern matches: digit(s), then one or more (operator, digit(s)) groups
-  const chainPattern = new RegExp(
+  const chainPattern = cachedRegExp(
     `(?<!\\d)(\\d+)((?:${chr}?\\s*[xX*]\\s*${chr}?\\d+)+)`,
     "g"
   )
@@ -76,7 +76,7 @@ export function multiplication(text: string, options: SymbolOptions = {}): strin
 
     // Replace all operators in the chain, preserving spacing
     const converted = rest.replace(
-      new RegExp(`(${chr}?)(\\s*)[xX*](\\s*)(${chr}?)`, "g"),
+      cachedRegExp(`(${chr}?)(\\s*)[xX*](\\s*)(${chr}?)`, "g"),
       (_: string, pre: string, spaceBefore: string, spaceAfter: string, post: string) => {
         const space = spaceBefore || spaceAfter ? " " : ""
         return `${pre}${space}${MULTIPLICATION}${space}${post}`
@@ -87,7 +87,7 @@ export function multiplication(text: string, options: SymbolOptions = {}): strin
 
   // Trailing multiplier: 5x (followed by word boundary - space, punctuation, etc.)
   const wbe = wordBoundaryEnd(chr)
-  const trailingPattern = new RegExp(`(?<!\\d)(?<num>\\d+${chr}?)[xX*]${wbe}`, "g")
+  const trailingPattern = cachedRegExp(`(?<!\\d)(?<num>\\d+${chr}?)[xX*]${wbe}`, "g")
   text = text.replace(trailingPattern, (match, num: string) => {
     // Skip if this looks like start of hexadecimal
     if (num === "0") return match
@@ -97,20 +97,28 @@ export function multiplication(text: string, options: SymbolOptions = {}): strin
   return text
 }
 
-/** Math symbol replacement map: ASCII → Unicode */
-const MATH_SYMBOL_MAP: [RegExp, string][] = [
-  [/!=(?!=)/g, NOT_EQUAL],
-  [/\+\/-/g, PLUS_MINUS],
-  [/\+-/g, PLUS_MINUS],
-  [/<=(?!=)/g, LESS_EQUAL],
-  [/>=(?!=)/g, GREATER_EQUAL],
-  [/~=/g, APPROXIMATE],
-  [/=~/g, APPROXIMATE],
+/**
+ * Math symbol replacement map: [left char(s), right char(s), negative lookahead, replacement].
+ * The separator is inserted between left and right when building the regex.
+ */
+const MATH_SYMBOL_MAP: [string, string, string, string][] = [
+  ["!", "=", "(?!=)", NOT_EQUAL],
+  ["\\+/", "-", "", PLUS_MINUS],
+  ["\\+", "-", "", PLUS_MINUS],
+  ["<", "=", "(?!=)", LESS_EQUAL],
+  [">", "=", "(?!=)", GREATER_EQUAL],
+  ["~", "=", "", APPROXIMATE],
+  ["=", "~", "", APPROXIMATE],
 ]
 
 /** Convert !=, <=, >=, +/-, ~= to Unicode equivalents. */
-export function mathSymbols(text: string): string {
-  for (const [pattern, replacement] of MATH_SYMBOL_MAP) {
+export function mathSymbols(text: string, options: SymbolOptions = {}): string {
+  const chr = options.separator
+    ? escapeStringRegexp(options.separator)
+    : ESCAPED_DEFAULT_SEPARATOR
+
+  for (const [left, right, lookahead, replacement] of MATH_SYMBOL_MAP) {
+    const pattern = cachedRegExp(`${left}${chr}?${right}${lookahead}`, "g")
     text = text.replace(pattern, replacement)
   }
   return text
@@ -168,7 +176,7 @@ export function arrows(text: string, options: SymbolOptions = {}): string {
   const end = spaceBoundaryEnd(chr)
 
   for (const [arrowPattern, replacement] of ARROW_MAP) {
-    const pattern = new RegExp(`${start}${arrowPattern.replace("%CHR%", chr)}${end}`, "g")
+    const pattern = cachedRegExp(`${start}${arrowPattern.replace("%CHR%", chr)}${end}`, "g")
     text = text.replace(pattern, replacement)
   }
 
@@ -186,7 +194,7 @@ export function degrees(text: string, options: SymbolOptions = {}): string {
   // Uses marker-aware boundary to avoid false matches like "20C\uE000elsius"
   const wbe = wordBoundaryEnd(chr)
   return text.replace(
-    new RegExp(`(?<num>\\d${chr}?) ?(?<unit>[CF])${wbe}`, "g"),
+    cachedRegExp(`(?<num>\\d${chr}?) ?(?<unit>[CF])${wbe}`, "g"),
     (_, num, unit) => `${num} ${DEGREE}${unit}`
   )
 }
@@ -206,7 +214,7 @@ function buildQuoteClassificationPattern(
   const contraction = `(?<=[${LATIN_LETTERS}]${escapedSeparator}?)(?<contraction>${escapedQuote})(?=${escapedSeparator}?[${LATIN_LETTERS}])`
   const trailingApostrophe = `(?<=[${LATIN_LETTERS}]${escapedSeparator}?)(?<trailing>${escapedQuote})`
   const bareQuote = escapedQuote
-  return new RegExp(
+  return cachedRegExp(
     `${primeCandidate}|${contraction}|${trailingApostrophe}|${bareQuote}`,
     "g"
   )
@@ -328,7 +336,7 @@ export function fractions(text: string, options: SymbolOptions = {}): string {
     // - (?![/\d]|\.\d) prevents matching before slashes, digits, or decimal points
     // Named captures preserve separators before and after the slash
     const [numerator, denominator] = ascii.split("/")
-    const pattern = new RegExp(
+    const pattern = cachedRegExp(
       `(?<![/\\.\\d])${numerator}(?<sepBefore>${chr}?)/(?<sepAfter>${chr}?)${denominator}(?![/\\d]|\\.\\d)`,
       "g"
     )
@@ -356,7 +364,7 @@ export function superscriptOrdinal(text: string, options: SymbolOptions = {}): s
   // Use case-insensitive matching for the suffix
   // Uses marker-aware boundary to avoid false matches like "1st\uE000ly"
   const wbe = wordBoundaryEnd(chr)
-  const pattern = new RegExp(
+  const pattern = cachedRegExp(
     `(?<num>\\d${chr}?)(?<suffix>st|nd|rd|th)${wbe}`,
     "gi"
   )
@@ -369,7 +377,7 @@ export function superscriptOrdinal(text: string, options: SymbolOptions = {}): s
 
 /** Collapse multiple spaces to single space. Prefers nbsp if any nbsp is present. */
 export function collapseSpaces(text: string): string {
-  return text.replace(new RegExp(`[${SPACE_CHARS}]{2,}`, "g"), (match) => {
+  return text.replace(cachedRegExp(`[${SPACE_CHARS}]{2,}`, "g"), (match) => {
     // If any nbsp is present, prefer nbsp (more likely to be intentional)
     return match.includes(NBSP) ? NBSP : " "
   })
@@ -394,7 +402,7 @@ export function punctuationLigatures(text: string, options: SymbolOptions = {}):
     : ESCAPED_DEFAULT_SEPARATOR
 
   for (const [first, repeated, replacement] of PUNCTUATION_LIGATURE_MAP) {
-    const pattern = new RegExp(`${first}(${chr})?${repeated}(?:${chr}?${repeated})*`, "g")
+    const pattern = cachedRegExp(`${first}(${chr})?${repeated}(?:${chr}?${repeated})*`, "g")
     text = text.replace(pattern, (_match, sep) => replacement + (sep || ""))
   }
 
@@ -405,7 +413,7 @@ export function punctuationLigatures(text: string, options: SymbolOptions = {}):
 export function symbolTransform(text: string, options: SymbolOptions = {}): string {
   text = ellipsis(text, options)
   text = multiplication(text, options)
-  text = mathSymbols(text)
+  text = mathSymbols(text, options)
   text = legalSymbols(text)
   if (options.includeArrows !== false) {
     text = arrows(text, options)
