@@ -36,11 +36,6 @@ export function formatErrorString(content: string, label: string): string {
   return `[${label}: ${JSON.stringify(truncated)}... (${content.length} chars total)]`
 }
 
-/** Formats a Unicode code point as "U+XXXX". */
-function formatCodePoint(char: string): string {
-  return `U+${char.codePointAt(0)!.toString(16).toUpperCase().padStart(4, "0")}`
-}
-
 /**
  * Throws if any text node contains the separator character, which would
  * corrupt the split/join mechanism used by the rehype and remark plugins.
@@ -53,8 +48,9 @@ export function assertSeparatorAbsent(textValues: string[], separator: string): 
   for (const value of textValues) {
     if (!value.includes(separator)) continue
 
+    const codePoint = `U+${separator.codePointAt(0)!.toString(16).toUpperCase().padStart(4, "0")}`
     throw new Error(
-      `Text contains the separator character ${formatCodePoint(separator)} which is used internally by punctilio ` +
+      `Text contains the separator character ${codePoint} which is used internally by punctilio ` +
       `to track element boundaries. Pass a different character via the "separator" option.\n` +
       `Text: ${formatErrorString(value, "input")}`
     )
