@@ -118,6 +118,16 @@ describe("mathSymbols", () => {
   ])('preserves multi-char operator "%s"', (input, expected) => {
     expect(mathSymbols(input)).toBe(expected)
   })
+
+  it.each([
+    [`!${DEFAULT_SEPARATOR}=`, UNICODE_SYMBOLS.NOT_EQUAL],
+    [`<${DEFAULT_SEPARATOR}=`, UNICODE_SYMBOLS.LESS_EQUAL],
+    [`>${DEFAULT_SEPARATOR}=`, UNICODE_SYMBOLS.GREATER_EQUAL],
+    [`~${DEFAULT_SEPARATOR}=`, UNICODE_SYMBOLS.APPROXIMATE],
+    [`=${DEFAULT_SEPARATOR}~`, UNICODE_SYMBOLS.APPROXIMATE],
+  ])('converts across separator boundary: "%s"', (input, expected) => {
+    expect(mathSymbols(input)).toBe(expected)
+  })
 })
 
 describe("legalSymbols", () => {

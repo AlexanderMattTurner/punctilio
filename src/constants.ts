@@ -206,9 +206,9 @@ export function spaceBoundaryEnd(escapedSeparator: string): string {
 const regexCache = new Map<string, RegExp>()
 
 /**
- * Returns a cached RegExp for the given pattern and flags. Because
- * `String.prototype.replace` resets `lastIndex` before matching,
- * sharing a single global-flag instance across callers is safe.
+ * Returns a cached RegExp for the given pattern and flags.
+ * Resets `lastIndex` before returning to prevent stale state when
+ * callers use `.test()` or `.exec()` on global-flag regexes.
  */
 export function cachedRegExp(pattern: string, flags: string): RegExp {
   const key = `${pattern}\0${flags}`
@@ -217,5 +217,6 @@ export function cachedRegExp(pattern: string, flags: string): RegExp {
     re = new RegExp(pattern, flags)
     regexCache.set(key, re)
   }
+  re.lastIndex = 0
   return re
 }
