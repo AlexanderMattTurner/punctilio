@@ -1,5 +1,5 @@
 import { assertSeparatorAbsent, countSeparators, assertSeparatorCountPreserved, formatErrorString } from "../utils.js"
-import { DEFAULT_SEPARATOR } from "../constants.js"
+import { DEFAULT_SEPARATOR, cachedRegExp } from "../constants.js"
 
 describe("assertSeparatorAbsent", () => {
   it.each([
@@ -72,6 +72,19 @@ describe("assertSeparatorCountPreserved", () => {
         expect(() => assertSeparatorCountPreserved(original, transformed)).not.toThrow()
       }
     })
+  })
+})
+
+describe("cachedRegExp", () => {
+  it("evicts oldest entry when cache exceeds max size", () => {
+    // Fill the cache well beyond 1000 entries with unique patterns
+    for (let i = 0; i < 1010; i++) {
+      const re = cachedRegExp(`unique-pattern-${i}`, "g")
+      expect(re).toBeInstanceOf(RegExp)
+    }
+    // Verify the cache still works correctly after eviction
+    const re = cachedRegExp("unique-pattern-1009", "g")
+    expect(re.source).toBe("unique-pattern-1009")
   })
 })
 

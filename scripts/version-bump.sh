@@ -28,8 +28,10 @@ else
   DIFF_STAT=$(git show --stat HEAD 2>/dev/null || echo "Unable to get diff")
 fi
 
-# Sanitize commit messages: truncate each line, remove control chars, limit total length
-COMMITS=$(echo "$COMMITS_RAW" | head -20 | cut -c1-100 | tr -cd '[:print:]\n' | head -c 2000)
+# Sanitize commit messages: truncate each line, remove control chars, strip prompt-like
+# prefixes (e.g., "SYSTEM:", "ASSISTANT:"), and limit total length
+COMMITS=$(echo "$COMMITS_RAW" | head -20 | cut -c1-100 | tr -cd '[:print:]\n' \
+  | sed 's/\b\(SYSTEM\|ASSISTANT\|USER\|HUMAN\|INSTRUCTIONS\?\):\s*//gI' | head -c 2000)
 
 if [ -z "$COMMITS" ]; then
   echo "No commits to analyze. Skipping."
@@ -90,13 +92,13 @@ RESPONSE=$(curl -s https://api.anthropic.com/v1/messages \
     }')")
 
 # Extract the bump level from Claude's structured tool use response
-echo "API response: $RESPONSE"
 BUMP=$(echo "$RESPONSE" | jq -r '.content[] | select(.type == "tool_use") | .input.bump_type')
 
 # Validate response - fail if Claude couldn't determine bump type
 if [[ "$BUMP" != "major" && "$BUMP" != "minor" && "$BUMP" != "patch" ]]; then
-  echo "Error: Unexpected response from Claude: $BUMP"
-  echo "Full response: $RESPONSE"
+  echo "Error: Unexpected bump type from Claude: $BUMP"
+  # Log only the stop_reason and type, not the full response (may contain metadata)
+  echo "Response stop_reason: $(echo "$RESPONSE" | jq -r '.stop_reason // "unknown"')"
   exit 1
 fi
 
