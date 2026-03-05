@@ -203,7 +203,7 @@ function normalizeGermanQuotes(text: string): string {
   return result
 }
 
-/** Remap American curly quotes to German low-9 style. Apostrophes (MLA) are untouched. */
+/** Remap American curly quotes to German low-9 style. Safe because apostrophes are still MLA at this stage. */
 function applyGermanQuotes(text: string): string {
   return text
     .replaceAll(LEFT_DOUBLE_QUOTE, UNICODE_SYMBOLS.DOUBLE_LOW_9_QUOTE)
@@ -226,27 +226,26 @@ function applyFrenchQuotes(text: string): string {
     .replaceAll(RIGHT_DOUBLE_QUOTE, `${UNICODE_SYMBOLS.NBSP}${UNICODE_SYMBOLS.RIGHT_GUILLEMET}`)
 }
 
+/** Locale-specific normalize (pre-pipeline) and apply (post-pipeline) functions. */
+const localeQuoteTransforms: Partial<Record<PunctuationStyle, { normalize: (t: string) => string; apply: (t: string) => string }>> = {
+  german: { normalize: normalizeGermanQuotes, apply: applyGermanQuotes },
+  french: { normalize: normalizeFrenchQuotes, apply: applyFrenchQuotes },
+}
+
 /** Shared quote-processing pipeline. Returns text with MLA for apostrophes. */
 function processQuotes(text: string, options: QuoteOptions): string {
   const sep = options.separator ?? DEFAULT_SEPARATOR
   const punctuationStyle = options.punctuationStyle ?? "american"
   if (punctuationStyle === "none") return text
 
-  if (punctuationStyle === "german") {
-    text = normalizeGermanQuotes(text)
-  } else if (punctuationStyle === "french") {
-    text = normalizeFrenchQuotes(text)
-  }
+  const locale = localeQuoteTransforms[punctuationStyle]
+  if (locale) text = locale.normalize(text)
 
   text = convertSingleQuotes(text, sep)
   text = convertDoubleQuotes(text, sep)
   text = applyPunctuationStyle(text, sep, punctuationStyle)
 
-  if (punctuationStyle === "german") {
-    text = applyGermanQuotes(text)
-  } else if (punctuationStyle === "french") {
-    text = applyFrenchQuotes(text)
-  }
+  if (locale) text = locale.apply(text)
 
   return text
 }
