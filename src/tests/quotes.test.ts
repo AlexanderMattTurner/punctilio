@@ -9,6 +9,11 @@ const {
   MODIFIER_LETTER_APOSTROPHE,
   EM_DASH,
   ELLIPSIS,
+  DOUBLE_LOW_9_QUOTE,
+  SINGLE_LOW_9_QUOTE,
+  LEFT_GUILLEMET,
+  RIGHT_GUILLEMET,
+  NBSP,
 } = UNICODE_SYMBOLS
 
 describe("niceQuotes", () => {
@@ -628,6 +633,38 @@ describe("niceQuotes", () => {
         const input = `${LEFT_SINGLE_QUOTE}dogs${RIGHT_SINGLE_QUOTE} and more`
         expect(classifyApostrophes(input)).toBe(input)
       })
+    })
+  })
+
+  describe("locale quotes", () => {
+    describe.each([
+      // German double quotes
+      ['"Guten Tag"', `${DOUBLE_LOW_9_QUOTE}Guten Tag${LEFT_DOUBLE_QUOTE}`, { punctuationStyle: "german" as const }],
+      ['"Hello," she said.', `${DOUBLE_LOW_9_QUOTE}Hello${LEFT_DOUBLE_QUOTE}, she said.`, { punctuationStyle: "german" as const }],
+      // German single quotes
+      ["'Hallo'", `${SINGLE_LOW_9_QUOTE}Hallo${LEFT_SINGLE_QUOTE}`, { punctuationStyle: "german" as const }],
+      // German apostrophes stay as RSQ (after MLA→RSQ conversion in niceQuotes)
+      ["it's", `it${RIGHT_SINGLE_QUOTE}s`, { punctuationStyle: "german" as const }],
+      // French double quotes
+      ['"Bonjour"', `${LEFT_GUILLEMET}${NBSP}Bonjour${NBSP}${RIGHT_GUILLEMET}`, { punctuationStyle: "french" as const }],
+      // French apostrophes stay as RSQ
+      ["l'homme", `l${RIGHT_SINGLE_QUOTE}homme`, { punctuationStyle: "french" as const }],
+      // Nested quotes in German
+      [`"She said 'hello'"`, `${DOUBLE_LOW_9_QUOTE}She said ${SINGLE_LOW_9_QUOTE}hello${LEFT_SINGLE_QUOTE}${LEFT_DOUBLE_QUOTE}`, { punctuationStyle: "german" as const }],
+      // French punctuation placement
+      ['"Bonjour," dit-il.', `${LEFT_GUILLEMET}${NBSP}Bonjour${NBSP}${RIGHT_GUILLEMET}, dit-il.`, { punctuationStyle: "french" as const }],
+    ])("locale quotes: %s → %s", (input, expected, options) => {
+      it("transforms correctly", () => {
+        expect(niceQuotes(input, options)).toBe(expected)
+      })
+    })
+
+    it.each([
+      [`${DOUBLE_LOW_9_QUOTE}Guten Tag${LEFT_DOUBLE_QUOTE}`, { punctuationStyle: "german" as const }],
+      [`${SINGLE_LOW_9_QUOTE}Hallo${LEFT_SINGLE_QUOTE}`, { punctuationStyle: "german" as const }],
+      [`${LEFT_GUILLEMET}${NBSP}Bonjour${NBSP}${RIGHT_GUILLEMET}`, { punctuationStyle: "french" as const }],
+    ])("locale output is idempotent: %s", (input, options) => {
+      expect(niceQuotes(input, options)).toBe(input)
     })
   })
 

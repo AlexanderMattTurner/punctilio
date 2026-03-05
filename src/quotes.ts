@@ -17,7 +17,7 @@ const {
 /** Joined string of all terminal punctuation characters for use in regex character classes. */
 const TERMINAL_PUNCTUATION_CLASS = TERMINAL_PUNCTUATION.join("")
 
-export type PunctuationStyle = "american" | "british" | "none"
+export type PunctuationStyle = "american" | "british" | "german" | "french" | "none"
 
 export interface QuoteOptions {
   /** Boundary marker for HTML element boundaries. Default: "\uE000" */
@@ -150,7 +150,7 @@ function applyPunctuationStyle(text: string, sep: string, style: PunctuationStyl
       "g"
     )
     text = text.replace(commaOutsideRegex, "$<sepBefore>,$<quote>$<sepAfter>")
-  } else if (style === "british") {
+  } else if (style === "british" || style === "german" || style === "french") {
     // Period inside → outside: "Hello." → "Hello".
     // No terminal punctuation guard — "Stop!." inside is always wrong; move the period out.
     const periodInsideRegex = cachedRegExp(
@@ -169,15 +169,83 @@ function applyPunctuationStyle(text: string, sep: string, style: PunctuationStyl
   return text
 }
 
+/**
+ * Normalize German quotes back to American for idempotent re-processing.
+ * Tracks „..." (U+201E/U+201C) and ‚...' (U+201A/U+2018) pairs so that
+ * the ambiguous closer characters are mapped to the correct American equivalents.
+ */
+function normalizeGermanQuotes(text: string): string {
+  const DLQ = UNICODE_SYMBOLS.DOUBLE_LOW_9_QUOTE
+  const SLQ = UNICODE_SYMBOLS.SINGLE_LOW_9_QUOTE
+
+  let result = ""
+  let doubleDepth = 0
+  let singleDepth = 0
+
+  for (const ch of text) {
+    if (ch === DLQ) {
+      result += LEFT_DOUBLE_QUOTE
+      doubleDepth++
+    } else if (ch === LEFT_DOUBLE_QUOTE && doubleDepth > 0) {
+      result += RIGHT_DOUBLE_QUOTE
+      doubleDepth--
+    } else if (ch === SLQ) {
+      result += LEFT_SINGLE_QUOTE
+      singleDepth++
+    } else if (ch === LEFT_SINGLE_QUOTE && singleDepth > 0) {
+      result += RIGHT_SINGLE_QUOTE
+      singleDepth--
+    } else {
+      result += ch
+    }
+  }
+
+  return result
+}
+
+/** Remap American curly quotes to German low-9 style. Safe because apostrophes are still MLA at this stage. */
+function applyGermanQuotes(text: string): string {
+  return text
+    .replaceAll(LEFT_DOUBLE_QUOTE, UNICODE_SYMBOLS.DOUBLE_LOW_9_QUOTE)
+    .replaceAll(RIGHT_DOUBLE_QUOTE, LEFT_DOUBLE_QUOTE)
+    .replaceAll(LEFT_SINGLE_QUOTE, UNICODE_SYMBOLS.SINGLE_LOW_9_QUOTE)
+    .replaceAll(RIGHT_SINGLE_QUOTE, LEFT_SINGLE_QUOTE)
+}
+
+/** Normalize French guillemets back to American for idempotent re-processing. */
+function normalizeFrenchQuotes(text: string): string {
+  return text
+    .replace(cachedRegExp(`${UNICODE_SYMBOLS.LEFT_GUILLEMET}${UNICODE_SYMBOLS.NBSP}?`, "g"), LEFT_DOUBLE_QUOTE)
+    .replace(cachedRegExp(`${UNICODE_SYMBOLS.NBSP}?${UNICODE_SYMBOLS.RIGHT_GUILLEMET}`, "g"), RIGHT_DOUBLE_QUOTE)
+}
+
+/** Remap American curly double quotes to French guillemets with NBSP padding. */
+function applyFrenchQuotes(text: string): string {
+  return text
+    .replaceAll(LEFT_DOUBLE_QUOTE, `${UNICODE_SYMBOLS.LEFT_GUILLEMET}${UNICODE_SYMBOLS.NBSP}`)
+    .replaceAll(RIGHT_DOUBLE_QUOTE, `${UNICODE_SYMBOLS.NBSP}${UNICODE_SYMBOLS.RIGHT_GUILLEMET}`)
+}
+
+/** Locale-specific normalize (pre-pipeline) and apply (post-pipeline) functions. */
+const localeQuoteTransforms: Partial<Record<PunctuationStyle, { normalize: (t: string) => string; apply: (t: string) => string }>> = {
+  german: { normalize: normalizeGermanQuotes, apply: applyGermanQuotes },
+  french: { normalize: normalizeFrenchQuotes, apply: applyFrenchQuotes },
+}
+
 /** Shared quote-processing pipeline. Returns text with MLA for apostrophes. */
 function processQuotes(text: string, options: QuoteOptions): string {
   const sep = options.separator ?? DEFAULT_SEPARATOR
   const punctuationStyle = options.punctuationStyle ?? "american"
   if (punctuationStyle === "none") return text
 
+  const locale = localeQuoteTransforms[punctuationStyle]
+  if (locale) text = locale.normalize(text)
+
   text = convertSingleQuotes(text, sep)
   text = convertDoubleQuotes(text, sep)
   text = applyPunctuationStyle(text, sep, punctuationStyle)
+
+  if (locale) text = locale.apply(text)
 
   return text
 }
