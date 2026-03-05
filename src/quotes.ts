@@ -203,13 +203,6 @@ function normalizeGermanQuotes(text: string): string {
   return result
 }
 
-/** Normalize French guillemets back to American for idempotent re-processing. */
-function normalizeFrenchQuotes(text: string): string {
-  return text
-    .replace(cachedRegExp(`${UNICODE_SYMBOLS.LEFT_GUILLEMET}${UNICODE_SYMBOLS.NBSP}?`, "g"), LEFT_DOUBLE_QUOTE)
-    .replace(cachedRegExp(`${UNICODE_SYMBOLS.NBSP}?${UNICODE_SYMBOLS.RIGHT_GUILLEMET}`, "g"), RIGHT_DOUBLE_QUOTE)
-}
-
 /** Remap American curly quotes to German low-9 style. Apostrophes (MLA) are untouched. */
 function applyGermanQuotes(text: string): string {
   return text
@@ -217,6 +210,13 @@ function applyGermanQuotes(text: string): string {
     .replaceAll(RIGHT_DOUBLE_QUOTE, LEFT_DOUBLE_QUOTE)
     .replaceAll(LEFT_SINGLE_QUOTE, UNICODE_SYMBOLS.SINGLE_LOW_9_QUOTE)
     .replaceAll(RIGHT_SINGLE_QUOTE, LEFT_SINGLE_QUOTE)
+}
+
+/** Normalize French guillemets back to American for idempotent re-processing. */
+function normalizeFrenchQuotes(text: string): string {
+  return text
+    .replace(cachedRegExp(`${UNICODE_SYMBOLS.LEFT_GUILLEMET}${UNICODE_SYMBOLS.NBSP}?`, "g"), LEFT_DOUBLE_QUOTE)
+    .replace(cachedRegExp(`${UNICODE_SYMBOLS.NBSP}?${UNICODE_SYMBOLS.RIGHT_GUILLEMET}`, "g"), RIGHT_DOUBLE_QUOTE)
 }
 
 /** Remap American curly double quotes to French guillemets with NBSP padding. */

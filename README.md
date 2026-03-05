@@ -6,7 +6,7 @@
 
 Pretty good at making your text pretty. The most feature-complete and reliable English typography package. `punctilio` transforms plain ASCII into typographically correct Unicode, even across HTML element boundaries.
 
-**Smart quotes** · **Em/en dashes** · **Ellipses** · **Math symbols** · **Legal symbols** · **Arrows** · **Primes** · **Fractions** · **Superscripts** · **Ligatures** · **Non-breaking spaces** · **HTML-aware** · **Bri’ish localisation support** 
+**Smart quotes** · **Em/en dashes** · **Ellipses** · **Math symbols** · **Legal symbols** · **Arrows** · **Primes** · **Fractions** · **Superscripts** · **Ligatures** · **Non-breaking spaces** · **HTML-aware** · **Bri’ish localisation support** · **German „Anführungszeichen"** · **French «guillemets»**
 
 ```typescript
 import { transform } from 'punctilio'
@@ -39,10 +39,10 @@ My [`benchmark.mjs`](https://github.com/alexander-turner/punctilio/blob/main/ben
 
 | Package | Passed (of 157) |
 |--------:|:----------------|
-| `punctilio` | 152 (97%) |
-| `tipograph` | 92 (58%) |
+| `punctilio` | 155 (99%) |
+| `tipograph` | 91 (58%) |
 | `typograf` | 74 (47%) |
-| `smartquotes` | 72 (45%) |
+| `smartquotes` | 72 (46%) |
 | `smartypants` | 68 (43%) |
 | `retext-smartypants` | 65 (41%) |
 
@@ -64,7 +64,7 @@ My [`benchmark.mjs`](https://github.com/alexander-turner/punctilio/blob/main/ben
 | Superscripts | <span class="no-formatting">2nd → 2ⁿᵈ</span> | ✓ | ✗ | ✗ | ✗ | ✗ |
 | English localization | <span class="no-formatting">American / British</span> | ✓ | ✗ | ✗ | ✗ | ✗ |
 | Ligatures | <span class="no-formatting">?? → ⁇</span> | ✓ | ✗ | ✓ | ✗ | ✗ |
-| Non-English quotes | <span class="no-formatting">„Hallo”</span> | ✗ | ✗ | ✓ | ✗ | ◐ |
+| Non-English quotes | <span class=”no-formatting”>„Hallo”</span> | ✓ | ✗ | ✓ | ✗ | ◐ |
 | Non-breaking spaces | <span class="no-formatting">Chapter 1</span> | ✓ | ✗ | ✗ | ✗ | ✓ |
 
 ### Known limitations of `punctilio`
@@ -72,11 +72,10 @@ My [`benchmark.mjs`](https://github.com/alexander-turner/punctilio/blob/main/ben
 | Pattern | Behavior | Notes |
 |:--------|:---------|:------|
 | `'99 but 5' clearance` | `5'` not converted to `5′` | Leading apostrophe is indistinguishable from an opening quote without semantic understanding |
-| `«Bonjour»` | Not spaced to `« Bonjour »` | French localization not supported |
 
 ## Test suite
 
-Setting aside the benchmark, `punctilio`’s test suite includes 1,400+ tests at 100% branch coverage, including edge cases derived from competitor libraries ([`smartquotes`](https://github.com/kellym/smartquotes.js), [`retext-smartypants`](https://github.com/retextjs/retext-smartypants), [`typograf`](https://github.com/typograf/typograf)) and the [Standard Ebooks typography manual](https://standardebooks.org/manual/). I also verify that all transformations are stable when applied multiple times.
+Setting aside the benchmark, `punctilio`’s test suite includes 1,450+ tests at 100% branch coverage, including edge cases derived from competitor libraries ([`smartquotes`](https://github.com/kellym/smartquotes.js), [`retext-smartypants`](https://github.com/retextjs/retext-smartypants), [`typograf`](https://github.com/typograf/typograf)) and the [Standard Ebooks typography manual](https://standardebooks.org/manual/). I also verify that all transformations are stable when applied multiple times.
 
 ## Works with HTML DOMs via separation boundaries
 
@@ -126,7 +125,7 @@ For manual DOM walking or custom transforms, use `transformElement` from `puncti
 
 ```typescript
 transform(text, {
-  punctuationStyle: 'american' | 'british' | 'none',  // default: 'american'
+  punctuationStyle: 'american' | 'british' | 'german' | 'french' | 'none',  // default: 'american'
   dashStyle: 'american' | 'british' | 'none',         // default: 'american'
 
   symbols: true,           // ellipsis, math, legal, arrows
@@ -147,6 +146,8 @@ transform(text, {
 - The `british` style follows [Oxford style](https://www.ox.ac.uk/sites/files/oxford/Style%20Guide%20quick%20reference%20A-Z.pdf):
   - Periods and commas go outside quotation marks (“Hello”, she said.)
   - Spaced en-dashes between words (word – word)
+- The `german` style uses low-9 quotes: „double” (U+201E/U+201C) and ‚single' (U+201A/U+2018), with punctuation outside quotes.
+- The `french` style uses guillemets with non-breaking space padding: «\u00A0Bonjour\u00A0». Single quotes remain as curly quotes. Punctuation outside quotes.
 - Setting either style to `none` skips the entire transform category: `punctuationStyle: 'none'` preserves straight quotes, apostrophes, and prime marks; `dashStyle: 'none'` preserves all hyphens, number ranges, date ranges, and minus signs.
 - `punctilio` is idempotent by design: `transform(transform(text))` always equals `transform(text)`. This is verified automatically by default (`checkIdempotency: true`). Set `checkIdempotency: false` to disable the check.
 - Use `classifyApostrophes(text)` to distinguish apostrophes from closing single quotes. It returns text with apostrophes as U+02BC (MODIFIER LETTER APOSTROPHE) and closing quotes as U+2019 (RIGHT SINGLE QUOTATION MARK). Per the [Unicode Standard](https://www.unicode.org/versions/Unicode16.0.0/core-spec/chapter-6/#G30602), `transform()` and `niceQuotes()` use U+2019 for both in their output.
