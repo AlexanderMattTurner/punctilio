@@ -156,18 +156,20 @@ function applyPunctuationStyle(text: string, sep: string, style: PunctuationStyl
   } else if (style === "british" || style === "german" || style === "french") {
     // Period inside → outside: "Hello." → "Hello".
     // No terminal punctuation guard — "Stop!." inside is always wrong; move the period out.
+    // Match ALL consecutive closing quotes so nested quotes like .'" become '". in one pass.
     const periodInsideRegex = cachedRegExp(
-      `(?<sepBefore>${escapedSep}?)\\.(?<sepMiddle>${escapedSep}?)(?<quote>[${RIGHT_SINGLE_QUOTE}${RIGHT_DOUBLE_QUOTE}])`,
+      `(?<sepBefore>${escapedSep}?)\\.(?<quotes>(?:${escapedSep}?[${RIGHT_SINGLE_QUOTE}${RIGHT_DOUBLE_QUOTE}])+)`,
       "g"
     )
-    text = text.replace(periodInsideRegex, "$<sepBefore>$<sepMiddle>$<quote>.")
+    text = text.replace(periodInsideRegex, "$<sepBefore>$<quotes>.")
 
     // Comma inside → outside: "Hello," → "Hello",
+    // Match ALL consecutive closing quotes so nested quotes like ,'" become '", in one pass.
     const commaInsideRegex = cachedRegExp(
-      `,(?<sepAndQuote>${escapedSep}?[${RIGHT_DOUBLE_QUOTE}${RIGHT_SINGLE_QUOTE}])`,
+      `,(?<quotes>(?:${escapedSep}?[${RIGHT_DOUBLE_QUOTE}${RIGHT_SINGLE_QUOTE}])+)`,
       "g"
     )
-    text = text.replace(commaInsideRegex, "$<sepAndQuote>,")
+    text = text.replace(commaInsideRegex, "$<quotes>,")
   }
   return text
 }
@@ -198,6 +200,14 @@ function normalizeGermanQuotes(text: string): string {
     } else if (ch === LEFT_SINGLE_QUOTE && singleDepth > 0) {
       result += RIGHT_SINGLE_QUOTE
       singleDepth--
+    } else if (ch === RIGHT_DOUBLE_QUOTE) {
+      // RDQ is not used in German typography — normalize to straight quote
+      // so the pipeline can re-classify it (e.g., from a previous American pass)
+      result += '"'
+    } else if (ch === RIGHT_SINGLE_QUOTE) {
+      // RSQ is not used in German typography — normalize to straight quote
+      // so the pipeline can re-classify apostrophes vs closing quotes
+      result += "'"
     } else {
       result += ch
     }

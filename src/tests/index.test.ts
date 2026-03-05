@@ -444,6 +444,19 @@ describe("transform", () => {
     })
 
     it.each([
+      // Nested quotes with period — tests the multi-quote-jump fix
+      [`"She said, 'Hello.'"`, "british" as const],
+      [`"She said, 'Hello.'"`, "german" as const],
+      [`"She said, 'Hello.'"`, "french" as const],
+      // Leading apostrophe — tests the German RSQ normalization fix
+      [`'Twas the night before Christmas.`, "german" as const],
+    ])('is idempotent across styles: "%s" [%s]', (input, style) => {
+      const first = transform(input, { punctuationStyle: style })
+      const second = transform(first, { punctuationStyle: style })
+      expect(second).toBe(first)
+    })
+
+    it.each([
       `${LEFT_DOUBLE_QUOTE}Hello${RIGHT_DOUBLE_QUOTE}`,
       `word${EM_DASH}word`,
       `1${EN_DASH}5`,

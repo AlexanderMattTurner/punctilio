@@ -653,6 +653,8 @@ describe("niceQuotes", () => {
       [`"She said 'hello'"`, `${DOUBLE_LOW_9_QUOTE}She said ${SINGLE_LOW_9_QUOTE}hello${LEFT_SINGLE_QUOTE}${LEFT_DOUBLE_QUOTE}`, { punctuationStyle: "german" as const }],
       // French punctuation placement
       ['"Bonjour," dit-il.', `${LEFT_GUILLEMET}${NBSP}Bonjour${NBSP}${RIGHT_GUILLEMET}, dit-il.`, { punctuationStyle: "french" as const }],
+      // German leading apostrophe ('Twas)
+      ["'Twas the night", `${RIGHT_SINGLE_QUOTE}Twas the night`, { punctuationStyle: "german" as const }],
     ])("locale quotes: %s → %s", (input, expected, options) => {
       it("transforms correctly", () => {
         expect(niceQuotes(input, options)).toBe(expected)
@@ -663,8 +665,38 @@ describe("niceQuotes", () => {
       [`${DOUBLE_LOW_9_QUOTE}Guten Tag${LEFT_DOUBLE_QUOTE}`, { punctuationStyle: "german" as const }],
       [`${SINGLE_LOW_9_QUOTE}Hallo${LEFT_SINGLE_QUOTE}`, { punctuationStyle: "german" as const }],
       [`${LEFT_GUILLEMET}${NBSP}Bonjour${NBSP}${RIGHT_GUILLEMET}`, { punctuationStyle: "french" as const }],
+      // German apostrophe idempotency — RSQ must not flip to LSQ on re-processing
+      [`${RIGHT_SINGLE_QUOTE}Twas the night`, { punctuationStyle: "german" as const }],
     ])("locale output is idempotent: %s", (input, options) => {
       expect(niceQuotes(input, options)).toBe(input)
+    })
+
+    it("german normalizer re-classifies pre-existing RDQ", () => {
+      // RDQ is not used in German — should become German closing double
+      const input = `${LEFT_DOUBLE_QUOTE}Hello${RIGHT_DOUBLE_QUOTE}`
+      expect(niceQuotes(input, { punctuationStyle: "german" })).toBe(`${DOUBLE_LOW_9_QUOTE}Hello${LEFT_DOUBLE_QUOTE}`)
+    })
+  })
+
+  describe("nested quote punctuation placement", () => {
+    it.each([
+      // Period moves past all closing quotes in one pass
+      [
+        `${LEFT_DOUBLE_QUOTE}He said, ${LEFT_SINGLE_QUOTE}Hello.${RIGHT_SINGLE_QUOTE}${RIGHT_DOUBLE_QUOTE}`,
+        `${LEFT_DOUBLE_QUOTE}He said, ${LEFT_SINGLE_QUOTE}Hello${RIGHT_SINGLE_QUOTE}${RIGHT_DOUBLE_QUOTE}.`,
+      ],
+      // Comma moves past all closing quotes in one pass
+      [
+        `${LEFT_DOUBLE_QUOTE}He said, ${LEFT_SINGLE_QUOTE}Hello,${RIGHT_SINGLE_QUOTE}${RIGHT_DOUBLE_QUOTE} she replied.`,
+        `${LEFT_DOUBLE_QUOTE}He said, ${LEFT_SINGLE_QUOTE}Hello${RIGHT_SINGLE_QUOTE}${RIGHT_DOUBLE_QUOTE}, she replied.`,
+      ],
+    ])("british moves past all closing quotes: %s → %s", (input, expected) => {
+      expect(niceQuotes(input, { punctuationStyle: "british" })).toBe(expected)
+    })
+
+    it.each(["british", "german", "french"] as const)("%s nested quote period is idempotent", (style) => {
+      const first = niceQuotes(`"He said, 'Hello.'"`, { punctuationStyle: style })
+      expect(niceQuotes(first, { punctuationStyle: style })).toBe(first)
     })
   })
 
