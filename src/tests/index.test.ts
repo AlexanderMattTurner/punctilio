@@ -558,18 +558,17 @@ describe("transform", () => {
 
   describe("separator validation", () => {
     const invalidSeparators = [
-      ["🎉", "emoji (multi-codepoint)"],
-      ["ab", "multi-character"],
+      ["🎉", "emoji (non-BMP)"],
       ["", "empty string"],
     ] as const
 
     it.each(invalidSeparators)("rejects %s separator (%s)", (sep) => {
       expect(() => transform('"Hello"', { separator: sep, nbsp: false })).toThrow(
-        /Invalid separator.*must be a single character/
+        /Invalid separator/
       )
     })
 
-    const validSeparators = ["\uE000", "|", "\u2603"] // Default, pipe, snowman
+    const validSeparators = ["\uE000\uE001", "\uE000", "|", "\u2603", "ab"] // Default, single PUA, pipe, snowman, multi-char
 
     it.each(validSeparators)("accepts '%s' as separator", (sep) => {
       expect(() => transform('"Hello"', { separator: sep, nbsp: false })).not.toThrow()
@@ -581,6 +580,25 @@ describe("transform", () => {
       expect(transform('"Hello"', { separator: sep, nbsp: false })).toEqual(
         `${LEFT_DOUBLE_QUOTE}Hello${RIGHT_DOUBLE_QUOTE}`
       )
+    })
+  })
+
+  describe("multi-character separator behavior", () => {
+    const sep = "\uE000\uE001"
+
+    it.each([
+      ["quotes with separator at boundary", `${sep}"Hello"`, `${sep}${LEFT_DOUBLE_QUOTE}Hello${RIGHT_DOUBLE_QUOTE}`],
+      ["em-dash with adjacent separators", `word${sep} - ${sep}word`, `word${sep}${EM_DASH}${sep}word`],
+      ["ellipsis with separator between dots", `a.${sep}.${sep}.`, `a\u2026${sep}${sep}`],
+      ["nbsp before last word with trailing separator", `Hello world${sep}`, `Hello${NBSP}world${sep}`],
+    ])("%s", (_desc, input, expected) => {
+      expect(transform(input, { separator: sep, nbsp: true })).toBe(expected)
+    })
+
+    it("preserves separator count through transform", () => {
+      const input = `${sep}"Hello"${sep} -- ${sep}world${sep}`
+      const result = transform(input, { separator: sep })
+      expect(countSeparators(result, sep)).toBe(countSeparators(input, sep))
     })
   })
 

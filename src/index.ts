@@ -222,14 +222,19 @@ const defaultOpts: Required<Omit<TransformOptions, "separator">> = {
 export function transform(text: string, options: TransformOptions = {}): string {
   const separator = options.separator ?? DEFAULT_SEPARATOR
 
-  // Validate separator: must be a single UTF-16 code unit (BMP character)
-  // Multi-codepoint characters (surrogate pairs like emoji) cause issues with regex patterns
-  if (separator.length !== 1) {
-    throw new Error(
-      `Invalid separator: must be a single character. ` +
-      `Received "${separator}" (length: ${separator.length}). ` +
-      `Use a single-codepoint character like the default "\\uE000".`
-    )
+  // Validate separator: must be non-empty and contain only BMP characters.
+  // for...of iterates by code point; surrogate pairs (non-BMP) yield a
+  // two-UTF16-unit string, so ch.length > 1 detects them.
+  if (separator.length === 0) {
+    throw new Error("Invalid separator: must not be empty.")
+  }
+  for (const ch of separator) {
+    if (ch.length > 1) {
+      throw new Error(
+        `Invalid separator: must contain only BMP characters (no characters outside the Basic Multilingual Plane). ` +
+        `Received "${separator}" which contains a non-BMP character.`
+      )
+    }
   }
 
   const original = text

@@ -122,23 +122,28 @@ export const TERMINAL_PUNCTUATION = [
 export const LATIN_LETTERS = "A-Za-z\\u00C0-\\u00D6\\u00D8-\\u00F6\\u00F8-\\u00FF\\u0100-\\u017F\\u0180-\\u024F"
 
 /**
- * Default separator character for text spanning HTML elements.
- * Uses Unicode Private Use Area character U+E000.
+ * Default separator for text spanning HTML elements.
+ * Uses a two-character sentinel from the Unicode Private Use Area
+ * (U+E000 U+E001) to avoid collisions with CJK fonts, Apple emoji
+ * internals, PDF-to-text output, and icon fonts that repurpose U+E000.
  */
-export const DEFAULT_SEPARATOR = "\uE000"
+export const DEFAULT_SEPARATOR = "\uE000\uE001"
 export const ESCAPED_DEFAULT_SEPARATOR = escapeStringRegexp(DEFAULT_SEPARATOR)
 
 /**
- * Returns the regex-escaped separator string for the given options.
- * Centralizes the common pattern of falling back to the pre-escaped default.
+ * Returns the regex-escaped separator string for the given options,
+ * wrapped in a non-capturing group so that quantifiers like `?` and `*`
+ * apply to the entire separator sequence (critical for multi-character
+ * separators like the default U+E000 U+E001).
  *
  * @param options - Object with an optional `separator` field
- * @returns Regex-escaped separator string
+ * @returns Regex-escaped separator string wrapped in `(?:...)`
  */
 export function getEscapedSeparator(options: { separator?: string }): string {
-  return options.separator
+  const escaped = options.separator
     ? escapeStringRegexp(options.separator)
     : ESCAPED_DEFAULT_SEPARATOR
+  return `(?:${escaped})`
 }
 
 /**
@@ -197,22 +202,28 @@ export const SPACE_CHARS = ` ${UNICODE_SYMBOLS.NBSP}`
  * Creates a lookbehind pattern that matches after whitespace, separator, or start of string.
  * Used for arrow patterns and other constructs that should appear at word boundaries.
  *
- * @param escapedSeparator - Regex-escaped separator string
- * @returns Pattern string: `(?<=[\\s${sep}]|^)`
+ * Uses alternation instead of a character class so that multi-character
+ * separators are matched as a sequence, not as individual characters.
+ *
+ * @param escapedSeparator - Regex-escaped separator string (may be grouped)
+ * @returns Pattern string: `(?<=\\s|${sep}|^)`
  */
 export function spaceBoundaryStart(escapedSeparator: string): string {
-  return `(?<=[\\s${escapedSeparator}]|^)`
+  return `(?<=\\s|${escapedSeparator}|^)`
 }
 
 /**
  * Creates a lookahead pattern that matches before whitespace, separator, or end of string.
  * Used for arrow patterns and other constructs that should appear at word boundaries.
  *
- * @param escapedSeparator - Regex-escaped separator string
- * @returns Pattern string: `(?=[\\s${sep}]|$)`
+ * Uses alternation instead of a character class so that multi-character
+ * separators are matched as a sequence, not as individual characters.
+ *
+ * @param escapedSeparator - Regex-escaped separator string (may be grouped)
+ * @returns Pattern string: `(?=\\s|${sep}|$)`
  */
 export function spaceBoundaryEnd(escapedSeparator: string): string {
-  return `(?=[\\s${escapedSeparator}]|$)`
+  return `(?=\\s|${escapedSeparator}|$)`
 }
 
 /**
