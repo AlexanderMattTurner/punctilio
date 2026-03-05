@@ -11,7 +11,7 @@ Pretty good at making your text pretty. The most feature-complete and reliable E
 ```typescript
 import { transform } from 'punctilio'
 
-transform('"It\'s a beautiful thing, the destruction of words..." -- 1984')
+transform(`"It's a beautiful thing, the destruction of words..." -- 1984`)
 // → “It’s a beautiful thing, the destruction of words…”—1984
 ```
 
