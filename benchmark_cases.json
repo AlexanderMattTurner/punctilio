@@ -47,7 +47,7 @@
     ["since--as you know", "since\u2014as you know"]
   ],
   "Em dashes - between quotes": [
-    ["\"Hello\"--\"World\"", "\"Hello\"\u2014\"World\""]
+    ["\"Hello\"--\"World\"", "\u201CHello\u201D\u2014\u201CWorld\u201D"]
   ],
   "Number ranges - en dash": [
     ["Pages 1-5", "Pages 1\u20135"],
