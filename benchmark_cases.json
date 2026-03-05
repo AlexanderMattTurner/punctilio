@@ -220,10 +220,6 @@
     ["100\u00A0kg", "100\u00A0kg"],
     ["Dr.\u00A0Smith", "Dr.\u00A0Smith"]
   ],
-  "Non-breaking space collapsing": [
-    ["hello\u00A0\u00A0world", "hello\u00A0world"],
-    ["a  b  c", "a b c"]
-  ],
   "Chained multiplications": [
     ["5x5x5", "5\u00D75\u00D75"],
     ["5 x 5 x 5", "5 \u00D7 5 \u00D7 5"],

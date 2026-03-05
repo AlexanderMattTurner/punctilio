@@ -3,7 +3,7 @@
  */
 
 import escapeStringRegexp from "escape-string-regexp"
-import { UNICODE_SYMBOLS, DEFAULT_SEPARATOR, LATIN_LETTERS, TERMINAL_PUNCTUATION } from "./constants.js"
+import { UNICODE_SYMBOLS, DEFAULT_SEPARATOR, LATIN_LETTERS, TERMINAL_PUNCTUATION, cachedRegExp } from "./constants.js"
 
 const {
   EM_DASH,
@@ -34,8 +34,8 @@ function convertSingleQuotes(text: string, sep: string): string {
   // Only match straight quotes, not already-converted curly quotes
   const singleQuoteChars = `'${LEFT_SINGLE_QUOTE}${RIGHT_SINGLE_QUOTE}${MODIFIER_LETTER_APOSTROPHE}`
   const singleQuoteOrWord = `[${singleQuoteChars}\\w]`
-  text = text.replace(new RegExp(`(?<!${singleQuoteOrWord})''(?!${singleQuoteOrWord})`, "g"), `${LEFT_SINGLE_QUOTE}${RIGHT_SINGLE_QUOTE}`)
-  text = text.replace(new RegExp(`(?<!${singleQuoteOrWord})'(\\s+)'(?!${singleQuoteOrWord})`, "g"), `${LEFT_SINGLE_QUOTE}$1${RIGHT_SINGLE_QUOTE}`)
+  text = text.replace(cachedRegExp(`(?<!${singleQuoteOrWord})''(?!${singleQuoteOrWord})`, "g"), `${LEFT_SINGLE_QUOTE}${RIGHT_SINGLE_QUOTE}`)
+  text = text.replace(cachedRegExp(`(?<!${singleQuoteOrWord})'(\\s+)'(?!${singleQuoteOrWord})`, "g"), `${LEFT_SINGLE_QUOTE}$1${RIGHT_SINGLE_QUOTE}`)
 
   const afterEndingSinglePatterns = `\\s\\.!?;,\\)${EM_DASH}\\-\\]"`
   // Full pattern with optional 's' for lookahead detection in apostropheRegex
@@ -45,32 +45,32 @@ function convertSingleQuotes(text: string, sep: string): string {
   // the general rules produced LSQ+n+RSQ which was fine. But MLA requires both
   // quotes to be MLA (semantic apostrophes), and the general rules can't achieve
   // that: neither quote is in a contraction context (no Latin letter on both sides).
-  text = text.replace(new RegExp(`(?<=\\w${escapedSep}? )['${RIGHT_SINGLE_QUOTE}]n['${RIGHT_SINGLE_QUOTE}](?= ${escapedSep}?\\w)`, "gm"), `${MODIFIER_LETTER_APOSTROPHE}n${MODIFIER_LETTER_APOSTROPHE}`)
+  text = text.replace(cachedRegExp(`(?<=\\w${escapedSep}? )['${RIGHT_SINGLE_QUOTE}]n['${RIGHT_SINGLE_QUOTE}](?= ${escapedSep}?\\w)`, "gm"), `${MODIFIER_LETTER_APOSTROPHE}n${MODIFIER_LETTER_APOSTROPHE}`)
 
   // Possessive: 's followed by ending context (e.g., dog's) → U+02BC
   const afterPossessive = `(?=${escapedSep}?s${escapedSep}?(?:[${afterEndingSinglePatterns}]|$))`
   const possessiveSingle = `(?<=[^\\s${LEFT_DOUBLE_QUOTE}'])['${RIGHT_SINGLE_QUOTE}]${afterPossessive}`
-  text = text.replace(new RegExp(possessiveSingle, "gm"), MODIFIER_LETTER_APOSTROPHE)
+  text = text.replace(cachedRegExp(possessiveSingle, "gm"), MODIFIER_LETTER_APOSTROPHE)
 
   // Closing single quote: ending context without 's' → U+2019
   const afterClosingSingle = `(?=${escapedSep}?(?:[${afterEndingSinglePatterns}]|$))`
   const closingSingle = `(?<=[^\\s${LEFT_DOUBLE_QUOTE}'])[']${afterClosingSingle}`
-  text = text.replace(new RegExp(closingSingle, "gm"), RIGHT_SINGLE_QUOTE)
+  text = text.replace(cachedRegExp(closingSingle, "gm"), RIGHT_SINGLE_QUOTE)
 
   const contraction = `(?<=[${LATIN_LETTERS}])['${RIGHT_SINGLE_QUOTE}${MODIFIER_LETTER_APOSTROPHE}](?=${escapedSep}?[${LATIN_LETTERS}])`
-  text = text.replace(new RegExp(contraction, "gm"), MODIFIER_LETTER_APOSTROPHE)
+  text = text.replace(cachedRegExp(contraction, "gm"), MODIFIER_LETTER_APOSTROPHE)
 
   const apostropheWhitelist = `(?=n${MODIFIER_LETTER_APOSTROPHE} )`
   const endQuoteNotContraction = `(?!${contraction})[${RIGHT_SINGLE_QUOTE}${MODIFIER_LETTER_APOSTROPHE}]${afterEndingSingle}`
   // Limit lookahead scan to 1000 chars to prevent catastrophic backtracking on pathological inputs
-  const apostropheRegex = new RegExp(
+  const apostropheRegex = cachedRegExp(
     `(?<=^|[^\\w])['](${apostropheWhitelist}|(?![^${LEFT_SINGLE_QUOTE}'\\n]{0,1000}${endQuoteNotContraction}))`,
     "gm"
   )
   text = text.replace(apostropheRegex, MODIFIER_LETTER_APOSTROPHE)
 
   const beginningSingle = `(?<beforeContext>(?:^|[\\s${LEFT_DOUBLE_QUOTE}${RIGHT_DOUBLE_QUOTE}${EM_DASH}\\-\\(])${escapedSep}?)['](?=${escapedSep}?\\S)`
-  text = text.replace(new RegExp(beginningSingle, "gm"), `$<beforeContext>${LEFT_SINGLE_QUOTE}`)
+  text = text.replace(cachedRegExp(beginningSingle, "gm"), `$<beforeContext>${LEFT_SINGLE_QUOTE}`)
 
   text = convertUnmatchedPluralPossessives(text, sep)
 
@@ -85,7 +85,7 @@ function convertSingleQuotes(text: string, sep: string): string {
 function convertUnmatchedPluralPossessives(text: string, sep: string): string {
   let singleQuoteBalance = 0
   return text.replace(
-    new RegExp(`[${LEFT_SINGLE_QUOTE}${RIGHT_SINGLE_QUOTE}]`, "g"),
+    cachedRegExp(`[${LEFT_SINGLE_QUOTE}${RIGHT_SINGLE_QUOTE}]`, "g"),
     (match, offset) => {
       if (match === LEFT_SINGLE_QUOTE) {
         singleQuoteBalance++
@@ -115,19 +115,19 @@ function convertDoubleQuotes(text: string, sep: string): string {
   // Handle whitespace-only quotes " " - require non-quote chars on both sides
   text = text.replace(/(?<=^|[\s([{])"(?<whitespace>\s+)"(?=$|[\s)\]}.!?,;:])/g, `${LEFT_DOUBLE_QUOTE}$<whitespace>${RIGHT_DOUBLE_QUOTE}`)
 
-  const beginningDouble = new RegExp(
+  const beginningDouble = cachedRegExp(
     `(?<=^|[\\s\\(\\/\\[\\{\\-${EM_DASH}${escapedSep}])(?<beforeChr>${escapedSep}?)["](?<afterChr>(?<sepWithPunct>${escapedSep}[ .,])|(?=${escapedSep}?\\.{3}|${escapedSep}?[^\\s\\)\\${EM_DASH},!?${escapedSep};:.\\}]))`,
     "gm"
   )
   text = text.replace(beginningDouble, `$<beforeChr>${LEFT_DOUBLE_QUOTE}$<afterChr>`)
 
-  text = text.replace(new RegExp(`(?<=\\{)(?<sepSpace>${escapedSep}? )?["]`, "g"), `$<sepSpace>${LEFT_DOUBLE_QUOTE}`)
+  text = text.replace(cachedRegExp(`(?<=\\{)(?<sepSpace>${escapedSep}? )?["]`, "g"), `$<sepSpace>${LEFT_DOUBLE_QUOTE}`)
 
   const endingDouble = `(?<beforeQuote>[^\\s\\(])["]((?<sepAfter>${escapedSep})?)(?=${escapedSep}|[\\s/\\).,;${EM_DASH}:\\-\\}!?s]|$)`
-  text = text.replace(new RegExp(endingDouble, "g"), `$<beforeQuote>${RIGHT_DOUBLE_QUOTE}$<sepAfter>`)
+  text = text.replace(cachedRegExp(endingDouble, "g"), `$<beforeQuote>${RIGHT_DOUBLE_QUOTE}$<sepAfter>`)
 
-  text = text.replace(new RegExp(`["](?<sepEnd>${escapedSep}?)$`, "g"), `${RIGHT_DOUBLE_QUOTE}$<sepEnd>`)
-  text = text.replace(new RegExp(`'(?=${RIGHT_DOUBLE_QUOTE})`, "gu"), RIGHT_SINGLE_QUOTE)
+  text = text.replace(cachedRegExp(`["](?<sepEnd>${escapedSep}?)$`, "g"), `${RIGHT_DOUBLE_QUOTE}$<sepEnd>`)
+  text = text.replace(cachedRegExp(`'(?=${RIGHT_DOUBLE_QUOTE})`, "gu"), RIGHT_SINGLE_QUOTE)
 
   return text
 }
@@ -138,14 +138,14 @@ function applyPunctuationStyle(text: string, sep: string, style: PunctuationStyl
 
   if (style === "american") {
     // Period outside → inside: "Hello". → "Hello."
-    const periodOutsideRegex = new RegExp(
+    const periodOutsideRegex = cachedRegExp(
       `(?<![${TERMINAL_PUNCTUATION_CLASS}])(?<sepBefore>${escapedSep}?)(?<quote>[${RIGHT_SINGLE_QUOTE}${RIGHT_DOUBLE_QUOTE}])(?<sepAfter>${escapedSep}?)(?!\\.\\.\\.)\\.`,
       "g"
     )
     text = text.replace(periodOutsideRegex, "$<sepBefore>.$<quote>$<sepAfter>")
 
     // Comma outside → inside: "Hello", → "Hello,"
-    const commaOutsideRegex = new RegExp(
+    const commaOutsideRegex = cachedRegExp(
       `(?<![${TERMINAL_PUNCTUATION_CLASS}])(?<sepBefore>${escapedSep}?)(?<quote>[${RIGHT_SINGLE_QUOTE}${RIGHT_DOUBLE_QUOTE}])(?<sepAfter>${escapedSep}?),`,
       "g"
     )
@@ -153,14 +153,14 @@ function applyPunctuationStyle(text: string, sep: string, style: PunctuationStyl
   } else if (style === "british") {
     // Period inside → outside: "Hello." → "Hello".
     // No terminal punctuation guard — "Stop!." inside is always wrong; move the period out.
-    const periodInsideRegex = new RegExp(
+    const periodInsideRegex = cachedRegExp(
       `(?<sepBefore>${escapedSep}?)\\.(?<sepMiddle>${escapedSep}?)(?<quote>[${RIGHT_SINGLE_QUOTE}${RIGHT_DOUBLE_QUOTE}])`,
       "g"
     )
     text = text.replace(periodInsideRegex, "$<sepBefore>$<sepMiddle>$<quote>.")
 
     // Comma inside → outside: "Hello," → "Hello",
-    const commaInsideRegex = new RegExp(
+    const commaInsideRegex = cachedRegExp(
       `,(?<sepAndQuote>${escapedSep}?[${RIGHT_DOUBLE_QUOTE}${RIGHT_SINGLE_QUOTE}])`,
       "g"
     )

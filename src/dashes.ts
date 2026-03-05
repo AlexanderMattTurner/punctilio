@@ -3,7 +3,7 @@
  */
 
 import escapeStringRegexp from "escape-string-regexp"
-import { UNICODE_SYMBOLS, DEFAULT_SEPARATOR, ESCAPED_DEFAULT_SEPARATOR, LATIN_LETTERS, wordBoundaryStart, wordBoundaryEnd } from "./constants.js"
+import { UNICODE_SYMBOLS, DEFAULT_SEPARATOR, LATIN_LETTERS, wordBoundaryStart, wordBoundaryEnd, getEscapedSeparator, cachedRegExp } from "./constants.js"
 
 export type DashStyle = "american" | "british" | "none"
 
@@ -32,7 +32,7 @@ export const months = [
 
 /** Convert number ranges to en-dash (e.g., "1-5" → "1–5"). */
 export function enDashNumberRange(text: string, options: DashOptions = {}): string {
-  const chr = options.separator ? escapeStringRegexp(options.separator) : ESCAPED_DEFAULT_SEPARATOR
+  const chr = getEscapedSeparator(options)
   const wb = wordBoundaryStart(chr)
   const wbe = wordBoundaryEnd(chr)
 
@@ -56,11 +56,11 @@ export function enDashNumberRange(text: string, options: DashOptions = {}): stri
   ].join("")
 
   text = text.replace(
-    new RegExp(positiveRangePattern, "g"),
+    cachedRegExp(positiveRangePattern, "g"),
     (match, precedingAreaCode, start, end, following, suffix = "") => {
       if (following) return match
-      const startNum = start.replace(new RegExp(chr, "g"), "")
-      const endNum = end.replace(new RegExp(chr, "g"), "")
+      const startNum = start.replace(cachedRegExp(chr, "g"), "")
+      const endNum = end.replace(cachedRegExp(chr, "g"), "")
       if (/^(?:19|20)\d{2}$/.test(startNum) && /^(?:0[1-9]|1[0-2])$/.test(endNum)) return match
       // Skip phone number patterns: 3 digits followed by 4 digits with preceding area code
       // e.g., 555-123-4567 or (555) 123-4567 where we're matching the "123-4567" part
@@ -75,7 +75,7 @@ export function enDashNumberRange(text: string, options: DashOptions = {}): stri
   // Negative ranges: −5-5 → −5–5, −5--2 → −5–−2
   // Separate regex because MINUS isn't a word char, so \b in ${wb} would match after it
   text = text.replace(
-    new RegExp(
+    cachedRegExp(
       `(?<![${LATIN_LETTERS}])(?<start>${MINUS}\\d[\\d.,]*${chr}?)-(?<neg>-)?(?<end>${chr}?\\d[\\d.,]*)(?<following>(?:${chr}?-${chr}?\\d+)*)(?<suffix>${chr}?[xKBTM])?${wbe}`,
       "g"
     ),
@@ -92,12 +92,12 @@ export function enDashNumberRange(text: string, options: DashOptions = {}): stri
 export function enDashDateRange(text: string, options: DashOptions = {}): string {
   const dashStyle = options.dashStyle ?? "american"
   if (dashStyle === "none") return text
-  const chr = options.separator ? escapeStringRegexp(options.separator) : ESCAPED_DEFAULT_SEPARATOR
+  const chr = getEscapedSeparator(options)
   const wb = wordBoundaryStart(chr)
   const wbe = wordBoundaryEnd(chr)
 
   return text.replace(
-    new RegExp(`${wb}(?<startMonth>${months})(?<startYear>${chr}? \\d{4})?(?<preSep>${chr}?)(?<preSpace> ?)-(?<postSpace> ?)(?<postSep>${chr}?)(?<endMonth>${months})(?<endYear> \\d{4})?${wbe}`, "g"),
+    cachedRegExp(`${wb}(?<startMonth>${months})(?<startYear>${chr}? \\d{4})?(?<preSep>${chr}?)(?<preSpace> ?)-(?<postSpace> ?)(?<postSep>${chr}?)(?<endMonth>${months})(?<endYear> \\d{4})?${wbe}`, "g"),
     (...args) => {
       const g = args.at(-1) as Record<string, string>
       const [pre, post] = dashStyle === "british" ? [" ", " "] : ["", ""]
@@ -108,19 +108,19 @@ export function enDashDateRange(text: string, options: DashOptions = {}): string
 
 /** Convert hyphens to minus signs in numeric contexts (e.g., "-5" → "−5"). */
 export function minusReplace(text: string, options: DashOptions = {}): string {
-  const chr = escapeStringRegexp(options.separator ?? DEFAULT_SEPARATOR)
+  const chr = getEscapedSeparator(options)
 
   // Pattern 1a: Subtraction of negative number (e.g., "5 - -3" → "5 − −3")
   // Must come before Pattern 1b so the negative hyphen is consumed first
   text = text.replaceAll(
-    new RegExp(`(?<=\\d${chr}?) - -(?<num>${chr}?\\d*\\.?\\d+)`, "g"),
+    cachedRegExp(`(?<=\\d${chr}?) - -(?<num>${chr}?\\d*\\.?\\d+)`, "g"),
     ` ${MINUS} ${MINUS}$<num>`
   )
 
   // Pattern 1b: Spaced math subtraction (e.g., "5 - 3" → "5 − 3")
   // Only when preceded by a digit - this distinguishes "5 - 3" from "Safari) - 9"
   text = text.replaceAll(
-    new RegExp(`(?<=\\d${chr}?) - (?<num>${chr}?\\d*\\.?\\d+)`, "g"),
+    cachedRegExp(`(?<=\\d${chr}?) - (?<num>${chr}?\\d*\\.?\\d+)`, "g"),
     ` ${MINUS} $<num>`
   )
 
@@ -128,7 +128,7 @@ export function minusReplace(text: string, options: DashOptions = {}): string {
   // Match after: start of line, whitespace, (, or quotes (straight or curly)
   // No space allowed between hyphen and digit
   text = text.replaceAll(
-    new RegExp(`(?<before>^|[\\s\\("${LEFT_DOUBLE_QUOTE}${RIGHT_DOUBLE_QUOTE}])-(?<num>\\d*\\.?\\d+)`, "gm"),
+    cachedRegExp(`(?<before>^|[\\s\\("${LEFT_DOUBLE_QUOTE}${RIGHT_DOUBLE_QUOTE}])-(?<num>\\d*\\.?\\d+)`, "gm"),
     `$<before>${MINUS}$<num>`
   )
 
@@ -136,7 +136,7 @@ export function minusReplace(text: string, options: DashOptions = {}): string {
   // Only when no word character precedes the separator — prevents both
   // "2{SEP}-3" in "1-2-3" and "GPT{SEP}-3" from being misidentified as negative 3
   text = text.replaceAll(
-    new RegExp(`(?<![\\d.,${LATIN_LETTERS}])(?<before>${chr})-(?<num>\\d*\\.?\\d+)`, "gm"),
+    cachedRegExp(`(?<![\\d.,${LATIN_LETTERS}])(?<before>${chr})-(?<num>\\d*\\.?\\d+)`, "gm"),
     `$<before>${MINUS}$<num>`
   )
 
@@ -157,7 +157,7 @@ function convertParentheticalDashes(text: string, sep: string, style: DashStyle)
   // A single plain hyphen directly before a word character (through optional separators) is a
   // suspended/hanging hyphen ("Yes-men and -women"), not a parenthetical dash — skip it.
   // Em/en dashes and multiple hyphens can have zero trailing spaces.
-  const spacedDashPattern = new RegExp(
+  const spacedDashPattern = cachedRegExp(
     `(?<=[^\\s]|^)(?<sepBefore>${escapedSep}?)[ ]+(?:[${EN_DASH}${EM_DASH}][-${EN_DASH}${EM_DASH}]*|-{2,}|-(?!${escapedSep}*[${LATIN_LETTERS}\\d]))(?!-*>)[ ]*(?<sepAfter>${escapedSep}?)(?<trailing>[ ]*)(?=\\S|$)`, "g"
   )
   text = text.replace(spacedDashPattern, (_match, sepBefore, sepAfter, trailing) => {
@@ -169,21 +169,21 @@ function convertParentheticalDashes(text: string, sep: string, style: DashStyle)
   // Convert dashes at text node boundaries: separator alone precedes dash (e.g., "word{sep}– rest")
   // Requires space after the dash to avoid matching number ranges like "1{sep}-{sep}5"
   text = text.replace(
-    new RegExp(`(?<=[^\\s])(?<sepBefore>${escapedSep})[${EN_DASH}${EM_DASH}-]+[ ]+(?<sepAfter>${escapedSep}?)`, "g"),
+    cachedRegExp(`(?<=[^\\s])(?<sepBefore>${escapedSep})[${EN_DASH}${EM_DASH}-]+[ ]+(?<sepAfter>${escapedSep}?)`, "g"),
     `$<sepBefore>${maybeSpace}${localizedDash}${maybeSpace}$<sepAfter>`
   )
   // Convert multiple dashes: "word--word" or "word---word" or "quote"--"quote"
   const quoteChars = `"'${LEFT_DOUBLE_QUOTE}${RIGHT_DOUBLE_QUOTE}${LEFT_SINGLE_QUOTE}${RIGHT_SINGLE_QUOTE}`
   text = text.replace(
-    new RegExp(`(?<=[${LATIN_LETTERS}\\d${quoteChars}])(?<sepBefore>${escapedSep}?)[${EN_DASH}${EM_DASH}-]{2,}(?<sepAfter>${escapedSep}?)(?=[${LATIN_LETTERS}${quoteChars} ])`, "g"),
+    cachedRegExp(`(?<=[${LATIN_LETTERS}\\d${quoteChars}])(?<sepBefore>${escapedSep}?)[${EN_DASH}${EM_DASH}-]{2,}(?<sepAfter>${escapedSep}?)(?=[${LATIN_LETTERS}${quoteChars} ])`, "g"),
     `$<sepBefore>${maybeSpace}${localizedDash}${maybeSpace}$<sepAfter>`
   )
   // Convert dashes at start of line
-  text = text.replace(new RegExp(`^(?<leadingSep>${escapedSep})?[-]+ `, "gm"), `$<leadingSep>${localizedDash} `)
+  text = text.replace(cachedRegExp(`^(?<leadingSep>${escapedSep})?[-]+ `, "gm"), `$<leadingSep>${localizedDash} `)
   // British: convert unspaced em-dashes to spaced en-dashes (word—word → word – word)
   if (style === "british") {
     text = text.replace(
-      new RegExp(`(?<=[${LATIN_LETTERS}.!?'"])(?<sepBefore>${escapedSep}?)${EM_DASH}(?<sepAfter>${escapedSep}?)(?=[${LATIN_LETTERS}])`, "g"),
+      cachedRegExp(`(?<=[${LATIN_LETTERS}.!?'"])(?<sepBefore>${escapedSep}?)${EM_DASH}(?<sepAfter>${escapedSep}?)(?=[${LATIN_LETTERS}])`, "g"),
       `$<sepBefore>${maybeSpace}${localizedDash}${maybeSpace}$<sepAfter>`
     )
   }
@@ -202,13 +202,13 @@ function normalizeEmDashSpacing(text: string, sep: string): string {
 
   // Remove all spaces around em-dashes
   text = text.replace(
-    new RegExp(`(?<before>${escapedSep}?)[ ]*${EM_DASH}[ ]*(?<after>${escapedSep}?)`, "g"),
+    cachedRegExp(`(?<before>${escapedSep}?)[ ]*${EM_DASH}[ ]*(?<after>${escapedSep}?)`, "g"),
     `$<before>${EM_DASH}$<after>`
   )
 
   // Preserve space after em-dash at start of line (e.g., attribution)
   text = text.replace(
-    new RegExp(`^(?<sep>${escapedSep}?)${EM_DASH}(?<after>[A-Z0-9])`, "gm"),
+    cachedRegExp(`^(?<sep>${escapedSep}?)${EM_DASH}(?<after>[A-Z0-9])`, "gm"),
     `$<sep>${EM_DASH} $<after>`
   )
 

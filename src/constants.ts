@@ -125,6 +125,19 @@ export const DEFAULT_SEPARATOR = "\uE000"
 export const ESCAPED_DEFAULT_SEPARATOR = escapeStringRegexp(DEFAULT_SEPARATOR)
 
 /**
+ * Returns the regex-escaped separator string for the given options.
+ * Centralizes the common pattern of falling back to the pre-escaped default.
+ *
+ * @param options - Object with an optional `separator` field
+ * @returns Regex-escaped separator string
+ */
+export function getEscapedSeparator(options: { separator?: string }): string {
+  return options.separator
+    ? escapeStringRegexp(options.separator)
+    : ESCAPED_DEFAULT_SEPARATOR
+}
+
+/**
  * Characters that have special meaning in regular expressions.
  * Used for testing that separator escaping works correctly.
  */
