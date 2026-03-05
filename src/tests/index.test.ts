@@ -558,6 +558,25 @@ describe("transform", () => {
     })
   })
 
+  describe("multi-character separator behavior", () => {
+    const sep = "\uE000\uE001"
+
+    it.each([
+      ["quotes with separator at boundary", `${sep}"Hello"`, `${sep}${LEFT_DOUBLE_QUOTE}Hello${RIGHT_DOUBLE_QUOTE}`],
+      ["em-dash with adjacent separators", `word${sep} - ${sep}word`, `word${sep}${EM_DASH}${sep}word`],
+      ["ellipsis with separator between dots", `a.${sep}.${sep}.`, `a\u2026${sep}${sep}`],
+      ["nbsp before last word with trailing separator", `Hello world${sep}`, `Hello${NBSP}world${sep}`],
+    ])("%s", (_desc, input, expected) => {
+      expect(transform(input, { separator: sep, nbsp: true })).toBe(expected)
+    })
+
+    it("preserves separator count through transform", () => {
+      const input = `${sep}"Hello"${sep} -- ${sep}world${sep}`
+      const result = transform(input, { separator: sep })
+      expect(countSeparators(result, sep)).toBe(countSeparators(input, sep))
+    })
+  })
+
   describe("Unicode preservation", () => {
     it.each([
       ["emoji", '"Hello 👋 World"', `${LEFT_DOUBLE_QUOTE}Hello 👋 World${RIGHT_DOUBLE_QUOTE}`],

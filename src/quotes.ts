@@ -3,7 +3,7 @@
  */
 
 import escapeStringRegexp from "escape-string-regexp"
-import { UNICODE_SYMBOLS, DEFAULT_SEPARATOR, LATIN_LETTERS, TERMINAL_PUNCTUATION, cachedRegExp } from "./constants.js"
+import { UNICODE_SYMBOLS, DEFAULT_SEPARATOR, LATIN_LETTERS, TERMINAL_PUNCTUATION, getEscapedSeparator, cachedRegExp } from "./constants.js"
 
 const {
   EM_DASH,
@@ -28,7 +28,7 @@ export interface QuoteOptions {
 
 /** Convert straight single quotes to curly quotes and apostrophes */
 function convertSingleQuotes(text: string, sep: string): string {
-  const escapedSep = `(?:${escapeStringRegexp(sep)})`
+  const escapedSep = getEscapedSeparator({ separator: sep })
 
   // Handle empty single quotes '' and whitespace-only quotes ' ' first
   // Only match straight quotes, not already-converted curly quotes
@@ -96,7 +96,7 @@ function convertUnmatchedPluralPossessives(text: string, sep: string): string {
         return match
       }
       let i = offset - 1
-      while (i >= sep.length - 1 && text.substring(i - sep.length + 1, i + 1) === sep) {
+      while (i >= sep.length - 1 && text.startsWith(sep, i - sep.length + 1)) {
         i -= sep.length
       }
       if (i >= 0 && (text[i] === "s" || text[i] === "S")) {
@@ -110,7 +110,7 @@ function convertUnmatchedPluralPossessives(text: string, sep: string): string {
 /** Convert straight double quotes to curly quotes */
 function convertDoubleQuotes(text: string, sep: string): string {
   const rawEscSep = escapeStringRegexp(sep)
-  const escapedSep = `(?:${rawEscSep})`
+  const escapedSep = getEscapedSeparator({ separator: sep })
 
   // Handle empty quotes "" first - match only when not part of adjacent quotes
   // Require word boundary or start/end of string on at least one side
@@ -137,7 +137,7 @@ function convertDoubleQuotes(text: string, sep: string): string {
 
 /** Apply American or British punctuation style */
 function applyPunctuationStyle(text: string, sep: string, style: PunctuationStyle): string {
-  const escapedSep = `(?:${escapeStringRegexp(sep)})`
+  const escapedSep = getEscapedSeparator({ separator: sep })
 
   if (style === "american") {
     // Period outside → inside: "Hello". → "Hello."

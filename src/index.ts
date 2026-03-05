@@ -219,14 +219,15 @@ export function transform(text: string, options: TransformOptions = {}): string 
   const separator = options.separator ?? DEFAULT_SEPARATOR
 
   // Validate separator: must be non-empty and contain only BMP characters.
-  // Surrogate pairs (emoji, supplementary plane chars) break regex patterns.
+  // for...of iterates by code point; surrogate pairs (non-BMP) yield a
+  // two-UTF16-unit string, so ch.length > 1 detects them.
   if (separator.length === 0) {
     throw new Error("Invalid separator: must not be empty.")
   }
   for (const ch of separator) {
     if (ch.length > 1) {
       throw new Error(
-        `Invalid separator: must contain only BMP characters (no emoji or supplementary-plane characters). ` +
+        `Invalid separator: must contain only BMP characters (no characters outside the Basic Multilingual Plane). ` +
         `Received "${separator}" which contains a non-BMP character.`
       )
     }
