@@ -6,7 +6,7 @@
 
 Pretty good at making your text pretty. The most feature-complete and reliable English typography package. `punctilio` transforms plain ASCII into typographically correct Unicode, even across HTML element boundaries.
 
-**Smart quotes** · **Em/en dashes** · **Ellipses** · **Math symbols** · **Legal symbols** · **Arrows** · **Primes** · **Fractions** · **Superscripts** · **Ligatures** · **Non-breaking spaces** · **HTML-aware** · **Bri’ish localisation support** · **German „Anführungszeichen"** · **French «guillemets»**
+**Smart quotes** · **Em/en dashes** · **Ellipses** · **Math symbols** · **Legal symbols** · **Arrows** · **Primes** · **Fractions** · **Superscripts** · **Ligatures** · **Non-breaking spaces** · **HTML-aware** · **Bri’ish, German, and French localisation support**
 
 ```typescript
 import { transform } from 'punctilio'
@@ -146,8 +146,11 @@ transform(text, {
 - The `british` style follows [Oxford style](https://www.ox.ac.uk/sites/files/oxford/Style%20Guide%20quick%20reference%20A-Z.pdf):
   - Periods and commas go outside quotation marks (“Hello”, she said.)
   - Spaced en-dashes between words (word – word)
-- The `german` style uses low-9 quotes: „double” (U+201E/U+201C) and ‚single' (U+201A/U+2018), with punctuation outside quotes.
-- The `french` style uses guillemets with non-breaking space padding: «\u00A0Bonjour\u00A0». Single quotes remain as curly quotes. Punctuation outside quotes.
+- The `german` style uses low-9 quotes: „double” (U+201E/U+201C) and ‚single' (U+201A/U+2018).
+  - Punctuation outside quotes
+- The `french` style uses guillemets with non-breaking space padding: «\u00A0Bonjour\u00A0».
+  - Single quotes remain as curly quotes
+  - Punctuation outside quotes
 - Setting either style to `none` skips the entire transform category: `punctuationStyle: 'none'` preserves straight quotes, apostrophes, and prime marks; `dashStyle: 'none'` preserves all hyphens, number ranges, date ranges, and minus signs.
 - `punctilio` is idempotent by design: `transform(transform(text))` always equals `transform(text)`. This is verified automatically by default (`checkIdempotency: true`). Set `checkIdempotency: false` to disable the check.
 - Use `classifyApostrophes(text)` to distinguish apostrophes from closing single quotes. It returns text with apostrophes as U+02BC (MODIFIER LETTER APOSTROPHE) and closing quotes as U+2019 (RIGHT SINGLE QUOTATION MARK). Per the [Unicode Standard](https://www.unicode.org/versions/Unicode16.0.0/core-spec/chapter-6/#G30602), `transform()` and `niceQuotes()` use U+2019 for both in their output.
