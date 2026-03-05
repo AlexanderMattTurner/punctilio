@@ -654,6 +654,14 @@ describe("niceQuotes", () => {
         expect(niceQuotes(input, options)).toBe(expected)
       })
     })
+
+    it.each([
+      [`${DOUBLE_LOW_9_QUOTE}Guten Tag${LEFT_DOUBLE_QUOTE}`, { punctuationStyle: "german" as const }],
+      [`${SINGLE_LOW_9_QUOTE}Hallo${LEFT_SINGLE_QUOTE}`, { punctuationStyle: "german" as const }],
+      [`${LEFT_GUILLEMET}${NBSP}Bonjour${NBSP}${RIGHT_GUILLEMET}`, { punctuationStyle: "french" as const }],
+    ])("locale output is idempotent: %s", (input, options) => {
+      expect(niceQuotes(input, options)).toBe(input)
+    })
   })
 
   describe("pathological inputs", () => {
