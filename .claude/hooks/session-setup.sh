@@ -112,11 +112,16 @@ fi
 #######################################
 
 if [ -f "$PROJECT_DIR/package.json" ]; then
-	# Always run install (git hooks are configured in package.json postinstall)
+	# Always run install (git hooks and lint-staged are configured in package.json)
 	if command -v pnpm &>/dev/null; then
 		pnpm install --silent || warn "Failed to install Node dependencies"
 	elif command -v npm &>/dev/null; then
 		npm install --silent || warn "Failed to install Node dependencies"
+	fi
+
+	# Verify lint-staged is available for pre-commit hooks
+	if [ ! -f "$PROJECT_DIR/node_modules/.bin/lint-staged" ]; then
+		warn "lint-staged not found after install — pre-commit formatting will be skipped"
 	fi
 fi
 
