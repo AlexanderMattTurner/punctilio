@@ -46,7 +46,11 @@ fi
 
 # Publish to npm
 echo "📤 Publishing to npm..."
-pnpm publish --access public 
+if [ -n "${CI:-}" ]; then
+  pnpm publish --provenance --access public --no-git-checks
+else
+  pnpm publish --access public
+fi
 
 if [ $? -ne 0 ]; then
   echo "❌ Publish failed. Push aborted."

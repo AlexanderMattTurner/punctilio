@@ -32,7 +32,7 @@
     "build": "tsc",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
     "lint": "eslint src",
-    "prepare": "(tsc || true) && (bash scripts/install-hooks.sh || true)",
+    "prepare": "if [ -d src ]; then tsc; else true; fi && (bash scripts/install-hooks.sh || true)",
     "prepublishOnly": "pnpm run build && pnpm run test",
     "install-hooks": "bash scripts/install-hooks.sh"
   },

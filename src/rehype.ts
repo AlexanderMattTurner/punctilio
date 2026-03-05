@@ -389,7 +389,8 @@ export function collectTransformableElements(
     // Otherwise, recurse into children
     for (const child of node.children) {
       if (child.type === "element") {
-        results.push(...collectTransformableElements(child, shouldSkip, depth + 1))
+        const childResults = collectTransformableElements(child, shouldSkip, depth + 1)
+        for (const r of childResults) results.push(r)
       }
     }
   }

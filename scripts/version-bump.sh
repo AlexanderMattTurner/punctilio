@@ -90,13 +90,13 @@ RESPONSE=$(curl -s https://api.anthropic.com/v1/messages \
     }')")
 
 # Extract the bump level from Claude's structured tool use response
-echo "API response: $RESPONSE"
 BUMP=$(echo "$RESPONSE" | jq -r '.content[] | select(.type == "tool_use") | .input.bump_type')
 
 # Validate response - fail if Claude couldn't determine bump type
 if [[ "$BUMP" != "major" && "$BUMP" != "minor" && "$BUMP" != "patch" ]]; then
-  echo "Error: Unexpected response from Claude: $BUMP"
-  echo "Full response: $RESPONSE"
+  echo "Error: Unexpected bump type from Claude: $BUMP"
+  # Log only the stop_reason and type, not the full response (may contain metadata)
+  echo "Response stop_reason: $(echo "$RESPONSE" | jq -r '.stop_reason // "unknown"')"
   exit 1
 fi
 
