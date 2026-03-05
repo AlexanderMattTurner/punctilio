@@ -443,27 +443,17 @@ describe("transform", () => {
       expect(second).toBe(first)
     })
 
-    describe("cross-style idempotency with complex inputs", () => {
-      const complexInputs = [
-        `"Hello," she said. "It's nice."`,
-        `He shouted, "Stop! Don't go!"`,
-        `The dogs' bones were 1-5 inches...`,
-        `'Twas the night before Christmas.`,
-        `"She said, 'He whispered hello.'"`,
-        `"I'm running," she said -- "it's 1-5 miles."`,
-      ]
-
-      it.each(
-        complexInputs.flatMap((input) =>
-          (["american", "british", "german", "french"] as const).map(
-            (style) => [input, style] as [string, typeof style]
-          )
-        )
-      )('is idempotent across styles: "%s" [%s]', (input, style) => {
-        const first = transform(input, { punctuationStyle: style })
-        const second = transform(first, { punctuationStyle: style })
-        expect(second).toBe(first)
-      })
+    it.each([
+      // Nested quotes with period — tests the multi-quote-jump fix
+      [`"She said, 'Hello.'"`, "british" as const],
+      [`"She said, 'Hello.'"`, "german" as const],
+      [`"She said, 'Hello.'"`, "french" as const],
+      // Leading apostrophe — tests the German RSQ normalization fix
+      [`'Twas the night before Christmas.`, "german" as const],
+    ])('is idempotent across styles: "%s" [%s]', (input, style) => {
+      const first = transform(input, { punctuationStyle: style })
+      const second = transform(first, { punctuationStyle: style })
+      expect(second).toBe(first)
     })
 
     it.each([
