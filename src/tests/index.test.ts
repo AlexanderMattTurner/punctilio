@@ -533,18 +533,17 @@ describe("transform", () => {
 
   describe("separator validation", () => {
     const invalidSeparators = [
-      ["🎉", "emoji (multi-codepoint)"],
-      ["ab", "multi-character"],
+      ["🎉", "emoji (non-BMP)"],
       ["", "empty string"],
     ] as const
 
     it.each(invalidSeparators)("rejects %s separator (%s)", (sep) => {
       expect(() => transform('"Hello"', { separator: sep, nbsp: false })).toThrow(
-        /Invalid separator.*must be a single character/
+        /Invalid separator/
       )
     })
 
-    const validSeparators = ["\uE000", "|", "\u2603"] // Default, pipe, snowman
+    const validSeparators = ["\uE000\uE001", "\uE000", "|", "\u2603", "ab"] // Default, single PUA, pipe, snowman, multi-char
 
     it.each(validSeparators)("accepts '%s' as separator", (sep) => {
       expect(() => transform('"Hello"', { separator: sep, nbsp: false })).not.toThrow()

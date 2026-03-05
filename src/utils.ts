@@ -48,10 +48,12 @@ export function assertSeparatorAbsent(textValues: string[], separator: string): 
   for (const value of textValues) {
     if (!value.includes(separator)) continue
 
-    const codePoint = `U+${separator.codePointAt(0)!.toString(16).toUpperCase().padStart(4, "0")}`
+    const codePoints = [...separator]
+      .map(ch => `U+${ch.codePointAt(0)!.toString(16).toUpperCase().padStart(4, "0")}`)
+      .join(" ")
     throw new Error(
-      `Text contains the separator character ${codePoint} which is used internally by punctilio ` +
-      `to track element boundaries. Pass a different character via the "separator" option.\n` +
+      `Text contains the separator sequence ${codePoints} which is used internally by punctilio ` +
+      `to track element boundaries. Pass a different separator via the "separator" option.\n` +
       `Text: ${formatErrorString(value, "input")}`
     )
   }
@@ -59,8 +61,10 @@ export function assertSeparatorAbsent(textValues: string[], separator: string): 
 
 export function countSeparators(text: string, separator: string = DEFAULT_SEPARATOR): number {
   let count = 0
-  for (const char of text) {
-    if (char === separator) count++
+  let index = 0
+  while ((index = text.indexOf(separator, index)) !== -1) {
+    count++
+    index += separator.length
   }
   return count
 }

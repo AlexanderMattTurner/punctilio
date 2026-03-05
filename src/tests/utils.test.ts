@@ -10,9 +10,9 @@ describe("assertSeparatorAbsent", () => {
   })
 
   it.each([
-    ["default separator", [`hello${DEFAULT_SEPARATOR}world`], DEFAULT_SEPARATOR, /U\+E000/],
+    ["default separator", [`hello${DEFAULT_SEPARATOR}world`], DEFAULT_SEPARATOR, /U\+E000 U\+E001/],
     ["custom separator", ["hello|world"], "|", /U\+007C/],
-    ["separator in middle element", ["clean", `has${DEFAULT_SEPARATOR}sep`, "also clean"], DEFAULT_SEPARATOR, /separator character/],
+    ["separator in middle element", ["clean", `has${DEFAULT_SEPARATOR}sep`, "also clean"], DEFAULT_SEPARATOR, /separator sequence/],
   ])("throws: %s", (_desc, values, separator, expectedPattern) => {
     expect(() => assertSeparatorAbsent(values, separator)).toThrow(expectedPattern)
   })

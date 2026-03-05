@@ -135,8 +135,9 @@ export function nbspBetweenNumberAndUnit(text: string, options: NbspOptions = {}
  */
 export function nbspBeforeLastWord(text: string, options: NbspOptions = {}): string {
   const sep = getEscapedSeparator(options)
+  // Use alternation instead of character classes for multi-char separator support
   const pattern = cachedRegExp(
-    `(?<=[\\w${sep}])${SPACE}(?<lastWord>[^\\s${sep}]{1,10})(?<ending>${sep}?(?:\\n\\n|$))`,
+    `(?<=\\w|${sep})${SPACE}(?<lastWord>(?:(?!\\s)(?!${sep}).){1,10})(?<ending>${sep}?(?:\\n\\n|$))`,
     "g"
   )
   return text.replace(pattern, `${NBSP}$<lastWord>$<ending>`)

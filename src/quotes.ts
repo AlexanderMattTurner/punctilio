@@ -28,7 +28,7 @@ export interface QuoteOptions {
 
 /** Convert straight single quotes to curly quotes and apostrophes */
 function convertSingleQuotes(text: string, sep: string): string {
-  const escapedSep = escapeStringRegexp(sep)
+  const escapedSep = `(?:${escapeStringRegexp(sep)})`
 
   // Handle empty single quotes '' and whitespace-only quotes ' ' first
   // Only match straight quotes, not already-converted curly quotes
@@ -96,7 +96,9 @@ function convertUnmatchedPluralPossessives(text: string, sep: string): string {
         return match
       }
       let i = offset - 1
-      while (i >= 0 && text[i] === sep) i--
+      while (i >= sep.length - 1 && text.substring(i - sep.length + 1, i + 1) === sep) {
+        i -= sep.length
+      }
       if (i >= 0 && (text[i] === "s" || text[i] === "S")) {
         return MODIFIER_LETTER_APOSTROPHE
       }
@@ -107,7 +109,8 @@ function convertUnmatchedPluralPossessives(text: string, sep: string): string {
 
 /** Convert straight double quotes to curly quotes */
 function convertDoubleQuotes(text: string, sep: string): string {
-  const escapedSep = escapeStringRegexp(sep)
+  const rawEscSep = escapeStringRegexp(sep)
+  const escapedSep = `(?:${rawEscSep})`
 
   // Handle empty quotes "" first - match only when not part of adjacent quotes
   // Require word boundary or start/end of string on at least one side
@@ -116,7 +119,7 @@ function convertDoubleQuotes(text: string, sep: string): string {
   text = text.replace(/(?<=^|[\s([{])"(?<whitespace>\s+)"(?=$|[\s)\]}.!?,;:])/g, `${LEFT_DOUBLE_QUOTE}$<whitespace>${RIGHT_DOUBLE_QUOTE}`)
 
   const beginningDouble = cachedRegExp(
-    `(?<=^|[\\s\\(\\/\\[\\{\\-${EM_DASH}${escapedSep}])(?<beforeChr>${escapedSep}?)["](?<afterChr>(?<sepWithPunct>${escapedSep}[ .,])|(?=${escapedSep}?\\.{3}|${escapedSep}?[^\\s\\)\\${EM_DASH},!?${escapedSep};:.\\}]))`,
+    `(?<=^|[\\s\\(\\/\\[\\{\\-${EM_DASH}]|${escapedSep})(?<beforeChr>${escapedSep}?)["](?<afterChr>(?<sepWithPunct>${escapedSep}[ .,])|(?=${escapedSep}?\\.{3}|${escapedSep}?[^\\s\\)${EM_DASH},!?;:.\\}${rawEscSep}]))`,
     "gm"
   )
   text = text.replace(beginningDouble, `$<beforeChr>${LEFT_DOUBLE_QUOTE}$<afterChr>`)
@@ -134,7 +137,7 @@ function convertDoubleQuotes(text: string, sep: string): string {
 
 /** Apply American or British punctuation style */
 function applyPunctuationStyle(text: string, sep: string, style: PunctuationStyle): string {
-  const escapedSep = escapeStringRegexp(sep)
+  const escapedSep = `(?:${escapeStringRegexp(sep)})`
 
   if (style === "american") {
     // Period outside → inside: "Hello". → "Hello."

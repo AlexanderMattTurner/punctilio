@@ -150,7 +150,7 @@ export function minusReplace(text: string, options: DashOptions = {}): string {
 function convertParentheticalDashes(text: string, sep: string, style: DashStyle): string {
   const localizedDash = style === "british" ? EN_DASH : EM_DASH
   const maybeSpace = style === "british" ? " " : ""
-  const escapedSep = escapeStringRegexp(sep)
+  const escapedSep = `(?:${escapeStringRegexp(sep)})`
 
   // Convert spaced dashes: "word - word" or "word — word"
   // When a separator follows the dash, preserve trailing spaces (they belong to the next text segment).
@@ -198,7 +198,7 @@ function convertParentheticalDashes(text: string, sep: string, style: DashStyle)
  * allows a space after the dash: "Don't inter— Hey! Who threw that?"
  */
 function normalizeEmDashSpacing(text: string, sep: string): string {
-  const escapedSep = escapeStringRegexp(sep)
+  const escapedSep = `(?:${escapeStringRegexp(sep)})`
 
   // Remove all spaces around em-dashes
   text = text.replace(
