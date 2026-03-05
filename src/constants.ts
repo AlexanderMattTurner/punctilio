@@ -54,9 +54,9 @@ export const UNICODE_SYMBOLS = {
   RIGHT_SINGLE_QUOTE: "\u2019",
   MODIFIER_LETTER_APOSTROPHE: "\u02BC",
   NBSP: "\u00A0",
-  DOUBLE_LOW_9_QUOTE: "\u201E",     // „
+  DOUBLE_LOW_9_QUOTE: "\u201E",      // „
   SINGLE_LOW_9_QUOTE: "\u201A",     // ‚
-  LEFT_GUILLEMET: "\u00AB",          // «
+  LEFT_GUILLEMET: "\u00AB",         // «
   RIGHT_GUILLEMET: "\u00BB",        // »
   // Superscript ordinal suffixes
   SUPERSCRIPT_ST: "\u02E2\u1D57", // ˢᵗ

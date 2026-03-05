@@ -206,8 +206,8 @@ function normalizeGermanQuotes(text: string): string {
 /** Normalize French guillemets back to American for idempotent re-processing. */
 function normalizeFrenchQuotes(text: string): string {
   return text
-    .replace(new RegExp(`${UNICODE_SYMBOLS.LEFT_GUILLEMET}${UNICODE_SYMBOLS.NBSP}`, "g"), LEFT_DOUBLE_QUOTE)
-    .replace(new RegExp(`${UNICODE_SYMBOLS.NBSP}${UNICODE_SYMBOLS.RIGHT_GUILLEMET}`, "g"), RIGHT_DOUBLE_QUOTE)
+    .replace(cachedRegExp(`${UNICODE_SYMBOLS.LEFT_GUILLEMET}${UNICODE_SYMBOLS.NBSP}?`, "g"), LEFT_DOUBLE_QUOTE)
+    .replace(cachedRegExp(`${UNICODE_SYMBOLS.NBSP}?${UNICODE_SYMBOLS.RIGHT_GUILLEMET}`, "g"), RIGHT_DOUBLE_QUOTE)
 }
 
 /** Remap American curly quotes to German low-9 style. Apostrophes (MLA) are untouched. */

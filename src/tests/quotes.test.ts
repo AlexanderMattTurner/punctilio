@@ -649,6 +649,10 @@ describe("niceQuotes", () => {
       ['"Bonjour"', `${LEFT_GUILLEMET}${NBSP}Bonjour${NBSP}${RIGHT_GUILLEMET}`, { punctuationStyle: "french" as const }],
       // French apostrophes stay as RSQ
       ["l'homme", `l${RIGHT_SINGLE_QUOTE}homme`, { punctuationStyle: "french" as const }],
+      // Nested quotes in German
+      [`"She said 'hello'"`, `${DOUBLE_LOW_9_QUOTE}She said ${SINGLE_LOW_9_QUOTE}hello${LEFT_SINGLE_QUOTE}${LEFT_DOUBLE_QUOTE}`, { punctuationStyle: "german" as const }],
+      // French punctuation placement
+      ['"Bonjour," dit-il.', `${LEFT_GUILLEMET}${NBSP}Bonjour${NBSP}${RIGHT_GUILLEMET}, dit-il.`, { punctuationStyle: "french" as const }],
     ])("locale quotes: %s → %s", (input, expected, options) => {
       it("transforms correctly", () => {
         expect(niceQuotes(input, options)).toBe(expected)
