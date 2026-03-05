@@ -11,7 +11,7 @@ Pretty good at making your text pretty. The most feature-complete and reliable E
 ```typescript
 import { transform } from 'punctilio'
 
-transform('"It\'s a beautiful thing, the destruction of words..." -- 1984')
+transform(`"It's a beautiful thing, the destruction of words..." -- 1984`)
 // → “It’s a beautiful thing, the destruction of words…”—1984
 ```
 
@@ -148,7 +148,7 @@ transform(text, {
   - Spaced en-dashes between words (word – word)
 - The `german` style uses low-9 quotes: „double” (U+201E/U+201C) and ‚single' (U+201A/U+2018).
   - Punctuation outside quotes
-- The `french` style uses guillemets with non-breaking space padding: «\u00A0Bonjour\u00A0».
+- The `french` style uses guillemets with non-breaking space padding: « Bonjour ».
   - Single quotes remain as curly quotes
   - Punctuation outside quotes
 - Setting either style to `none` skips the entire transform category: `punctuationStyle: 'none'` preserves straight quotes, apostrophes, and prime marks; `dashStyle: 'none'` preserves all hyphens, number ranges, date ranges, and minus signs.
