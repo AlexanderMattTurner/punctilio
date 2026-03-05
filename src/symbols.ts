@@ -2,8 +2,7 @@
  * Symbol transformations: ellipses, multiplication, math symbols, arrows.
  */
 
-import escapeStringRegexp from "escape-string-regexp"
-import { UNICODE_SYMBOLS, ESCAPED_DEFAULT_SEPARATOR, LATIN_LETTERS, wordBoundaryEnd, SPACE_CHARS, spaceBoundaryStart, spaceBoundaryEnd, cachedRegExp } from "./constants.js"
+import { UNICODE_SYMBOLS, LATIN_LETTERS, wordBoundaryEnd, SPACE_CHARS, spaceBoundaryStart, spaceBoundaryEnd, cachedRegExp, getEscapedSeparator } from "./constants.js"
 
 export interface SymbolOptions {
   /** Boundary marker for HTML element boundaries. Default: "\uE000" */
@@ -41,9 +40,7 @@ const {
 
 /** Convert "..." or ". . ." to "…". */
 export function ellipsis(text: string, options: SymbolOptions = {}): string {
-  const chr = options.separator
-    ? escapeStringRegexp(options.separator)
-    : ESCAPED_DEFAULT_SEPARATOR
+  const chr = getEscapedSeparator(options)
 
   // Convert consecutive or spaced dots: ... or . . . → …
   // Captures preserve any separators between dots
@@ -59,9 +56,7 @@ export function ellipsis(text: string, options: SymbolOptions = {}): string {
 
 /** Convert "5x5" to "5×5". Skips hex (0x5F). */
 export function multiplication(text: string, options: SymbolOptions = {}): string {
-  const chr = options.separator
-    ? escapeStringRegexp(options.separator)
-    : ESCAPED_DEFAULT_SEPARATOR
+  const chr = getEscapedSeparator(options)
 
   // Match entire multiplication chains in one pass: "5 x 5 x 5" or "5x5x5"
   // Pattern matches: digit(s), then one or more (operator, digit(s)) groups
@@ -113,9 +108,7 @@ const MATH_SYMBOL_MAP: [string, string, string, string][] = [
 
 /** Convert !=, <=, >=, +/-, ~= to Unicode equivalents. */
 export function mathSymbols(text: string, options: SymbolOptions = {}): string {
-  const chr = options.separator
-    ? escapeStringRegexp(options.separator)
-    : ESCAPED_DEFAULT_SEPARATOR
+  const chr = getEscapedSeparator(options)
 
   for (const [left, right, lookahead, replacement] of MATH_SYMBOL_MAP) {
     const pattern = cachedRegExp(`${left}${chr}?${right}${lookahead}`, "g")
@@ -168,9 +161,7 @@ const ARROW_MAP: [string, string][] = [
 
 /** Convert -> and <-> to arrows. */
 export function arrows(text: string, options: SymbolOptions = {}): string {
-  const chr = options.separator
-    ? escapeStringRegexp(options.separator)
-    : ESCAPED_DEFAULT_SEPARATOR
+  const chr = getEscapedSeparator(options)
 
   const start = spaceBoundaryStart(chr)
   const end = spaceBoundaryEnd(chr)
@@ -185,9 +176,7 @@ export function arrows(text: string, options: SymbolOptions = {}): string {
 
 /** Convert "20 C" or "20 F" to "20 °C" or "20 °F". Only matches uppercase C/F. */
 export function degrees(text: string, options: SymbolOptions = {}): string {
-  const chr = options.separator
-    ? escapeStringRegexp(options.separator)
-    : ESCAPED_DEFAULT_SEPARATOR
+  const chr = getEscapedSeparator(options)
 
   // Temperature with optional space before C or F (uppercase only)
   // Handles separator between digit and unit
@@ -288,9 +277,7 @@ function balancedPrimeReplacer(primeChar: string, escapedSeparator: string) {
 
 /** Convert 5'10" to 5′10″ (prime marks). Call before smart quotes. */
 export function primeMarks(text: string, options: SymbolOptions = {}): string {
-  const escapedSeparator = options.separator
-    ? escapeStringRegexp(options.separator)
-    : ESCAPED_DEFAULT_SEPARATOR
+  const escapedSeparator = getEscapedSeparator(options)
 
   const quotePrimePairs: [string, string][] = [
     ["'", PRIME],
@@ -298,8 +285,8 @@ export function primeMarks(text: string, options: SymbolOptions = {}): string {
   ]
 
   for (const [quote, primeChar] of quotePrimePairs) {
-    const escapedQuote = escapeStringRegexp(quote)
-    const pattern = buildQuoteClassificationPattern(escapedQuote, escapedSeparator)
+    // ' and " are not regex-special, so they can be used directly as patterns
+    const pattern = buildQuoteClassificationPattern(quote, escapedSeparator)
     text = text.replace(pattern, balancedPrimeReplacer(primeChar, escapedSeparator))
   }
 
@@ -326,9 +313,7 @@ const FRACTION_MAP: Record<string, string> = {
 
 /** Convert 1/2, 1/4, etc. to ½, ¼, etc. */
 export function fractions(text: string, options: SymbolOptions = {}): string {
-  const chr = options.separator
-    ? escapeStringRegexp(options.separator)
-    : ESCAPED_DEFAULT_SEPARATOR
+  const chr = getEscapedSeparator(options)
 
   for (const [ascii, unicode] of Object.entries(FRACTION_MAP)) {
     // Negative lookbehind/lookahead: ensures fraction is not part of a larger number or path
@@ -356,9 +341,7 @@ const ORDINAL_MAP: Record<string, string> = {
 
 /** Convert 1st, 2nd, 3rd, 4th to superscript ordinals. */
 export function superscriptOrdinal(text: string, options: SymbolOptions = {}): string {
-  const chr = options.separator
-    ? escapeStringRegexp(options.separator)
-    : ESCAPED_DEFAULT_SEPARATOR
+  const chr = getEscapedSeparator(options)
 
   // Match number + optional separator + ordinal suffix at word boundary
   // Use case-insensitive matching for the suffix
@@ -397,9 +380,7 @@ const PUNCTUATION_LIGATURE_MAP: [string, string, string][] = [
 
 /** Convert ?? to ⁇, ?! to ⁈, !? to ⁉. Poor font support, disabled by default. */
 export function punctuationLigatures(text: string, options: SymbolOptions = {}): string {
-  const chr = options.separator
-    ? escapeStringRegexp(options.separator)
-    : ESCAPED_DEFAULT_SEPARATOR
+  const chr = getEscapedSeparator(options)
 
   for (const [first, repeated, replacement] of PUNCTUATION_LIGATURE_MAP) {
     const pattern = cachedRegExp(`${first}(${chr})?${repeated}(?:${chr}?${repeated})*`, "g")

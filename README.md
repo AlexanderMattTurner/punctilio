@@ -37,9 +37,9 @@ I tested `punctilio` 1.2.9 against [`smartypants`](https://www.npmjs.com/package
 
 My [`benchmark.mjs`](https://github.com/alexander-turner/punctilio/blob/main/benchmark.mjs) measures how well libraries handle a [wide range of scenarios](https://github.com/alexander-turner/punctilio/blob/main/benchmark_cases.json). The benchmark normalizes stylistic differences (e.g. non-breaking vs regular space, British vs American dash spacing) for fair comparison.
 
-| Package | Passed (of 159) |
+| Package | Passed (of 157) |
 |--------:|:----------------|
-| `punctilio` | 154 (97%) |
+| `punctilio` | 152 (97%) |
 | `tipograph` | 92 (58%) |
 | `typograf` | 74 (47%) |
 | `smartquotes` | 72 (45%) |
@@ -76,7 +76,7 @@ My [`benchmark.mjs`](https://github.com/alexander-turner/punctilio/blob/main/ben
 
 ## Test suite
 
-Setting aside the benchmark, `punctilio`’s test suite includes 1,100+ tests at 100% branch coverage, including edge cases derived from competitor libraries ([`smartquotes`](https://github.com/kellym/smartquotes.js), [`retext-smartypants`](https://github.com/retextjs/retext-smartypants), [`typograf`](https://github.com/typograf/typograf)) and the [Standard Ebooks typography manual](https://standardebooks.org/manual/). I also verify that all transformations are stable when applied multiple times.
+Setting aside the benchmark, `punctilio`’s test suite includes 1,400+ tests at 100% branch coverage, including edge cases derived from competitor libraries ([`smartquotes`](https://github.com/kellym/smartquotes.js), [`retext-smartypants`](https://github.com/retextjs/retext-smartypants), [`typograf`](https://github.com/typograf/typograf)) and the [Standard Ebooks typography manual](https://standardebooks.org/manual/). I also verify that all transformations are stable when applied multiple times.
 
 ## Works with HTML DOMs via separation boundaries
 
@@ -136,7 +136,7 @@ transform(text, {
   superscript: false,      // 1st → 1ˢᵗ
   ligatures: false,        // ??? → ⁇, ?! → ⁈, !? → ⁉, !!! → !
   nbsp: true,              // non-breaking spaces (after honorifics, between numbers and units, etc.)
-  checkIdempotency: false,  // verify transform(transform(x)) === transform(x)
+  checkIdempotency: true,   // verify transform(transform(x)) === transform(x)
 })
 ```
 
@@ -148,5 +148,5 @@ transform(text, {
   - Periods and commas go outside quotation marks (“Hello”, she said.)
   - Spaced en-dashes between words (word – word)
 - Setting either style to `none` skips the entire transform category: `punctuationStyle: 'none'` preserves straight quotes, apostrophes, and prime marks; `dashStyle: 'none'` preserves all hyphens, number ranges, date ranges, and minus signs.
-- `punctilio` is idempotent by design: `transform(transform(text))` always equals `transform(text)`. You can verify this by setting `checkIdempotency: true`.
+- `punctilio` is idempotent by design: `transform(transform(text))` always equals `transform(text)`. This is verified automatically by default (`checkIdempotency: true`). Set `checkIdempotency: false` to disable the check.
 - Use `classifyApostrophes(text)` to distinguish apostrophes from closing single quotes. It returns text with apostrophes as U+02BC (MODIFIER LETTER APOSTROPHE) and closing quotes as U+2019 (RIGHT SINGLE QUOTATION MARK). Per the [Unicode Standard](https://www.unicode.org/versions/Unicode16.0.0/core-spec/chapter-6/#G30602), `transform()` and `niceQuotes()` use U+2019 for both in their output.

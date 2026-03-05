@@ -8,9 +8,7 @@
  * @module nbsp
  */
 
-import escapeStringRegexp from "escape-string-regexp"
-
-import { UNICODE_SYMBOLS, ESCAPED_DEFAULT_SEPARATOR, LATIN_LETTERS, wordBoundaryEnd } from "./constants.js"
+import { UNICODE_SYMBOLS, LATIN_LETTERS, wordBoundaryEnd, getEscapedSeparator, cachedRegExp } from "./constants.js"
 import type { SymbolOptions } from "./symbols.js"
 
 const {
@@ -25,12 +23,6 @@ const {
 } = UNICODE_SYMBOLS
 
 export type NbspOptions = Pick<SymbolOptions, "separator">
-
-function escapedSeparator(options: NbspOptions): string {
-  return options.separator
-    ? escapeStringRegexp(options.separator)
-    : ESCAPED_DEFAULT_SEPARATOR
-}
 
 /** Space pattern matching regular space, tab, and nbsp. */
 const SPACE = `[ \\t${NBSP}]`
@@ -111,8 +103,8 @@ const COPYRIGHT_SYMBOLS = `[${COPYRIGHT}${REGISTERED}${TRADEMARK}]`
  * @example "a cat" → "a\u00A0cat", "I am" → "I\u00A0am"
  */
 export function nbspAfterShortWords(text: string, options: NbspOptions = {}): string {
-  const sep = escapedSeparator(options)
-  const pattern = new RegExp(
+  const sep = getEscapedSeparator(options)
+  const pattern = cachedRegExp(
     `(?<=^|${SPACE}|${PUNCTUATION_OR_QUOTE}|>)(?<shortWord>[${LATIN_LETTERS}]{1,2})(?<marker>${sep}?)${SPACE}`,
     "gmu"
   )
@@ -125,9 +117,9 @@ export function nbspAfterShortWords(text: string, options: NbspOptions = {}): st
  * @example "100 km" → "100\u00A0km", "5 kg" → "5\u00A0kg"
  */
 export function nbspBetweenNumberAndUnit(text: string, options: NbspOptions = {}): string {
-  const sep = escapedSeparator(options)
+  const sep = getEscapedSeparator(options)
   const wbe = wordBoundaryEnd(sep)
-  const pattern = new RegExp(
+  const pattern = cachedRegExp(
     `(?<digit>\\d)(?<marker1>${sep}?)${SPACE}(?<marker2>${sep}?)(?<unit>${UNIT_PATTERN})${wbe}`,
     "gm"
   )
@@ -142,8 +134,8 @@ export function nbspBetweenNumberAndUnit(text: string, options: NbspOptions = {}
  * true end of string.
  */
 export function nbspBeforeLastWord(text: string, options: NbspOptions = {}): string {
-  const sep = escapedSeparator(options)
-  const pattern = new RegExp(
+  const sep = getEscapedSeparator(options)
+  const pattern = cachedRegExp(
     `(?<=[\\w${sep}])${SPACE}(?<lastWord>[^\\s${sep}]{1,10})(?<ending>${sep}?(?:\\n\\n|$))`,
     "g"
   )
@@ -157,8 +149,8 @@ export function nbspBeforeLastWord(text: string, options: NbspOptions = {}): str
  * @example "Fig. 1" → "Fig.\u00A01", "p. 42" → "p.\u00A042"
  */
 export function nbspAfterReferenceAbbreviations(text: string, options: NbspOptions = {}): string {
-  const sep = escapedSeparator(options)
-  const pattern = new RegExp(
+  const sep = getEscapedSeparator(options)
+  const pattern = cachedRegExp(
     `(?<abbrev>${ABBREVIATION_PATTERN})(?<marker>${sep}?)${SPACE}(?=${sep}?\\d)`,
     "g"
   )
@@ -172,8 +164,8 @@ export function nbspAfterReferenceAbbreviations(text: string, options: NbspOptio
  * @example "§ 5" → "§\u00A05"
  */
 export function nbspAfterSectionSymbols(text: string, options: NbspOptions = {}): string {
-  const sep = escapedSeparator(options)
-  const pattern = new RegExp(
+  const sep = getEscapedSeparator(options)
+  const pattern = cachedRegExp(
     `(?<symbol>[§¶])(?<marker>${sep}?)${SPACE}(?=${sep}?\\d)`,
     "g"
   )
@@ -186,8 +178,8 @@ export function nbspAfterSectionSymbols(text: string, options: NbspOptions = {})
  * @example "Dr. Smith" → "Dr.\u00A0Smith", "Mr. Jones" → "Mr.\u00A0Jones"
  */
 export function nbspAfterHonorifics(text: string, options: NbspOptions = {}): string {
-  const sep = escapedSeparator(options)
-  const pattern = new RegExp(
+  const sep = getEscapedSeparator(options)
+  const pattern = cachedRegExp(
     `(?<honorific>${HONORIFIC_PATTERN})(?<marker>${sep}?)${SPACE}(?=${sep}?${UNICODE_UPPERCASE})`,
     "gu"
   )
@@ -201,8 +193,8 @@ export function nbspAfterHonorifics(text: string, options: NbspOptions = {}): st
  * @example "© 2024" → "©\u00A02024", "® Brand" → "®\u00A0Brand"
  */
 export function nbspAfterCopyrightSymbols(text: string, options: NbspOptions = {}): string {
-  const sep = escapedSeparator(options)
-  const pattern = new RegExp(
+  const sep = getEscapedSeparator(options)
+  const pattern = cachedRegExp(
     `(?<symbol>${COPYRIGHT_SYMBOLS})(?<marker>${sep}?)${SPACE}(?=${sep}?[\\d${UNICODE_UPPERCASE}])`,
     "gu"
   )
@@ -215,8 +207,8 @@ export function nbspAfterCopyrightSymbols(text: string, options: NbspOptions = {
  * @example "J. K. Rowling" → "J.\u00A0K.\u00A0Rowling"
  */
 export function nbspBetweenInitials(text: string, options: NbspOptions = {}): string {
-  const sep = escapedSeparator(options)
-  const pattern = new RegExp(
+  const sep = getEscapedSeparator(options)
+  const pattern = cachedRegExp(
     `(?<initial>${UNICODE_UPPERCASE}\\.)(?<marker>${sep}?)${SPACE}(?=${sep}?${UNICODE_UPPERCASE})`,
     "gu"
   )
