@@ -201,23 +201,15 @@ export function spaceBoundaryEnd(escapedSeparator: string): string {
 /**
  * Cache for compiled RegExp objects keyed by `pattern + '\0' + flags`.
  * Avoids recompiling identical regexes on every function call (common
- * when using the default separator).
- *
- * Capped at {@link MAX_REGEX_CACHE_SIZE} entries to prevent unbounded
- * memory growth when callers supply many distinct separator values.
+ * when using the default separator). Capped to prevent unbounded growth.
  */
 const regexCache = new Map<string, RegExp>()
-
-/** Maximum number of entries in the regex cache before eviction. */
 const MAX_REGEX_CACHE_SIZE = 1000
 
 /**
  * Returns a cached RegExp for the given pattern and flags.
  * Resets `lastIndex` before returning to prevent stale state when
  * callers use `.test()` or `.exec()` on global-flag regexes.
- *
- * When the cache exceeds {@link MAX_REGEX_CACHE_SIZE}, the oldest
- * entry is evicted (Map iteration order = insertion order).
  */
 export function cachedRegExp(pattern: string, flags: string): RegExp {
   const key = `${pattern}\0${flags}`

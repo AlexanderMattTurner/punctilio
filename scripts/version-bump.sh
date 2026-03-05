@@ -28,10 +28,8 @@ else
   DIFF_STAT=$(git show --stat HEAD 2>/dev/null || echo "Unable to get diff")
 fi
 
-# Sanitize commit messages: truncate each line, remove control chars, strip prompt-like
-# prefixes (e.g., "SYSTEM:", "ASSISTANT:"), and limit total length
-COMMITS=$(echo "$COMMITS_RAW" | head -20 | cut -c1-100 | tr -cd '[:print:]\n' \
-  | sed 's/\b\(SYSTEM\|ASSISTANT\|USER\|HUMAN\|INSTRUCTIONS\?\):\s*//gI' | head -c 2000)
+# Sanitize commit messages: truncate each line, remove control chars, limit total length
+COMMITS=$(echo "$COMMITS_RAW" | head -20 | cut -c1-100 | tr -cd '[:print:]\n' | head -c 2000)
 
 if [ -z "$COMMITS" ]; then
   echo "No commits to analyze. Skipping."
