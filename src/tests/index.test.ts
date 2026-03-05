@@ -443,6 +443,29 @@ describe("transform", () => {
       expect(second).toBe(first)
     })
 
+    describe("cross-style idempotency with complex inputs", () => {
+      const complexInputs = [
+        `"Hello," she said. "It's nice."`,
+        `He shouted, "Stop! Don't go!"`,
+        `The dogs' bones were 1-5 inches...`,
+        `'Twas the night before Christmas.`,
+        `"She said, 'He whispered hello.'"`,
+        `"I'm running," she said -- "it's 1-5 miles."`,
+      ]
+
+      it.each(
+        complexInputs.flatMap((input) =>
+          (["american", "british", "german", "french"] as const).map(
+            (style) => [input, style] as [string, typeof style]
+          )
+        )
+      )('is idempotent across styles: "%s" [%s]', (input, style) => {
+        const first = transform(input, { punctuationStyle: style })
+        const second = transform(first, { punctuationStyle: style })
+        expect(second).toBe(first)
+      })
+    })
+
     it.each([
       `${LEFT_DOUBLE_QUOTE}Hello${RIGHT_DOUBLE_QUOTE}`,
       `word${EM_DASH}word`,

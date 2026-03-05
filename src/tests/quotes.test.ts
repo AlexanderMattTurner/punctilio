@@ -653,6 +653,10 @@ describe("niceQuotes", () => {
       [`"She said 'hello'"`, `${DOUBLE_LOW_9_QUOTE}She said ${SINGLE_LOW_9_QUOTE}hello${LEFT_SINGLE_QUOTE}${LEFT_DOUBLE_QUOTE}`, { punctuationStyle: "german" as const }],
       // French punctuation placement
       ['"Bonjour," dit-il.', `${LEFT_GUILLEMET}${NBSP}Bonjour${NBSP}${RIGHT_GUILLEMET}, dit-il.`, { punctuationStyle: "french" as const }],
+      // German leading apostrophe ('Twas)
+      ["'Twas the night", `${RIGHT_SINGLE_QUOTE}Twas the night`, { punctuationStyle: "german" as const }],
+      // German contractions
+      ["don't won't can't", `don${RIGHT_SINGLE_QUOTE}t won${RIGHT_SINGLE_QUOTE}t can${RIGHT_SINGLE_QUOTE}t`, { punctuationStyle: "german" as const }],
     ])("locale quotes: %s → %s", (input, expected, options) => {
       it("transforms correctly", () => {
         expect(niceQuotes(input, options)).toBe(expected)
@@ -663,8 +667,59 @@ describe("niceQuotes", () => {
       [`${DOUBLE_LOW_9_QUOTE}Guten Tag${LEFT_DOUBLE_QUOTE}`, { punctuationStyle: "german" as const }],
       [`${SINGLE_LOW_9_QUOTE}Hallo${LEFT_SINGLE_QUOTE}`, { punctuationStyle: "german" as const }],
       [`${LEFT_GUILLEMET}${NBSP}Bonjour${NBSP}${RIGHT_GUILLEMET}`, { punctuationStyle: "french" as const }],
+      // German apostrophe idempotency — RSQ must not flip to LSQ on re-processing
+      [`${RIGHT_SINGLE_QUOTE}Twas the night`, { punctuationStyle: "german" as const }],
+      [`it${RIGHT_SINGLE_QUOTE}s nice`, { punctuationStyle: "german" as const }],
     ])("locale output is idempotent: %s", (input, options) => {
       expect(niceQuotes(input, options)).toBe(input)
+    })
+
+    describe("german normalizer re-classifies non-German quote chars", () => {
+      it("converts pre-existing RSQ to straight quote for re-classification", () => {
+        // RSQ is not used in German — normalize and re-classify as apostrophe
+        const input = `${RIGHT_SINGLE_QUOTE}Twas the night`
+        expect(niceQuotes(input, { punctuationStyle: "german" })).toBe(input)
+      })
+
+      it("converts pre-existing RDQ to straight quote for re-classification", () => {
+        // RDQ is not used in German — should become German closing double
+        const input = `${LEFT_DOUBLE_QUOTE}Hello${RIGHT_DOUBLE_QUOTE}`
+        expect(niceQuotes(input, { punctuationStyle: "german" })).toBe(`${DOUBLE_LOW_9_QUOTE}Hello${LEFT_DOUBLE_QUOTE}`)
+      })
+    })
+  })
+
+  describe("nested quote punctuation placement", () => {
+    describe("british moves period/comma past all closing quotes at once", () => {
+      it.each([
+        // Period inside nested single-then-double quotes
+        [
+          `${LEFT_DOUBLE_QUOTE}He said, ${LEFT_SINGLE_QUOTE}Hello.${RIGHT_SINGLE_QUOTE}${RIGHT_DOUBLE_QUOTE}`,
+          `${LEFT_DOUBLE_QUOTE}He said, ${LEFT_SINGLE_QUOTE}Hello${RIGHT_SINGLE_QUOTE}${RIGHT_DOUBLE_QUOTE}.`,
+        ],
+        // Period inside nested double-then-single quotes
+        [
+          `${LEFT_SINGLE_QUOTE}She said, ${LEFT_DOUBLE_QUOTE}Hello.${RIGHT_DOUBLE_QUOTE}${RIGHT_SINGLE_QUOTE}`,
+          `${LEFT_SINGLE_QUOTE}She said, ${LEFT_DOUBLE_QUOTE}Hello${RIGHT_DOUBLE_QUOTE}${RIGHT_SINGLE_QUOTE}.`,
+        ],
+        // Comma inside nested quotes
+        [
+          `${LEFT_DOUBLE_QUOTE}He said, ${LEFT_SINGLE_QUOTE}Hello,${RIGHT_SINGLE_QUOTE}${RIGHT_DOUBLE_QUOTE} she replied.`,
+          `${LEFT_DOUBLE_QUOTE}He said, ${LEFT_SINGLE_QUOTE}Hello${RIGHT_SINGLE_QUOTE}${RIGHT_DOUBLE_QUOTE}, she replied.`,
+        ],
+      ])("moves past all closing quotes: %s → %s", (input, expected) => {
+        expect(niceQuotes(input, { punctuationStyle: "british" })).toBe(expected)
+      })
+    })
+
+    it.each([
+      ["british" as const],
+      ["german" as const],
+      ["french" as const],
+    ])("%s nested quote period placement is idempotent", (style) => {
+      const input = `"He said, 'Hello.'"`
+      const first = niceQuotes(input, { punctuationStyle: style })
+      expect(niceQuotes(first, { punctuationStyle: style })).toBe(first)
     })
   })
 
