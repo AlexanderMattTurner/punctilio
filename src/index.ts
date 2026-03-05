@@ -89,6 +89,10 @@ export interface TransformOptions {
    * - `"british"`: Oxford style. Converts straight quotes to smart quotes,
    *   converts prime marks, and places periods/commas outside quotes.
    *   Example: "Hello". and "Hello",
+   * - `"german"`: German style. Uses low-9 quote characters: „..." and ‚...'
+   *   (U+201E/U+201C double, U+201A/U+2018 single). Punctuation outside quotes.
+   * - `"french"`: French style. Uses guillemets with NBSP padding: «\u00A0...\u00A0»
+   *   Single quotes remain as curly quotes. Punctuation outside quotes.
    * - `"none"`: Skip all quote and punctuation transforms entirely.
    *   Straight quotes, apostrophes, and prime marks are left unmodified.
    *

@@ -93,6 +93,31 @@ describe("transform", () => {
     })
   })
 
+  describe("german and french locale styles", () => {
+    it.each([
+      ['"Guten Tag"', `${UNICODE_SYMBOLS.DOUBLE_LOW_9_QUOTE}Guten Tag${LEFT_DOUBLE_QUOTE}`, { punctuationStyle: "german" as const, nbsp: false }],
+      ['"Bonjour"', `${UNICODE_SYMBOLS.LEFT_GUILLEMET}${NBSP}Bonjour${NBSP}${UNICODE_SYMBOLS.RIGHT_GUILLEMET}`, { punctuationStyle: "french" as const, nbsp: false }],
+      ["it's", `it${RIGHT_SINGLE_QUOTE}s`, { punctuationStyle: "german" as const, nbsp: false }],
+      ["l'homme", `l${RIGHT_SINGLE_QUOTE}homme`, { punctuationStyle: "french" as const, nbsp: false }],
+    ])('transforms "%s" with locale style', (input, expected, options) => {
+      expect(transform(input, options)).toBe(expected)
+    })
+
+    it("german style is idempotent", () => {
+      const input = '"Guten Tag"'
+      const first = transform(input, { punctuationStyle: "german", nbsp: false })
+      const second = transform(first, { punctuationStyle: "german", nbsp: false })
+      expect(second).toBe(first)
+    })
+
+    it("french style is idempotent", () => {
+      const input = '"Bonjour"'
+      const first = transform(input, { punctuationStyle: "french", nbsp: false })
+      const second = transform(first, { punctuationStyle: "french", nbsp: false })
+      expect(second).toBe(first)
+    })
+  })
+
   describe("collapseSpaces option", () => {
     it.each([
       ["hello  world", "hello world", "multiple spaces"],

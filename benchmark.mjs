@@ -115,9 +115,15 @@ function getTypografForCategory(category) {
   return typografEn;
 }
 
+function getPunctuationStyleForCategory(category) {
+  if (category.includes('German')) return 'german';
+  if (category.includes('French')) return 'french';
+  return 'american';
+}
+
 async function runPackage(pkg, input, category) {
   if (pkg === 'punctilio') {
-    return transform(input, { symbols: true, fractions: true, degrees: true, superscript: true, ligatures: true });
+    return transform(input, { symbols: true, fractions: true, degrees: true, superscript: true, ligatures: true, punctuationStyle: getPunctuationStyleForCategory(category) });
   } else if (pkg === 'smartypants') {
     return smartypantsu(input, "2");
   } else if (pkg === 'tipograph') {
