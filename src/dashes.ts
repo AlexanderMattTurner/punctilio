@@ -49,9 +49,9 @@ export function enDashNumberRange(text: string, options: DashOptions = {}): stri
   const moreSegments = `(?<following>(?:${chr}?[-${MINUS}]${chr}?\\d+)*)` // -4567 in phone numbers
   const unitSuffix = `(?<suffix>${chr}?(?:[AaPp][Mm]|[xKBTM]))?`         // am/pm, K/M/B
 
-  // Positive ranges: 1-5, $100-$200, €5-€10, p.10-15
+  // Positive ranges: 1-5, 5--10, $100-$200, €5-€10, p.10-15
   const positiveRangePattern = [
-    phoneAreaCode, wb, notAfterDash, rangeStart, "-", rangeEnd, moreSegments, unitSuffix, wbe
+    phoneAreaCode, wb, notAfterDash, rangeStart, "-{1,3}", rangeEnd, moreSegments, unitSuffix, wbe
   ].join("")
 
   text = text.replace(
@@ -75,7 +75,7 @@ export function enDashNumberRange(text: string, options: DashOptions = {}): stri
   // Separate regex because MINUS isn't a word char, so \b in ${wb} would match after it
   text = text.replace(
     cachedRegExp(
-      `(?<![${LATIN_LETTERS}])(?<start>${MINUS}\\d[\\d.,]*${chr}?)-(?<neg>-)?(?<end>${chr}?\\d[\\d.,]*)(?<following>(?:${chr}?-${chr}?\\d+)*)(?<suffix>${chr}?[xKBTM])?${wbe}`,
+      `(?<![${LATIN_LETTERS}])(?<start>${MINUS}\\d[\\d.,]*${chr}?)-{1,3}?(?<neg>-)?(?<end>${chr}?\\d[\\d.,]*)(?<following>(?:${chr}?-${chr}?\\d+)*)(?<suffix>${chr}?[xKBTM])?${wbe}`,
       "g"
     ),
     (match, start, neg, end, following, suffix = "") => {
@@ -221,8 +221,8 @@ export function hyphenReplace(text: string, options: DashOptions = {}): string {
   if (style === "none") return text
   text = minusReplace(text, options)
   text = enDashDateRange(text, options)
+  text = enDashNumberRange(text, options)
   text = convertParentheticalDashes(text, sep, style)
   if (style === "american") text = normalizeEmDashSpacing(text, sep)
-  text = enDashNumberRange(text, options)
   return text
 }
