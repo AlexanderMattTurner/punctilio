@@ -106,6 +106,7 @@ describe("hyphenReplace", () => {
   describe("number ranges to en dashes", () => {
     it.each([
       ["Pages 1-5", `Pages 1${EN_DASH}5`],
+      ["5--10", `5${EN_DASH}10`],
       ["2000-2020", `2000${EN_DASH}2020`],
       ["2018-2021. Then 1-3", `2018${EN_DASH}2021. Then 1${EN_DASH}3`],
       ["p.10-15", `p.10${EN_DASH}15`],
@@ -186,6 +187,9 @@ describe("enDashNumberRange", () => {
     ["$100-$200", `$100${EN_DASH}$200`],
     ["$1.50-$3.50", `$1.50${EN_DASH}$3.50`],
     ["$1-3", `$1${EN_DASH}3`],
+    ["5--10", `5${EN_DASH}10`], // Double dash as range separator
+    ["5---10", `5${EN_DASH}10`], // Triple dash as range separator
+    ["$100--$200", `$100${EN_DASH}$200`], // Double dash with currency
     ["1 - 2", "1 - 2"], // Spaced ranges should not change
     // Multiplier suffixes
     ["1-10x", `1${EN_DASH}10x`], // lowercase x for multiplier
