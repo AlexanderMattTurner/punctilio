@@ -134,6 +134,8 @@ describe("hyphenReplace", () => {
       ["word ~~ word", "word ~~ word"],
       ["the ~5% range", "the ~5% range"],
       ["~approximately", "~approximately"],
+      ["provides ~0 evidence", "provides ~0 evidence"],
+      ["~0", "~0"],
     ])('preserves tilde in "%s"', (input) => {
       expect(hyphenReplace(input)).toBe(input)
     })

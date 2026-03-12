@@ -235,6 +235,17 @@ describe("transform", () => {
       })
     })
 
+    // Tilde preservation (tildes must not be converted to dashes)
+    describe("tilde preservation", () => {
+      it.each([
+        "provides ~0 evidence",
+        "the ~5% range",
+        "~0",
+      ])('preserves tilde in "%s"', (input) => {
+        expect(transform(input, { nbsp: false })).toBe(input)
+      })
+    })
+
     // Model name preservation (punctilio's unique strength)
     describe("model name preservation", () => {
       it.each([
