@@ -1,5 +1,11 @@
+import { readFileSync } from "fs"
+import { resolve } from "path"
+import { fileURLToPath } from "url"
 import { transformMarkdown } from "../markdown.js"
+import { transform } from "../index.js"
 import { UNICODE_SYMBOLS } from "../constants.js"
+
+const __dirname = fileURLToPath(new URL(".", import.meta.url))
 
 const {
   LEFT_DOUBLE_QUOTE: LDQ,
@@ -74,5 +80,23 @@ describe("transformMarkdown", () => {
       nbsp: false,
     })
     expect(result.trimEnd()).toEqual("See references \\[1\\]\\[4\\]\\[5\\]\\[6\\] for details.")
+  })
+
+  it("README.md prose is already typographically correct", () => {
+    const readme = readFileSync(resolve(__dirname, "../../README.md"), "utf-8")
+    const lines = readme.split("\n")
+    let inCodeBlock = false
+
+    for (const line of lines) {
+      if (line.startsWith("```")) { inCodeBlock = !inCodeBlock; continue }
+      if (inCodeBlock) continue
+      // Skip non-prose: tables, badges, HTML, footnotes, headings, list items (including indented)
+      if (/^[|#>\d]|^\s*-\s|^\s*\d+\.\s|^\[[\^!]|<span/.test(line)) continue
+      if (line.trim() === "") continue
+
+      // collapseSpaces: false because Markdown uses double-space for formatting
+      const transformed = transform(line, { nbsp: false, collapseSpaces: false, checkIdempotency: false })
+      expect(transformed).toBe(line)
+    }
   })
 })

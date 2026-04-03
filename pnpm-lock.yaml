@@ -30,6 +30,9 @@ importers:
       '@types/node':
         specifier: ^20.11.0
         version: 20.19.30
+      '@types/seedrandom':
+        specifier: 3.0.8
+        version: 3.0.8
       eslint:
         specifier: ^9.39.2
         version: 9.39.2
@@ -66,6 +69,9 @@ importers:
       retext-smartypants:
         specifier: 6.2.0
         version: 6.2.0
+      seedrandom:
+        specifier: 3.0.5
+        version: 3.0.5
       smartquotes:
         specifier: 2.3.2
         version: 2.3.2
@@ -461,6 +467,9 @@ packages:
 
   '@types/node@20.19.30':
     resolution: {integrity: sha512-WJtwWJu7UdlvzEAUm484QNg5eAoq5QR08KDNx7g45Usrs2NtOPiX8ugDqmKdXkyL03rBqU5dYNYVQetEpBHq2g==}
+
+  '@types/seedrandom@3.0.8':
+    resolution: {integrity: sha512-TY1eezMU2zH2ozQoAFAQFOPpvP15g+ZgSfTZt31AUUH/Rxtnz3H+A/Sv1Snw2/amp//omibc+AEkTaA8KUeOLQ==}
 
   '@types/stack-utils@2.0.3':
     resolution: {integrity: sha512-9aEbYZ3TbYMznPdcdr3SmIrLXwC/AKZXQeCf9Pgao5CKb8CyHuEX5jzWPTkvregvhRJHcpRO6BFoGW9ycaOkYw==}
@@ -1715,6 +1724,9 @@ packages:
     resolution: {integrity: sha512-3A6sD0WYP7+QrjbfNA2FN3FsOaGGFoekCVgTyypy53gPxhbkCIjtO6YWgdrfM+n/8sI8JeXZOIxsHjMTNxQ4nQ==}
     engines: {node: ^14.0.0 || >=16.0.0}
 
+  seedrandom@3.0.5:
+    resolution: {integrity: sha512-8OwmbklUNzwezjGInmZ+2clQmExQPvomqjL7LFqOYqtmuxRgQYqOD3mHaU+MvZn5FLUeVxVfQjwLZW/n/JFuqg==}
+
   semver@6.3.1:
     resolution: {integrity: sha512-BR7VvDCVHO+q2xBEWskxS6DJE1qRnb7DxzUrogb71CWoSficBxYsiAGd+Kl0mmq/MprG9yArRkyrQxTO6XjMzA==}
     hasBin: true
@@ -2577,6 +2589,8 @@ snapshots:
   '@types/node@20.19.30':
     dependencies:
       undici-types: 6.21.0
+
+  '@types/seedrandom@3.0.8': {}
 
   '@types/stack-utils@2.0.3': {}
 
@@ -4259,6 +4273,8 @@ snapshots:
       '@eslint-community/regexpp': 4.12.2
       refa: 0.12.1
       regexp-ast-analysis: 0.7.1
+
+  seedrandom@3.0.5: {}
 
   semver@6.3.1: {}
 

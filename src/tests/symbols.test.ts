@@ -13,6 +13,7 @@ import {
   symbolTransform,
 } from "../symbols.js"
 import { UNICODE_SYMBOLS, DEFAULT_SEPARATOR } from "../constants.js"
+import { assertLinearScaling } from "./test-helpers.js"
 
 describe("ellipsis", () => {
   it.each([
@@ -683,11 +684,9 @@ describe("symbolTransform", () => {
 })
 
 describe("multiplication ReDoS regression", () => {
-  it("handles 50k digits without quadratic slowdown", () => {
-    const start = performance.now()
-    multiplication("1".repeat(50_000))
-    // Before fix: ~4400ms (O(n²)). After fix: <50ms (O(n)).
-    expect(performance.now() - start).toBeLessThan(500)
+  it("scales linearly for long digit strings", () => {
+    // Before fix: quadratic (~100x for 10x input). After fix: linear.
+    assertLinearScaling(multiplication, (n) => "1".repeat(n), 5_000)
   })
 })
 
@@ -784,6 +783,8 @@ describe("fractions edge cases", () => {
     ["(1/2)", `(${UNICODE_SYMBOLS.FRACTION_1_2})`],
     ["5/7", "5/7"],
     ["11/12", "11/12"],
+    ["2/2", "2/2"],
+    ["4/3", "4/3"],
   ])('handles fraction edge: "%s"', (input, expected) => {
     expect(fractions(input)).toBe(expected)
   })
@@ -799,6 +800,16 @@ describe("chained multiplications", () => {
     ["10x10x10", `10${M}10${M}10`, "multi-digit"],
   ])("converts %s → %s (%s)", (input, expected) => {
     expect(multiplication(input)).toBe(expected)
+  })
+})
+
+describe("symbol stress tests", () => {
+  it("scales linearly for ellipsis patterns", () => {
+    assertLinearScaling(ellipsis, (n) => "wait... ".repeat(n))
+  })
+
+  it("scales linearly for fraction patterns", () => {
+    assertLinearScaling(fractions, (n) => "add 1/2 cup ".repeat(n))
   })
 })
 

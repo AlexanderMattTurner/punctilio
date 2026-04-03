@@ -75,11 +75,11 @@ My [`benchmark.mjs`](https://github.com/alexander-turner/punctilio/blob/main/ben
 
 ## Test suite
 
-Setting aside the benchmark, `punctilio`’s test suite includes 1,450+ tests at 100% branch coverage, including edge cases derived from competitor libraries ([`smartquotes`](https://github.com/kellym/smartquotes.js), [`retext-smartypants`](https://github.com/retextjs/retext-smartypants), [`typograf`](https://github.com/typograf/typograf)) and the [Standard Ebooks typography manual](https://standardebooks.org/manual/). I also verify that all transformations are stable when applied multiple times.
+Setting aside the benchmark, `punctilio`’s test suite includes 1,450+ tests at 100% branch coverage, including edge cases derived from competitor libraries ([`smartquotes`](https://github.com/kellym/smartquotes.js), [`retext-smartypants`](https://github.com/retextjs/retext-smartypants), [`typograf`](https://github.com/typograf/typograf)) and the [Standard Ebooks typography manual](https://standardebooks.org/manual/). I also verify that all transformations are stable when applied multiple times. All transforms run in linear time, with scaling tests that guard against quadratic RegEx backtracking.
 
 ## Works with HTML DOMs via separation boundaries
 
-Perhaps the most innovative feature of the library is that it properly handles DOMs! (This means it'll also work on Markdown: [convert to HTML](https://github.com/remarkjs/remark), transform with `punctilio`, [convert back to Markdown](https://github.com/JohannesKaufmann/html-to-markdown).)
+Perhaps the most innovative feature of the library is that it properly handles DOMs! (This means it’ll also work on Markdown: [convert to HTML](https://github.com/remarkjs/remark), transform with `punctilio`, [convert back to Markdown](https://github.com/JohannesKaufmann/html-to-markdown).)
 
 Other typography libraries take one of two approaches, both with drawbacks. 
 
@@ -121,7 +121,7 @@ For manual DOM walking or custom transforms, use `transformElement` from `puncti
 
 ## Options
 
-`punctilio` doesn't enable all transformations by default. Fractions and degrees tend to match too aggressively (perfectly applying the degree transformation requires semantic meaning). Superscript letters and punctuation ligatures have spotty font support. Furthermore, `ligatures = true` can change the meaning of text by collapsing question and exclamation marks.
+`punctilio` doesn’t enable all transformations by default. Fractions and degrees tend to match too aggressively (perfectly applying the degree transformation requires semantic meaning). Superscript letters and punctuation ligatures have spotty font support. Furthermore, `ligatures = true` can change the meaning of text by collapsing question and exclamation marks.
 
 ```typescript
 transform(text, {
