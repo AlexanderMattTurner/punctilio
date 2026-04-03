@@ -13,5 +13,8 @@ jobs:
       - name: Setup
         uses: ./.github/actions/setup
 
+      - name: Type check
+        run: pnpm build --noEmit
+
       - name: Run tests
         run: pnpm test
