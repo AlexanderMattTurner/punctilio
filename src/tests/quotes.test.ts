@@ -1,5 +1,6 @@
 import { niceQuotes, classifyApostrophes } from "../quotes.js"
 import { UNICODE_SYMBOLS, DEFAULT_SEPARATOR, TERMINAL_PUNCTUATION } from "../constants.js"
+import { assertLinearScaling } from "./test-helpers.js"
 
 const {
   LEFT_DOUBLE_QUOTE,
@@ -170,13 +171,13 @@ describe("niceQuotes", () => {
       expect(classifyApostrophes(result)).toBe(result)
     })
 
-    it("stress: 200 consecutive plural possessives", () => {
+    it("stress: 200 consecutive plural possessives scales linearly", () => {
       const words = ["dogs'", "cats'", "Bayes'", "Thomas'", "PLAYERS'"]
-      const input = Array.from({ length: 200 }, (_, i) => words[i % words.length]).join(" ")
-      const start = performance.now()
-      const result = classifyApostrophes(input)
-      expect(performance.now() - start).toBeLessThan(1000)
+      const buildInput = (n: number) => Array.from({ length: n }, (_, i) => words[i % words.length]).join(" ")
+
+      assertLinearScaling(classifyApostrophes, buildInput)
       // All should be MLA (no LSQ to pair with)
+      const result = classifyApostrophes(buildInput(200))
       expect(result).not.toContain(RIGHT_SINGLE_QUOTE)
       expect(result).not.toContain("'")
       expect(classifyApostrophes(result)).toBe(result)
@@ -701,20 +702,16 @@ describe("niceQuotes", () => {
   })
 
   describe("pathological inputs", () => {
-    it("handles 1500-char input without closing quote", () => {
+    it("scales linearly for input without closing quote", () => {
+      assertLinearScaling(classifyApostrophes, (n) => `'${"a".repeat(n)}`)
       const input = `'${"a".repeat(1500)}`
-      const start = performance.now()
-      const result = classifyApostrophes(input)
-      expect(performance.now() - start).toBeLessThan(1000)
-      expect(classifyApostrophes(result)).toBe(result)
+      expect(classifyApostrophes(classifyApostrophes(input))).toBe(classifyApostrophes(input))
     })
 
     it("handles 16 rapid apostrophes", () => {
       const input = "a'b'c'd'e'f'g'h'i'j'k'l'm'n'o'p"
       const expected = `a${MODIFIER_LETTER_APOSTROPHE}b${MODIFIER_LETTER_APOSTROPHE}c${MODIFIER_LETTER_APOSTROPHE}d${MODIFIER_LETTER_APOSTROPHE}e${MODIFIER_LETTER_APOSTROPHE}f${MODIFIER_LETTER_APOSTROPHE}g${MODIFIER_LETTER_APOSTROPHE}h${MODIFIER_LETTER_APOSTROPHE}i${MODIFIER_LETTER_APOSTROPHE}j${MODIFIER_LETTER_APOSTROPHE}k${MODIFIER_LETTER_APOSTROPHE}l${MODIFIER_LETTER_APOSTROPHE}m${MODIFIER_LETTER_APOSTROPHE}n${MODIFIER_LETTER_APOSTROPHE}o${MODIFIER_LETTER_APOSTROPHE}p`
-      const start = performance.now()
       const result = classifyApostrophes(input)
-      expect(performance.now() - start).toBeLessThan(1000)
       expect(result).toBe(expected)
       expect(classifyApostrophes(result)).toBe(result)
     })
@@ -725,4 +722,19 @@ describe("niceQuotes", () => {
     })
   })
 
+  describe("mixed-locale stress", () => {
+    it.each([
+      ["german", `Er sagte, "es ist gro\u00DFartig" und sie sagte, "h\u00F6r nicht auf"`, DOUBLE_LOW_9_QUOTE],
+      ["french", `"C'est magnifique," dit-elle. "N'arr\u00EAte pas."`, LEFT_GUILLEMET],
+      ["american", `He said, "She said, 'They said, "No."'"`, LEFT_DOUBLE_QUOTE],
+      ["british", `He said, "She said, 'They said, "No."'"`, LEFT_DOUBLE_QUOTE],
+      ["german", `Er fragte, "Hat sie 'Nein' gesagt?"`, DOUBLE_LOW_9_QUOTE],
+      ["french", `"Qui a dit 'bonjour'?" demanda-t-il.`, LEFT_GUILLEMET],
+    ] as const)("%s style produces locale-appropriate quotes and is idempotent", (style, input, expectedChar) => {
+      const opts = { punctuationStyle: style }
+      const first = niceQuotes(input, opts)
+      expect(first).toContain(expectedChar)
+      expect(niceQuotes(first, opts)).toBe(first)
+    })
+  })
 })

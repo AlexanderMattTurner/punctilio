@@ -8,7 +8,7 @@
  * @module nbsp
  */
 
-import { UNICODE_SYMBOLS, LATIN_LETTERS, wordBoundaryEnd, getEscapedSeparator, cachedRegExp } from "./constants.js"
+import { UNICODE_SYMBOLS, LATIN_LETTERS, SPACE_CHARS, wordBoundaryEnd, getEscapedSeparator, cachedRegExp } from "./constants.js"
 import type { SymbolOptions } from "./symbols.js"
 
 const {
@@ -238,6 +238,10 @@ const NBSP_TRANSFORMS: NbspFn[] = [
 
 /** Apply all non-breaking space transformations in sequence. */
 export function nbspTransform(text: string, options: NbspOptions = {}): string {
+  // All nbsp patterns require a space, tab, or existing nbsp to match.
+  // Short-circuit if the text contains none of these.
+  if (!cachedRegExp(`[${SPACE_CHARS}\\t]`, "").test(text)) return text
+
   for (const fn of NBSP_TRANSFORMS) {
     text = fn(text, options)
   }

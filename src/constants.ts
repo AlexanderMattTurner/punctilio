@@ -232,7 +232,7 @@ export function spaceBoundaryEnd(escapedSeparator: string): string {
  * when using the default separator). Capped to prevent unbounded growth.
  */
 const regexCache = new Map<string, RegExp>()
-const MAX_REGEX_CACHE_SIZE = 1000
+export const MAX_REGEX_CACHE_SIZE = 1000
 
 /**
  * Returns a cached RegExp for the given pattern and flags.

@@ -1,6 +1,7 @@
 import { transform, DEFAULT_SEPARATOR, countSeparators } from "../index.js"
 import { ellipsis } from "../symbols.js"
-import { UNICODE_SYMBOLS, REGEX_SPECIAL_CHARS } from "../constants.js"
+import { UNICODE_SYMBOLS, REGEX_SPECIAL_CHARS, MAX_REGEX_CACHE_SIZE } from "../constants.js"
+import { assertLinearScaling, buildMixedContent } from "./test-helpers.js"
 
 const {
   LEFT_DOUBLE_QUOTE,
@@ -507,36 +508,16 @@ describe("transform", () => {
   })
 
   describe("regex performance", () => {
-    it("handles pathological quote patterns efficiently", () => {
-      const input = '"a"'.repeat(50) + "'"
-      const start = Date.now()
-      transform(input)
-      const duration = Date.now() - start
-      expect(duration).toBeLessThan(1000)
+    it("scales linearly for pathological quote patterns", () => {
+      assertLinearScaling(transform, (n) => '"a"'.repeat(n) + "'")
     })
 
-    it("handles pathological dash patterns efficiently", () => {
-      const input = "1-2-3-4-5-6-7-8-9-10-11-12-13-14-15"
-      const start = Date.now()
-      transform(input)
-      const duration = Date.now() - start
-      expect(duration).toBeLessThan(1000)
+    it("scales linearly for pathological dash patterns", () => {
+      assertLinearScaling(transform, (n) => "1" + "-1".repeat(n))
     })
 
-    it("handles 1000 unbalanced single quotes efficiently", () => {
-      const input = "'".repeat(1000) + "a"
-      const start = performance.now()
-      transform(input)
-      const duration = performance.now() - start
-      expect(duration).toBeLessThan(500)
-    })
-
-    it("handles 500 chained number patterns efficiently", () => {
-      const input = "1" + "-1".repeat(500)
-      const start = performance.now()
-      transform(input)
-      const duration = performance.now() - start
-      expect(duration).toBeLessThan(500)
+    it("scales linearly for unbalanced single quotes", () => {
+      assertLinearScaling(transform, (n) => "'".repeat(n) + "a")
     })
   })
 
@@ -626,28 +607,88 @@ describe("transform", () => {
   })
 
   describe("large input handling", () => {
-    it("handles 1MB of text", () => {
-      const input = "Hello, world! ".repeat(70000)
-      const start = performance.now()
-      transform(input)
-      expect(performance.now() - start).toBeLessThan(2000)
+    it("scales linearly on seeded mixed content", () => {
+      assertLinearScaling(transform, (n) => buildMixedContent(n * 100), 50)
+    })
+
+    it("scales linearly with all features enabled", () => {
+      const allFeatures = { fractions: true, degrees: true, superscript: true, ligatures: true }
+      assertLinearScaling((input) => transform(input, allFeatures), (n) => buildMixedContent(n * 100), 50)
+    })
+  })
+
+  describe("idempotency across punctuation styles", () => {
+    const mixedInput = `"Hello," she said -- "it's pages 1-5." Wait... 5x5 != 25. He's 5'10" tall.`
+
+    it.each([
+      ["american"],
+      ["british"],
+      ["german"],
+      ["french"],
+    ] as const)("idempotent with %s style", (style) => {
+      const opts = { punctuationStyle: style, checkIdempotency: false, nbsp: false } as const
+      const first = transform(mixedInput, opts)
+      const second = transform(first, opts)
+      expect(second).toBe(first)
+    })
+  })
+
+  describe("edge case inputs", () => {
+    it.each([
+      ["empty string", "", ""],
+      ["single space", " ", " "],
+      ["newlines only", "\n\n\n", "\n\n\n"],
+      ["tab only", "\t", "\t"],
+      ["nbsp only", NBSP, NBSP],
+    ])("handles %s", (_desc, input, expected) => {
+      expect(transform(input)).toBe(expected)
+    })
+  })
+
+  describe("separator collision", () => {
+    it("preserves default separator in plain transform", () => {
+      // transform() itself uses the separator internally but tolerates it in input
+      // The assertSeparatorAbsent check is in the rehype/remark plugins
+      const input = `text${DEFAULT_SEPARATOR}more`
+      const result = transform(input)
+      expect(countSeparators(result, DEFAULT_SEPARATOR)).toBe(1)
+    })
+
+    it("does not throw for single char of multi-char default separator", () => {
+      expect(() => transform(`text${DEFAULT_SEPARATOR[0]}more`)).not.toThrow()
+    })
+  })
+
+  describe("regex cache thrashing", () => {
+    it("produces correct results after exceeding cache capacity", () => {
+      const input = `"Hello," she said.`
+      const separatorCount = MAX_REGEX_CACHE_SIZE + 200
+      for (let i = 0; i < separatorCount; i++) {
+        const sep = String.fromCharCode(0xE100 + i)
+        const result = transform(input, { separator: sep, nbsp: false })
+        expect(result).toContain(LEFT_DOUBLE_QUOTE)
+        expect(result).toContain(RIGHT_DOUBLE_QUOTE)
+      }
     })
   })
 
   describe("ReDoS resistance", () => {
-    const MAX_TIMEOUT_MS = 100
-
     it.each([
-      ["10000 single quotes", "'".repeat(10000)],
-      ["10000 double quotes", '"'.repeat(10000)],
-      ["1000 unbalanced quotes", '"Hello '.repeat(1000)],
-      ["10000 hyphens", "-".repeat(10000)],
-      ["alternating digits/hyphens", "1-2-3-4-5-6-7-8-9-0".repeat(500)],
-      ["10000 dots", ".".repeat(10000)],
-    ] as const)("handles %s", (_, input) => {
-      const start = performance.now()
-      transform(input)
-      expect(performance.now() - start).toBeLessThan(MAX_TIMEOUT_MS)
+      ["single quotes", (n: number) => "'".repeat(n)],
+      ["double quotes", (n: number) => '"'.repeat(n)],
+      ["unbalanced quotes", (n: number) => '"Hello '.repeat(n)],
+      ["hyphens", (n: number) => "-".repeat(n)],
+      ["alternating digits/hyphens", (n: number) => "1-2-3-4-5-6-7-8-9-0".repeat(n / 10)],
+      ["dots", (n: number) => ".".repeat(n)],
+      ["fraction-like patterns", (n: number) => "1/2 ".repeat(n)],
+      ["short words (nbsp)", (n: number) => "a b c d e f ".repeat(n)],
+      ["math symbol patterns", (n: number) => "!= ".repeat(n)],
+    ] as const)("scales linearly for %s", (_, buildInput) => {
+      assertLinearScaling(transform, buildInput)
+    })
+
+    it("scales linearly on seeded mixed content", () => {
+      assertLinearScaling(transform, (n) => buildMixedContent(n * 10))
     })
   })
 })

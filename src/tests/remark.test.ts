@@ -170,4 +170,31 @@ describe("remarkPunctilio", () => {
     const first = await processMarkdown('"Hello," she said -- "it\'s pages 1-5."', { nbsp: false })
     expect(await processMarkdown(first, { nbsp: false })).toEqual(first)
   })
+
+  describe("stress tests", () => {
+    it("handles many paragraphs", async () => {
+      const count = 100
+      const paragraphs = Array.from({ length: count }, () => '"Hello," she said.').join("\n\n")
+      const result = await processMarkdown(paragraphs, { nbsp: false })
+      const matchCount = (result.match(new RegExp(LDQ, "g")) ?? []).length
+      expect(matchCount).toBe(count)
+    })
+
+    it("handles paragraph with many inline elements", async () => {
+      const count = 50
+      const inlines = Array.from({ length: count }, (_, i) => `*"word${i}"*`).join(" ")
+      const result = await processMarkdown(inlines, { nbsp: false })
+      const matchCount = (result.match(new RegExp(LDQ, "g")) ?? []).length
+      expect(matchCount).toBe(count)
+    })
+
+    it("handles quotes spanning nested inline elements", async () => {
+      // Exercises text node flattening across multiple nesting levels:
+      // emphasis inside strong inside link text
+      const md = `[**"Hello,** *world"*](url)`
+      const result = await processMarkdown(md, { nbsp: false })
+      expect(result).toContain(LDQ)
+      expect(result).toContain(RDQ)
+    })
+  })
 })

@@ -293,43 +293,58 @@ export function primeMarks(text: string, options: SymbolOptions = {}): string {
   return text
 }
 
-const FRACTION_MAP: Record<string, string> = {
-  "1/4": UNICODE_SYMBOLS.FRACTION_1_4,
-  "1/2": UNICODE_SYMBOLS.FRACTION_1_2,
-  "3/4": UNICODE_SYMBOLS.FRACTION_3_4,
-  "1/3": UNICODE_SYMBOLS.FRACTION_1_3,
-  "2/3": UNICODE_SYMBOLS.FRACTION_2_3,
-  "1/5": UNICODE_SYMBOLS.FRACTION_1_5,
-  "2/5": UNICODE_SYMBOLS.FRACTION_2_5,
-  "3/5": UNICODE_SYMBOLS.FRACTION_3_5,
-  "4/5": UNICODE_SYMBOLS.FRACTION_4_5,
-  "1/6": UNICODE_SYMBOLS.FRACTION_1_6,
-  "5/6": UNICODE_SYMBOLS.FRACTION_5_6,
-  "1/8": UNICODE_SYMBOLS.FRACTION_1_8,
-  "3/8": UNICODE_SYMBOLS.FRACTION_3_8,
-  "5/8": UNICODE_SYMBOLS.FRACTION_5_8,
-  "7/8": UNICODE_SYMBOLS.FRACTION_7_8,
-}
+/**
+ * Supported Unicode fractions: [numerator, denominator, unicode character].
+ * The regex alternation and lookup map are both derived from this list.
+ */
+const FRACTION_TUPLES: [string, string, string][] = [
+  ["1", "4", UNICODE_SYMBOLS.FRACTION_1_4],
+  ["1", "2", UNICODE_SYMBOLS.FRACTION_1_2],
+  ["3", "4", UNICODE_SYMBOLS.FRACTION_3_4],
+  ["1", "3", UNICODE_SYMBOLS.FRACTION_1_3],
+  ["2", "3", UNICODE_SYMBOLS.FRACTION_2_3],
+  ["1", "5", UNICODE_SYMBOLS.FRACTION_1_5],
+  ["2", "5", UNICODE_SYMBOLS.FRACTION_2_5],
+  ["3", "5", UNICODE_SYMBOLS.FRACTION_3_5],
+  ["4", "5", UNICODE_SYMBOLS.FRACTION_4_5],
+  ["1", "6", UNICODE_SYMBOLS.FRACTION_1_6],
+  ["5", "6", UNICODE_SYMBOLS.FRACTION_5_6],
+  ["1", "8", UNICODE_SYMBOLS.FRACTION_1_8],
+  ["3", "8", UNICODE_SYMBOLS.FRACTION_3_8],
+  ["5", "8", UNICODE_SYMBOLS.FRACTION_5_8],
+  ["7", "8", UNICODE_SYMBOLS.FRACTION_7_8],
+]
 
-/** Convert 1/2, 1/4, etc. to ½, ¼, etc. */
+const FRACTION_MAP = Object.fromEntries(FRACTION_TUPLES.map(([n, d, u]) => [`${n}/${d}`, u]))
+
+/** Convert 1/2, 1/4, etc. to ½, ¼, etc. Single-pass using alternation. */
 export function fractions(text: string, options: SymbolOptions = {}): string {
   const chr = getEscapedSeparator(options)
 
-  for (const [ascii, unicode] of Object.entries(FRACTION_MAP)) {
-    // Negative lookbehind/lookahead: ensures fraction is not part of a larger number or path
-    // - (?<![/.\d]) prevents matching after slashes, dots, or digits
-    // - (?![/\d]|\.\d) prevents matching before slashes, digits, or decimal points
-    // Named captures preserve separators before and after the slash
-    const [numerator, denominator] = ascii.split("/")
-    const pattern = cachedRegExp(
-      `(?<![/\\.\\d])${numerator}(?<sepBefore>${chr}?)/(?<sepAfter>${chr}?)${denominator}(?![/\\d]|\\.\\d)`,
-      "g"
-    )
-    // Preserve separators around the fraction Unicode character
-    text = text.replace(pattern, `$<sepBefore>${unicode}$<sepAfter>`)
-  }
+  // Build alternation of exact valid pairs: `1${sep}?/${sep}?4|1${sep}?/${sep}?2|...`
+  // Only exact pairs from FRACTION_TUPLES match — no cross-product.
+  const pairAlternation = FRACTION_TUPLES.map(([n, d]) =>
+    `${n}${chr}?/${chr}?${d}`
+  ).join("|")
 
-  return text
+  // - (?<![/.\d]) prevents matching after slashes, dots, or digits
+  // - (?![/\d]|\.\d) prevents matching before slashes, digits, or decimal points
+  const pattern = cachedRegExp(
+    `(?<![/\\.\\d])(?:${pairAlternation})(?![/\\d]|\\.\\d)`,
+    "g"
+  )
+
+  const sepPattern = cachedRegExp(chr, "g")
+
+  return text.replace(pattern, (match) => {
+    // Split on separator to isolate the raw fraction and preserve markers.
+    // e.g. "1\uE000/\uE0002" → parts ["1", "/", "2"], separators ["\uE000", "\uE000"]
+    const parts = match.split(sepPattern)
+    const raw = parts.join("")
+    const separators = match.match(sepPattern) ?? []
+    // Distribute separators: first goes before the unicode char, second after
+    return `${separators[0] ?? ""}${FRACTION_MAP[raw]}${separators[1] ?? ""}`
+  })
 }
 
 const ORDINAL_MAP: Record<string, string> = {

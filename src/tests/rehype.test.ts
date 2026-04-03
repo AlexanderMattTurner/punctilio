@@ -461,4 +461,49 @@ describe("rehypePunctilio", () => {
       )
     })
   })
+
+  describe("stress tests", () => {
+    it("handles many sibling paragraphs", async () => {
+      // 100 siblings: enough to exercise the visitor/transformed-set logic
+      // without spending seconds on HTML parsing
+      const count = 100
+      const html = '<div>' + '<p>"Hello," she said.</p>'.repeat(count) + '</div>'
+      const result = await processHtml(html, { nbsp: false })
+      const matchCount = (result.match(new RegExp(LDQ, "g")) ?? []).length
+      expect(matchCount).toBe(count)
+    })
+
+    it("handles paragraph with many inline elements", async () => {
+      const count = 100
+      const inlineElements = Array.from({ length: count }, (_, i) =>
+        `<em>"word${i}"</em>`
+      ).join(" ")
+      const html = `<p>${inlineElements}</p>`
+      const result = await processHtml(html, { nbsp: false })
+      const matchCount = (result.match(new RegExp(LDQ, "g")) ?? []).length
+      expect(matchCount).toBe(count)
+    })
+
+    it("transforms text at 100-level deep nesting", async () => {
+      let html = '"Hello"'
+      for (let i = 0; i < 100; i++) {
+        html = `<span>${html}</span>`
+      }
+      html = `<p>${html}</p>`
+      const result = await processHtml(html, { nbsp: false })
+      expect(result).toContain(LDQ)
+      expect(result).toContain(RDQ)
+    })
+
+    it("does not crash beyond MAX_RECURSION_DEPTH", async () => {
+      let html = '"Hello"'
+      for (let i = 0; i < 1050; i++) {
+        html = `<span>${html}</span>`
+      }
+      html = `<p>${html}</p>`
+      // Should not throw — deep nesting is silently skipped
+      const result = await processHtml(html, { nbsp: false })
+      expect(result).toContain("Hello")
+    })
+  })
 })

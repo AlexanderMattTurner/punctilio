@@ -14,6 +14,7 @@ import {
   type NbspOptions,
 } from "../nbsp.js"
 import { UNICODE_SYMBOLS, DEFAULT_SEPARATOR } from "../constants.js"
+import { assertLinearScaling } from "./test-helpers.js"
 
 const { NBSP, COPYRIGHT, REGISTERED, TRADEMARK } = UNICODE_SYMBOLS
 const SEP = DEFAULT_SEPARATOR
@@ -250,6 +251,17 @@ describe("nbspTransform", () => {
 
     it("honorific + unit don't double-apply with short words", () => {
       expect(nbspTransform("St. Anne had 5 kg")).toBe(`St.${NBSP}Anne had 5${NBSP}kg`)
+    })
+  })
+
+  describe("stress tests", () => {
+    it("scales linearly for short words", () => {
+      assertLinearScaling(nbspTransform, (n) => "a b c d e f ".repeat(n))
+    })
+
+    it("early-exits on text with no spaces", () => {
+      const result = nbspTransform("nospaces".repeat(1000))
+      expect(result).toBe("nospaces".repeat(1000))
     })
   })
 })
