@@ -1,6 +1,6 @@
 import { jest } from "@jest/globals"
 import { assertSeparatorAbsent, countSeparators, assertSeparatorCountPreserved, formatErrorString } from "../utils.js"
-import { DEFAULT_SEPARATOR, cachedRegExp } from "../constants.js"
+import { DEFAULT_SEPARATOR, cachedRegExp, clearRegexCache } from "../constants.js"
 
 describe("assertSeparatorAbsent", () => {
   it.each([
@@ -77,6 +77,10 @@ describe("assertSeparatorCountPreserved", () => {
 })
 
 describe("cachedRegExp", () => {
+  afterEach(() => {
+    clearRegexCache()
+  })
+
   it("evicts oldest entry when cache exceeds max size", () => {
     // Fill the cache well beyond 1000 entries with unique patterns
     for (let i = 0; i < 1010; i++) {

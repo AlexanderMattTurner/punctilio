@@ -737,4 +737,10 @@ describe("niceQuotes", () => {
       expect(niceQuotes(first, opts)).toBe(first)
     })
   })
+
+  describe("apostrophe regex scaling", () => {
+    it("scales linearly for repeated apostrophe patterns", () => {
+      assertLinearScaling(classifyApostrophes, (n) => "'a".repeat(n))
+    })
+  })
 })

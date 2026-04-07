@@ -254,3 +254,11 @@ export function cachedRegExp(pattern: string, flags: string): RegExp {
   re.lastIndex = 0
   return re
 }
+
+/**
+ * Clears the regex cache. Exported for test isolation only.
+ * @internal
+ */
+export function clearRegexCache(): void {
+  regexCache.clear()
+}

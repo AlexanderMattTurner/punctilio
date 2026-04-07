@@ -699,7 +699,8 @@ describe("transform", () => {
 
     it("handles undefined option values", () => {
       const input = '"Hello," she said.'
-      const expected = transform(input)
+      // `nbsp: undefined` overrides the default (true) via spread, so nbsp is skipped
+      const expected = transform(input, { nbsp: false })
       expect(transform(input, { nbsp: undefined })).toBe(expected)
     })
 

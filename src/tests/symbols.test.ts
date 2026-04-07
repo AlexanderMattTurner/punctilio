@@ -811,5 +811,13 @@ describe("symbol stress tests", () => {
   it("scales linearly for fraction patterns", () => {
     assertLinearScaling(fractions, (n) => "add 1/2 cup ".repeat(n))
   })
+
+  it("completes 10000 consecutive single quotes in under 2 seconds", () => {
+    const input = "'".repeat(10000)
+    const start = performance.now()
+    symbolTransform(input)
+    const elapsed = performance.now() - start
+    expect(elapsed).toBeLessThan(2000)
+  })
 })
 
