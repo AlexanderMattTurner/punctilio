@@ -1,3 +1,4 @@
+import { jest } from "@jest/globals"
 import { assertSeparatorAbsent, countSeparators, assertSeparatorCountPreserved, formatErrorString } from "../utils.js"
 import { DEFAULT_SEPARATOR, cachedRegExp } from "../constants.js"
 
@@ -89,20 +90,19 @@ describe("cachedRegExp", () => {
 })
 
 describe("formatErrorString", () => {
-  let originalWrite: typeof process.stderr.write
   let stderrOutput: string[]
+  let stderrSpy: jest.SpiedFunction<typeof process.stderr.write>
 
   beforeEach(() => {
-    originalWrite = process.stderr.write
     stderrOutput = []
-    process.stderr.write = ((chunk: string) => {
-      stderrOutput.push(chunk)
+    stderrSpy = jest.spyOn(process.stderr, "write").mockImplementation((chunk: string | Uint8Array) => {
+      stderrOutput.push(String(chunk))
       return true
-    }) as typeof process.stderr.write
+    })
   })
 
   afterEach(() => {
-    process.stderr.write = originalWrite
+    stderrSpy.mockRestore()
   })
 
   it("returns JSON-stringified content for short strings", () => {

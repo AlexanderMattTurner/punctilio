@@ -128,7 +128,7 @@ export const LATIN_LETTERS = "A-Za-z\\u00C0-\\u00D6\\u00D8-\\u00F6\\u00F8-\\u00F
  * internals, PDF-to-text output, and icon fonts that repurpose U+E000.
  */
 export const DEFAULT_SEPARATOR = "\uE000\uE001"
-export const ESCAPED_DEFAULT_SEPARATOR = escapeStringRegexp(DEFAULT_SEPARATOR)
+const ESCAPED_DEFAULT_SEPARATOR = escapeStringRegexp(DEFAULT_SEPARATOR)
 
 /**
  * Returns the regex-escaped separator string for the given options,

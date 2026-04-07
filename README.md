@@ -129,6 +129,7 @@ transform(text, {
   dashStyle: "american" | "british" | "none", // default: 'american'
 
   symbols: true, // ellipsis, math, legal, arrows
+  includeArrows: true, // arrow transforms (-> → →); only applies when symbols is true
   collapseSpaces: true, // normalize whitespace
   fractions: false, // 1/2 → ½
   degrees: false, // 20 C → 20 °C

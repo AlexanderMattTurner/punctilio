@@ -666,8 +666,7 @@ describe("transform", () => {
       for (let i = 0; i < separatorCount; i++) {
         const sep = String.fromCharCode(0xE100 + i)
         const result = transform(input, { separator: sep, nbsp: false })
-        expect(result).toContain(LEFT_DOUBLE_QUOTE)
-        expect(result).toContain(RIGHT_DOUBLE_QUOTE)
+        expect(result).toBe(`${LEFT_DOUBLE_QUOTE}Hello,${RIGHT_DOUBLE_QUOTE} she said.`)
       }
     })
   })
@@ -689,6 +688,28 @@ describe("transform", () => {
 
     it("scales linearly on seeded mixed content", () => {
       assertLinearScaling(transform, (n) => buildMixedContent(n * 10))
+    })
+  })
+
+  describe("edge cases", () => {
+    it("handles empty string input", () => {
+      expect(transform("")).toBe("")
+      expect(transform("", { nbsp: false })).toBe("")
+    })
+
+    it("handles undefined option values", () => {
+      const input = '"Hello," she said.'
+      const expected = transform(input)
+      expect(transform(input, { nbsp: undefined })).toBe(expected)
+    })
+
+    it("handles long string without transformable content", () => {
+      const input = "abcdefghij ".repeat(1000)
+      const start = performance.now()
+      const result = transform(input)
+      const elapsed = performance.now() - start
+      expect(result).toBe(input)
+      expect(elapsed).toBeLessThan(2000)
     })
   })
 })

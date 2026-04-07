@@ -414,14 +414,12 @@ describe("rehypePunctilio", () => {
 
     it("inserts nbsp when option enabled", async () => {
       const result = await processHtml('<p>Dr. Smith has 5 kg of items.</p>', { nbsp: true })
-      expect(result).toContain(`Dr.${NBSP}Smith`)
-      expect(result).toContain(`5${NBSP}kg`)
+      expect(result).toBe(`<p>Dr.${NBSP}Smith has 5${NBSP}kg${NBSP}of${NBSP}items.</p>`)
     })
 
     it("inserts nbsp by default", async () => {
       const result = await processHtml('<p>Dr. Smith has 5 kg of items.</p>')
-      expect(result).toContain(`Dr.${NBSP}Smith`)
-      expect(result).toContain(`5${NBSP}kg`)
+      expect(result).toBe(`<p>Dr.${NBSP}Smith has 5${NBSP}kg${NBSP}of${NBSP}items.</p>`)
     })
 
     it("does not insert nbsp when option disabled", async () => {
@@ -431,9 +429,7 @@ describe("rehypePunctilio", () => {
 
     it("works across element boundaries", async () => {
       const result = await processHtml('<p>See <em>Fig.</em> 1</p>', { nbsp: true })
-      expect(result).toContain(`Fig.`)
-      // The nbsp should appear between Fig. and 1
-      expect(result).toContain(NBSP)
+      expect(result).toBe(`<p>See <em>Fig.</em>${NBSP}1</p>`)
     })
   })
 
@@ -491,8 +487,10 @@ describe("rehypePunctilio", () => {
       }
       html = `<p>${html}</p>`
       const result = await processHtml(html, { nbsp: false })
-      expect(result).toContain(LDQ)
-      expect(result).toContain(RDQ)
+      let expected = `${LDQ}Hello${RDQ}`
+      for (let i = 0; i < 100; i++) expected = `<span>${expected}</span>`
+      expected = `<p>${expected}</p>`
+      expect(result).toBe(expected)
     })
 
     it("does not crash beyond MAX_RECURSION_DEPTH", async () => {
@@ -503,7 +501,11 @@ describe("rehypePunctilio", () => {
       html = `<p>${html}</p>`
       // Should not throw — deep nesting is silently skipped
       const result = await processHtml(html, { nbsp: false })
-      expect(result).toContain("Hello")
+      // Build expected: same structure with smart quotes applied
+      let expected = `${LDQ}Hello${RDQ}`
+      for (let i = 0; i < 1050; i++) expected = `<span>${expected}</span>`
+      expected = `<p>${expected}</p>`
+      expect(result).toBe(expected)
     })
   })
 })

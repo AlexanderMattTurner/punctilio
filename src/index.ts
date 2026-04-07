@@ -143,6 +143,13 @@ export interface TransformOptions {
   ligatures?: boolean
 
   /**
+   * Whether to include arrow transforms (-> → →, <- → ←, <-> → ↔).
+   * Only applies when `symbols` is true.
+   * Default: true
+   */
+  includeArrows?: boolean
+
+  /**
    * Whether to insert non-breaking spaces in typographically appropriate
    * locations (after short words, between numbers and units, before
    * last words to prevent widows, after honorifics, etc.).
@@ -208,6 +215,7 @@ export const MODIFIER_LETTER_APOSTROPHE = UNICODE_SYMBOLS.MODIFIER_LETTER_APOSTR
  */
 const defaultOpts: Required<Omit<TransformOptions, "separator">> = {
   symbols: true,
+  includeArrows: true,
   fractions: false,
   degrees: false,
   superscript: false,
