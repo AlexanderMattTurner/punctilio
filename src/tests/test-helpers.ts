@@ -60,9 +60,10 @@ export function buildMixedContent(charCount: number, seed: string = "42"): strin
  * Default startingN of 5000 produces inputs from ~5K to ~40K chars, which is
  * past V8's string allocation overhead inflection point where ms/char stabilizes.
  *
- * Uses the median of at least 5 runs (min 20ms total) per size. The median is
+ * Uses the median of at least 9 runs (min 50ms total) per size. The median is
  * robust to GC pauses and scheduling noise that inflate individual runs, making
- * the ratio stable in noisy CI environments.
+ * the ratio stable in noisy CI environments. With 9 samples the median tolerates
+ * up to 4 outlier runs before being affected.
  *
  * @param fn - The function to benchmark
  * @param buildInput - Builds an input string of approximately `n` units
@@ -80,8 +81,8 @@ export function assertLinearScaling(
 
   function measureMsPerChar(mult: number): number {
     const input = buildInput(startingN * mult)
-    const minIterations = 5
-    const minElapsedMs = 20
+    const minIterations = 9
+    const minElapsedMs = 50
     const times: number[] = []
     let totalElapsed = 0
     while (times.length < minIterations || totalElapsed < minElapsedMs) {
