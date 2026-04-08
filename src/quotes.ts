@@ -113,7 +113,6 @@ function convertUnmatchedPluralPossessives(text: string, sep: string): string {
 function buildBeginningDoublePattern(escapedSep: string, rawEscSep: string): string {
   const lookbehind = `(?<=^|[\\s\\(\\/\\[\\{\\-${EM_DASH}]|${escapedSep})`
   const beforeCapture = `(?<beforeChr>${escapedSep}?)`
-  const quote = `["]`
 
   // Characters that signal an ending-quote position (not valid openers)
   const endingChars = `\\s\\)${EM_DASH},!?;:.\\}${rawEscSep}`
@@ -129,7 +128,7 @@ function buildBeginningDoublePattern(escapedSep: string, rawEscSep: string): str
     `(?=[^"]{1,50}")`,
   ]
 
-  return `${lookbehind}${beforeCapture}${quote}(?<afterChr>${afterAlternatives.join("|")})`
+  return `${lookbehind}${beforeCapture}["](?<afterChr>${afterAlternatives.join("|")})`
 }
 
 /** Convert straight double quotes to curly quotes */
