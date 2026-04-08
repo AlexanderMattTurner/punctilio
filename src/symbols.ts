@@ -92,11 +92,14 @@ export function multiplication(text: string, options: SymbolOptions = {}): strin
   return text
 }
 
+/** [leftChars, rightChars, negativeLookahead, replacement] */
+type MathSymbolRule = [string, string, string, string]
+
 /**
- * Math symbol replacement map: [left char(s), right char(s), negative lookahead, replacement].
+ * Math symbol replacement map.
  * The separator is inserted between left and right when building the regex.
  */
-const MATH_SYMBOL_MAP: [string, string, string, string][] = [
+const MATH_SYMBOL_MAP: MathSymbolRule[] = [
   ["!", "=", "(?!=)", NOT_EQUAL],
   ["\\+/", "-", "", PLUS_MINUS],
   ["\\+", "-", "", PLUS_MINUS],
@@ -117,6 +120,9 @@ export function mathSymbols(text: string, options: SymbolOptions = {}): string {
   return text
 }
 
+/** Predicate that decides whether a legal symbol should be converted based on surrounding text. */
+type ContextPredicate = (before: string, after: string) => boolean
+
 /**
  * Context-aware replacement for legal symbols like (c), (r), (tm).
  * Extracts surrounding text and delegates the convert/skip decision to a predicate.
@@ -125,7 +131,7 @@ function contextAwareLegalReplace(
   text: string,
   pattern: RegExp,
   replacement: string,
-  shouldConvert: (before: string, after: string) => boolean,
+  shouldConvert: ContextPredicate,
 ): string {
   return text.replace(pattern, (match: string, offset: number, str: string) => {
     const before = str.slice(Math.max(0, offset - 25), offset)
@@ -152,8 +158,11 @@ export function legalSymbols(text: string): string {
   return text
 }
 
+/** [asciiPattern, unicodeSymbol] */
+type ArrowRule = [string, string]
+
 /** Arrow pattern map: arrow shape → Unicode symbol */
-const ARROW_MAP: [string, string][] = [
+const ARROW_MAP: ArrowRule[] = [
   [`<-+${"%CHR%"}?>`, ARROW_LEFT_RIGHT], // Bidirectional: <-> or <-->
   ["-+>", ARROW_RIGHT],                   // Right: -> or -->
   ["<-+", ARROW_LEFT],                    // Left: <- or <--
@@ -293,11 +302,14 @@ export function primeMarks(text: string, options: SymbolOptions = {}): string {
   return text
 }
 
+/** [numerator, denominator, unicodeChar] */
+type FractionRule = [string, string, string]
+
 /**
- * Supported Unicode fractions: [numerator, denominator, unicode character].
+ * Supported Unicode fractions.
  * The regex alternation and lookup map are both derived from this list.
  */
-const FRACTION_TUPLES: [string, string, string][] = [
+const FRACTION_TUPLES: FractionRule[] = [
   ["1", "4", UNICODE_SYMBOLS.FRACTION_1_4],
   ["1", "2", UNICODE_SYMBOLS.FRACTION_1_2],
   ["3", "4", UNICODE_SYMBOLS.FRACTION_3_4],
@@ -381,12 +393,15 @@ export function collapseSpaces(text: string): string {
   })
 }
 
+/** [firstChar, repeatedChar, replacement] */
+type LigatureRule = [string, string, string]
+
 /**
- * Punctuation ligature map: [first char, repeated char, replacement]
+ * Punctuation ligature map.
  * Pattern: first(sep)?repeated(?:sep?repeated)* → replacement
  * Order matters: handle mixed punctuation first, then repeated
  */
-const PUNCTUATION_LIGATURE_MAP: [string, string, string][] = [
+const PUNCTUATION_LIGATURE_MAP: LigatureRule[] = [
   ["\\?", "!", QUESTION_EXCLAMATION],  // ?!+ → ⁈
   ["!", "\\?", EXCLAMATION_QUESTION],  // !?+ → ⁉
   ["\\?", "\\?", DOUBLE_QUESTION],     // ??+ → ⁇
