@@ -107,6 +107,30 @@ function convertUnmatchedPluralPossessives(text: string, sep: string): string {
   )
 }
 
+/**
+ * Build the beginning-double-quote regex pattern from named fragments.
+ */
+function buildBeginningDoublePattern(escapedSep: string, rawEscSep: string): string {
+  const lookbehind = `(?<=^|[\\s\\(\\/\\[\\{\\-${EM_DASH}]|${escapedSep})`
+  const beforeCapture = `(?<beforeChr>${escapedSep}?)`
+
+  // Characters that signal an ending-quote position (not valid openers)
+  const endingChars = `\\s\\)${EM_DASH},!?;:.\\}${rawEscSep}`
+
+  const afterAlternatives = [
+    // Separator followed by space/period/comma (consumed into afterChr)
+    `(?<sepWithPunct>${escapedSep}[ .,])`,
+    // Three-period ellipsis or a character that isn't ending punctuation
+    `(?=${escapedSep}?\\.{3}|${escapedSep}?[^${endingChars}])`,
+    // Content followed by a matching closing straight quote — handles
+    // quoted punctuation like "?" and "!" where the first char after the
+    // opening quote would otherwise look like an ending-quote context
+    `(?=[^"]{1,50}")`,
+  ]
+
+  return `${lookbehind}${beforeCapture}["](?<afterChr>${afterAlternatives.join("|")})`
+}
+
 /** Convert straight double quotes to curly quotes */
 function convertDoubleQuotes(text: string, sep: string): string {
   const rawEscSep = escapeStringRegexp(sep)
@@ -118,10 +142,7 @@ function convertDoubleQuotes(text: string, sep: string): string {
   // Handle whitespace-only quotes " " - require non-quote chars on both sides
   text = text.replace(/(?<=^|[\s([{])"(?<whitespace>\s+)"(?=$|[\s)\]}.!?,;:])/g, `${LEFT_DOUBLE_QUOTE}$<whitespace>${RIGHT_DOUBLE_QUOTE}`)
 
-  const beginningDouble = cachedRegExp(
-    `(?<=^|[\\s\\(\\/\\[\\{\\-${EM_DASH}]|${escapedSep})(?<beforeChr>${escapedSep}?)["](?<afterChr>(?<sepWithPunct>${escapedSep}[ .,])|(?=${escapedSep}?\\.{3}|${escapedSep}?[^\\s\\)${EM_DASH},!?;:.\\}${rawEscSep}]))`,
-    "gm"
-  )
+  const beginningDouble = cachedRegExp(buildBeginningDoublePattern(escapedSep, rawEscSep), "gm")
   text = text.replace(beginningDouble, `$<beforeChr>${LEFT_DOUBLE_QUOTE}$<afterChr>`)
 
   text = text.replace(cachedRegExp(`(?<=\\{)(?<sepSpace>${escapedSep}? )?["]`, "g"), `$<sepSpace>${LEFT_DOUBLE_QUOTE}`)
@@ -239,8 +260,13 @@ function applyFrenchQuotes(text: string): string {
     .replaceAll(RIGHT_DOUBLE_QUOTE, `${UNICODE_SYMBOLS.NBSP}${UNICODE_SYMBOLS.RIGHT_GUILLEMET}`)
 }
 
+interface LocaleQuoteTransform {
+  normalize: (text: string) => string
+  apply: (text: string) => string
+}
+
 /** Locale-specific normalize (pre-pipeline) and apply (post-pipeline) functions. */
-const localeQuoteTransforms: Partial<Record<PunctuationStyle, { normalize: (t: string) => string; apply: (t: string) => string }>> = {
+const localeQuoteTransforms: Partial<Record<PunctuationStyle, LocaleQuoteTransform>> = {
   german: { normalize: normalizeGermanQuotes, apply: applyGermanQuotes },
   french: { normalize: normalizeFrenchQuotes, apply: applyFrenchQuotes },
 }

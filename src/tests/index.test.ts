@@ -708,13 +708,8 @@ describe("transform", () => {
       expect(transform(input, { nbsp: undefined })).toBe(expected)
     })
 
-    it("handles long string without transformable content", () => {
-      const input = "abcdefghij ".repeat(1000)
-      const start = performance.now()
-      const result = transform(input)
-      const elapsed = performance.now() - start
-      expect(result).toBe(input)
-      expect(elapsed).toBeLessThan(2000)
+    it("scales linearly for long non-transformable content", () => {
+      assertLinearScaling(transform, (n) => "abcdefghij ".repeat(n))
     })
   })
 })

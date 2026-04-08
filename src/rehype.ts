@@ -16,6 +16,12 @@ import { transform, type TransformOptions } from "./index.js"
 import { DEFAULT_SEPARATOR } from "./constants.js"
 import { assertSeparatorAbsent, formatErrorString } from "./utils.js"
 
+/** Predicate that decides whether an HTML element should be skipped during transformation. */
+type ElementPredicate = (node: Element) => boolean
+
+/** Function that transforms a plain-text string (e.g. smart quotes, dashes). */
+type TextTransformer = (input: string) => string
+
 /**
  * Options for the rehype-punctilio plugin.
  */
@@ -66,7 +72,7 @@ function hasClass(node: Element, className: string): boolean {
  */
 function hasAncestor(
   ancestors: Parent[],
-  predicate: (node: Element) => boolean
+  predicate: ElementPredicate
 ): boolean {
   return ancestors.some((ancestor) => {
     if (ancestor.type === "element") {
@@ -91,7 +97,7 @@ function hasAncestor(
  */
 export function flattenTextNodes(
   node: Element | ElementContent,
-  shouldSkip: (n: Element) => boolean,
+  shouldSkip: ElementPredicate,
   depth: number = 0
 ): Text[] {
   if (depth > MAX_RECURSION_DEPTH) {
@@ -128,7 +134,7 @@ export function flattenTextNodes(
  */
 export function getTextContent(
   node: Element,
-  shouldSkip: (n: Element) => boolean = () => false
+  shouldSkip: ElementPredicate = () => false
 ): string {
   return flattenTextNodes(node, shouldSkip)
     .map((n) => n.value)
@@ -241,8 +247,8 @@ export function assertSmartQuotesMatch(input: string): void {
  */
 export function transformElement(
   node: Element,
-  transformFn: (input: string) => string,
-  shouldSkip: (input: Element) => boolean,
+  transformFn: TextTransformer,
+  shouldSkip: ElementPredicate,
   separator: string,
   checkInvariance: boolean = false
 ): void {
@@ -365,7 +371,7 @@ const TRANSFORMABLE_ELEMENTS = [
  */
 export function collectTransformableElements(
   node: Element,
-  shouldSkip: (n: Element) => boolean,
+  shouldSkip: ElementPredicate,
   depth: number = 0
 ): Element[] {
   /* istanbul ignore if -- defensive: prevents stack overflow from malicious HTML */

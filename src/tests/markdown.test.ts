@@ -82,6 +82,16 @@ describe("transformMarkdown", () => {
     expect(result.trimEnd()).toEqual("See references \\[1\\]\\[4\\]\\[5\\]\\[6\\] for details.")
   })
 
+  it.each([
+    ["plain separators", '| Flag | Default |\n| --- | --- |\n| "a" | b |'],
+    ["alignment markers", '| Left | Center | Right |\n| :--- | :---: | ---: |\n| "a" | b | c |'],
+    ["long separators", '| Col |\n| -------------------- |\n| "data" |'],
+  ])("preserves GFM table separators (%s)", async (_name, input) => {
+    const result = await transformMarkdown(input, { nbsp: false })
+    expect(result).not.toContain(EM_DASH)
+    expect(result).toContain(LDQ)
+  })
+
   it("README.md prose is already typographically correct", () => {
     const readme = readFileSync(resolve(__dirname, "../../README.md"), "utf-8")
     const lines = readme.split("\n")

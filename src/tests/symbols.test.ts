@@ -812,12 +812,8 @@ describe("symbol stress tests", () => {
     assertLinearScaling(fractions, (n) => "add 1/2 cup ".repeat(n))
   })
 
-  it("completes 10000 consecutive single quotes in under 2 seconds", () => {
-    const input = "'".repeat(10000)
-    const start = performance.now()
-    symbolTransform(input)
-    const elapsed = performance.now() - start
-    expect(elapsed).toBeLessThan(2000)
+  it("scales linearly for consecutive single quotes (ReDoS prevention)", () => {
+    assertLinearScaling(symbolTransform, (n) => "'".repeat(n))
   })
 })
 

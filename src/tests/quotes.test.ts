@@ -59,6 +59,22 @@ describe("niceQuotes", () => {
     })
   })
 
+  describe("quoted punctuation (short strings of punctuation inside quotes)", () => {
+    it.each([
+      ['"?"', `${LEFT_DOUBLE_QUOTE}?${RIGHT_DOUBLE_QUOTE}`],
+      ['"!"', `${LEFT_DOUBLE_QUOTE}!${RIGHT_DOUBLE_QUOTE}`],
+      ['"."', `${LEFT_DOUBLE_QUOTE}.${RIGHT_DOUBLE_QUOTE}`],
+      ['","', `${LEFT_DOUBLE_QUOTE},${RIGHT_DOUBLE_QUOTE}`],
+      ['";"', `${LEFT_DOUBLE_QUOTE};${RIGHT_DOUBLE_QUOTE}`],
+      ['"?!"', `${LEFT_DOUBLE_QUOTE}?!${RIGHT_DOUBLE_QUOTE}`],
+      ['why not "?"', `why not ${LEFT_DOUBLE_QUOTE}?${RIGHT_DOUBLE_QUOTE}`],
+      ['She asked "?" and left.', `She asked ${LEFT_DOUBLE_QUOTE}?${RIGHT_DOUBLE_QUOTE} and left.`],
+      ['("?")', `(${LEFT_DOUBLE_QUOTE}?${RIGHT_DOUBLE_QUOTE})`],
+    ])('handles quoted punctuation: "%s"', (input, expected) => {
+      expect(classifyApostrophes(input)).toBe(expected)
+    })
+  })
+
   describe("single quotes and apostrophes", () => {
     it.each([
       ["He said, 'Hi'", `He said, ${LEFT_SINGLE_QUOTE}Hi${RIGHT_SINGLE_QUOTE}`],
