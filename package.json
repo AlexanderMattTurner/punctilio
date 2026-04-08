@@ -97,12 +97,16 @@
     "unified": "11.0.5"
   },
   "peerDependencies": {
+    "remark-gfm": "^4.0.0",
     "remark-parse": "^11.0.0",
     "remark-stringify": "^11.0.0",
     "unified": "^11.0.0"
   },
   "peerDependenciesMeta": {
     "unified": {
+      "optional": true
+    },
+    "remark-gfm": {
       "optional": true
     },
     "remark-parse": {
