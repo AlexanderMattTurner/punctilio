@@ -13,7 +13,7 @@ import {
   symbolTransform,
 } from "../symbols.js"
 import { UNICODE_SYMBOLS, DEFAULT_SEPARATOR } from "../constants.js"
-import { assertLinearScaling } from "./test-helpers.js"
+import { assertReasonableScaling } from "./test-helpers.js"
 
 describe("ellipsis", () => {
   it.each([
@@ -686,7 +686,7 @@ describe("symbolTransform", () => {
 describe("multiplication ReDoS regression", () => {
   it("scales linearly for long digit strings", () => {
     // Before fix: quadratic (~100x for 10x input). After fix: linear.
-    assertLinearScaling(multiplication, (n) => "1".repeat(n))
+    assertReasonableScaling(multiplication, (n) => "1".repeat(n))
   })
 })
 
@@ -805,15 +805,15 @@ describe("chained multiplications", () => {
 
 describe("symbol stress tests", () => {
   it("scales linearly for ellipsis patterns", () => {
-    assertLinearScaling(ellipsis, (n) => "wait... ".repeat(n))
+    assertReasonableScaling(ellipsis, (n) => "wait... ".repeat(n))
   })
 
   it("scales linearly for fraction patterns", () => {
-    assertLinearScaling(fractions, (n) => "add 1/2 cup ".repeat(n))
+    assertReasonableScaling(fractions, (n) => "add 1/2 cup ".repeat(n))
   })
 
   it("scales linearly for consecutive single quotes (ReDoS prevention)", () => {
-    assertLinearScaling(symbolTransform, (n) => "'".repeat(n))
+    assertReasonableScaling(symbolTransform, (n) => "'".repeat(n))
   })
 })
 

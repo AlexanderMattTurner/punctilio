@@ -1,7 +1,7 @@
 import { transform, DEFAULT_SEPARATOR, countSeparators } from "../index.js"
 import { ellipsis } from "../symbols.js"
 import { UNICODE_SYMBOLS, REGEX_SPECIAL_CHARS, MAX_REGEX_CACHE_SIZE } from "../constants.js"
-import { assertLinearScaling, buildMixedContent } from "./test-helpers.js"
+import { assertReasonableScaling, buildMixedContent } from "./test-helpers.js"
 
 const {
   LEFT_DOUBLE_QUOTE,
@@ -509,15 +509,15 @@ describe("transform", () => {
 
   describe("regex performance", () => {
     it("scales linearly for pathological quote patterns", () => {
-      assertLinearScaling(transform, (n) => '"a"'.repeat(n) + "'")
+      assertReasonableScaling(transform, (n) => '"a"'.repeat(n) + "'")
     })
 
     it("scales linearly for pathological dash patterns", () => {
-      assertLinearScaling(transform, (n) => "1" + "-1".repeat(n))
+      assertReasonableScaling(transform, (n) => "1" + "-1".repeat(n))
     })
 
     it("scales linearly for unbalanced single quotes", () => {
-      assertLinearScaling(transform, (n) => "'".repeat(n) + "a")
+      assertReasonableScaling(transform, (n) => "'".repeat(n) + "a")
     })
   })
 
@@ -608,12 +608,12 @@ describe("transform", () => {
 
   describe("large input handling", () => {
     it("scales linearly on seeded mixed content", () => {
-      assertLinearScaling(transform, (n) => buildMixedContent(n * 100), 100)
+      assertReasonableScaling(transform, (n) => buildMixedContent(n * 100), 100)
     })
 
     it("scales linearly with all features enabled", () => {
       const allFeatures = { fractions: true, degrees: true, superscript: true, ligatures: true }
-      assertLinearScaling((input) => transform(input, allFeatures), (n) => buildMixedContent(n * 100), 100)
+      assertReasonableScaling((input) => transform(input, allFeatures), (n) => buildMixedContent(n * 100), 100)
     })
   })
 
@@ -683,15 +683,15 @@ describe("transform", () => {
       ["short words (nbsp)", (n: number) => "a b c d e f ".repeat(n)],
       ["math symbol patterns", (n: number) => "!= ".repeat(n)],
     ] as const)("scales linearly for %s", (_, buildInput) => {
-      assertLinearScaling(transform, buildInput)
+      assertReasonableScaling(transform, buildInput)
     })
 
     it("scales linearly on seeded mixed content", () => {
-      assertLinearScaling(transform, (n) => buildMixedContent(n * 10))
+      assertReasonableScaling(transform, (n) => buildMixedContent(n * 10))
     })
 
     it("rejects inputs below minimum length", () => {
-      expect(() => assertLinearScaling(transform, (n) => "a".repeat(n), 100)).toThrow("minimum")
+      expect(() => assertReasonableScaling(transform, (n) => "a".repeat(n), 100)).toThrow("minimum")
     })
   })
 
@@ -709,7 +709,7 @@ describe("transform", () => {
     })
 
     it("scales linearly for long non-transformable content", () => {
-      assertLinearScaling(transform, (n) => "abcdefghij ".repeat(n))
+      assertReasonableScaling(transform, (n) => "abcdefghij ".repeat(n))
     })
   })
 })

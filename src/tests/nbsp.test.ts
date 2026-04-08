@@ -14,7 +14,7 @@ import {
   type NbspOptions,
 } from "../nbsp.js"
 import { UNICODE_SYMBOLS, DEFAULT_SEPARATOR } from "../constants.js"
-import { assertLinearScaling } from "./test-helpers.js"
+import { assertReasonableScaling } from "./test-helpers.js"
 
 const { NBSP, COPYRIGHT, REGISTERED, TRADEMARK } = UNICODE_SYMBOLS
 const SEP = DEFAULT_SEPARATOR
@@ -256,7 +256,7 @@ describe("nbspTransform", () => {
 
   describe("stress tests", () => {
     it("scales linearly for short words", () => {
-      assertLinearScaling(nbspTransform, (n) => "a b c d e f ".repeat(n))
+      assertReasonableScaling(nbspTransform, (n) => "a b c d e f ".repeat(n))
     })
 
     it("early-exits on text with no spaces", () => {
