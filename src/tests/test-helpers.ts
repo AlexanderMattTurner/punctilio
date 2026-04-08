@@ -52,15 +52,17 @@ export function buildMixedContent(charCount: number, seed: string = "42"): strin
 /**
  * Asserts that a function scales linearly (not quadratically) with input size.
  *
- * Measures ms/char at 4 input sizes (1x, 2x, 4x, 8x) after a JIT warmup pass.
- * Compares the two largest sizes (4x vs 8x) which have the best signal-to-noise
- * ratio. For a linear algorithm, doubling input keeps ms/char constant (ratio ~1).
- * For a quadratic one, doubling input doubles ms/char (ratio ~2).
+ * Compares ms/char at the two largest of 4 input sizes (4x vs 8x of startingN)
+ * after a JIT warmup pass. For a linear algorithm, doubling input keeps ms/char
+ * constant (ratio ~1). For a quadratic one, doubling input doubles ms/char (~2).
  *
  * Default startingN of 5000 produces inputs from ~5K to ~40K chars, which is
  * past V8's string allocation overhead inflection point where ms/char stabilizes.
  *
- * Uses min 3 iterations and min 20ms per size to get stable averages.
+ * Interleaves 4x and 8x measurements so both experience the same CPU load at
+ * each moment, then takes the minimum per-trial ratio. This is immune to both
+ * transient noise (GC pauses) and persistent noise (CPU contention from other
+ * CI jobs), since the ratio within each trial cancels out shared slowdowns.
  *
  * @param fn - The function to benchmark
  * @param buildInput - Builds an input string of approximately `n` units
@@ -71,32 +73,32 @@ export function assertLinearScaling(
   buildInput: (n: number) => string,
   startingN: number = 5000
 ): void {
-  const multipliers = [1, 2, 4, 8]
+  const input4x = buildInput(startingN * 4)
+  const input8x = buildInput(startingN * 8)
 
   // Warmup with the largest input so JIT compiles all code paths before timing.
-  fn(buildInput(startingN * multipliers[multipliers.length - 1]))
+  fn(input8x)
 
-  function measureMsPerChar(mult: number): number {
-    const input = buildInput(startingN * mult)
-    const minIterations = 3
-    const minElapsedMs = 20
-    let totalElapsed = 0
-    let iterations = 0
-    while (iterations < minIterations || totalElapsed < minElapsedMs) {
-      const start = performance.now()
-      fn(input)
-      totalElapsed += performance.now() - start
-      iterations++
-    }
-    return totalElapsed / iterations / input.length
+  const minTrials = 5
+  const minElapsedMs = 50
+  let bestRatio = Infinity
+  let totalElapsed = 0
+  let trials = 0
+  while (trials < minTrials || totalElapsed < minElapsedMs) {
+    const start4 = performance.now()
+    fn(input4x)
+    const time4 = performance.now() - start4
+
+    const start8 = performance.now()
+    fn(input8x)
+    const time8 = performance.now() - start8
+
+    const ratio = (time8 / input8x.length) / (time4 / input4x.length)
+    bestRatio = Math.min(bestRatio, ratio)
+    totalElapsed += time4 + time8
+    trials++
   }
 
-  // Measure all sizes (exercises the function at various scales)
-  const msPerChar = multipliers.map(measureMsPerChar)
-
-  // Compare the two largest inputs (best SNR, per-call overhead is negligible).
-  // For linear: rate_8x / rate_4x ≈ 1. For quadratic: ≈ 2.
-  const rate4x = msPerChar[2]
-  const rate8x = msPerChar[3]
-  expect(rate8x / rate4x).toBeLessThan(1.5)
+  // For linear: ratio ≈ 1. For quadratic: ≈ 2.
+  expect(bestRatio).toBeLessThan(1.5)
 }
