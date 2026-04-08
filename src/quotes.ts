@@ -109,13 +109,6 @@ function convertUnmatchedPluralPossessives(text: string, sep: string): string {
 
 /**
  * Build the beginning-double-quote regex pattern from named fragments.
- *
- * Unlike the single-quote pattern (which can use a simple `\S` lookahead),
- * the double-quote lookbehind accepts the separator itself as a trigger.
- * This creates ambiguity: `word${sep}"—` (closing quote after an HTML
- * boundary) would wrongly match `\S` on `—`. The exclusion list resolves
- * this, and the closing-quote override handles legitimate short-quoted
- * punctuation like `"?"` and `"!"`.
  */
 function buildBeginningDoublePattern(escapedSep: string, rawEscSep: string): string {
   const lookbehind = `(?<=^|[\\s\\(\\/\\[\\{\\-${EM_DASH}]|${escapedSep})`
