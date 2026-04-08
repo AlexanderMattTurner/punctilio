@@ -260,8 +260,13 @@ function applyFrenchQuotes(text: string): string {
     .replaceAll(RIGHT_DOUBLE_QUOTE, `${UNICODE_SYMBOLS.NBSP}${UNICODE_SYMBOLS.RIGHT_GUILLEMET}`)
 }
 
+interface LocaleQuoteTransform {
+  normalize: (text: string) => string
+  apply: (text: string) => string
+}
+
 /** Locale-specific normalize (pre-pipeline) and apply (post-pipeline) functions. */
-const localeQuoteTransforms: Partial<Record<PunctuationStyle, { normalize: (t: string) => string; apply: (t: string) => string }>> = {
+const localeQuoteTransforms: Partial<Record<PunctuationStyle, LocaleQuoteTransform>> = {
   german: { normalize: normalizeGermanQuotes, apply: applyGermanQuotes },
   french: { normalize: normalizeFrenchQuotes, apply: applyFrenchQuotes },
 }
