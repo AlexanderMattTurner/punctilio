@@ -49,57 +49,61 @@ export function buildMixedContent(charCount: number, seed: string = "42"): strin
   return result
 }
 
+const MIN_INPUT_LENGTH = 10_000
+
 /**
  * Asserts that a function scales linearly (not quadratically) with input size.
  *
- * Measures ms/char at 4 input sizes (1x, 2x, 4x, 8x) after a JIT warmup pass.
- * Compares the two largest sizes (4x vs 8x) which have the best signal-to-noise
- * ratio. For a linear algorithm, doubling input keeps ms/char constant (ratio ~1).
- * For a quadratic one, doubling input doubles ms/char (ratio ~2).
+ * Measures ms/char at two sizes (1x, 2x) after a JIT warmup pass, using the
+ * minimum time across iterations (immune to GC pauses). For a linear algorithm,
+ * doubling input keeps ms/char constant (ratio ~1). For a quadratic one,
+ * doubling input doubles ms/char (ratio ~2).
  *
- * Default startingN of 5000 produces inputs from ~5K to ~40K chars, which is
- * past V8's string allocation overhead inflection point where ms/char stabilizes.
- *
- * Uses median of min 5 iterations / 50ms per size for GC-noise resilience.
+ * Requires the 1x input to be at least {@link MIN_INPUT_LENGTH} chars to
+ * avoid noise from small-input overhead.
  *
  * @param fn - The function to benchmark
  * @param buildInput - Builds an input string of approximately `n` units
- * @param startingN - Size parameter for the smallest input (default: 5000)
+ * @param startingN - Size parameter for the smaller input (default: 10000)
  */
 export function assertLinearScaling(
   fn: (input: string) => unknown,
   buildInput: (n: number) => string,
-  startingN: number = 5000
+  startingN: number = 10_000
 ): void {
-  const multipliers = [1, 2, 4, 8]
+  const input1x = buildInput(startingN)
+  const input2x = buildInput(startingN * 2)
 
-  // Warmup with the largest input so JIT compiles all code paths before timing.
-  fn(buildInput(startingN * multipliers[multipliers.length - 1]))
+  if (input1x.length < MIN_INPUT_LENGTH) {
+    throw new Error(
+      `1x input is only ${input1x.length} chars (minimum: ${MIN_INPUT_LENGTH}). ` +
+      `Increase startingN or use a buildInput that produces longer strings.`
+    )
+  }
 
-  function measureMsPerChar(mult: number): number {
-    const input = buildInput(startingN * mult)
+  // Warmup with the larger input so JIT compiles all code paths before timing.
+  fn(input2x)
+
+  function measureMinMsPerChar(input: string): number {
     const minIterations = 5
     const minElapsedMs = 50
-    const times: number[] = []
+    let best = Infinity
     let totalElapsed = 0
-    while (times.length < minIterations || totalElapsed < minElapsedMs) {
+    let iterations = 0
+    while (iterations < minIterations || totalElapsed < minElapsedMs) {
       const start = performance.now()
       fn(input)
       const elapsed = performance.now() - start
-      times.push(elapsed)
+      best = Math.min(best, elapsed)
       totalElapsed += elapsed
+      iterations++
     }
-    times.sort((a, b) => a - b)
-    const median = times[Math.floor(times.length / 2)]
-    return median / input.length
+    return best / input.length
   }
 
-  // Measure all sizes (exercises the function at various scales)
-  const msPerChar = multipliers.map(measureMsPerChar)
+  const rate1x = measureMinMsPerChar(input1x)
+  const rate2x = measureMinMsPerChar(input2x)
 
-  // Compare the two largest inputs (best SNR, per-call overhead is negligible).
-  // For linear: rate_8x / rate_4x ≈ 1. For quadratic: ≈ 2.
-  const rate4x = msPerChar[2]
-  const rate8x = msPerChar[3]
-  expect(rate8x / rate4x).toBeLessThan(2.0)
+  // For linear: rate2x / rate1x ≈ 1. For quadratic: ≈ 2.
+  expect(rate2x / rate1x).toBeLessThan(1.5)
 }

@@ -608,12 +608,12 @@ describe("transform", () => {
 
   describe("large input handling", () => {
     it("scales linearly on seeded mixed content", () => {
-      assertLinearScaling(transform, (n) => buildMixedContent(n * 100), 50)
+      assertLinearScaling(transform, (n) => buildMixedContent(n * 100), 100)
     })
 
     it("scales linearly with all features enabled", () => {
       const allFeatures = { fractions: true, degrees: true, superscript: true, ligatures: true }
-      assertLinearScaling((input) => transform(input, allFeatures), (n) => buildMixedContent(n * 100), 50)
+      assertLinearScaling((input) => transform(input, allFeatures), (n) => buildMixedContent(n * 100), 100)
     })
   })
 
@@ -688,6 +688,10 @@ describe("transform", () => {
 
     it("scales linearly on seeded mixed content", () => {
       assertLinearScaling(transform, (n) => buildMixedContent(n * 10))
+    })
+
+    it("rejects inputs below minimum length", () => {
+      expect(() => assertLinearScaling(transform, (n) => "a".repeat(n), 100)).toThrow("minimum")
     })
   })
 

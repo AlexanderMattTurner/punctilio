@@ -686,7 +686,7 @@ describe("symbolTransform", () => {
 describe("multiplication ReDoS regression", () => {
   it("scales linearly for long digit strings", () => {
     // Before fix: quadratic (~100x for 10x input). After fix: linear.
-    assertLinearScaling(multiplication, (n) => "1".repeat(n), 5_000)
+    assertLinearScaling(multiplication, (n) => "1".repeat(n))
   })
 })
 
