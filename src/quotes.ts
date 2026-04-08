@@ -107,6 +107,29 @@ function convertUnmatchedPluralPossessives(text: string, sep: string): string {
   )
 }
 
+/** Build the beginning-double-quote regex pattern from named fragments. */
+function buildBeginningDoublePattern(escapedSep: string, rawEscSep: string): string {
+  const lookbehind = `(?<=^|[\\s\\(\\/\\[\\{\\-${EM_DASH}]|${escapedSep})`
+  const beforeCapture = `(?<beforeChr>${escapedSep}?)`
+  const quote = `["]`
+
+  // Characters that normally signal an ending-quote position
+  const endingChars = `\\s\\)${EM_DASH},!?;:.\\}${rawEscSep}`
+
+  const afterAlternatives = [
+    // Separator followed by space/period/comma (consumed into afterChr)
+    `(?<sepWithPunct>${escapedSep}[ .,])`,
+    // Three-period ellipsis or a character that isn't ending punctuation
+    `(?=${escapedSep}?\\.{3}|${escapedSep}?[^${endingChars}])`,
+    // Content followed by a matching closing straight quote — handles
+    // quoted punctuation like "?" and "!" where the first char after the
+    // opening quote would otherwise look like an ending-quote context
+    `(?=[^"\\n]{1,50}")`,
+  ]
+
+  return `${lookbehind}${beforeCapture}${quote}(?<afterChr>${afterAlternatives.join("|")})`
+}
+
 /** Convert straight double quotes to curly quotes */
 function convertDoubleQuotes(text: string, sep: string): string {
   const rawEscSep = escapeStringRegexp(sep)
@@ -118,10 +141,7 @@ function convertDoubleQuotes(text: string, sep: string): string {
   // Handle whitespace-only quotes " " - require non-quote chars on both sides
   text = text.replace(/(?<=^|[\s([{])"(?<whitespace>\s+)"(?=$|[\s)\]}.!?,;:])/g, `${LEFT_DOUBLE_QUOTE}$<whitespace>${RIGHT_DOUBLE_QUOTE}`)
 
-  const beginningDouble = cachedRegExp(
-    `(?<=^|[\\s\\(\\/\\[\\{\\-${EM_DASH}]|${escapedSep})(?<beforeChr>${escapedSep}?)["](?<afterChr>(?<sepWithPunct>${escapedSep}[ .,])|(?=${escapedSep}?\\.{3}|${escapedSep}?[^\\s\\)${EM_DASH},!?;:.\\}${rawEscSep}]))`,
-    "gm"
-  )
+  const beginningDouble = cachedRegExp(buildBeginningDoublePattern(escapedSep, rawEscSep), "gm")
   text = text.replace(beginningDouble, `$<beforeChr>${LEFT_DOUBLE_QUOTE}$<afterChr>`)
 
   text = text.replace(cachedRegExp(`(?<=\\{)(?<sepSpace>${escapedSep}? )?["]`, "g"), `$<sepSpace>${LEFT_DOUBLE_QUOTE}`)
