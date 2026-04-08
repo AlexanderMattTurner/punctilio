@@ -1,6 +1,6 @@
 import { niceQuotes, classifyApostrophes } from "../quotes.js"
 import { UNICODE_SYMBOLS, DEFAULT_SEPARATOR, TERMINAL_PUNCTUATION } from "../constants.js"
-import { assertLinearScaling } from "./test-helpers.js"
+import { assertReasonableScaling } from "./test-helpers.js"
 
 const {
   LEFT_DOUBLE_QUOTE,
@@ -191,7 +191,7 @@ describe("niceQuotes", () => {
       const words = ["dogs'", "cats'", "Bayes'", "Thomas'", "PLAYERS'"]
       const buildInput = (n: number) => Array.from({ length: n }, (_, i) => words[i % words.length]).join(" ")
 
-      assertLinearScaling(classifyApostrophes, buildInput)
+      assertReasonableScaling(classifyApostrophes, buildInput)
       // All should be MLA (no LSQ to pair with)
       const result = classifyApostrophes(buildInput(200))
       expect(result).not.toContain(RIGHT_SINGLE_QUOTE)
@@ -719,7 +719,7 @@ describe("niceQuotes", () => {
 
   describe("pathological inputs", () => {
     it("scales linearly for input without closing quote", () => {
-      assertLinearScaling(classifyApostrophes, (n) => `'${"a".repeat(n)}`)
+      assertReasonableScaling(classifyApostrophes, (n) => `'${"a".repeat(n)}`)
       const input = `'${"a".repeat(1500)}`
       expect(classifyApostrophes(classifyApostrophes(input))).toBe(classifyApostrophes(input))
     })
@@ -756,7 +756,7 @@ describe("niceQuotes", () => {
 
   describe("apostrophe regex scaling", () => {
     it("scales linearly for repeated apostrophe patterns", () => {
-      assertLinearScaling(classifyApostrophes, (n) => "'a".repeat(n))
+      assertReasonableScaling(classifyApostrophes, (n) => "'a".repeat(n))
     })
   })
 })
