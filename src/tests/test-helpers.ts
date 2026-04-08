@@ -64,12 +64,12 @@ const MIN_INPUT_LENGTH = 10_000
  *
  * @param fn - The function to benchmark
  * @param buildInput - Builds an input string of approximately `n` units
- * @param startingN - Size parameter for the smaller input (default: 40000)
+ * @param startingN - Size parameter for the smaller input (default: 100000)
  */
 export function assertLinearScaling(
   fn: (input: string) => unknown,
   buildInput: (n: number) => string,
-  startingN: number = 40_000
+  startingN: number = 100_000
 ): void {
   const input1x = buildInput(startingN)
   const input2x = buildInput(startingN * 2)
