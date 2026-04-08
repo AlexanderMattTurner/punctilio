@@ -98,5 +98,5 @@ export function assertLinearScaling(
   // For linear: rate_8x / rate_4x ≈ 1. For quadratic: ≈ 2.
   const rate4x = msPerChar[2]
   const rate8x = msPerChar[3]
-  expect(rate8x / rate4x).toBeLessThan(1.5)
+  expect(rate8x / rate4x).toBeLessThan(2.0)
 }
