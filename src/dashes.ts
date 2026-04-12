@@ -43,7 +43,7 @@ export function enDashNumberRange(text: string, options: DashOptions = {}): stri
 
   // Build positive range pattern from readable components
   const phoneAreaCode = `(?<precedingAreaCode>\\d{3}-|\\(\\d{3}\\) ?)?`  // 555- or (555)
-  const notAfterDash = `(?<![${disallowed}${LATIN_LETTERS}.])`           // prevent Llama-2-7B
+  const notAfterDash = `(?<![${disallowed}${LATIN_LETTERS}.+])`          // prevent Llama-2-7B, +44-20
   const rangeStart = `(?<start>(?:p\\.?|[${currencies}])?\\d[\\d.,]*${chr}?)`  // p.10, $100, 1,000
   const rangeEnd = `(?<end>${chr}?[${currencies}]?\\d[\\d.,]*)`          // 20, $200, 2,000
   const moreSegments = `(?<following>(?:${chr}?[-${MINUS}]${chr}?\\d+)*)` // -4567 in phone numbers

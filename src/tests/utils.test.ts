@@ -81,7 +81,7 @@ describe("cachedRegExp", () => {
     clearRegexCache()
   })
 
-  it("evicts oldest entry when cache exceeds max size", () => {
+  it("evicts entries when cache exceeds max size", () => {
     // Fill the cache well beyond 1000 entries with unique patterns
     for (let i = 0; i < 1010; i++) {
       const re = cachedRegExp(`unique-pattern-${i}`, "g")

@@ -9,6 +9,7 @@
  */
 
 import escapeStringRegexp from "escape-string-regexp"
+import QuickLRU from "quick-lru"
 
 /**
  * Unicode symbols for typography transformations.
@@ -227,12 +228,12 @@ export function spaceBoundaryEnd(escapedSeparator: string): string {
 }
 
 /**
- * Cache for compiled RegExp objects keyed by `pattern + '\0' + flags`.
+ * LRU cache for compiled RegExp objects keyed by `pattern + '\0' + flags`.
  * Avoids recompiling identical regexes on every function call (common
  * when using the default separator). Capped to prevent unbounded growth.
  */
-const regexCache = new Map<string, RegExp>()
 export const MAX_REGEX_CACHE_SIZE = 1000
+const regexCache = new QuickLRU<string, RegExp>({ maxSize: MAX_REGEX_CACHE_SIZE })
 
 /**
  * Returns a cached RegExp for the given pattern and flags.
@@ -244,11 +245,6 @@ export function cachedRegExp(pattern: string, flags: string): RegExp {
   let re = regexCache.get(key)
   if (!re) {
     re = new RegExp(pattern, flags)
-    if (regexCache.size >= MAX_REGEX_CACHE_SIZE) {
-      // Evict oldest entry (first key in insertion order)
-      const oldest = regexCache.keys().next().value!
-      regexCache.delete(oldest)
-    }
     regexCache.set(key, re)
   }
   re.lastIndex = 0
