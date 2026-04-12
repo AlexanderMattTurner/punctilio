@@ -56,21 +56,12 @@ export const UNITS = [
   "kPa", "MPa", "psi", "ha", "Pa",
   // Typography / CSS
   "rem", "dpi", "px", "pt", "em", "vw", "vh",
+  // Finance
+  "MM", "M", "B", "T",
   // Misc
   "kcal", "mol", "cal", "dB",
 ]
 
-/**
- * Units excluded from the default UNITS list because they are too ambiguous
- * with common English words or are informal abbreviations rather than
- * standard measurement units. Provided for consumers who want to opt in.
- *
- * - "in": inches — clashes with the preposition "in" ("found 5 in total")
- * - "bar": pressure — clashes with the word "bar" ("drew 5 bar charts")
- * - "M", "MM", "B", "T": finance abbreviations (million, billion, trillion)
- *   — not standard SI/measurement units
- */
-export const AMBIGUOUS_UNITS = ["in", "bar", "M", "MM", "B", "T"] as const
 
 export const HONORIFICS = [
   // English

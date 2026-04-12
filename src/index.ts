@@ -47,7 +47,6 @@ export {
   nbspBetweenInitials,
   nbspTransform,
   UNITS,
-  AMBIGUOUS_UNITS,
   HONORIFICS,
   REFERENCE_ABBREVIATIONS,
   type NbspOptions,

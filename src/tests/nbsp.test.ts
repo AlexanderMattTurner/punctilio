@@ -9,7 +9,6 @@ import {
   nbspBetweenInitials,
   nbspTransform,
   UNITS,
-  AMBIGUOUS_UNITS,
   HONORIFICS,
   REFERENCE_ABBREVIATIONS,
   type NbspOptions,
@@ -81,19 +80,8 @@ describe("nbspBetweenNumberAndUnit", () => {
     ["5 in total", "5 in total"],
     ["at 5 bar pressure", "at 5 bar pressure"],
     ["drew 5 bar charts", "drew 5 bar charts"],
-    // Finance abbreviations excluded: not real measurement units
-    ["raised 100 M in funding", "raised 100 M in funding"],
-    ["scored 5 B on the test", "scored 5 B on the test"],
-    ["worth 5 T dollars", "worth 5 T dollars"],
-    ["earned 5 MM last year", "earned 5 MM last year"],
   ])('no match: "%s"', (input, expected) => {
     expect(nbspBetweenNumberAndUnit(input)).toBe(expected)
-  })
-
-  it("AMBIGUOUS_UNITS are not in UNITS", () => {
-    for (const unit of AMBIGUOUS_UNITS) {
-      expect(UNITS).not.toContain(unit)
-    }
   })
 
   it("preserves separators at node boundaries", () => {
