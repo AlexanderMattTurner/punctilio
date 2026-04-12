@@ -175,6 +175,11 @@ describe("legalSymbols", () => {
   ])('preserves (r) in non-trademark context "%s"', (input, expected) => {
     expect(legalSymbols(input)).toBe(expected)
   })
+
+  it("detects copyright year across separator boundary", () => {
+    const sep = DEFAULT_SEPARATOR
+    expect(legalSymbols(`(c)${sep} 2024`, { separator: sep })).toBe(`${UNICODE_SYMBOLS.COPYRIGHT}${sep} 2024`)
+  })
 })
 
 describe("arrows", () => {

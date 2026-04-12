@@ -2,7 +2,7 @@
  * Symbol transformations: ellipses, multiplication, math symbols, arrows.
  */
 
-import { UNICODE_SYMBOLS, LATIN_LETTERS, wordBoundaryEnd, SPACE_CHARS, spaceBoundaryStart, spaceBoundaryEnd, cachedRegExp, getEscapedSeparator } from "./constants.js"
+import { UNICODE_SYMBOLS, DEFAULT_SEPARATOR, LATIN_LETTERS, wordBoundaryEnd, SPACE_CHARS, spaceBoundaryStart, spaceBoundaryEnd, cachedRegExp, getEscapedSeparator } from "./constants.js"
 
 export interface SymbolOptions {
   /** Boundary marker for HTML element boundaries. Default: "\uE000\uE001" */
@@ -125,31 +125,36 @@ type ContextPredicate = (before: string, after: string) => boolean
 
 /**
  * Context-aware replacement for legal symbols like (c), (r), (tm).
- * Extracts surrounding text and delegates the convert/skip decision to a predicate.
+ * Extracts surrounding text, strips separator characters from the context
+ * windows, and delegates the convert/skip decision to a predicate.
  */
 function contextAwareLegalReplace(
   text: string,
   pattern: RegExp,
   replacement: string,
   shouldConvert: ContextPredicate,
+  separator: string,
 ): string {
   return text.replace(pattern, (match: string, offset: number, str: string) => {
-    const before = str.slice(Math.max(0, offset - 25), offset)
-    const after = str.slice(offset + match.length, offset + match.length + 25)
+    const before = str.slice(Math.max(0, offset - 25), offset).replaceAll(separator, "")
+    const after = str.slice(offset + match.length, offset + match.length + 25).replaceAll(separator, "")
     return shouldConvert(before, after) ? replacement : match
   })
 }
 
 /** Convert (c), (r), (tm) to ©, ®, ™. */
-export function legalSymbols(text: string): string {
+export function legalSymbols(text: string, options: SymbolOptions = {}): string {
+  const separator = options.separator ?? DEFAULT_SEPARATOR
   // (c) → © only with positive copyright evidence (year or "copyright" keyword)
   text = contextAwareLegalReplace(text, /\(c\)/gi, COPYRIGHT, (before, after) =>
-    /^\s*(?:19|20)\d{2}\b/.test(after) || /\bcopyright\s*$/i.test(before)
+    /^\s*(?:19|20)\d{2}\b/.test(after) || /\bcopyright\s*$/i.test(before),
+    separator
   )
 
   // (r) → ® unless in enumeration "(q), (r)" or legal citation "(r)(1)" context
   text = contextAwareLegalReplace(text, /\(r\)/gi, REGISTERED, (before, after) =>
-    !/\([a-z]\)[,;]\s*$/i.test(before) && !/^\(\d/.test(after)
+    !/\([a-z]\)[,;]\s*$/i.test(before) && !/^\(\d/.test(after),
+    separator
   )
 
   // (tm) → ™ unconditionally
@@ -425,7 +430,7 @@ export function symbolTransform(text: string, options: SymbolOptions = {}): stri
   text = ellipsis(text, options)
   text = multiplication(text, options)
   text = mathSymbols(text, options)
-  text = legalSymbols(text)
+  text = legalSymbols(text, options)
   if (options.includeArrows !== false) {
     text = arrows(text, options)
   }

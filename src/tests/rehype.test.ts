@@ -59,6 +59,9 @@ describe("rehypePunctilio", () => {
       ["text spanning elements", '<p><em>"Wait</em>..."</p>', `<p><em>${LDQ}Wait</em>${ELLIPSIS}${RDQ}</p>`],
       ["deeply nested", '<div><p><span><strong>"Hello"</strong></span></p></div>', `<div><p><span><strong>${LDQ}Hello${RDQ}</strong></span></p></div>`],
       ["attributes", '<p class="intro" id="first">"Hello"</p>', `<p class="intro" id="first">${LDQ}Hello${RDQ}</p>`],
+      // Regression: inline-only containers must share transformation context
+      ["quotes across inline-only children", '<p><em>"Hello</em><span>, world"</span></p>', `<p><em>${LDQ}Hello</em><span>, world${RDQ}</span></p>`],
+      ["dash across inline-only children", '<p><em>pages 1</em><span>-5</span></p>', `<p><em>pages 1</em><span>${EN_DASH}5</span></p>`],
     ])("preserves %s", async (_name, html, expected) => {
       expect(await processHtml(html, { nbsp: false })).toEqual(expected)
     })
@@ -399,6 +402,48 @@ describe("rehypePunctilio", () => {
       it("returns empty for elements without text children", () => {
         const tree = h("div", [h("img")]) as Element
         expect(collectTransformableElements(tree, ignoreNone)).toHaveLength(0)
+      })
+
+      it("collects phrasing container with only inline element children", () => {
+        // <p><em>"Hello</em><span>, world"</span></p>
+        // The <p> has no direct text children, but all content is inline.
+        // It should be collected as a single unit for cross-element context.
+        const tree = h("p", [
+          h("em", '"Hello'),
+          h("span", ', world"'),
+        ]) as Element
+        const result = collectTransformableElements(tree, ignoreNone)
+        expect(result).toHaveLength(1)
+        expect(result[0].tagName).toBe("p")
+      })
+
+      it("recurses when element has block-level children", () => {
+        // <div><p>Hello</p><p>World</p></div> — block children mean
+        // each <p> should be independent, not merged.
+        const tree = h("div", [
+          h("p", "Hello"),
+          h("p", "World"),
+        ]) as Element
+        const result = collectTransformableElements(tree, ignoreNone)
+        expect(result).toHaveLength(2)
+        expect(result[0].tagName).toBe("p")
+        expect(result[1].tagName).toBe("p")
+      })
+
+      it("collects inline-only div as single unit", () => {
+        // <div><span>Hello</span><em>World</em></div> — no block children
+        const tree = h("div", [
+          h("span", "Hello"),
+          h("em", "World"),
+        ]) as Element
+        const result = collectTransformableElements(tree, ignoreNone)
+        expect(result).toHaveLength(1)
+        expect(result[0].tagName).toBe("div")
+      })
+
+      it("skips inline-only container when children are skip-tagged", () => {
+        const tree = h("p", [h("code", "skip me")]) as Element
+        expect(collectTransformableElements(tree, ignoreCode)).toHaveLength(0)
       })
 
       it("stops at max recursion depth", () => {
