@@ -445,8 +445,10 @@ export function rehypePunctilio(
     ...transformOptions
   } = options
 
+  const skipTagSet = new Set(skipTags)
+
   const shouldSkip = (node: Element): boolean => {
-    if (skipTags.includes(node.tagName)) {
+    if (skipTagSet.has(node.tagName)) {
       return true
     }
     if (skipClasses.some((cls) => hasClass(node, cls))) {

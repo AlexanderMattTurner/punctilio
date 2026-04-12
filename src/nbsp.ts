@@ -70,7 +70,7 @@ export const UNITS = [
  * - "M", "MM", "B", "T": finance abbreviations (million, billion, trillion)
  *   — not standard SI/measurement units
  */
-export const AMBIGUOUS_UNITS = ["in", "bar", "M", "MM", "B", "T"]
+export const AMBIGUOUS_UNITS = ["in", "bar", "M", "MM", "B", "T"] as const
 
 export const HONORIFICS = [
   // English
