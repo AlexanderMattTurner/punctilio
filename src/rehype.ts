@@ -290,7 +290,7 @@ export function transformElement(
  * HTML elements that can contain transformable text content.
  * We traverse into these to find text nodes to transform.
  */
-const TRANSFORMABLE_ELEMENTS = [
+const TRANSFORMABLE_ELEMENTS = new Set([
   "p",
   "em",
   "strong",
@@ -343,11 +343,32 @@ const TRANSFORMABLE_ELEMENTS = [
   "ruby",
   "rt",
   "rp",
-]
+])
+
+/**
+ * Block-level elements that act as independent text containers.
+ * When a transformable parent contains a block child, we recurse into the
+ * block child rather than collecting the parent — this keeps separate
+ * paragraphs (or list items, table cells, etc.) as independent transform units.
+ */
+const BLOCK_ELEMENTS = new Set([
+  "p", "div", "h1", "h2", "h3", "h4", "h5", "h6",
+  "blockquote", "li", "dt", "dd", "td", "th",
+  "figcaption", "caption", "summary", "address",
+  "article", "aside", "footer", "header", "main", "nav", "section",
+])
 
 /**
  * Collects elements that should have text transformations applied.
- * Only collects elements that directly contain text nodes.
+ *
+ * A transformable element is collected as a unit when it has text accessible
+ * through inline (non-block) children. This ensures that text spanning
+ * multiple inline elements (e.g., `<p><em>"Hello</em><strong>, world"</strong></p>`)
+ * is transformed together, preserving cross-element context like quote matching.
+ *
+ * When a transformable element's text lives only inside block-level children
+ * (e.g., `<div><p>text1</p><p>text2</p></div>`), we recurse into those
+ * children so each block is an independent transform unit.
  *
  * @param node - The root element to search from
  * @param shouldSkip - Function to determine which elements to skip
@@ -364,25 +385,29 @@ export function collectTransformableElements(
     return []
   }
 
-  const results: Element[] = []
-
   if (shouldSkip(node)) {
     return []
   }
 
-  // If this node is a transformable element with direct text children, collect it
-  if (
-    TRANSFORMABLE_ELEMENTS.includes(node.tagName) &&
-    node.children.some((child) => child.type === "text")
-  ) {
-    results.push(node)
-  } else {
-    // Otherwise, recurse into children
-    for (const child of node.children) {
-      if (child.type === "element") {
-        const childResults = collectTransformableElements(child, shouldSkip, depth + 1)
-        for (const r of childResults) results.push(r)
-      }
+  if (TRANSFORMABLE_ELEMENTS.has(node.tagName)) {
+    const hasDirectText = node.children.some((child) => child.type === "text")
+    const hasBlockChild = node.children.some(
+      (child) => child.type === "element" && BLOCK_ELEMENTS.has((child as Element).tagName)
+    )
+
+    // Collect this node when it has text reachable through inline descendants
+    // and no block children that should be independent transform units.
+    if (hasDirectText || (!hasBlockChild && flattenTextNodes(node, shouldSkip).length > 0)) {
+      return [node]
+    }
+  }
+
+  // Recurse into element children
+  const results: Element[] = []
+  for (const child of node.children) {
+    if (child.type === "element") {
+      const childResults = collectTransformableElements(child, shouldSkip, depth + 1)
+      for (const r of childResults) results.push(r)
     }
   }
 
