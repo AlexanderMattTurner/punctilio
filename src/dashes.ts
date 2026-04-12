@@ -7,7 +7,7 @@ import { UNICODE_SYMBOLS, DEFAULT_SEPARATOR, LATIN_LETTERS, wordBoundaryStart, w
 export type DashStyle = "american" | "british" | "none"
 
 export interface DashOptions {
-  /** Boundary marker for HTML element boundaries. Default: "\uE000" */
+  /** Boundary marker for HTML element boundaries. Default: "\uE000\uE001" */
   separator?: string
   /** "american" (unspaced em), "british" (spaced en), "none". Default: "american" */
   dashStyle?: DashStyle
@@ -111,14 +111,14 @@ export function minusReplace(text: string, options: DashOptions = {}): string {
 
   // Pattern 1a: Subtraction of negative number (e.g., "5 - -3" → "5 − −3")
   // Must come before Pattern 1b so the negative hyphen is consumed first
-  text = text.replaceAll(
+  text = text.replace(
     cachedRegExp(`(?<=\\d${chr}?) - -(?<num>${chr}?\\d*\\.?\\d+)`, "g"),
     ` ${MINUS} ${MINUS}$<num>`
   )
 
   // Pattern 1b: Spaced math subtraction (e.g., "5 - 3" → "5 − 3")
   // Only when preceded by a digit - this distinguishes "5 - 3" from "Safari) - 9"
-  text = text.replaceAll(
+  text = text.replace(
     cachedRegExp(`(?<=\\d${chr}?) - (?<num>${chr}?\\d*\\.?\\d+)`, "g"),
     ` ${MINUS} $<num>`
   )
@@ -126,7 +126,7 @@ export function minusReplace(text: string, options: DashOptions = {}): string {
   // Pattern 2: Direct negative numbers (e.g., "-5" → "−5", "(-3)" → "(−3)")
   // Match after: start of line, whitespace, (, or quotes (straight or curly)
   // No space allowed between hyphen and digit
-  text = text.replaceAll(
+  text = text.replace(
     cachedRegExp(`(?<before>^|[\\s\\("${LEFT_DOUBLE_QUOTE}${RIGHT_DOUBLE_QUOTE}])-(?<num>\\d*\\.?\\d+)`, "gm"),
     `$<before>${MINUS}$<num>`
   )
@@ -134,7 +134,7 @@ export function minusReplace(text: string, options: DashOptions = {}): string {
   // Pattern 2b: Direct negative numbers after separator boundary (e.g., <em>-5</em>)
   // Only when no word character precedes the separator — prevents both
   // "2{SEP}-3" in "1-2-3" and "GPT{SEP}-3" from being misidentified as negative 3
-  text = text.replaceAll(
+  text = text.replace(
     cachedRegExp(`(?<![\\d.,${LATIN_LETTERS}])(?<before>${chr})-(?<num>\\d*\\.?\\d+)`, "gm"),
     `$<before>${MINUS}$<num>`
   )
