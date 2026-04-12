@@ -9,6 +9,7 @@ import {
   nbspBetweenInitials,
   nbspTransform,
   UNITS,
+  AMBIGUOUS_UNITS,
   HONORIFICS,
   REFERENCE_ABBREVIATIONS,
   type NbspOptions,
@@ -87,6 +88,12 @@ describe("nbspBetweenNumberAndUnit", () => {
     ["earned 5 MM last year", "earned 5 MM last year"],
   ])('no match: "%s"', (input, expected) => {
     expect(nbspBetweenNumberAndUnit(input)).toBe(expected)
+  })
+
+  it("AMBIGUOUS_UNITS are not in UNITS", () => {
+    for (const unit of AMBIGUOUS_UNITS) {
+      expect(UNITS).not.toContain(unit)
+    }
   })
 
   it("preserves separators at node boundaries", () => {

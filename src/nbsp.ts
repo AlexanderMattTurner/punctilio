@@ -34,7 +34,7 @@ const UNICODE_UPPERCASE = "\\p{Lu}"
  * abbreviations after a number to avoid false positives like "chapter 3 above".
  */
 export const UNITS = [
-  // Length — "in" excluded: too ambiguous with the English preposition
+  // Length
   "km", "cm", "mm", "mi", "ft", "yd", "nm", "pm", "m",
   // Mass
   "kg", "mg", "lbs", "lb", "oz", "g", "t",
@@ -52,13 +52,25 @@ export const UNITS = [
   "K",
   // Electrical
   "kV", "mV", "mA", "V", "A",
-  // Pressure / area — "bar" excluded: too ambiguous with the English word
+  // Pressure / area
   "kPa", "MPa", "psi", "ha", "Pa",
   // Typography / CSS
   "rem", "dpi", "px", "pt", "em", "vw", "vh",
   // Misc
   "kcal", "mol", "cal", "dB",
 ]
+
+/**
+ * Units excluded from the default UNITS list because they are too ambiguous
+ * with common English words or are informal abbreviations rather than
+ * standard measurement units. Provided for consumers who want to opt in.
+ *
+ * - "in": inches — clashes with the preposition "in" ("found 5 in total")
+ * - "bar": pressure — clashes with the word "bar" ("drew 5 bar charts")
+ * - "M", "MM", "B", "T": finance abbreviations (million, billion, trillion)
+ *   — not standard SI/measurement units
+ */
+export const AMBIGUOUS_UNITS = ["in", "bar", "M", "MM", "B", "T"]
 
 export const HONORIFICS = [
   // English
