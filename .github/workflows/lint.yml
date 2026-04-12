@@ -8,12 +8,22 @@ on:
 jobs:
   lint:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Setup
         uses: ./.github/actions/setup
 
       - name: Run ESLint
         run: pnpm lint
+
+      - name: Check GitHub Actions are SHA-pinned
+        run: |
+          UNPINNED=$(grep -rn 'uses:.*@v[0-9]' .github/workflows/ .github/actions/ || true)
+          if [ -n "$UNPINNED" ]; then
+            echo "::error::Found unpinned action references (must use SHA pins with version comment):"
+            echo "$UNPINNED"
+            exit 1
+          fi
