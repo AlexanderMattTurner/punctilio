@@ -175,10 +175,14 @@ export function getFirstTextNode(
 }
 
 /**
- * Validates that smart quotes in a text string are properly matched.
+ * Validates that smart double quotes in a text string are properly matched.
+ *
+ * Only checks double quotes (\u201C/\u201D). Single quotes are intentionally
+ * excluded because \u2019 (right single quote) doubles as an apostrophe,
+ * making balance-checking unreliable.
  *
  * @param input - The text to validate
- * @throws Error if quotes are mismatched
+ * @throws Error if double quotes are mismatched
  *
  * @example
  * ```ts
@@ -201,13 +205,13 @@ export function assertSmartQuotesMatch(input: string): void {
         stack.pop()
       } else {
         // Unmatched closer
-        throw new Error(`Mismatched quotes in ${input}`)
+        throw new Error(`Mismatched quotes in ${formatErrorString(input, "input")}`)
       }
     }
   }
 
   if (stack.length > 0) {
-    throw new Error(`Mismatched quotes in ${input}`)
+    throw new Error(`Mismatched quotes in ${formatErrorString(input, "input")}`)
   }
 }
 
