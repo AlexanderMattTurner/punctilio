@@ -8,19 +8,23 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
     },
     "./rehype": {
       "types": "./dist/rehype.d.ts",
-      "import": "./dist/rehype.js"
+      "import": "./dist/rehype.js",
+      "default": "./dist/rehype.js"
     },
     "./remark": {
       "types": "./dist/remark.d.ts",
-      "import": "./dist/remark.js"
+      "import": "./dist/remark.js",
+      "default": "./dist/remark.js"
     },
     "./markdown": {
       "types": "./dist/markdown.d.ts",
-      "import": "./dist/markdown.js"
+      "import": "./dist/markdown.js",
+      "default": "./dist/markdown.js"
     }
   },
   "files": [

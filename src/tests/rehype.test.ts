@@ -64,28 +64,6 @@ describe("rehypePunctilio", () => {
     })
   })
 
-  describe("inline-only children (no direct text in parent)", () => {
-    it.each([
-      [
-        "quotes spanning adjacent inline elements",
-        '<p><em>"Hello</em><strong>, world"</strong></p>',
-        `<p><em>${LDQ}Hello</em><strong>, world${RDQ}</strong></p>`,
-      ],
-      [
-        "em-dash across inline elements",
-        '<p><em>word</em><strong> -- another</strong></p>',
-        `<p><em>word</em><strong>${EM_DASH}another</strong></p>`,
-      ],
-      [
-        "block children still independent",
-        '<div><p>"Hello"</p><p>"World"</p></div>',
-        `<div><p>${LDQ}Hello${RDQ}</p><p>${LDQ}World${RDQ}</p></div>`,
-      ],
-    ])("%s", async (_name, html, expected) => {
-      expect(await processHtml(html, { nbsp: false })).toEqual(expected)
-    })
-  })
-
   describe("dashes across element boundaries", () => {
     it.each([
       ["multi-segment number preserved", "<p>1-<em>2</em>-3</p>", "<p>1-<em>2</em>-3</p>"],

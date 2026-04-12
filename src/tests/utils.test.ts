@@ -81,7 +81,7 @@ describe("cachedRegExp", () => {
     clearRegexCache()
   })
 
-  it("evicts oldest entry when cache exceeds max size", () => {
+  it("evicts least recently used entry when cache exceeds max size", () => {
     // Fill the cache well beyond 1000 entries with unique patterns
     for (let i = 0; i < 1010; i++) {
       const re = cachedRegExp(`unique-pattern-${i}`, "g")
@@ -90,6 +90,23 @@ describe("cachedRegExp", () => {
     // Verify the cache still works correctly after eviction
     const re = cachedRegExp("unique-pattern-1009", "g")
     expect(re.source).toBe("unique-pattern-1009")
+  })
+
+  it("promotes recently accessed entries (LRU behavior)", () => {
+    // Insert patterns 0..999 to fill the cache
+    for (let i = 0; i < 1000; i++) {
+      cachedRegExp(`pattern-${i}`, "g")
+    }
+    // Access pattern-0 to promote it to most-recently-used
+    const promoted = cachedRegExp("pattern-0", "g")
+    expect(promoted.source).toBe("pattern-0")
+
+    // Insert 1 new pattern — should evict pattern-1 (the new LRU), not pattern-0
+    cachedRegExp("new-pattern", "g")
+
+    // pattern-0 should still return the same RegExp instance (cache hit)
+    const stillCached = cachedRegExp("pattern-0", "g")
+    expect(stillCached).toBe(promoted)
   })
 })
 

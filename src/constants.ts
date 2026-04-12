@@ -227,27 +227,36 @@ export function spaceBoundaryEnd(escapedSeparator: string): string {
 }
 
 /**
- * Cache for compiled RegExp objects keyed by `pattern + '\0' + flags`.
+ * LRU cache for compiled RegExp objects keyed by `pattern + '\0' + flags`.
  * Avoids recompiling identical regexes on every function call (common
  * when using the default separator). Capped to prevent unbounded growth.
+ *
+ * Uses Map insertion order: on cache hit we delete + re-set the entry to
+ * move it to the end (most recently used). On eviction, the first key
+ * in iteration order is the least recently used.
  */
 const regexCache = new Map<string, RegExp>()
 export const MAX_REGEX_CACHE_SIZE = 1000
 
 /**
  * Returns a cached RegExp for the given pattern and flags.
+ * Promotes the entry to most-recently-used on hit (LRU).
  * Resets `lastIndex` before returning to prevent stale state when
  * callers use `.test()` or `.exec()` on global-flag regexes.
  */
 export function cachedRegExp(pattern: string, flags: string): RegExp {
   const key = `${pattern}\0${flags}`
   let re = regexCache.get(key)
-  if (!re) {
+  if (re) {
+    // LRU promotion: move to end of insertion order
+    regexCache.delete(key)
+    regexCache.set(key, re)
+  } else {
     re = new RegExp(pattern, flags)
     if (regexCache.size >= MAX_REGEX_CACHE_SIZE) {
-      // Evict oldest entry (first key in insertion order)
-      const oldest = regexCache.keys().next().value!
-      regexCache.delete(oldest)
+      // Evict least recently used entry (first key in insertion order)
+      const lru = regexCache.keys().next().value!
+      regexCache.delete(lru)
     }
     regexCache.set(key, re)
   }

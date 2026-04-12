@@ -664,6 +664,12 @@ describe("phone number preservation", () => {
     ["+1-800-555-1234", "+1-800-555-1234", "international US"],
     ["+44-20-7946-0958", "+44-20-7946-0958", "international UK"],
     ["+1 (800) 555-1234", "+1 (800) 555-1234", "international with parens"],
+    // International short patterns (country code + city code, no further segments)
+    ["+44-20", "+44-20", "UK country + city code"],
+    ["+49-30", "+49-30", "German country + city code"],
+    ["+33-1", "+33-1", "French country + city code"],
+    ["+61-2", "+61-2", "Australian country + city code"],
+    ["+91-22", "+91-22", "Indian country + city code"],
     // Converted range patterns
     ["555-1234", `555${EN_DASH}1234`, "standalone 3+4 as range"],
     ["1-5", `1${EN_DASH}5`, "simple range"],
