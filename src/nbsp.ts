@@ -35,7 +35,7 @@ const UNICODE_UPPERCASE = "\\p{Lu}"
  */
 export const UNITS = [
   // Length
-  "km", "cm", "mm", "mi", "ft", "in", "yd", "nm", "pm", "m",
+  "km", "cm", "mm", "mi", "ft", "yd", "nm", "pm", "m",
   // Mass
   "kg", "mg", "lbs", "lb", "oz", "g", "t",
   // Volume
@@ -53,7 +53,7 @@ export const UNITS = [
   // Electrical
   "kV", "mV", "mA", "V", "A",
   // Pressure / area
-  "kPa", "MPa", "bar", "psi", "ha", "Pa",
+  "kPa", "MPa", "psi", "ha", "Pa",
   // Typography / CSS
   "rem", "dpi", "px", "pt", "em", "vw", "vh",
   // Finance
@@ -61,6 +61,7 @@ export const UNITS = [
   // Misc
   "kcal", "mol", "cal", "dB",
 ]
+
 
 export const HONORIFICS = [
   // English

@@ -290,7 +290,7 @@ export function transformElement(
  * HTML elements that can contain transformable text content.
  * We traverse into these to find text nodes to transform.
  */
-const TRANSFORMABLE_ELEMENTS = [
+const TRANSFORMABLE_ELEMENTS = new Set([
   "p",
   "em",
   "strong",
@@ -343,7 +343,7 @@ const TRANSFORMABLE_ELEMENTS = [
   "ruby",
   "rt",
   "rp",
-]
+])
 
 /**
  * Collects elements that should have text transformations applied.
@@ -372,7 +372,7 @@ export function collectTransformableElements(
 
   // If this node is a transformable element with direct text children, collect it
   if (
-    TRANSFORMABLE_ELEMENTS.includes(node.tagName) &&
+    TRANSFORMABLE_ELEMENTS.has(node.tagName) &&
     node.children.some((child) => child.type === "text")
   ) {
     results.push(node)
@@ -445,8 +445,10 @@ export function rehypePunctilio(
     ...transformOptions
   } = options
 
+  const skipTagSet = new Set(skipTags)
+
   const shouldSkip = (node: Element): boolean => {
-    if (skipTags.includes(node.tagName)) {
+    if (skipTagSet.has(node.tagName)) {
       return true
     }
     if (skipClasses.some((cls) => hasClass(node, cls))) {
