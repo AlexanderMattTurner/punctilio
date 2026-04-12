@@ -204,37 +204,37 @@ function normalizeGermanQuotes(text: string): string {
   const DLQ = UNICODE_SYMBOLS.DOUBLE_LOW_9_QUOTE
   const SLQ = UNICODE_SYMBOLS.SINGLE_LOW_9_QUOTE
 
-  let result = ""
+  const parts: string[] = []
   let doubleDepth = 0
   let singleDepth = 0
 
   for (const ch of text) {
     if (ch === DLQ) {
-      result += LEFT_DOUBLE_QUOTE
+      parts.push(LEFT_DOUBLE_QUOTE)
       doubleDepth++
     } else if (ch === LEFT_DOUBLE_QUOTE && doubleDepth > 0) {
-      result += RIGHT_DOUBLE_QUOTE
+      parts.push(RIGHT_DOUBLE_QUOTE)
       doubleDepth--
     } else if (ch === SLQ) {
-      result += LEFT_SINGLE_QUOTE
+      parts.push(LEFT_SINGLE_QUOTE)
       singleDepth++
     } else if (ch === LEFT_SINGLE_QUOTE && singleDepth > 0) {
-      result += RIGHT_SINGLE_QUOTE
+      parts.push(RIGHT_SINGLE_QUOTE)
       singleDepth--
     } else if (ch === RIGHT_DOUBLE_QUOTE) {
       // RDQ is not used in German typography — normalize to straight quote
       // so the pipeline can re-classify it (e.g., from a previous American pass)
-      result += '"'
+      parts.push('"')
     } else if (ch === RIGHT_SINGLE_QUOTE) {
       // RSQ is not used in German typography — normalize to straight quote
       // so the pipeline can re-classify apostrophes vs closing quotes
-      result += "'"
+      parts.push("'")
     } else {
-      result += ch
+      parts.push(ch)
     }
   }
 
-  return result
+  return parts.join("")
 }
 
 /** Remap American curly quotes to German low-9 style. Safe because apostrophes are still MLA at this stage. */
