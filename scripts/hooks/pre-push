@@ -35,6 +35,23 @@ else
   fi
 fi
 
+# Run tests and lint before publishing
+echo "🧪 Running tests..."
+pnpm test
+
+if [ $? -ne 0 ]; then
+  echo "❌ Tests failed. Push aborted."
+  exit 1
+fi
+
+echo "🔍 Running lint..."
+pnpm lint
+
+if [ $? -ne 0 ]; then
+  echo "❌ Lint failed. Push aborted."
+  exit 1
+fi
+
 # Build the package
 echo "🔨 Building package..."
 pnpm run build

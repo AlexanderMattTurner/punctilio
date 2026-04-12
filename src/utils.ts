@@ -69,6 +69,51 @@ export function countSeparators(text: string, separator: string = DEFAULT_SEPARA
   return count
 }
 
+/** Minimal text-node interface shared by mdast.Text and hast.Text. */
+interface TextNode {
+  value: string
+}
+
+/**
+ * Applies a text transformation across an array of text nodes using the
+ * separator-marking technique.
+ *
+ * 1. Validates no text node already contains the separator.
+ * 2. Appends the separator to each node's value, concatenates into one string.
+ * 3. Runs the transform function on the concatenated string.
+ * 4. Splits the result back on the separator and writes each fragment
+ *    back into the corresponding text node.
+ *
+ * @param textNodes - The text nodes to transform (mutated in place)
+ * @param transformFn - The transformation function to apply
+ * @param separator - The marker string used to track node boundaries
+ * @throws Error if the transformation alters the number of text nodes
+ */
+export function transformTextNodes(
+  textNodes: TextNode[],
+  transformFn: (input: string) => string,
+  separator: string,
+): void {
+  assertSeparatorAbsent(textNodes.map((n) => n.value), separator)
+
+  const markedContent = textNodes.map((n) => n.value + separator).join("")
+  const transformedContent = transformFn(markedContent)
+  const transformedFragments = transformedContent.split(separator).slice(0, -1)
+
+  /* istanbul ignore if -- defensive: transform should never consume separator chars */
+  if (transformedFragments.length !== textNodes.length) {
+    throw new Error(
+      `Transformation altered the number of text nodes. ` +
+        `Expected ${textNodes.length}, got ${transformedFragments.length}. ` +
+        `Input: ${formatErrorString(markedContent, "input")}`
+    )
+  }
+
+  textNodes.forEach((n, index) => {
+    n.value = transformedFragments[index]
+  })
+}
+
 /**
  * Validates that a transformation preserved the separator count.
  * Throws an error if separators were added or removed.
