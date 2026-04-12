@@ -20,7 +20,7 @@ const TERMINAL_PUNCTUATION_CLASS = TERMINAL_PUNCTUATION.join("")
 export type PunctuationStyle = "american" | "british" | "german" | "french" | "none"
 
 export interface QuoteOptions {
-  /** Boundary marker for HTML element boundaries. Default: "\uE000" */
+  /** Boundary marker for HTML element boundaries. Default: "\uE000\uE001" */
   separator?: string
   /** "american" (inside), "british" (outside), "none". Default: "american" */
   punctuationStyle?: PunctuationStyle

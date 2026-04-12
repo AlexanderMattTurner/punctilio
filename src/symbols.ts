@@ -5,7 +5,7 @@
 import { UNICODE_SYMBOLS, LATIN_LETTERS, wordBoundaryEnd, SPACE_CHARS, spaceBoundaryStart, spaceBoundaryEnd, cachedRegExp, getEscapedSeparator } from "./constants.js"
 
 export interface SymbolOptions {
-  /** Boundary marker for HTML element boundaries. Default: "\uE000" */
+  /** Boundary marker for HTML element boundaries. Default: "\uE000\uE001" */
   separator?: string
   /** Include arrow transforms (-> → →). Default: true */
   includeArrows?: boolean

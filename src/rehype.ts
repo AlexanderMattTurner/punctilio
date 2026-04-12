@@ -14,7 +14,7 @@ import { visitParents } from "unist-util-visit-parents"
 
 import { transform, type TransformOptions } from "./index.js"
 import { DEFAULT_SEPARATOR } from "./constants.js"
-import { assertSeparatorAbsent, formatErrorString } from "./utils.js"
+import { transformTextNodes, formatErrorString } from "./utils.js"
 
 /** Predicate that decides whether an HTML element should be skipped during transformation. */
 type ElementPredicate = (node: Element) => boolean
@@ -263,30 +263,15 @@ export function transformElement(
     return
   }
 
-  assertSeparatorAbsent(textNodes.map((n) => n.value), separator)
+  // Capture marked content before transformation for invariance check
+  const markedContent = checkInvariance
+    ? textNodes.map((n) => n.value + separator).join("")
+    : ""
 
-  // Append marker and concatenate all text nodes
-  const markedContent = textNodes.map((n) => n.value + separator).join("")
-
-  const transformedContent = transformFn(markedContent)
-
-  // Split and overwrite. Last fragment is always empty because strings end with marker
-  const transformedFragments = transformedContent.split(separator).slice(0, -1)
-
-  /* istanbul ignore if -- defensive: transform should never consume separator chars */
-  if (transformedFragments.length !== textNodes.length) {
-    throw new Error(
-      `Transformation altered the number of text nodes. ` +
-        `Expected ${textNodes.length}, got ${transformedFragments.length}. ` +
-        `Input: ${formatErrorString(markedContent, "input")}`
-    )
-  }
-
-  textNodes.forEach((n, index) => {
-    n.value = transformedFragments[index]
-  })
+  transformTextNodes(textNodes, transformFn, separator)
 
   if (checkInvariance) {
+    const transformedContent = textNodes.map((n) => n.value + separator).join("")
     const stripSep = (s: string) => s.replaceAll(separator, "")
     const strippedTransformed = stripSep(transformedContent)
     const expected = transformFn(stripSep(markedContent))

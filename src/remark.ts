@@ -14,7 +14,7 @@ import { visitParents } from "unist-util-visit-parents"
 
 import { transform, type TransformOptions } from "./index.js"
 import { DEFAULT_SEPARATOR } from "./constants.js"
-import { assertSeparatorAbsent, formatErrorString } from "./utils.js"
+import { transformTextNodes } from "./utils.js"
 
 export type RemarkPunctilioOptions = TransformOptions
 
@@ -136,26 +136,7 @@ export function remarkPunctilio(
         return
       }
 
-      assertSeparatorAbsent(textNodes.map((n) => n.value), separator)
-
-      // Same separator technique as the rehype plugin:
-      // append marker to each text node, concatenate, transform, split back
-      const markedContent = textNodes.map((n) => n.value + separator).join("")
-      const transformedContent = transformFn(markedContent)
-      const transformedFragments = transformedContent.split(separator).slice(0, -1)
-
-      /* istanbul ignore if -- defensive: transform should never consume separator chars */
-      if (transformedFragments.length !== textNodes.length) {
-        throw new Error(
-          `Transformation altered the number of text nodes. ` +
-            `Expected ${textNodes.length}, got ${transformedFragments.length}. ` +
-            `Input: ${formatErrorString(markedContent, "input")}`
-        )
-      }
-
-      textNodes.forEach((n, index) => {
-        n.value = transformedFragments[index]
-      })
+      transformTextNodes(textNodes, transformFn, separator)
     })
   }
 }

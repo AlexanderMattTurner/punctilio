@@ -175,7 +175,7 @@ import { nbspTransform as nbspTransformFn } from "./nbsp.js"
 import { assertSeparatorCountPreserved, formatErrorString } from "./utils.js"
 import { DEFAULT_SEPARATOR, UNICODE_SYMBOLS } from "./constants.js"
 
-export { assertSeparatorAbsent, assertSeparatorCountPreserved, countSeparators } from "./utils.js"
+export { assertSeparatorAbsent, assertSeparatorCountPreserved, countSeparators, transformTextNodes } from "./utils.js"
 export { DEFAULT_SEPARATOR, UNICODE_SYMBOLS } from "./constants.js"
 export const MODIFIER_LETTER_APOSTROPHE = UNICODE_SYMBOLS.MODIFIER_LETTER_APOSTROPHE
 
