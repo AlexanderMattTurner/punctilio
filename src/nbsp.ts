@@ -34,8 +34,8 @@ const UNICODE_UPPERCASE = "\\p{Lu}"
  * abbreviations after a number to avoid false positives like "chapter 3 above".
  */
 export const UNITS = [
-  // Length
-  "km", "cm", "mm", "mi", "ft", "in", "yd", "nm", "pm", "m",
+  // Length — "in" excluded: too ambiguous with the English preposition
+  "km", "cm", "mm", "mi", "ft", "yd", "nm", "pm", "m",
   // Mass
   "kg", "mg", "lbs", "lb", "oz", "g", "t",
   // Volume
@@ -52,12 +52,10 @@ export const UNITS = [
   "K",
   // Electrical
   "kV", "mV", "mA", "V", "A",
-  // Pressure / area
-  "kPa", "MPa", "bar", "psi", "ha", "Pa",
+  // Pressure / area — "bar" excluded: too ambiguous with the English word
+  "kPa", "MPa", "psi", "ha", "Pa",
   // Typography / CSS
   "rem", "dpi", "px", "pt", "em", "vw", "vh",
-  // Finance
-  "MM", "M", "B", "T",
   // Misc
   "kcal", "mol", "cal", "dB",
 ]
