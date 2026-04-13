@@ -93,7 +93,7 @@
     "smartquotes": "2.3.2",
     "smartypants": "0.2.2",
     "tipograph": "0.7.4",
-    "ts-jest": "29.4.6",
+    "ts-jest": "29.4.9",
     "typescript": "5.9.3",
     "typescript-eslint": "8.54.0",
     "typograf": "7.6.0",
@@ -134,5 +134,18 @@
   },
   "lint-staged": {
     "*.{ts,js,mjs}": "eslint --fix"
+  },
+  "pnpm": {
+    "overrides": {
+      "minimatch@<3.1.4": "3.1.5",
+      "minimatch@>=9.0.0 <9.0.7": "9.0.9",
+      "flatted@<=3.4.1": "3.4.2",
+      "picomatch@<2.3.2": "2.3.2",
+      "picomatch@>=4.0.0 <4.0.4": "4.0.4",
+      "ajv@<6.14.0": "6.14.0",
+      "brace-expansion@<1.1.13": "1.1.13",
+      "brace-expansion@>=2.0.0 <2.0.3": "2.0.3",
+      "yaml@>=2.0.0 <2.8.3": "2.8.3"
+    }
   }
 }
