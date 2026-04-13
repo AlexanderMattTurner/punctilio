@@ -175,10 +175,14 @@ export function getFirstTextNode(
 }
 
 /**
- * Validates that smart quotes in a text string are properly matched.
+ * Validates that smart double quotes in a text string are properly matched.
+ *
+ * Only checks double quotes (\u201C/\u201D). Single quotes are intentionally
+ * excluded because \u2019 (right single quote) doubles as an apostrophe,
+ * making balance-checking unreliable.
  *
  * @param input - The text to validate
- * @throws Error if quotes are mismatched
+ * @throws Error if double quotes are mismatched
  *
  * @example
  * ```ts
@@ -201,13 +205,13 @@ export function assertSmartQuotesMatch(input: string): void {
         stack.pop()
       } else {
         // Unmatched closer
-        throw new Error(`Mismatched quotes in ${input}`)
+        throw new Error(`Mismatched quotes in ${formatErrorString(input, "input")}`)
       }
     }
   }
 
   if (stack.length > 0) {
-    throw new Error(`Mismatched quotes in ${input}`)
+    throw new Error(`Mismatched quotes in ${formatErrorString(input, "input")}`)
   }
 }
 
@@ -287,6 +291,20 @@ export function transformElement(
 }
 
 /**
+ * HTML block-level elements. When a transformable element has a block-level
+ * child, its children are processed independently rather than as a single
+ * unit. This prevents merging text across semantically independent blocks
+ * (e.g., separate paragraphs inside a div).
+ */
+const BLOCK_ELEMENTS = new Set([
+  "address", "article", "aside", "blockquote", "details", "dialog",
+  "dd", "div", "dl", "dt", "fieldset", "figcaption", "figure",
+  "footer", "form", "h1", "h2", "h3", "h4", "h5", "h6",
+  "header", "hgroup", "hr", "li", "main", "nav", "ol",
+  "p", "pre", "section", "table", "ul",
+])
+
+/**
  * HTML elements that can contain transformable text content.
  * We traverse into these to find text nodes to transform.
  */
@@ -347,7 +365,15 @@ const TRANSFORMABLE_ELEMENTS = new Set([
 
 /**
  * Collects elements that should have text transformations applied.
- * Only collects elements that directly contain text nodes.
+ *
+ * An element is collected as a single transformation unit when it:
+ * 1. Has direct text children (original behavior), OR
+ * 2. Has text descendants and NO block-level children — meaning all its
+ *    content is inline (phrasing) and should share transformation context
+ *    (e.g., `<p><em>"Hello</em><span>, world"</span></p>`).
+ *
+ * When an element has block-level children, we recurse so each block
+ * is processed independently (e.g., `<div><p>A</p><p>B</p></div>`).
  *
  * @param node - The root element to search from
  * @param shouldSkip - Function to determine which elements to skip
@@ -370,14 +396,23 @@ export function collectTransformableElements(
     return []
   }
 
-  // If this node is a transformable element with direct text children, collect it
+  const hasDirectText = node.children.some((child) => child.type === "text")
+  // Only check for block children and text descendants when there's no direct text
+  // (short-circuit avoids unnecessary tree traversal)
+  const hasBlockChildren = !hasDirectText && node.children.some(
+    (child) => child.type === "element" && BLOCK_ELEMENTS.has(child.tagName)
+  )
+  const hasTextDescendants = !hasDirectText && !hasBlockChildren &&
+    flattenTextNodes(node, shouldSkip).length > 0
+
   if (
     TRANSFORMABLE_ELEMENTS.has(node.tagName) &&
-    node.children.some((child) => child.type === "text")
+    (hasDirectText || hasTextDescendants)
   ) {
     results.push(node)
   } else {
-    // Otherwise, recurse into children
+    // Recurse into children: either the node isn't transformable, has block
+    // children that should be independent, or has no text to transform.
     for (const child of node.children) {
       if (child.type === "element") {
         const childResults = collectTransformableElements(child, shouldSkip, depth + 1)

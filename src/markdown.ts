@@ -78,6 +78,8 @@ export async function transformMarkdown(
       strong: strongMarker ?? "*",
       bullet: bulletMarker ?? "-",
       rule: ruleMarker ?? "-",
+      // Use 4 dashes (----) for thematic breaks to avoid ambiguity with
+      // YAML front matter delimiters (---) during re-parsing
       ...(ruleMarker === "-" || ruleMarker === undefined ? { ruleRepetition: 4 } : {}),
       // remark-stringify escapes opening brackets but not closing brackets,
       // producing `\[1]` instead of `\[1\]`. This can cause issues when the
