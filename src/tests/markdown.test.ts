@@ -1,7 +1,7 @@
 import { readFileSync } from "fs"
 import { resolve } from "path"
 import { fileURLToPath } from "url"
-import { transformMarkdown } from "../markdown.js"
+import { transformMarkdown, clearProcessorCache } from "../markdown.js"
 import { transform } from "../index.js"
 import { UNICODE_SYMBOLS } from "../constants.js"
 
@@ -16,6 +16,10 @@ const {
 } = UNICODE_SYMBOLS
 
 describe("transformMarkdown", () => {
+  afterEach(() => {
+    clearProcessorCache()
+  })
+
   it("transforms basic typography", async () => {
     const result = await transformMarkdown('"Hello," she said.', { nbsp: false })
     expect(result.trimEnd()).toEqual(`${LDQ}Hello,${RDQ} she said.`)
@@ -90,6 +94,30 @@ describe("transformMarkdown", () => {
     const result = await transformMarkdown(input, { nbsp: false })
     expect(result).not.toContain(EM_DASH)
     expect(result).toContain(LDQ)
+  })
+
+  it("reuses cached processor for identical options", async () => {
+    const opts = { punctuationStyle: "british" as const, nbsp: false }
+    const first = await transformMarkdown('"Hello."', opts)
+    const second = await transformMarkdown('"World."', opts)
+    expect(first.trimEnd()).toEqual(`${LDQ}Hello${RDQ}.`)
+    expect(second.trimEnd()).toEqual(`${LDQ}World${RDQ}.`)
+  })
+
+  it("invalidates cache when options change", async () => {
+    const american = await transformMarkdown('"Hello."', { punctuationStyle: "american", nbsp: false })
+    const british = await transformMarkdown('"Hello."', { punctuationStyle: "british", nbsp: false })
+    expect(american.trimEnd()).toEqual(`${LDQ}Hello.${RDQ}`)
+    expect(british.trimEnd()).toEqual(`${LDQ}Hello${RDQ}.`)
+  })
+
+  it("distinguishes explicit undefined from absent options in cache key", async () => {
+    // { nbsp: undefined } overrides the default (true), disabling nbsp.
+    // The cache must not conflate this with {} which uses the default.
+    const withDefault = await transformMarkdown("Dr. Smith")
+    const withUndefined = await transformMarkdown("Dr. Smith", { nbsp: undefined })
+    expect(withDefault).toContain("\u00A0")
+    expect(withUndefined).not.toContain("\u00A0")
   })
 
   it("README.md prose is already typographically correct", () => {

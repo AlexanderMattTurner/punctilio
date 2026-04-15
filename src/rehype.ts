@@ -112,7 +112,7 @@ export function flattenTextNodes(
     return [node]
   }
 
-  if (node.type === "element" && "children" in node) {
+  if (node.type === "element") {
     return node.children.flatMap((child) => flattenTextNodes(child, shouldSkip, depth + 1))
   }
 
@@ -509,21 +509,14 @@ export function rehypePunctilio(
     // Track transformed elements to avoid double-processing
     const transformed = new Set<Element>()
 
-    visitParents(tree, (node, ancestors) => {
-      // Only process element nodes
-      if (node.type !== "element") {
-        return
-      }
-
-      const element = node as Element
-
+    visitParents(tree, "element", (node, ancestors) => {
       // Skip if already transformed
-      if (transformed.has(element)) {
+      if (transformed.has(node)) {
         return
       }
 
       // Check if this node or any ancestor should be skipped
-      if (shouldSkip(element)) {
+      if (shouldSkip(node)) {
         return
       }
       if (hasAncestor(ancestors as Parent[], shouldSkip)) {
@@ -531,7 +524,7 @@ export function rehypePunctilio(
       }
 
       // Collect and transform elements with text content
-      const elementsToTransform = collectTransformableElements(element, shouldSkip)
+      const elementsToTransform = collectTransformableElements(node, shouldSkip)
       for (const elt of elementsToTransform) {
         if (!transformed.has(elt)) {
           transformElement(elt, transformFn, shouldSkip, separator)
