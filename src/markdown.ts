@@ -75,6 +75,15 @@ let cachedProcessor: ReturnType<typeof createProcessor> | null = null
 let cachedOptionsKey = ""
 
 /**
+ * Clears the processor cache. Exported for test isolation only.
+ * @internal
+ */
+export function clearProcessorCache(): void {
+  cachedProcessor = null
+  cachedOptionsKey = ""
+}
+
+/**
  * Transforms Markdown text with typographic improvements.
  *
  * Parses the input as Markdown, applies punctilio typography transformations
@@ -99,10 +108,9 @@ export async function transformMarkdown(
   input: string,
   options: MarkdownOptions = {}
 ): Promise<string> {
-  // Use a replacer to preserve undefined-valued keys in the cache key.
-  // JSON.stringify omits undefined values, so { nbsp: undefined } and {}
-  // would collide despite producing different behavior (undefined overrides defaults).
-  const optionsKey = JSON.stringify(options, (_key, value) => value === undefined ? null : value)
+  const optionsKey = JSON.stringify(
+    Object.entries(options).sort(([a], [b]) => a.localeCompare(b))
+  )
 
   if (!cachedProcessor || cachedOptionsKey !== optionsKey) {
     cachedProcessor = createProcessor(options)

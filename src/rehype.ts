@@ -510,15 +510,13 @@ export function rehypePunctilio(
     const transformed = new Set<Element>()
 
     visitParents(tree, "element", (node, ancestors) => {
-      const element = node as Element
-
       // Skip if already transformed
-      if (transformed.has(element)) {
+      if (transformed.has(node)) {
         return
       }
 
       // Check if this node or any ancestor should be skipped
-      if (shouldSkip(element)) {
+      if (shouldSkip(node)) {
         return
       }
       if (hasAncestor(ancestors as Parent[], shouldSkip)) {
@@ -526,7 +524,7 @@ export function rehypePunctilio(
       }
 
       // Collect and transform elements with text content
-      const elementsToTransform = collectTransformableElements(element, shouldSkip)
+      const elementsToTransform = collectTransformableElements(node, shouldSkip)
       for (const elt of elementsToTransform) {
         if (!transformed.has(elt)) {
           transformElement(elt, transformFn, shouldSkip, separator)
