@@ -112,7 +112,7 @@ export function flattenTextNodes(
     return [node]
   }
 
-  if (node.type === "element" && "children" in node) {
+  if (node.type === "element") {
     return node.children.flatMap((child) => flattenTextNodes(child, shouldSkip, depth + 1))
   }
 
@@ -509,12 +509,7 @@ export function rehypePunctilio(
     // Track transformed elements to avoid double-processing
     const transformed = new Set<Element>()
 
-    visitParents(tree, (node, ancestors) => {
-      // Only process element nodes
-      if (node.type !== "element") {
-        return
-      }
-
+    visitParents(tree, "element", (node, ancestors) => {
       const element = node as Element
 
       // Skip if already transformed

@@ -40,10 +40,48 @@ export interface MarkdownOptions extends RemarkPunctilioOptions {
 }
 
 /**
+ * Creates a unified processor pipeline for Markdown typography transformations.
+ */
+function createProcessor(options: MarkdownOptions) {
+  const {
+    emphasisMarker,
+    strongMarker,
+    bulletMarker,
+    ruleMarker,
+    ...punctilioOptions
+  } = options
+
+  return unified()
+    .use(remarkParse)
+    .use(remarkGfm)
+    .use(remarkPunctilio, punctilioOptions)
+    .use(remarkStringify, {
+      emphasis: emphasisMarker ?? "*",
+      strong: strongMarker ?? "*",
+      bullet: bulletMarker ?? "-",
+      rule: ruleMarker ?? "-",
+      // Use 4 dashes (----) for thematic breaks to avoid ambiguity with
+      // YAML front matter delimiters (---) during re-parsing
+      ...(ruleMarker === "-" || ruleMarker === undefined ? { ruleRepetition: 4 } : {}),
+      // remark-stringify escapes opening brackets but not closing brackets,
+      // producing `\[1]` instead of `\[1\]`. This can cause issues when the
+      // output is re-parsed by markdown renderers.
+      unsafe: [{ character: "]", inConstruct: "phrasing" }],
+    })
+}
+
+/** Cached processor and the options key it was built with. */
+let cachedProcessor: ReturnType<typeof createProcessor> | null = null
+let cachedOptionsKey = ""
+
+/**
  * Transforms Markdown text with typographic improvements.
  *
  * Parses the input as Markdown, applies punctilio typography transformations
  * (smart quotes, em-dashes, ellipses, etc.), and serializes back to Markdown.
+ *
+ * The unified processor pipeline is cached and reused across calls with
+ * identical options, avoiding redundant pipeline construction.
  *
  * @param input - The Markdown text to transform
  * @param options - Configuration options for both the transform and serializer
@@ -61,32 +99,16 @@ export async function transformMarkdown(
   input: string,
   options: MarkdownOptions = {}
 ): Promise<string> {
-  const {
-    emphasisMarker,
-    strongMarker,
-    bulletMarker,
-    ruleMarker,
-    ...punctilioOptions
-  } = options
+  // Use a replacer to preserve undefined-valued keys in the cache key.
+  // JSON.stringify omits undefined values, so { nbsp: undefined } and {}
+  // would collide despite producing different behavior (undefined overrides defaults).
+  const optionsKey = JSON.stringify(options, (_key, value) => value === undefined ? null : value)
 
-  const processor = unified()
-    .use(remarkParse)
-    .use(remarkGfm)
-    .use(remarkPunctilio, punctilioOptions)
-    .use(remarkStringify, {
-      emphasis: emphasisMarker ?? "*",
-      strong: strongMarker ?? "*",
-      bullet: bulletMarker ?? "-",
-      rule: ruleMarker ?? "-",
-      // Use 4 dashes (----) for thematic breaks to avoid ambiguity with
-      // YAML front matter delimiters (---) during re-parsing
-      ...(ruleMarker === "-" || ruleMarker === undefined ? { ruleRepetition: 4 } : {}),
-      // remark-stringify escapes opening brackets but not closing brackets,
-      // producing `\[1]` instead of `\[1\]`. This can cause issues when the
-      // output is re-parsed by markdown renderers.
-      unsafe: [{ character: "]", inConstruct: "phrasing" }],
-    })
+  if (!cachedProcessor || cachedOptionsKey !== optionsKey) {
+    cachedProcessor = createProcessor(options)
+    cachedOptionsKey = optionsKey
+  }
 
-  const result = await processor.process(input)
+  const result = await cachedProcessor.process(input)
   return String(result)
 }

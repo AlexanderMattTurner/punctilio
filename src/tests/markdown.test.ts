@@ -92,6 +92,23 @@ describe("transformMarkdown", () => {
     expect(result).toContain(LDQ)
   })
 
+  it("reuses cached processor for identical options", async () => {
+    const opts = { punctuationStyle: "british" as const, nbsp: false }
+    const first = await transformMarkdown('"Hello."', opts)
+    const second = await transformMarkdown('"World."', opts)
+    expect(first.trimEnd()).toEqual(`${LDQ}Hello${RDQ}.`)
+    expect(second.trimEnd()).toEqual(`${LDQ}World${RDQ}.`)
+  })
+
+  it("distinguishes explicit undefined from absent options in cache key", async () => {
+    // { nbsp: undefined } overrides the default (true), disabling nbsp.
+    // The cache must not conflate this with {} which uses the default.
+    const withDefault = await transformMarkdown("Dr. Smith")
+    const withUndefined = await transformMarkdown("Dr. Smith", { nbsp: undefined })
+    expect(withDefault).toContain("\u00A0")
+    expect(withUndefined).not.toContain("\u00A0")
+  })
+
   it("README.md prose is already typographically correct", () => {
     const readme = readFileSync(resolve(__dirname, "../../README.md"), "utf-8")
     const lines = readme.split("\n")
