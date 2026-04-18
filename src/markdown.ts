@@ -13,6 +13,7 @@ import { unified } from "unified"
 import remarkParse from "remark-parse"
 import remarkGfm from "remark-gfm"
 import remarkStringify from "remark-stringify"
+import QuickLRU from "quick-lru"
 
 import { remarkPunctilio, type RemarkPunctilioOptions } from "./remark.js"
 
@@ -70,17 +71,18 @@ function createProcessor(options: MarkdownOptions) {
     })
 }
 
-/** Cached processor and the options key it was built with. */
-let cachedProcessor: ReturnType<typeof createProcessor> | null = null
-let cachedOptionsKey = ""
+const MAX_PROCESSOR_CACHE_SIZE = 8
+
+const processorCache = new QuickLRU<string, ReturnType<typeof createProcessor>>({
+  maxSize: MAX_PROCESSOR_CACHE_SIZE,
+})
 
 /**
  * Clears the processor cache. Exported for test isolation only.
  * @internal
  */
 export function clearProcessorCache(): void {
-  cachedProcessor = null
-  cachedOptionsKey = ""
+  processorCache.clear()
 }
 
 /**
@@ -112,11 +114,12 @@ export async function transformMarkdown(
     Object.entries(options).sort(([a], [b]) => a.localeCompare(b))
   )
 
-  if (!cachedProcessor || cachedOptionsKey !== optionsKey) {
-    cachedProcessor = createProcessor(options)
-    cachedOptionsKey = optionsKey
+  let processor = processorCache.get(optionsKey)
+  if (!processor) {
+    processor = createProcessor(options)
+    processorCache.set(optionsKey, processor)
   }
 
-  const result = await cachedProcessor.process(input)
+  const result = await processor.process(input)
   return String(result)
 }

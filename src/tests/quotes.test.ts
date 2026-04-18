@@ -135,6 +135,10 @@ describe("niceQuotes", () => {
       ["Привет's", `Привет${MODIFIER_LETTER_APOSTROPHE}s`],
       // Closing RSQ then opening LDQ
       [`'hello' "world"`, `${LEFT_SINGLE_QUOTE}hello${RIGHT_SINGLE_QUOTE} ${LEFT_DOUBLE_QUOTE}world${RIGHT_DOUBLE_QUOTE}`],
+      // Latin Extended Additional: Vietnamese contraction-like patterns
+      ["l'\u1EA3nh", `l${MODIFIER_LETTER_APOSTROPHE}\u1EA3nh`],
+      // Latin Extended Additional: Welsh w-circumflex
+      ["l'\u0175r", `l${MODIFIER_LETTER_APOSTROPHE}\u0175r`],
     ])('should handle single quotes/apostrophes in "%s"', (input, expected) => {
       expect(classifyApostrophes(input)).toBe(expected)
     })

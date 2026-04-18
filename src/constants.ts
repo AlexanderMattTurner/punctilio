@@ -117,10 +117,11 @@ export const TERMINAL_PUNCTUATION = [
  * - Latin-1 Supplement: À-Ö, Ø-ö, ø-ÿ (excludes × and ÷)
  * - Latin Extended-A: Ā-ſ (U+0100-017F)
  * - Latin Extended-B: ƀ-ɏ (U+0180-024F)
+ * - Latin Extended Additional: Ḁ-ỿ (U+1E00-1EFF) — Vietnamese, Welsh, medievalist
  *
- * Examples of covered characters: é, ñ, ü, ø, ą, ł, ș
+ * Examples of covered characters: é, ñ, ü, ø, ą, ł, ș, ả, ầ, ẁ, ẃ
  */
-export const LATIN_LETTERS = "A-Za-z\\u00C0-\\u00D6\\u00D8-\\u00F6\\u00F8-\\u00FF\\u0100-\\u017F\\u0180-\\u024F"
+export const LATIN_LETTERS = "A-Za-z\\u00C0-\\u00D6\\u00D8-\\u00F6\\u00F8-\\u00FF\\u0100-\\u017F\\u0180-\\u024F\\u1E00-\\u1EFF"
 
 /**
  * Default separator for text spanning HTML elements.

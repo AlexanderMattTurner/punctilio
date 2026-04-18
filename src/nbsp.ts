@@ -60,6 +60,16 @@ export const UNITS = [
   "MM", "M", "B", "T",
   // Misc
   "kcal", "mol", "cal", "dB",
+  // Speed
+  "mph", "kph", "fps",
+  // Pressure
+  "atm", "mbar",
+  // Battery / charge
+  "mAh", "Ah",
+  // Torque
+  "Nm",
+  // Light
+  "lm",
 ]
 
 export const HONORIFICS = [

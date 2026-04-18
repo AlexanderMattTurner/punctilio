@@ -446,6 +446,16 @@ describe("rehypePunctilio", () => {
         expect(collectTransformableElements(tree, ignoreCode)).toHaveLength(0)
       })
 
+      it("returns empty when only non-text, non-element children exist", () => {
+        const tree: Element = {
+          type: "element",
+          tagName: "p",
+          properties: {},
+          children: [{ type: "comment", value: "a comment" } as unknown as ElementContent],
+        }
+        expect(collectTransformableElements(tree, ignoreNone)).toHaveLength(0)
+      })
+
       it("stops at max recursion depth", () => {
         let deep: Element = h("p", "deep") as Element
         for (let i = 0; i < 1100; i++) deep = h("div", [deep]) as Element

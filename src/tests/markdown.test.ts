@@ -111,6 +111,19 @@ describe("transformMarkdown", () => {
     expect(british.trimEnd()).toEqual(`${LDQ}Hello${RDQ}.`)
   })
 
+  it("LRU cache retains multiple option sets simultaneously", async () => {
+    const american = { punctuationStyle: "american" as const, nbsp: false }
+    const british = { punctuationStyle: "british" as const, nbsp: false }
+    // Populate both cache entries
+    await transformMarkdown('"A."', american)
+    await transformMarkdown('"B."', british)
+    // Both should still be cached (not evicted)
+    const a2 = await transformMarkdown('"C."', american)
+    const b2 = await transformMarkdown('"D."', british)
+    expect(a2.trimEnd()).toEqual(`${LDQ}C.${RDQ}`)
+    expect(b2.trimEnd()).toEqual(`${LDQ}D${RDQ}.`)
+  })
+
   it("distinguishes explicit undefined from absent options in cache key", async () => {
     // { nbsp: undefined } overrides the default (true), disabling nbsp.
     // The cache must not conflate this with {} which uses the default.

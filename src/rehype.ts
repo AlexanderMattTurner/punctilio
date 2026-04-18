@@ -364,6 +364,35 @@ const TRANSFORMABLE_ELEMENTS = new Set([
 ])
 
 /**
+ * Checks whether an element has any text node descendants (skipping elements
+ * matched by shouldSkip). Returns as soon as one is found — avoids allocating
+ * an array of all text nodes just to check existence.
+ */
+function hasTextDescendant(
+  node: Element | ElementContent,
+  shouldSkip: ElementPredicate,
+  depth: number = 0
+): boolean {
+  if (depth > MAX_RECURSION_DEPTH) {
+    return false
+  }
+
+  if (node.type === "element" && shouldSkip(node)) {
+    return false
+  }
+
+  if (node.type === "text") {
+    return true
+  }
+
+  if (node.type === "element") {
+    return node.children.some((child) => hasTextDescendant(child, shouldSkip, depth + 1))
+  }
+
+  return false
+}
+
+/**
  * Collects elements that should have text transformations applied.
  *
  * An element is collected as a single transformation unit when it:
@@ -403,7 +432,7 @@ export function collectTransformableElements(
     (child) => child.type === "element" && BLOCK_ELEMENTS.has(child.tagName)
   )
   const hasTextDescendants = !hasDirectText && !hasBlockChildren &&
-    flattenTextNodes(node, shouldSkip).length > 0
+    hasTextDescendant(node, shouldSkip)
 
   if (
     TRANSFORMABLE_ELEMENTS.has(node.tagName) &&
