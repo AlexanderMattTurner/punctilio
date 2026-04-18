@@ -119,12 +119,12 @@ For Markdown ASTs via `remark`, use `remarkPunctilio` which applies the same sep
 
 For manual DOM walking or custom transforms, use `transformElement` from `punctilio/rehype`.
 
-The rehype plugin accepts additional options:
+The rehype plugin accepts additional options. Elements matching any `skipTags` tag name or carrying any `skipClasses` class are left untransformed (values shown are the defaults for `skipTags`):
 
 ```typescript
 rehypePunctilio({
-  skipTags: ["code", "pre", "script", "style", "kbd", "var", "samp"], // default
-  skipClasses: ["no-formatting"], // skip elements with these CSS classes
+  skipTags: ["code", "pre", "script", "style", "kbd", "var", "samp"],
+  skipClasses: ["no-formatting"],
 });
 ```
 
