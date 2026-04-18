@@ -356,7 +356,7 @@ describe("transform", () => {
     })
   })
 
-  describe("Unicode edge cases", () => {
+  describe("Unicode control characters", () => {
     it.each([
       ['"test\u200Bword"', `${LEFT_DOUBLE_QUOTE}test\u200Bword${RIGHT_DOUBLE_QUOTE}`],
       ['"test\u200Fword"', `${LEFT_DOUBLE_QUOTE}test\u200Fword${RIGHT_DOUBLE_QUOTE}`],

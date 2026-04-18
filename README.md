@@ -79,7 +79,7 @@ Setting aside the benchmark, `punctilio`’s test suite includes 1,550+ tests at
 
 ## Works with HTML DOMs via separation boundaries
 
-Perhaps the most innovative feature of the library is that it properly handles DOMs! (This means it’ll also work on Markdown: [convert to HTML](https://github.com/remarkjs/remark), transform with `punctilio`, [convert back to Markdown](https://github.com/JohannesKaufmann/html-to-markdown).)
+Perhaps the most innovative feature of the library is that it properly handles DOMs! For Markdown, use the built-in `remarkPunctilio` or `transformMarkdown` plugins instead of converting to HTML and back.
 
 Other typography libraries take one of two approaches, both with drawbacks. 
 
@@ -118,6 +118,15 @@ unified()
 For Markdown ASTs via `remark`, use `remarkPunctilio` which applies the same separator technique to preserve inline element boundaries, or use `transformMarkdown` for a simpler Markdown-to-Markdown pipeline.
 
 For manual DOM walking or custom transforms, use `transformElement` from `punctilio/rehype`.
+
+The rehype plugin accepts additional options. Elements matching any `skipTags` tag name or carrying any `skipClasses` class are left untransformed (values shown are the defaults for `skipTags`):
+
+```typescript
+rehypePunctilio({
+  skipTags: ["code", "pre", "script", "style", "kbd", "var", "samp"],
+  skipClasses: ["no-formatting"],
+});
+```
 
 ## Options
 
