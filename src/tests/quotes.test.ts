@@ -137,8 +137,8 @@ describe("niceQuotes", () => {
       [`'hello' "world"`, `${LEFT_SINGLE_QUOTE}hello${RIGHT_SINGLE_QUOTE} ${LEFT_DOUBLE_QUOTE}world${RIGHT_DOUBLE_QUOTE}`],
       // Latin Extended Additional: Vietnamese contraction-like patterns
       ["l'\u1EA3nh", `l${MODIFIER_LETTER_APOSTROPHE}\u1EA3nh`],
-      // Latin Extended Additional: Welsh w-circumflex
-      ["l'\u0175r", `l${MODIFIER_LETTER_APOSTROPHE}\u0175r`],
+      // Latin Extended Additional: Welsh w-acute (U+1E83, in U+1E00-1EFF range)
+      ["l'\u1E83r", `l${MODIFIER_LETTER_APOSTROPHE}\u1E83r`],
     ])('should handle single quotes/apostrophes in "%s"', (input, expected) => {
       expect(classifyApostrophes(input)).toBe(expected)
     })

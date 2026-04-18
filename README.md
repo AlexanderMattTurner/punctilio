@@ -79,7 +79,7 @@ Setting aside the benchmark, `punctilio`’s test suite includes 1,550+ tests at
 
 ## Works with HTML DOMs via separation boundaries
 
-Perhaps the most innovative feature of the library is that it properly handles DOMs! For Markdown, use the built-in [`remarkPunctilio`](#for-markdown) or [`transformMarkdown`](#for-markdown) plugins instead of converting to HTML and back.
+Perhaps the most innovative feature of the library is that it properly handles DOMs! For Markdown, use the built-in `remarkPunctilio` or `transformMarkdown` plugins instead of converting to HTML and back.
 
 Other typography libraries take one of two approaches, both with drawbacks. 
 
