@@ -111,7 +111,7 @@ export async function transformMarkdown(
   options: MarkdownOptions = {}
 ): Promise<string> {
   const optionsKey = JSON.stringify(
-    Object.entries(options).sort(([a], [b]) => a.localeCompare(b))
+    Object.entries(options).filter(([, v]) => v !== undefined).sort(([a], [b]) => a.localeCompare(b))
   )
 
   let processor = processorCache.get(optionsKey)
