@@ -335,6 +335,24 @@ describe("rehypePunctilio", () => {
         expect(captured).toEqual([["div", "p", "em"]])
       })
 
+      it("hands out a snapshot of ancestors, not the live mutable array", () => {
+        // If the walker handed out the shared live array, the captured
+        // reference would be empty (or partially popped) by the time we
+        // inspect it after the walk completes.
+        const tree = h("div", [h("p", [h("em", "inner")])]) as Element
+        let captured: readonly Element[] | null = null
+        flattenTextNodes(tree, ignoreNone, {
+          shouldSkipText: (_textNode, ancestors) => {
+            captured = ancestors
+            return false
+          },
+        })
+        expect(captured).not.toBeNull()
+        expect((captured! as readonly Element[]).map((a) => a.tagName)).toEqual([
+          "div", "p", "em",
+        ])
+      })
+
       it("gives each text node its own ancestor chain across the same walk", () => {
         // shallow text under <div>, deep text under <div><p><em>; the chains
         // must differ. A bug that forgets to pop or shares the live array
