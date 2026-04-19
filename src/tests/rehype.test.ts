@@ -348,9 +348,7 @@ describe("rehypePunctilio", () => {
           },
         })
         expect(captured).not.toBeNull()
-        expect((captured! as readonly Element[]).map((a) => a.tagName)).toEqual([
-          "div", "p", "em",
-        ])
+        expect(captured!.map((a) => a.tagName)).toEqual(["div", "p", "em"])
       })
 
       it("gives each text node its own ancestor chain across the same walk", () => {
