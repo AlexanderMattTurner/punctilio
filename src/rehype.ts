@@ -23,9 +23,38 @@ type ElementPredicate = (node: Element) => boolean
 type TextTransformer = (input: string) => string
 
 /**
+ * Predicate that decides whether an individual text node should be excluded
+ * from transformation. Called after element-level `shouldSkip`, so it is
+ * never invoked for text inside elements that are already skipped.
+ *
+ * `ancestors` is the chain of Element parents for the text node, ordered
+ * root first, nearest last.
+ */
+export type TextNodeSkipPredicate = (
+  textNode: Text,
+  ancestors: readonly Element[],
+) => boolean
+
+/**
+ * Options shared by functions that flatten and transform text nodes inside
+ * an element tree.
+ */
+export interface ElementTransformOptions {
+  /**
+   * Optional per-text-node skip predicate. When it returns `true` for a
+   * given text node, that node is excluded from the flattened output, is
+   * not passed to the transform function, and its `.value` is left
+   * untouched. Applied after element-level `shouldSkip`.
+   */
+  shouldSkipText?: TextNodeSkipPredicate
+}
+
+/**
  * Options for the rehype-punctilio plugin.
  */
-export interface RehypePunctilioOptions extends TransformOptions {
+export interface RehypePunctilioOptions
+  extends TransformOptions,
+    ElementTransformOptions {
   /**
    * HTML tag names to skip when applying transformations.
    * Content inside these elements won't have formatting improvements applied.
@@ -87,7 +116,7 @@ function hasAncestor(
  *
  * @param node - The element or element content to process
  * @param shouldSkip - Function to determine which elements to skip
- * @param depth - Current recursion depth (internal use)
+ * @param options - Optional flattening options (see `ElementTransformOptions`)
  * @returns Array of Text nodes
  *
  * @example
@@ -98,7 +127,21 @@ function hasAncestor(
 export function flattenTextNodes(
   node: Element | ElementContent,
   shouldSkip: ElementPredicate,
-  depth: number = 0
+  options?: ElementTransformOptions
+): Text[] {
+  const shouldSkipText = options?.shouldSkipText
+  // Only track ancestors when shouldSkipText needs them, to avoid the
+  // O(n²) allocation cost of copying the ancestor chain at every level.
+  const ancestors: Element[] | null = shouldSkipText ? [] : null
+  return flattenTextNodesImpl(node, shouldSkip, shouldSkipText, ancestors, 0)
+}
+
+function flattenTextNodesImpl(
+  node: Element | ElementContent,
+  shouldSkip: ElementPredicate,
+  shouldSkipText: TextNodeSkipPredicate | undefined,
+  ancestors: Element[] | null,
+  depth: number
 ): Text[] {
   if (depth > MAX_RECURSION_DEPTH) {
     return []
@@ -109,11 +152,24 @@ export function flattenTextNodes(
   }
 
   if (node.type === "text") {
+    // Snapshot ancestors at the callback boundary — the walker mutates the
+    // shared array as it recurses, so handing it out directly would let a
+    // caller observe a stale view if they captured the reference.
+    if (shouldSkipText && ancestors && shouldSkipText(node, ancestors.slice())) {
+      return []
+    }
     return [node]
   }
 
   if (node.type === "element") {
-    return node.children.flatMap((child) => flattenTextNodes(child, shouldSkip, depth + 1))
+    if (ancestors) ancestors.push(node)
+    try {
+      return node.children.flatMap((child) =>
+        flattenTextNodesImpl(child, shouldSkip, shouldSkipText, ancestors, depth + 1)
+      )
+    } finally {
+      if (ancestors) ancestors.pop()
+    }
   }
 
   return []
@@ -233,6 +289,9 @@ export function assertSmartQuotesMatch(input: string): void {
  *   `stripMarkers(transform(textWithMarkers)) === transform(stripMarkers(text))`.
  *   Useful for debugging transforms that accidentally interact with markers.
  *   Default: false
+ * @param options - Optional transform options. Pass `shouldSkipText` here to
+ *   opt individual text nodes out of transformation without skipping their
+ *   enclosing element. Skipped text nodes keep their original `.value`.
  * @throws Error if transformation alters the number of text nodes
  * @throws Error if checkInvariance is true and the invariance check fails
  *
@@ -254,14 +313,15 @@ export function transformElement(
   transformFn: TextTransformer,
   shouldSkip: ElementPredicate,
   separator: string,
-  checkInvariance: boolean = false
+  checkInvariance: boolean = false,
+  options?: ElementTransformOptions
 ): void {
   /* istanbul ignore if -- defensive: elements should always have children array */
   if (!node?.children) {
     return
   }
 
-  const textNodes = flattenTextNodes(node, shouldSkip)
+  const textNodes = flattenTextNodes(node, shouldSkip, options)
   /* istanbul ignore if -- only hit when element has no text descendants */
   if (textNodes.length === 0) {
     return
@@ -506,6 +566,7 @@ export function rehypePunctilio(
     skipTags = DEFAULT_SKIP_TAGS,
     skipClasses = [],
     separator = DEFAULT_SEPARATOR,
+    shouldSkipText,
     ...transformOptions
   } = options
 
@@ -556,7 +617,9 @@ export function rehypePunctilio(
       const elementsToTransform = collectTransformableElements(node, shouldSkip)
       for (const elt of elementsToTransform) {
         if (!transformed.has(elt)) {
-          transformElement(elt, transformFn, shouldSkip, separator)
+          transformElement(elt, transformFn, shouldSkip, separator, false, {
+            shouldSkipText,
+          })
           transformed.add(elt)
           // Mark all descendants as processed since their text was included
           markDescendants(elt, transformed)

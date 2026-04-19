@@ -298,6 +298,82 @@ describe("rehypePunctilio", () => {
       })
     })
 
+    describe("shouldSkipText", () => {
+      const toUpper = (s: string) => s.toUpperCase()
+
+      it("is not called for text inside elements excluded by shouldSkip", () => {
+        const element = h("p", ["before ", h("code", "unchanged"), " after"]) as Element
+        const visitedValues: string[] = []
+        transformElement(element, toUpper, ignoreCode, DEFAULT_SEPARATOR, false, {
+          shouldSkipText: (textNode) => {
+            visitedValues.push(textNode.value)
+            return false
+          },
+        })
+        // Only "before " and " after" are visited — the code child short-circuits.
+        expect(visitedValues).toEqual(["before ", " after"])
+      })
+
+      it("leaves a skipped text node's value untouched", () => {
+        const element = h("p", "hello") as Element
+        transformElement(
+          element, toUpper, ignoreNone, DEFAULT_SEPARATOR, false,
+          { shouldSkipText: () => true },
+        )
+        expect((element.children[0] as Text).value).toBe("hello")
+      })
+
+      it("passes ancestors root-first, nearest-last", () => {
+        const tree = h("div", [h("p", [h("em", "inner")])]) as Element
+        const captured: string[][] = []
+        flattenTextNodes(tree, ignoreNone, {
+          shouldSkipText: (_textNode, ancestors) => {
+            captured.push(ancestors.map((a) => a.tagName))
+            return false
+          },
+        })
+        expect(captured).toEqual([["div", "p", "em"]])
+      })
+
+      it("transforms accepted text while leaving rejected text literal", () => {
+        const element = h("p", ["hello ", h("em", "world")]) as Element
+        transformElement(
+          element, toUpper, ignoreNone, DEFAULT_SEPARATOR, false,
+          { shouldSkipText: (textNode) => textNode.value === "hello " },
+        )
+        expect((element.children[0] as Text).value).toBe("hello ")
+        expect(((element.children[1] as Element).children[0] as Text).value).toBe("WORLD")
+      })
+
+      it("invariance check passes when some text nodes are skipped", () => {
+        const element = h("p", ["hello ", h("em", "world")]) as Element
+        expect(() =>
+          transformElement(
+            element, toUpper, ignoreNone, DEFAULT_SEPARATOR, true,
+            { shouldSkipText: (textNode) => textNode.value === "hello " },
+          )
+        ).not.toThrow()
+        expect((element.children[0] as Text).value).toBe("hello ")
+        expect(((element.children[1] as Element).children[0] as Text).value).toBe("WORLD")
+      })
+
+      it("plugin option skips text matching predicate end-to-end", async () => {
+        const html = '<p>Visit <a href="https://example.com/x">https://example.com/x</a> now.</p>'
+        const result = await processHtml(html, {
+          nbsp: false,
+          shouldSkipText: (textNode, ancestors) => {
+            const parent = ancestors[ancestors.length - 1]
+            if (parent?.tagName !== "a") return false
+            const href = parent.properties?.href
+            return typeof href === "string" && href === textNode.value
+          },
+        })
+        // The anchor text is preserved literally (slashes unchanged); surrounding
+        // text is transformed (nothing to change here, but no crash).
+        expect(result).toBe('<p>Visit <a href="https://example.com/x">https://example.com/x</a> now.</p>')
+      })
+    })
+
     describe("getTextContent", () => {
       it.each([
         ["simple text", fixtures.simple, ignoreNone, "Hello, world!"],
