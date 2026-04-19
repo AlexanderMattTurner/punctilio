@@ -59,7 +59,7 @@ export interface TransformOptions {
    * in the regex patterns.
    *
    * Should be a character that doesn't appear in your text.
-   * Default: "\uE000" (Unicode Private Use Area)
+   * Default: "\uE000\uE001" (Unicode Private Use Area)
    */
   separator?: string
 
@@ -246,7 +246,11 @@ export function transform(text: string, options: TransformOptions = {}): string 
   }
 
   const original = text
-  const { symbols, fractions, degrees, superscript, ligatures, nbsp, collapseSpaces, checkIdempotency, ...separatorOpts } = { ...defaultOpts, ...options }
+  // Filter undefined so { nbsp: undefined } uses the default, not falsy override
+  const definedOptions = Object.fromEntries(
+    Object.entries(options).filter(([, v]) => v !== undefined)
+  ) as TransformOptions
+  const { symbols, fractions, degrees, superscript, ligatures, nbsp, collapseSpaces, checkIdempotency, ...separatorOpts } = { ...defaultOpts, ...definedOptions }
 
   text = hyphenReplace(text, separatorOpts)
   if (separatorOpts.punctuationStyle !== "none") {

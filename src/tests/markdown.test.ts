@@ -74,6 +74,11 @@ describe("transformMarkdown", () => {
     expect((await transformMarkdown(input, { ...options, nbsp: false })).trimEnd()).toEqual(expected)
   })
 
+  it("uses 4-dash thematic break with default ruleMarker to avoid YAML front matter ambiguity", async () => {
+    const result = await transformMarkdown("---", { nbsp: false })
+    expect(result.trimEnd()).toEqual("----")
+  })
+
   it("uses default options when none provided", async () => {
     const result = await transformMarkdown('"Hello"')
     expect(result.trimEnd()).toEqual(`${LDQ}Hello${RDQ}`)
@@ -124,13 +129,11 @@ describe("transformMarkdown", () => {
     expect(b2.trimEnd()).toEqual(`${LDQ}D${RDQ}.`)
   })
 
-  it("distinguishes explicit undefined from absent options in cache key", async () => {
-    // { nbsp: undefined } overrides the default (true), disabling nbsp.
-    // The cache must not conflate this with {} which uses the default.
+  it("treats undefined options the same as absent options", async () => {
     const withDefault = await transformMarkdown("Dr. Smith")
     const withUndefined = await transformMarkdown("Dr. Smith", { nbsp: undefined })
     expect(withDefault).toContain("\u00A0")
-    expect(withUndefined).not.toContain("\u00A0")
+    expect(withUndefined).toContain("\u00A0")
   })
 
   it("README.md prose is already typographically correct", () => {

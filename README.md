@@ -149,7 +149,7 @@ transform(text, {
 });
 ```
 
-- Fully general prime mark conversion (e.g. `5'10"` → `5′10″`) requires semantic understanding to distinguish from closing quotes (e.g. `"Term 1"` should produce closing quotes). `punctilio` counts quotes to heuristically guess whether the matched number at the end of a quote (if not, it requires a prime mark). Other libraries like `tipograph` 0.7.4 use simpler patterns that make more mistakes.
+- Fully general prime mark conversion (e.g. `5'10"` → `5′10″`) requires semantic understanding to distinguish from closing quotes (e.g. `"Term 1"` should produce closing quotes). `punctilio` tracks quote balance to heuristically determine whether a quote after a number is a closing quote or a prime mark. Other libraries like `tipograph` 0.7.4 use simpler patterns that make more mistakes.
 - The `american` style follows the [Chicago Manual of Style](https://www.chicagomanualofstyle.org/):
   - Periods and commas go inside quotation marks (“Hello,” she said.)
   - Unspaced em-dashes between words (word—word)
