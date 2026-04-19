@@ -335,6 +335,27 @@ describe("rehypePunctilio", () => {
         expect(captured).toEqual([["div", "p", "em"]])
       })
 
+      it("gives each text node its own ancestor chain across the same walk", () => {
+        // shallow text under <div>, deep text under <div><p><em>; the chains
+        // must differ. A bug that forgets to pop or shares the live array
+        // would conflate them.
+        const tree = h("div", [
+          "shallow",
+          h("p", [h("em", "deep")]),
+        ]) as Element
+        const captured: Record<string, string[]> = {}
+        flattenTextNodes(tree, ignoreNone, {
+          shouldSkipText: (textNode, ancestors) => {
+            captured[textNode.value] = ancestors.map((a) => a.tagName)
+            return false
+          },
+        })
+        expect(captured).toEqual({
+          shallow: ["div"],
+          deep: ["div", "p", "em"],
+        })
+      })
+
       it("transforms accepted text while leaving rejected text literal", () => {
         const element = h("p", ["hello ", h("em", "world")]) as Element
         transformElement(

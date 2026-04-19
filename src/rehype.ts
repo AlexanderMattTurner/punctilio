@@ -116,7 +116,10 @@ function hasAncestor(
  *
  * @param node - The element or element content to process
  * @param shouldSkip - Function to determine which elements to skip
- * @param options - Optional flattening options (see `ElementTransformOptions`)
+ * @param options - Optional flattening options. Pass `shouldSkipText` to
+ *   exclude individual text nodes from the result. Applied after
+ *   element-level `shouldSkip`, so the hook is never invoked for text
+ *   inside an already-skipped element.
  * @returns Array of Text nodes
  *
  * @example
@@ -163,13 +166,11 @@ function flattenTextNodesImpl(
 
   if (node.type === "element") {
     if (ancestors) ancestors.push(node)
-    try {
-      return node.children.flatMap((child) =>
-        flattenTextNodesImpl(child, shouldSkip, shouldSkipText, ancestors, depth + 1)
-      )
-    } finally {
-      if (ancestors) ancestors.pop()
-    }
+    const result = node.children.flatMap((child) =>
+      flattenTextNodesImpl(child, shouldSkip, shouldSkipText, ancestors, depth + 1)
+    )
+    if (ancestors) ancestors.pop()
+    return result
   }
 
   return []
@@ -322,7 +323,6 @@ export function transformElement(
   }
 
   const textNodes = flattenTextNodes(node, shouldSkip, options)
-  /* istanbul ignore if -- only hit when element has no text descendants */
   if (textNodes.length === 0) {
     return
   }
@@ -595,6 +595,13 @@ export function rehypePunctilio(
     return transform(text, pluginOptions)
   }
 
+  // Allocate the per-element options object once; it's read-only inside
+  // transformElement, so sharing across calls is safe and avoids a fresh
+  // allocation per transformable element.
+  const elementOptions: ElementTransformOptions | undefined = shouldSkipText
+    ? { shouldSkipText }
+    : undefined
+
   return (tree: Root) => {
     // Track transformed elements to avoid double-processing
     const transformed = new Set<Element>()
@@ -617,9 +624,7 @@ export function rehypePunctilio(
       const elementsToTransform = collectTransformableElements(node, shouldSkip)
       for (const elt of elementsToTransform) {
         if (!transformed.has(elt)) {
-          transformElement(elt, transformFn, shouldSkip, separator, false, {
-            shouldSkipText,
-          })
+          transformElement(elt, transformFn, shouldSkip, separator, false, elementOptions)
           transformed.add(elt)
           // Mark all descendants as processed since their text was included
           markDescendants(elt, transformed)
