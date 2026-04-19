@@ -17,6 +17,14 @@ const {
 /** Joined string of all terminal punctuation characters for use in regex character classes. */
 const TERMINAL_PUNCTUATION_CLASS = TERMINAL_PUNCTUATION.join("")
 
+/**
+ * Maximum consecutive closing quotes the punctuation-placement regexes will
+ * traverse in a single match (e.g., '". for two-deep nesting). Bounded to keep
+ * the regex linear on pathological inputs that contain many closing quotes
+ * without any following period or comma.
+ */
+const MAX_NESTED_QUOTES = 4
+
 export type PunctuationStyle = "american" | "british" | "german" | "french" | "none"
 
 export interface QuoteOptions {
@@ -162,18 +170,21 @@ function applyPunctuationStyle(text: string, sep: string, style: PunctuationStyl
 
   if (style === "american") {
     // Period outside → inside: "Hello". → "Hello."
+    // Match up to MAX_NESTED_QUOTES consecutive closing quotes so nested quotes
+    // like '". become .'" in one pass. The bound keeps the regex linear on
+    // pathological inputs (sequences of closing quotes without a period).
     const periodOutsideRegex = cachedRegExp(
-      `(?<![${TERMINAL_PUNCTUATION_CLASS}])(?<sepBefore>${escapedSep}?)(?<quote>[${RIGHT_SINGLE_QUOTE}${RIGHT_DOUBLE_QUOTE}])(?<sepAfter>${escapedSep}?)(?!\\.\\.\\.)\\.`,
+      `(?<![${TERMINAL_PUNCTUATION_CLASS}])(?<sepBefore>${escapedSep}?)(?<quotes>[${RIGHT_SINGLE_QUOTE}${RIGHT_DOUBLE_QUOTE}](?:${escapedSep}?[${RIGHT_SINGLE_QUOTE}${RIGHT_DOUBLE_QUOTE}]){0,${MAX_NESTED_QUOTES - 1}})(?<sepAfter>${escapedSep}?)(?!\\.\\.\\.)\\.`,
       "g"
     )
-    text = text.replace(periodOutsideRegex, "$<sepBefore>.$<quote>$<sepAfter>")
+    text = text.replace(periodOutsideRegex, "$<sepBefore>.$<quotes>$<sepAfter>")
 
     // Comma outside → inside: "Hello", → "Hello,"
     const commaOutsideRegex = cachedRegExp(
-      `(?<![${TERMINAL_PUNCTUATION_CLASS}])(?<sepBefore>${escapedSep}?)(?<quote>[${RIGHT_SINGLE_QUOTE}${RIGHT_DOUBLE_QUOTE}])(?<sepAfter>${escapedSep}?),`,
+      `(?<![${TERMINAL_PUNCTUATION_CLASS}])(?<sepBefore>${escapedSep}?)(?<quotes>[${RIGHT_SINGLE_QUOTE}${RIGHT_DOUBLE_QUOTE}](?:${escapedSep}?[${RIGHT_SINGLE_QUOTE}${RIGHT_DOUBLE_QUOTE}]){0,${MAX_NESTED_QUOTES - 1}})(?<sepAfter>${escapedSep}?),`,
       "g"
     )
-    text = text.replace(commaOutsideRegex, "$<sepBefore>,$<quote>$<sepAfter>")
+    text = text.replace(commaOutsideRegex, "$<sepBefore>,$<quotes>$<sepAfter>")
   } else if (style === "british" || style === "german" || style === "french") {
     // Period inside → outside: "Hello." → "Hello".
     // No terminal punctuation guard — "Stop!." inside is always wrong; move the period out.
