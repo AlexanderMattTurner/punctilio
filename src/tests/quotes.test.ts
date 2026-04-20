@@ -719,6 +719,23 @@ describe("niceQuotes", () => {
       const first = niceQuotes(`"He said, 'Hello.'"`, { punctuationStyle: style })
       expect(niceQuotes(first, { punctuationStyle: style })).toBe(first)
     })
+
+    it.each([
+      // Period moves past all closing quotes in one pass
+      [
+        `${LEFT_DOUBLE_QUOTE}He said, ${LEFT_SINGLE_QUOTE}Hello${RIGHT_SINGLE_QUOTE}${RIGHT_DOUBLE_QUOTE}.`,
+        `${LEFT_DOUBLE_QUOTE}He said, ${LEFT_SINGLE_QUOTE}Hello.${RIGHT_SINGLE_QUOTE}${RIGHT_DOUBLE_QUOTE}`,
+      ],
+      // Comma moves past all closing quotes in one pass
+      [
+        `${LEFT_DOUBLE_QUOTE}He said, ${LEFT_SINGLE_QUOTE}Hello${RIGHT_SINGLE_QUOTE}${RIGHT_DOUBLE_QUOTE}, she replied.`,
+        `${LEFT_DOUBLE_QUOTE}He said, ${LEFT_SINGLE_QUOTE}Hello,${RIGHT_SINGLE_QUOTE}${RIGHT_DOUBLE_QUOTE} she replied.`,
+      ],
+    ])("american moves past all closing quotes: %s → %s", (input, expected) => {
+      const result = niceQuotes(input, { punctuationStyle: "american" })
+      expect(result).toBe(expected)
+      expect(niceQuotes(result, { punctuationStyle: "american" })).toBe(result)
+    })
   })
 
   describe("pathological inputs", () => {
