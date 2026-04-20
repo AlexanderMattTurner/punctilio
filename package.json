@@ -135,5 +135,21 @@
   },
   "lint-staged": {
     "*.{ts,js,mjs}": "eslint --fix"
+  },
+  "pnpm": {
+    "overrides": {
+      "ts-jest>handlebars": "4.7.9",
+      "eslint>minimatch": "3.1.5",
+      "@typescript-eslint/typescript-estree>minimatch": "9.0.9",
+      "glob>minimatch": "3.1.5",
+      "flat-cache>flatted": "3.4.2",
+      "micromatch>picomatch": "2.3.2",
+      "jest-util>picomatch": "2.3.2",
+      "tinyglobby>picomatch": "4.0.4",
+      "lint-staged>yaml": "2.8.3",
+      "brace-expansion@<2": "1.1.14",
+      "brace-expansion@>=2": "2.1.0",
+      "eslint>ajv": "6.14.0"
+    }
   }
 }
