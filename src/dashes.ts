@@ -64,9 +64,10 @@ export function enDashNumberRange(text: string, options: DashOptions = {}): stri
       // Skip phone number patterns: 3 digits followed by 4 digits with preceding area code
       // e.g., 555-123-4567 or (555) 123-4567 where we're matching the "123-4567" part
       if (precedingAreaCode && /^\d{3}$/.test(startNum) && /^\d{4}$/.test(endNum)) return match
-      // Skip US country code + area code pattern: 1-800, 1-888, etc.
-      // These look like truncated phone numbers, not ranges
-      if (/^1$/.test(startNum) && /^\d{3}$/.test(endNum)) return match
+      // Skip US toll-free prefix pattern: 1-800, 1-888, 1-877, etc.
+      // All US toll-free area codes start with 8 (800, 888, 877, 866, 855, 844, 833).
+      // We only block 1-8XX to avoid false negatives on legitimate ranges like 1-100.
+      if (/^1$/.test(startNum) && /^8\d{2}$/.test(endNum)) return match
       return `${precedingAreaCode || ""}${start}${EN_DASH}${end}${suffix || ""}`
     }
   )

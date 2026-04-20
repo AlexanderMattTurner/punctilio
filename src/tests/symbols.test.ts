@@ -388,11 +388,20 @@ describe("collapseSpaces", () => {
     // Multiple groups of spaces
     ["a  b  c", "a b c"],
     [`x${NBSP}${NBSP}y  z`, `x${NBSP}y z`],
+    // Tabs
+    ["hello\t\tworld", "hello world"],
+    ["a\t\t\tb", "a b"],
+    // Mixed tabs and spaces
+    ["a\t b", "a b"],
+    ["a \tb", "a b"],
+    [`a\t${NBSP}b`, `a${NBSP}b`],
     // Edge cases
     ["", ""],
     ["  ", " "],
     [`${NBSP}${NBSP}`, NBSP],
     ["no spaces", "no spaces"],
+    // Single tab unchanged
+    ["hello\tworld", "hello\tworld"],
   ])('converts "%s" to "%s"', (input, expected) => {
     expect(collapseSpaces(input)).toBe(expected)
   })

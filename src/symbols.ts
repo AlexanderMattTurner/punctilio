@@ -123,6 +123,9 @@ export function mathSymbols(text: string, options: SymbolOptions = {}): string {
 /** Predicate that decides whether a legal symbol should be converted based on surrounding text. */
 type ContextPredicate = (before: string, after: string) => boolean
 
+/** Number of characters before/after a legal symbol to inspect for context clues. */
+const LEGAL_CONTEXT_WINDOW = 25
+
 /**
  * Context-aware replacement for legal symbols like (c), (r), (tm).
  * Extracts surrounding text, strips separator characters from the context
@@ -136,8 +139,8 @@ function contextAwareLegalReplace(
   separator: string,
 ): string {
   return text.replace(pattern, (match: string, offset: number, str: string) => {
-    const before = str.slice(Math.max(0, offset - 25), offset).replaceAll(separator, "")
-    const after = str.slice(offset + match.length, offset + match.length + 25).replaceAll(separator, "")
+    const before = str.slice(Math.max(0, offset - LEGAL_CONTEXT_WINDOW), offset).replaceAll(separator, "")
+    const after = str.slice(offset + match.length, offset + match.length + LEGAL_CONTEXT_WINDOW).replaceAll(separator, "")
     return shouldConvert(before, after) ? replacement : match
   })
 }
@@ -390,10 +393,9 @@ export function superscriptOrdinal(text: string, options: SymbolOptions = {}): s
   })
 }
 
-/** Collapse multiple spaces to single space. Prefers nbsp if any nbsp is present. */
+/** Collapse multiple spaces (including tabs) to single space. Prefers nbsp if any nbsp is present. */
 export function collapseSpaces(text: string): string {
-  return text.replace(cachedRegExp(`[${SPACE_CHARS}]{2,}`, "g"), (match) => {
-    // If any nbsp is present, prefer nbsp (more likely to be intentional)
+  return text.replace(cachedRegExp(`[${SPACE_CHARS}\\t]{2,}`, "g"), (match) => {
     return match.includes(NBSP) ? NBSP : " "
   })
 }

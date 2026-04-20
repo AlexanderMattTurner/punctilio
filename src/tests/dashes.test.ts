@@ -658,6 +658,8 @@ describe("phone number preservation", () => {
     ["1-877", "1-877", "toll-free prefix 877"],
     ["1-866", "1-866", "toll-free prefix 866"],
     ["1-855", "1-855", "toll-free prefix 855"],
+    ["1-844", "1-844", "toll-free prefix 844"],
+    ["1-833", "1-833", "toll-free prefix 833"],
     ["Call 1-800-...", "Call 1-800-...", "truncated toll-free"],
     ["1-800-555-1234", "1-800-555-1234", "full toll-free"],
     ["1-888-555-1234", "1-888-555-1234", "full toll-free 888"],
@@ -675,6 +677,10 @@ describe("phone number preservation", () => {
     ["1-5", `1${EN_DASH}5`, "simple range"],
     ["1-50", `1${EN_DASH}50`, "range to two digits"],
     ["1-99", `1${EN_DASH}99`, "range to 99"],
+    ["1-100", `1${EN_DASH}100`, "range to 100 (not a toll-free prefix)"],
+    ["1-200", `1${EN_DASH}200`, "range to 200 (not a toll-free prefix)"],
+    ["1-500", `1${EN_DASH}500`, "range to 500 (not a toll-free prefix)"],
+    ["1-999", `1${EN_DASH}999`, "range to 999 (not a toll-free prefix)"],
     ["2-800", `2${EN_DASH}800`, "non-US country code pattern"],
   ])("%s → %s (%s)", (input, expected) => {
     expect(hyphenReplace(input)).toBe(expected)

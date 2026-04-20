@@ -217,7 +217,7 @@ export function getFirstTextNode(
 ): Text | null {
   if (!node || depth > MAX_RECURSION_DEPTH) return null
 
-  if (node.type === "text" && "value" in node) {
+  if (node.type === "text") {
     return node as Text
   }
 
@@ -247,21 +247,21 @@ export function getFirstTextNode(
  * assertSmartQuotesMatch('\u201CHello')        // throws Error
  * ```
  */
+const QUOTE_OPENERS = new Set(["\u201C"])
+const CLOSER_TO_OPENER: Record<string, string> = { "\u201D": "\u201C" }
+
 export function assertSmartQuotesMatch(input: string): void {
   if (!input) return
 
-  const openers = new Set(["\u201C"])   // left double quote opens
-  const closerToOpener: Record<string, string> = { "\u201D": "\u201C" }  // right closes left
   const stack: string[] = []
 
   for (const char of input) {
-    if (openers.has(char)) {
+    if (QUOTE_OPENERS.has(char)) {
       stack.push(char)
-    } else if (char in closerToOpener) {
-      if (stack.length > 0 && stack[stack.length - 1] === closerToOpener[char]) {
+    } else if (char in CLOSER_TO_OPENER) {
+      if (stack.length > 0 && stack[stack.length - 1] === CLOSER_TO_OPENER[char]) {
         stack.pop()
       } else {
-        // Unmatched closer
         throw new Error(`Mismatched quotes in ${formatErrorString(input, "input")}`)
       }
     }
