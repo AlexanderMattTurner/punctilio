@@ -164,27 +164,56 @@ function convertDoubleQuotes(text: string, sep: string): string {
   return text
 }
 
+/**
+ * Build a regex that matches a punctuation mark sitting OUTSIDE one or more
+ * consecutive closing quotes, for American-style inside-the-quotes placement.
+ *
+ * Shape: `<non-terminal>(sepBefore)(quotes)(sepAfter)<punctuation>`
+ *
+ * - The lookbehind ensures the char just before the match isn't already terminal
+ *   punctuation (so we don't rewrite, e.g., "Stop!".).
+ * - `quotes` matches 1 to MAX_NESTED_QUOTES closing quotes (possibly separated
+ *   by element-boundary markers). The bound keeps the regex linear on
+ *   pathological inputs — unbounded `*` causes catastrophic backtracking when
+ *   many closing quotes appear with no following punctuation.
+ * - `punctuationPattern` is the trailing pattern (e.g. `,` or `(?!\.\.\.)\.`).
+ */
+function buildOutsidePunctuationRegex(escapedSep: string, punctuationPattern: string): RegExp {
+  const closingQuoteClass = `[${RIGHT_SINGLE_QUOTE}${RIGHT_DOUBLE_QUOTE}]`
+  const additionalQuotes = `(?:${escapedSep}?${closingQuoteClass}){0,${MAX_NESTED_QUOTES - 1}}`
+  const nonTerminalLookbehind = `(?<![${TERMINAL_PUNCTUATION_CLASS}])`
+  const pattern =
+    `${nonTerminalLookbehind}` +
+    `(?<sepBefore>${escapedSep}?)` +
+    `(?<quotes>${closingQuoteClass}${additionalQuotes})` +
+    `(?<sepAfter>${escapedSep}?)` +
+    punctuationPattern
+  return cachedRegExp(pattern, "g")
+}
+
+/**
+ * Move a punctuation mark sitting outside one or more consecutive closing
+ * quotes to the inside (American style): `Hello'".` → `Hello.'"`.
+ */
+function moveOutsideToInside(
+  text: string,
+  escapedSep: string,
+  replacementChar: string,
+  punctuationPattern: string,
+): string {
+  const regex = buildOutsidePunctuationRegex(escapedSep, punctuationPattern)
+  return text.replace(regex, `$<sepBefore>${replacementChar}$<quotes>$<sepAfter>`)
+}
+
 /** Apply American or British punctuation style */
 function applyPunctuationStyle(text: string, sep: string, style: PunctuationStyle): string {
   const escapedSep = getEscapedSeparator({ separator: sep })
 
   if (style === "american") {
-    // Period outside → inside: "Hello". → "Hello."
-    // Match up to MAX_NESTED_QUOTES consecutive closing quotes so nested quotes
-    // like '". become .'" in one pass. The bound keeps the regex linear on
-    // pathological inputs (sequences of closing quotes without a period).
-    const periodOutsideRegex = cachedRegExp(
-      `(?<![${TERMINAL_PUNCTUATION_CLASS}])(?<sepBefore>${escapedSep}?)(?<quotes>[${RIGHT_SINGLE_QUOTE}${RIGHT_DOUBLE_QUOTE}](?:${escapedSep}?[${RIGHT_SINGLE_QUOTE}${RIGHT_DOUBLE_QUOTE}]){0,${MAX_NESTED_QUOTES - 1}})(?<sepAfter>${escapedSep}?)(?!\\.\\.\\.)\\.`,
-      "g"
-    )
-    text = text.replace(periodOutsideRegex, "$<sepBefore>.$<quotes>$<sepAfter>")
-
-    // Comma outside → inside: "Hello", → "Hello,"
-    const commaOutsideRegex = cachedRegExp(
-      `(?<![${TERMINAL_PUNCTUATION_CLASS}])(?<sepBefore>${escapedSep}?)(?<quotes>[${RIGHT_SINGLE_QUOTE}${RIGHT_DOUBLE_QUOTE}](?:${escapedSep}?[${RIGHT_SINGLE_QUOTE}${RIGHT_DOUBLE_QUOTE}]){0,${MAX_NESTED_QUOTES - 1}})(?<sepAfter>${escapedSep}?),`,
-      "g"
-    )
-    text = text.replace(commaOutsideRegex, "$<sepBefore>,$<quotes>$<sepAfter>")
+    // Period outside → inside: Hello". → Hello."  (and Hello'". → Hello.'")
+    text = moveOutsideToInside(text, escapedSep, ".", `(?!\\.\\.\\.)\\.`)
+    // Comma outside → inside: Hello", → Hello,"
+    text = moveOutsideToInside(text, escapedSep, ",", `,`)
   } else if (style === "british" || style === "german" || style === "french") {
     // Period inside → outside: "Hello." → "Hello".
     // No terminal punctuation guard — "Stop!." inside is always wrong; move the period out.
