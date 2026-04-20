@@ -231,6 +231,9 @@ export function getFirstTextNode(
   return null
 }
 
+const QUOTE_OPENERS = new Set(["\u201C"])
+const CLOSER_TO_OPENER: Record<string, string> = { "\u201D": "\u201C" }
+
 /**
  * Validates that smart double quotes in a text string are properly matched.
  *
@@ -247,9 +250,6 @@ export function getFirstTextNode(
  * assertSmartQuotesMatch('\u201CHello')        // throws Error
  * ```
  */
-const QUOTE_OPENERS = new Set(["\u201C"])
-const CLOSER_TO_OPENER: Record<string, string> = { "\u201D": "\u201C" }
-
 export function assertSmartQuotesMatch(input: string): void {
   if (!input) return
 
