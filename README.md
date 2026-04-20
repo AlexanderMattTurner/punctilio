@@ -128,6 +128,20 @@ rehypePunctilio({
 });
 ```
 
+For finer-grained control, `shouldSkipText` opts specific text nodes out of transformation without skipping their enclosing element. The predicate receives the text node and its ancestor chain (root first, nearest last); returning `true` leaves the node’s value untouched. `shouldSkipText` runs after element-level skipping—it is never called for text inside an already-skipped element.
+
+```typescript
+rehypePunctilio({
+  // Skip anchor text that equals its href (URL-like link text).
+  shouldSkipText: (textNode, ancestors) => {
+    const parent = ancestors[ancestors.length - 1];
+    if (parent?.tagName !== "a") return false;
+    const href = parent.properties?.href;
+    return typeof href === "string" && href === textNode.value;
+  },
+});
+```
+
 ## Options
 
 `punctilio` doesn’t enable all transformations by default. Fractions and degrees tend to match too aggressively (perfectly applying the degree transformation requires semantic meaning). Superscript letters and punctuation ligatures have spotty font support. Furthermore, `ligatures = true` can change the meaning of text by collapsing question and exclamation marks.
