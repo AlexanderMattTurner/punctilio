@@ -179,6 +179,20 @@ export { assertSeparatorAbsent, assertSeparatorCountPreserved, countSeparators, 
 export { DEFAULT_SEPARATOR, UNICODE_SYMBOLS } from "./constants.js"
 export const MODIFIER_LETTER_APOSTROPHE = UNICODE_SYMBOLS.MODIFIER_LETTER_APOSTROPHE
 
+const defaultOpts: Required<Omit<TransformOptions, "separator">> = {
+  symbols: true,
+  includeArrows: true,
+  fractions: false,
+  degrees: false,
+  superscript: false,
+  ligatures: false,
+  nbsp: true,
+  collapseSpaces: true,
+  checkIdempotency: true,
+  punctuationStyle: "american",
+  dashStyle: "american",
+}
+
 /**
  * Applies all typography transformations: smart quotes, proper dashes,
  * and symbol improvements.
@@ -213,20 +227,6 @@ export const MODIFIER_LETTER_APOSTROPHE = UNICODE_SYMBOLS.MODIFIER_LETTER_APOSTR
  * // → 'Add ½ cup'
  * ```
  */
-const defaultOpts: Required<Omit<TransformOptions, "separator">> = {
-  symbols: true,
-  includeArrows: true,
-  fractions: false,
-  degrees: false,
-  superscript: false,
-  ligatures: false,
-  nbsp: true,
-  collapseSpaces: true,
-  checkIdempotency: true,
-  punctuationStyle: "american",
-  dashStyle: "american",
-}
-
 export function transform(text: string, options: TransformOptions = {}): string {
   const separator = options.separator ?? DEFAULT_SEPARATOR
 

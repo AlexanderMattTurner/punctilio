@@ -125,6 +125,8 @@ describe("transform", () => {
       [`foo${NBSP}${NBSP}bar`, `foo${NBSP}bar`, "multiple nbsp"],
       [`a ${NBSP}b`, `a${NBSP}b`, "mixed spaces prefer nbsp"],
       [`a${NBSP} b`, `a${NBSP}b`, "mixed spaces prefer nbsp"],
+      ["hello\t\tworld", "hello world", "multiple tabs"],
+      ["hello\t world", "hello world", "mixed tab and space"],
     ])("collapses %s by default", (input, expected) => {
       expect(transform(input, { nbsp: false })).toBe(expected)
     })
@@ -132,6 +134,7 @@ describe("transform", () => {
     it.each([
       ["hello  world", "hello  world", "multiple spaces"],
       [`foo${NBSP}${NBSP}bar`, `foo${NBSP}${NBSP}bar`, "multiple nbsp"],
+      ["hello\t\tworld", "hello\t\tworld", "multiple tabs"],
     ])("preserves %s when disabled", (input, expected) => {
       expect(transform(input, { collapseSpaces: false, nbsp: false })).toBe(expected)
     })
