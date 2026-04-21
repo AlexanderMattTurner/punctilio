@@ -44,9 +44,10 @@ export function ellipsis(text: string, options: SymbolOptions = {}): string {
 
   // Convert consecutive or spaced dots: ... or . . . → …
   // Captures preserve any separators between dots
-  const pattern = cachedRegExp(`\\.[${SPACE_CHARS}]?(${chr})?\\.([${SPACE_CHARS}]?)(${chr})?\\.`, "g")
-  text = text.replace(pattern, (_match, sep1, _space, sep2) => {
-    return ELLIPSIS + (sep1 || "") + (sep2 || "")
+  const pattern = cachedRegExp(`\\.[${SPACE_CHARS}]?(?<sep1>${chr})?\\.(?:[${SPACE_CHARS}]?)(?<sep2>${chr})?\\.`, "g")
+  text = text.replace(pattern, (...args) => {
+    const { sep1, sep2 } = args.at(-1) as Record<string, string | undefined>
+    return ELLIPSIS + (sep1 ?? "") + (sep2 ?? "")
   })
 
   text = text.replace(cachedRegExp(`${ELLIPSIS}(?=[${LATIN_LETTERS}\\d])`, "gu"), `${ELLIPSIS} `)
@@ -61,20 +62,22 @@ export function multiplication(text: string, options: SymbolOptions = {}): strin
   // Match entire multiplication chains in one pass: "5 x 5 x 5" or "5x5x5"
   // Pattern matches: digit(s), then one or more (operator, digit(s)) groups
   const chainPattern = cachedRegExp(
-    `(?<!\\d)(\\d+)((?:${chr}?\\s*[xX*]\\s*${chr}?\\d+)+)`,
+    `(?<!\\d)(?<firstNum>\\d+)(?<rest>(?:${chr}?\\s*[xX*]\\s*${chr}?\\d+)+)`,
     "g"
   )
 
-  text = text.replace(chainPattern, (match, firstNum, rest) => {
+  text = text.replace(chainPattern, (...args) => {
+    const { firstNum, rest } = args.at(-1) as Record<string, string>
     // Skip hexadecimal: 0x... or 0X...
-    if (firstNum === "0" && /^x/i.test(rest)) return match
+    if (firstNum === "0" && /^x/i.test(rest)) return args[0] as string
 
     // Replace all operators in the chain, preserving spacing
     const converted = rest.replace(
-      cachedRegExp(`(${chr}?)(\\s*)[xX*](\\s*)(${chr}?)`, "g"),
-      (_: string, pre: string, spaceBefore: string, spaceAfter: string, post: string) => {
-        const space = spaceBefore || spaceAfter ? " " : ""
-        return `${pre}${space}${MULTIPLICATION}${space}${post}`
+      cachedRegExp(`(?<pre>${chr}?)(?<spaceBefore>\\s*)[xX*](?<spaceAfter>\\s*)(?<post>${chr}?)`, "g"),
+      (...innerArgs) => {
+        const g = innerArgs.at(-1) as Record<string, string>
+        const space = g.spaceBefore || g.spaceAfter ? " " : ""
+        return `${g.pre}${space}${MULTIPLICATION}${space}${g.post}`
       }
     )
     return `${firstNum}${converted}`
@@ -127,6 +130,14 @@ type ContextPredicate = (before: string, after: string) => boolean
 const LEGAL_CONTEXT_WINDOW = 25
 
 /**
+ * Context window, in characters, examined on each side of a legal-symbol
+ * candidate. Large enough to fit a 4-digit year plus surrounding whitespace
+ * or the word "copyright" plus a space, but small enough that the slice
+ * stays cheap on long inputs.
+ */
+const LEGAL_SYMBOL_CONTEXT_WINDOW = 25
+
+/**
  * Context-aware replacement for legal symbols like (c), (r), (tm).
  * Extracts surrounding text, strips separator characters from the context
  * windows, and delegates the convert/skip decision to a predicate.
@@ -139,8 +150,12 @@ function contextAwareLegalReplace(
   separator: string,
 ): string {
   return text.replace(pattern, (match: string, offset: number, str: string) => {
-    const before = str.slice(Math.max(0, offset - LEGAL_CONTEXT_WINDOW), offset).replaceAll(separator, "")
-    const after = str.slice(offset + match.length, offset + match.length + LEGAL_CONTEXT_WINDOW).replaceAll(separator, "")
+    const before = str
+      .slice(Math.max(0, offset - LEGAL_SYMBOL_CONTEXT_WINDOW), offset)
+      .replaceAll(separator, "")
+    const after = str
+      .slice(offset + match.length, offset + match.length + LEGAL_SYMBOL_CONTEXT_WINDOW)
+      .replaceAll(separator, "")
     return shouldConvert(before, after) ? replacement : match
   })
 }
@@ -166,14 +181,20 @@ export function legalSymbols(text: string, options: SymbolOptions = {}): string 
   return text
 }
 
-/** [asciiPattern, unicodeSymbol] */
-type ArrowRule = [string, string]
+/**
+ * Builds an arrow-shape regex fragment from the escaped separator pattern.
+ * The separator may appear between the halves of a bidirectional `<->`.
+ */
+type ArrowPatternBuilder = (escapedSeparator: string) => string
 
-/** Arrow pattern map: arrow shape → Unicode symbol */
-const ARROW_MAP: ArrowRule[] = [
-  [`<-+${"%CHR%"}?>`, ARROW_LEFT_RIGHT], // Bidirectional: <-> or <-->
-  ["-+>", ARROW_RIGHT],                   // Right: -> or -->
-  ["<-+", ARROW_LEFT],                    // Left: <- or <--
+/** Arrow pattern map: shape builder → Unicode symbol */
+const ARROW_RULES: readonly [ArrowPatternBuilder, string][] = [
+  // Bidirectional: <-> or <--> (separator may fall between the halves)
+  [(sep) => `<-+${sep}?>`, ARROW_LEFT_RIGHT],
+  // Right: -> or -->
+  [() => "-+>", ARROW_RIGHT],
+  // Left: <- or <--
+  [() => "<-+", ARROW_LEFT],
 ]
 
 /** Convert -> and <-> to arrows. */
@@ -183,8 +204,8 @@ export function arrows(text: string, options: SymbolOptions = {}): string {
   const start = spaceBoundaryStart(chr)
   const end = spaceBoundaryEnd(chr)
 
-  for (const [arrowPattern, replacement] of ARROW_MAP) {
-    const pattern = cachedRegExp(`${start}${arrowPattern.replace("%CHR%", chr)}${end}`, "g")
+  for (const [buildArrow, replacement] of ARROW_RULES) {
+    const pattern = cachedRegExp(`${start}${buildArrow(chr)}${end}`, "g")
     text = text.replace(pattern, replacement)
   }
 
@@ -248,9 +269,11 @@ function balancedPrimeReplacer(primeChar: string, escapedSeparator: string) {
     : null
 
   let balance = 0
-  return (...args: unknown[]) => {
+
+  // Replace callback: (match, ...captures, offset, fullString, namedGroups)
+  return (...args: unknown[]): string => {
     const fullMatch = args[0] as string
-    const groups = args[args.length - 1] as Record<string, string | undefined>
+    const groups = args.at(-1) as Record<string, string | undefined>
 
     // Contraction (letter + quote + letter): skip entirely
     if (groups.contraction !== undefined) {
@@ -272,9 +295,9 @@ function balancedPrimeReplacer(primeChar: string, escapedSeparator: string) {
       // Inside balanced quotes: check if this is feet-inches notation
       // (e.g., 5′10" where ″ is inches, not a closing quote)
       if (feetInchesContext) {
-        const offset = args[args.length - 3] as number
-        const fullString = args[args.length - 2] as string
-        if (feetInchesContext.test(fullString.substring(0, offset))) {
+        const matchOffset = args.at(-3) as number
+        const fullString = args.at(-2) as string
+        if (feetInchesContext.test(fullString.substring(0, matchOffset))) {
           return `${digit}${sep}${primeChar}${afterSep}`
         }
       }
@@ -420,8 +443,11 @@ export function punctuationLigatures(text: string, options: SymbolOptions = {}):
   const chr = getEscapedSeparator(options)
 
   for (const [first, repeated, replacement] of PUNCTUATION_LIGATURE_MAP) {
-    const pattern = cachedRegExp(`${first}(${chr})?${repeated}(?:${chr}?${repeated})*`, "g")
-    text = text.replace(pattern, (_match, sep) => replacement + (sep || ""))
+    const pattern = cachedRegExp(`${first}(?<sep>${chr})?${repeated}(?:${chr}?${repeated})*`, "g")
+    text = text.replace(pattern, (...args) => {
+      const { sep } = (args.at(-1) as Record<string, string | undefined>)
+      return replacement + (sep ?? "")
+    })
   }
 
   return text

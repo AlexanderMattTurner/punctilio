@@ -13,16 +13,10 @@ import type { Transformer } from "unified"
 import { visitParents } from "unist-util-visit-parents"
 
 import { transform, type TransformOptions } from "./index.js"
-import { DEFAULT_SEPARATOR } from "./constants.js"
+import { DEFAULT_SEPARATOR, MAX_RECURSION_DEPTH } from "./constants.js"
 import { transformTextNodes } from "./utils.js"
 
 export type RemarkPunctilioOptions = TransformOptions
-
-/**
- * Maximum recursion depth for tree traversal functions.
- * Prevents stack overflow from maliciously deep Markdown nesting.
- */
-const MAX_RECURSION_DEPTH = 1000
 
 /**
  * MDAST node types that contain phrasing (inline) content and should

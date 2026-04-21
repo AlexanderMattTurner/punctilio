@@ -173,7 +173,7 @@ import { hyphenReplace } from "./dashes.js"
 import { symbolTransform, fractions as fractionsTransform, degrees as degreesTransform, superscriptOrdinal as superscriptTransform, primeMarks, collapseSpaces as collapseSpacesTransform, punctuationLigatures as ligaturesTransform } from "./symbols.js"
 import { nbspTransform as nbspTransformFn } from "./nbsp.js"
 import { assertSeparatorCountPreserved, formatErrorString } from "./utils.js"
-import { DEFAULT_SEPARATOR, UNICODE_SYMBOLS } from "./constants.js"
+import { DEFAULT_SEPARATOR, ISSUES_URL, UNICODE_SYMBOLS } from "./constants.js"
 
 export { assertSeparatorAbsent, assertSeparatorCountPreserved, countSeparators, transformTextNodes } from "./utils.js"
 export { DEFAULT_SEPARATOR, UNICODE_SYMBOLS } from "./constants.js"
@@ -296,8 +296,9 @@ export function transform(text: string, options: TransformOptions = {}): string 
         `Transform is not idempotent.\n` +
         `First pass:  ${formatErrorString(text, "first-pass")}\n` +
         `Second pass: ${formatErrorString(secondPass, "second-pass")}\n` +
-        `This is a bug in punctilio. Please file an issue at https://github.com/alexander-turner/punctilio/issues\n` +
-        `Include the input text that caused this error.`
+        `This is a bug in punctilio. Please file an issue at ${ISSUES_URL}\n` +
+        `Include the input text that caused this error.\n` +
+        `To suppress this check, pass { checkIdempotency: false }.`
       )
     }
   }

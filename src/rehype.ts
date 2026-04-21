@@ -13,7 +13,7 @@ import type { Transformer } from "unified"
 import { visitParents } from "unist-util-visit-parents"
 
 import { transform, type TransformOptions } from "./index.js"
-import { DEFAULT_SEPARATOR } from "./constants.js"
+import { DEFAULT_SEPARATOR, MAX_RECURSION_DEPTH } from "./constants.js"
 import { transformTextNodes, formatErrorString } from "./utils.js"
 
 /** Predicate that decides whether an HTML element should be skipped during transformation. */
@@ -74,12 +74,6 @@ export interface RehypePunctilioOptions
 }
 
 const DEFAULT_SKIP_TAGS = ["code", "pre", "script", "style", "kbd", "var", "samp"]
-
-/**
- * Maximum recursion depth for tree traversal functions.
- * Prevents stack overflow from maliciously deep HTML nesting.
- */
-const MAX_RECURSION_DEPTH = 1000
 
 /**
  * Check if an element has a specific CSS class.
