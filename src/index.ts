@@ -297,7 +297,8 @@ export function transform(text: string, options: TransformOptions = {}): string 
         `First pass:  ${formatErrorString(text, "first-pass")}\n` +
         `Second pass: ${formatErrorString(secondPass, "second-pass")}\n` +
         `This is a bug in punctilio. Please file an issue at https://github.com/alexander-turner/punctilio/issues\n` +
-        `Include the input text that caused this error.`
+        `Include the input text that caused this error.\n` +
+        `To suppress this check, pass { checkIdempotency: false }.`
       )
     }
   }
