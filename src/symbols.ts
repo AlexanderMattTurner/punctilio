@@ -44,9 +44,10 @@ export function ellipsis(text: string, options: SymbolOptions = {}): string {
 
   // Convert consecutive or spaced dots: ... or . . . → …
   // Captures preserve any separators between dots
-  const pattern = cachedRegExp(`\\.[${SPACE_CHARS}]?(${chr})?\\.([${SPACE_CHARS}]?)(${chr})?\\.`, "g")
-  text = text.replace(pattern, (_match, sep1, _space, sep2) => {
-    return ELLIPSIS + (sep1 || "") + (sep2 || "")
+  const pattern = cachedRegExp(`\\.[${SPACE_CHARS}]?(?<sep1>${chr})?\\.(?:[${SPACE_CHARS}]?)(?<sep2>${chr})?\\.`, "g")
+  text = text.replace(pattern, (...args) => {
+    const { sep1, sep2 } = args.at(-1) as Record<string, string | undefined>
+    return ELLIPSIS + (sep1 ?? "") + (sep2 ?? "")
   })
 
   text = text.replace(cachedRegExp(`${ELLIPSIS}(?=[${LATIN_LETTERS}\\d])`, "gu"), `${ELLIPSIS} `)
@@ -61,20 +62,22 @@ export function multiplication(text: string, options: SymbolOptions = {}): strin
   // Match entire multiplication chains in one pass: "5 x 5 x 5" or "5x5x5"
   // Pattern matches: digit(s), then one or more (operator, digit(s)) groups
   const chainPattern = cachedRegExp(
-    `(?<!\\d)(\\d+)((?:${chr}?\\s*[xX*]\\s*${chr}?\\d+)+)`,
+    `(?<!\\d)(?<firstNum>\\d+)(?<rest>(?:${chr}?\\s*[xX*]\\s*${chr}?\\d+)+)`,
     "g"
   )
 
-  text = text.replace(chainPattern, (match, firstNum, rest) => {
+  text = text.replace(chainPattern, (...args) => {
+    const { firstNum, rest } = args.at(-1) as Record<string, string>
     // Skip hexadecimal: 0x... or 0X...
-    if (firstNum === "0" && /^x/i.test(rest)) return match
+    if (firstNum === "0" && /^x/i.test(rest)) return args[0] as string
 
     // Replace all operators in the chain, preserving spacing
     const converted = rest.replace(
-      cachedRegExp(`(${chr}?)(\\s*)[xX*](\\s*)(${chr}?)`, "g"),
-      (_: string, pre: string, spaceBefore: string, spaceAfter: string, post: string) => {
-        const space = spaceBefore || spaceAfter ? " " : ""
-        return `${pre}${space}${MULTIPLICATION}${space}${post}`
+      cachedRegExp(`(?<pre>${chr}?)(?<spaceBefore>\\s*)[xX*](?<spaceAfter>\\s*)(?<post>${chr}?)`, "g"),
+      (...innerArgs) => {
+        const g = innerArgs.at(-1) as Record<string, string>
+        const space = g.spaceBefore || g.spaceAfter ? " " : ""
+        return `${g.pre}${space}${MULTIPLICATION}${space}${g.post}`
       }
     )
     return `${firstNum}${converted}`
@@ -245,9 +248,13 @@ function balancedPrimeReplacer(primeChar: string, escapedSeparator: string) {
     : null
 
   let balance = 0
-  return (...args: unknown[]) => {
+
+  // Replace callback: (match, ...captures, offset, fullString, namedGroups)
+  // Named groups (.at(-1)) are always the last argument; offset and
+  // fullString are 3rd- and 2nd-from-last respectively.
+  return (...args: unknown[]): string => {
     const fullMatch = args[0] as string
-    const groups = args[args.length - 1] as Record<string, string | undefined>
+    const groups = args.at(-1) as Record<string, string | undefined>
 
     // Contraction (letter + quote + letter): skip entirely
     if (groups.contraction !== undefined) {
@@ -269,9 +276,9 @@ function balancedPrimeReplacer(primeChar: string, escapedSeparator: string) {
       // Inside balanced quotes: check if this is feet-inches notation
       // (e.g., 5′10" where ″ is inches, not a closing quote)
       if (feetInchesContext) {
-        const offset = args[args.length - 3] as number
-        const fullString = args[args.length - 2] as string
-        if (feetInchesContext.test(fullString.substring(0, offset))) {
+        const matchOffset = args.at(-3) as number
+        const fullString = args.at(-2) as string
+        if (feetInchesContext.test(fullString.substring(0, matchOffset))) {
           return `${digit}${sep}${primeChar}${afterSep}`
         }
       }
@@ -418,8 +425,11 @@ export function punctuationLigatures(text: string, options: SymbolOptions = {}):
   const chr = getEscapedSeparator(options)
 
   for (const [first, repeated, replacement] of PUNCTUATION_LIGATURE_MAP) {
-    const pattern = cachedRegExp(`${first}(${chr})?${repeated}(?:${chr}?${repeated})*`, "g")
-    text = text.replace(pattern, (_match, sep) => replacement + (sep || ""))
+    const pattern = cachedRegExp(`${first}(?<sep>${chr})?${repeated}(?:${chr}?${repeated})*`, "g")
+    text = text.replace(pattern, (...args) => {
+      const { sep } = (args.at(-1) as Record<string, string | undefined>)
+      return replacement + (sep ?? "")
+    })
   }
 
   return text

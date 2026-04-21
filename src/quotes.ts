@@ -35,7 +35,7 @@ function convertSingleQuotes(text: string, sep: string): string {
   const singleQuoteChars = `'${LEFT_SINGLE_QUOTE}${RIGHT_SINGLE_QUOTE}${MODIFIER_LETTER_APOSTROPHE}`
   const singleQuoteOrWord = `[${singleQuoteChars}\\w]`
   text = text.replace(cachedRegExp(`(?<!${singleQuoteOrWord})''(?!${singleQuoteOrWord})`, "g"), `${LEFT_SINGLE_QUOTE}${RIGHT_SINGLE_QUOTE}`)
-  text = text.replace(cachedRegExp(`(?<!${singleQuoteOrWord})'(\\s+)'(?!${singleQuoteOrWord})`, "g"), `${LEFT_SINGLE_QUOTE}$1${RIGHT_SINGLE_QUOTE}`)
+  text = text.replace(cachedRegExp(`(?<!${singleQuoteOrWord})'(?<ws>\\s+)'(?!${singleQuoteOrWord})`, "g"), `${LEFT_SINGLE_QUOTE}$<ws>${RIGHT_SINGLE_QUOTE}`)
 
   const afterEndingSinglePatterns = `\\s\\.!?;,\\)${EM_DASH}\\-\\]"`
   // Full pattern with optional 's' for lookahead detection in apostropheRegex
@@ -64,7 +64,7 @@ function convertSingleQuotes(text: string, sep: string): string {
   const endQuoteNotContraction = `(?!${contraction})[${RIGHT_SINGLE_QUOTE}${MODIFIER_LETTER_APOSTROPHE}]${afterEndingSingle}`
   // Limit lookahead scan to 1000 chars to prevent catastrophic backtracking on pathological inputs
   const apostropheRegex = cachedRegExp(
-    `(?<=^|[^\\w])['](${apostropheWhitelist}|(?![^${LEFT_SINGLE_QUOTE}'\\n]{0,1000}${endQuoteNotContraction}))`,
+    `(?<=^|[^\\w])['](?:${apostropheWhitelist}|(?![^${LEFT_SINGLE_QUOTE}'\\n]{0,1000}${endQuoteNotContraction}))`,
     "gm"
   )
   text = text.replace(apostropheRegex, MODIFIER_LETTER_APOSTROPHE)
@@ -147,7 +147,7 @@ function convertDoubleQuotes(text: string, sep: string): string {
 
   text = text.replace(cachedRegExp(`(?<=\\{)(?<sepSpace>${escapedSep}? )?["]`, "g"), `$<sepSpace>${LEFT_DOUBLE_QUOTE}`)
 
-  const endingDouble = `(?<beforeQuote>[^\\s\\(])["]((?<sepAfter>${escapedSep})?)(?=${escapedSep}|[\\s/\\).,;${EM_DASH}:\\-\\}!?s]|$)`
+  const endingDouble = `(?<beforeQuote>[^\\s\\(])["](?<sepAfter>${escapedSep})?(?=${escapedSep}|[\\s/\\).,;${EM_DASH}:\\-\\}!?s]|$)`
   text = text.replace(cachedRegExp(endingDouble, "g"), `$<beforeQuote>${RIGHT_DOUBLE_QUOTE}$<sepAfter>`)
 
   text = text.replace(cachedRegExp(`["](?<sepEnd>${escapedSep}?)$`, "g"), `${RIGHT_DOUBLE_QUOTE}$<sepEnd>`)
