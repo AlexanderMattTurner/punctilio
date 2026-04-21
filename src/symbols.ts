@@ -250,8 +250,6 @@ function balancedPrimeReplacer(primeChar: string, escapedSeparator: string) {
   let balance = 0
 
   // Replace callback: (match, ...captures, offset, fullString, namedGroups)
-  // Named groups (.at(-1)) are always the last argument; offset and
-  // fullString are 3rd- and 2nd-from-last respectively.
   return (...args: unknown[]): string => {
     const fullMatch = args[0] as string
     const groups = args.at(-1) as Record<string, string | undefined>
