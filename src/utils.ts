@@ -4,7 +4,7 @@
  * @module utils
  */
 
-import { DEFAULT_SEPARATOR } from "./constants.js"
+import { DEFAULT_SEPARATOR, ISSUES_URL } from "./constants.js"
 
 /** Threshold above which strings are truncated in error messages. */
 const ERROR_STRING_THRESHOLD = 2000
@@ -135,7 +135,7 @@ export function assertSeparatorCountPreserved(
   if (originalCount !== transformedCount) {
     throw new Error(
       `${transformName} altered separator count: expected ${originalCount}, got ${transformedCount}.\n` +
-      `This is a bug in punctilio. Please file an issue at https://github.com/alexander-turner/punctilio/issues\n` +
+      `This is a bug in punctilio. Please file an issue at ${ISSUES_URL}\n` +
       `Include the input text that caused this error.`
     )
   }

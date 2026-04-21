@@ -127,6 +127,14 @@ export function mathSymbols(text: string, options: SymbolOptions = {}): string {
 type ContextPredicate = (before: string, after: string) => boolean
 
 /**
+ * Context window, in characters, examined on each side of a legal-symbol
+ * candidate. Large enough to fit a 4-digit year plus surrounding whitespace
+ * or the word "copyright" plus a space, but small enough that the slice
+ * stays cheap on long inputs.
+ */
+const LEGAL_SYMBOL_CONTEXT_WINDOW = 25
+
+/**
  * Context-aware replacement for legal symbols like (c), (r), (tm).
  * Extracts surrounding text, strips separator characters from the context
  * windows, and delegates the convert/skip decision to a predicate.
@@ -139,8 +147,12 @@ function contextAwareLegalReplace(
   separator: string,
 ): string {
   return text.replace(pattern, (match: string, offset: number, str: string) => {
-    const before = str.slice(Math.max(0, offset - 25), offset).replaceAll(separator, "")
-    const after = str.slice(offset + match.length, offset + match.length + 25).replaceAll(separator, "")
+    const before = str
+      .slice(Math.max(0, offset - LEGAL_SYMBOL_CONTEXT_WINDOW), offset)
+      .replaceAll(separator, "")
+    const after = str
+      .slice(offset + match.length, offset + match.length + LEGAL_SYMBOL_CONTEXT_WINDOW)
+      .replaceAll(separator, "")
     return shouldConvert(before, after) ? replacement : match
   })
 }
@@ -166,14 +178,20 @@ export function legalSymbols(text: string, options: SymbolOptions = {}): string 
   return text
 }
 
-/** [asciiPattern, unicodeSymbol] */
-type ArrowRule = [string, string]
+/**
+ * Builds an arrow-shape regex fragment from the escaped separator pattern.
+ * The separator may appear between the halves of a bidirectional `<->`.
+ */
+type ArrowPatternBuilder = (escapedSeparator: string) => string
 
-/** Arrow pattern map: arrow shape → Unicode symbol */
-const ARROW_MAP: ArrowRule[] = [
-  [`<-+${"%CHR%"}?>`, ARROW_LEFT_RIGHT], // Bidirectional: <-> or <-->
-  ["-+>", ARROW_RIGHT],                   // Right: -> or -->
-  ["<-+", ARROW_LEFT],                    // Left: <- or <--
+/** Arrow pattern map: shape builder → Unicode symbol */
+const ARROW_RULES: readonly [ArrowPatternBuilder, string][] = [
+  // Bidirectional: <-> or <--> (separator may fall between the halves)
+  [(sep) => `<-+${sep}?>`, ARROW_LEFT_RIGHT],
+  // Right: -> or -->
+  [() => "-+>", ARROW_RIGHT],
+  // Left: <- or <--
+  [() => "<-+", ARROW_LEFT],
 ]
 
 /** Convert -> and <-> to arrows. */
@@ -183,8 +201,8 @@ export function arrows(text: string, options: SymbolOptions = {}): string {
   const start = spaceBoundaryStart(chr)
   const end = spaceBoundaryEnd(chr)
 
-  for (const [arrowPattern, replacement] of ARROW_MAP) {
-    const pattern = cachedRegExp(`${start}${arrowPattern.replace("%CHR%", chr)}${end}`, "g")
+  for (const [buildArrow, replacement] of ARROW_RULES) {
+    const pattern = cachedRegExp(`${start}${buildArrow(chr)}${end}`, "g")
     text = text.replace(pattern, replacement)
   }
 
