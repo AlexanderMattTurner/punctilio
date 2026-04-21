@@ -137,17 +137,25 @@ export function nbspBetweenNumberAndUnit(text: string, options: NbspOptions = {}
 }
 
 /**
+ * Maximum length, in characters, of the "last word" that gets an NBSP
+ * glued to its preceding space. Short enough that a typical English word
+ * qualifies but an entire trailing URL or long token does not. Only affects
+ * widow prevention at end-of-string and paragraph breaks.
+ */
+const MAX_LAST_WORD_LENGTH = 10
+
+/**
  * Adds non-breaking space before the last word to prevent widows.
  *
- * Only applies to final words of 1-10 characters, at end of string or
- * paragraph break (\n\n). Uses non-multiline mode so $ matches only the
- * true end of string.
+ * Only applies to final words of 1 to {@link MAX_LAST_WORD_LENGTH} characters,
+ * at end of string or paragraph break (\n\n). Uses non-multiline mode so $
+ * matches only the true end of string.
  */
 export function nbspBeforeLastWord(text: string, options: NbspOptions = {}): string {
   const sep = getEscapedSeparator(options)
   // Use alternation instead of character classes for multi-char separator support
   const pattern = cachedRegExp(
-    `(?<=\\w|${sep})${SPACE}(?<lastWord>(?:(?!\\s)(?!${sep}).){1,10})(?<ending>${sep}?(?:\\n\\n|$))`,
+    `(?<=\\w|${sep})${SPACE}(?<lastWord>(?:(?!\\s)(?!${sep}).){1,${MAX_LAST_WORD_LENGTH}})(?<ending>${sep}?(?:\\n\\n|$))`,
     "g"
   )
   return text.replace(pattern, `${NBSP}$<lastWord>$<ending>`)

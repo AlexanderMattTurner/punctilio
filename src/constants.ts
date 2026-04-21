@@ -229,6 +229,19 @@ export function spaceBoundaryEnd(escapedSeparator: string): string {
 }
 
 /**
+ * Maximum recursion depth used by the rehype and remark tree walkers.
+ * Guards against stack overflow from maliciously or accidentally deep
+ * AST nesting. Shared so both plugins behave identically.
+ */
+export const MAX_RECURSION_DEPTH = 1000
+
+/**
+ * Canonical issue tracker URL, referenced in user-facing error messages
+ * so there's exactly one source of truth if the repository ever moves.
+ */
+export const ISSUES_URL = "https://github.com/alexander-turner/punctilio/issues"
+
+/**
  * LRU cache for compiled RegExp objects keyed by `pattern + '\0' + flags`.
  * Avoids recompiling identical regexes on every function call (common
  * when using the default separator). Capped to prevent unbounded growth.

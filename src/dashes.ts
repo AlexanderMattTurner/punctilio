@@ -22,6 +22,16 @@ const { EN_DASH, EM_DASH, MINUS, LEFT_DOUBLE_QUOTE, RIGHT_DOUBLE_QUOTE, LEFT_SIN
  */
 export const numberRangeDisallowedPrefixes = ["-", EN_DASH, EM_DASH, MINUS] as const
 
+/**
+ * Regex character-class fragment built from {@link numberRangeDisallowedPrefixes}.
+ * Non-ASCII dashes are escaped to `\uXXXX` form so the fragment is safe to
+ * embed inside a `[...]` class regardless of the regex source encoding.
+ * Computed once at module load — the inputs are `const`.
+ */
+const DISALLOWED_PREFIX_CLASS_FRAGMENT = numberRangeDisallowedPrefixes
+  .map((c) => (c === "-" ? c : `\\u${c.charCodeAt(0).toString(16).padStart(4, "0")}`))
+  .join("")
+
 export const months = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December",
@@ -35,15 +45,13 @@ export function enDashNumberRange(text: string, options: DashOptions = {}): stri
   const wb = wordBoundaryStart(chr)
   const wbe = wordBoundaryEnd(chr)
 
-  // Escape dash-like chars for lookbehind: prevents matching after dashes (e.g., Llama-2-7B)
-  const disallowed = numberRangeDisallowedPrefixes.map(c => c === "-" ? c : `\\u${c.charCodeAt(0).toString(16).padStart(4, "0")}`).join("")
-
   // Common currency symbols for price ranges
   const currencies = "$€£¥₹"
 
   // Build positive range pattern from readable components
   const phoneAreaCode = `(?<precedingAreaCode>\\d{3}-|\\(\\d{3}\\) ?)?`  // 555- or (555)
-  const notAfterDash = `(?<![${disallowed}${LATIN_LETTERS}.+])`          // prevent Llama-2-7B, +44-20
+  // Lookbehind prevents matching after dashes, so Llama-2-7B and +44-20 don't en-dash.
+  const notAfterDash = `(?<![${DISALLOWED_PREFIX_CLASS_FRAGMENT}${LATIN_LETTERS}.+])`
   const rangeStart = `(?<start>(?:p\\.?|[${currencies}])?\\d[\\d.,]*${chr}?)`  // p.10, $100, 1,000
   const rangeEnd = `(?<end>${chr}?[${currencies}]?\\d[\\d.,]*)`          // 20, $200, 2,000
   const moreSegments = `(?<following>(?:${chr}?[-${MINUS}]${chr}?\\d+)*)` // -4567 in phone numbers
