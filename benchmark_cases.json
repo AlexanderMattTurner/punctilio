@@ -279,5 +279,32 @@
     ["10:30-11:30", "10:30\u201311:30"],
     ["9:00-5:00", "9:00\u20135:00"],
     ["12:00-1:00", "12:00\u20131:00"]
+  ],
+  "Question/exclamation inside quotes": [
+    ["She asked, \"Why?\"", "She asked, \u201cWhy?\u201d"],
+    ["\"Really?\" he asked.", "\u201cReally?\u201d he asked."],
+    ["He shouted, \"Stop!\"", "He shouted, \u201cStop!\u201d"],
+    ["\"Are you sure?\", she said.", "\u201cAre you sure?\u201d, she said."]
+  ],
+  "Nested quotes with inner terminal punctuation": [
+    ["\"He said, 'Hello.'\"", "\u201cHe said, \u2018Hello.\u2019\u201d"],
+    ["\"She replied, 'No way!'\"", "\u201cShe replied, \u2018No way!\u2019\u201d"]
+  ],
+  "Quote after colon": [
+    ["He said: \"Hello.\"", "He said: \u201cHello.\u201d"],
+    ["The sign read: \"Stop\"", "The sign read: \u201cStop\u201d"]
+  ],
+  "Interrupted dialogue": [
+    ["\"Wait--\" she began.", "\u201cWait\u2014\u201d she began."],
+    ["\"I was going to say--\" he paused.", "\u201cI was going to say\u2014\u201d he paused."]
+  ],
+  "Decimal number ranges": [
+    ["1.5-2.5", "1.5\u20132.5"],
+    ["0.25-0.75", "0.25\u20130.75"],
+    ["pH 7.0-7.4", "pH 7.0\u20137.4"]
+  ],
+  "Prime marks at sentence end": [
+    ["The board is 8'.", "The board is 8\u2032."],
+    ["He's 6'2\".", "He\u2019s 6\u20322\u2033."]
   ]
 }
