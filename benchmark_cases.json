@@ -128,7 +128,7 @@
     ["Location: 45\u00B0 30' 15\"", "Location: 45\u00B0 30\u2032 15\u2033"]
   ],
   "Prime marks - multiple": [
-    ["Room is 10' x 12'", "Room is 10\u2032 x 12\u2032"],
+    ["Room is 10' x 12'", "Room is 10\u2032 \u00d7 12\u2032"],
     ["5' and 8' boards", "5\u2032 and 8\u2032 boards"]
   ],
   "Prime marks - after contractions": [
@@ -234,10 +234,10 @@
     ["+1-800-555-1234", "+1-800-555-1234"],
     ["+44-20-7946-0958", "+44-20-7946-0958"]
   ],
-  "Number ranges - 3+4 digit": [
-    ["555-1234", "555\u20131234"],
-    ["444-1000", "444\u20131000"],
-    ["100-5000", "100\u20135000"]
+  "Number ranges vs. 7-digit phone numbers": [
+    ["555-1234", "555-1234"],
+    ["call 444-1000 now", "call 444-1000 now"],
+    ["the range 100-5000 items", "the range 100–5000 items"]
   ],
   "Empty quotes": [
     ["\"\"", "\u201C\u201D"],

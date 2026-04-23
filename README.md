@@ -39,12 +39,14 @@ My [`benchmark.mjs`](https://github.com/alexander-turner/punctilio/blob/main/ben
 
 |              Package | Passed (of 172) |
 | -------------------: | :-------------- |
-|          `punctilio` | 171 (99%)       |
-|          `tipograph` | 104 (60%)       |
-|        `smartquotes` | 82 (48%)        |
-|           `typograf` | 80 (47%)        |
-|        `smartypants` | 76 (44%)        |
-| `retext-smartypants` | 73 (42%)        |
+|          `punctilio` | 168 (98%)       |
+|          `tipograph` | 101 (59%)       |
+|        `smartquotes` | 83 (48%)        |
+|           `typograf` | 82 (48%)        |
+|        `smartypants` | 78 (45%)        |
+| `retext-smartypants` | 75 (44%)        |
+
+The benchmark mixes *prescriptive-correctness* categories (smart quotes, dashes, number ranges, primes, locale quotes) with *capability-breadth* categories (superscript ordinals, punctuation ligatures, fraction glyphs, degree-sign insertion). The breadth categories are opt-in in `punctilio` itself—some style guides (e.g. Chicago §9.6 on superscript ordinals) actively discourage them—so libraries that omit them aren’t wrong; they’re offering a narrower but defensible feature set.
 
 |              Feature |                        Example                        | `punctilio` | `smartypants` | `tipograph` | `smartquotes` | `typograf` |
 | -------------------: | :---------------------------------------------------: | :---------: | :-----------: | :---------: | :-----------: | :--------: |
@@ -69,9 +71,11 @@ My [`benchmark.mjs`](https://github.com/alexander-turner/punctilio/blob/main/ben
 
 ### Known limitations of `punctilio`
 
-| Pattern                | Behavior                   | Notes                                                                                        |
-| :--------------------- | :------------------------- | :------------------------------------------------------------------------------------------- |
-| `'99 but 5' clearance` | `5'` not converted to `5′` | Leading apostrophe is indistinguishable from an opening quote without semantic understanding |
+| Pattern                | Behavior                     | Notes                                                                                                                     |
+| :--------------------- | :--------------------------- | :------------------------------------------------------------------------------------------------------------------------ |
+| `'99 but 5' clearance` | `5'` not converted to `5′`   | Leading apostrophe is indistinguishable from an opening quote without semantic understanding                              |
+| `10' x 12'`            | `x` not converted to `×`     | Prime marks interrupt the multiplication match; bare `10 x 12` still converts to `10 × 12`                                |
+| `555-1234`             | converted to `555–1234`      | A bare 3+4 digit hyphenation is ambiguous between a local phone number and a number range; `punctilio` prefers the range  |
 
 ## Test suite
 
