@@ -59,10 +59,15 @@ export function ellipsis(text: string, options: SymbolOptions = {}): string {
 export function multiplication(text: string, options: SymbolOptions = {}): string {
   const chr = getEscapedSeparator(options)
 
+  // Prime marks may sit between a number and the multiplication operator
+  // (e.g. "10′ x 12′" after primeMarks has run). Allow an optional prime or
+  // double-prime to attach to each digit run so feet/inches dimensions still
+  // convert to proper multiplication signs.
+  const primeSuffix = `(?:${chr}?[${PRIME}${DOUBLE_PRIME}])?`
   // Match entire multiplication chains in one pass: "5 x 5 x 5" or "5x5x5"
   // Pattern matches: digit(s), then one or more (operator, digit(s)) groups
   const chainPattern = cachedRegExp(
-    `(?<!\\d)(?<firstNum>\\d+)(?<rest>(?:${chr}?\\s*[xX*]\\s*${chr}?\\d+)+)`,
+    `(?<!\\d)(?<firstNum>\\d+${primeSuffix})(?<rest>(?:${chr}?\\s*[xX*]\\s*${chr}?\\d+${primeSuffix})+)`,
     "g"
   )
 

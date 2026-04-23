@@ -23,3 +23,15 @@
   typographiques en usage à l'Imprimerie nationale*. The idempotency
   normalizer accepts either character as inner padding, so previously
   generated output re-processes correctly.
+
+### Fixed
+
+- Bare `555-1234` (three digits + hyphen + four digits with no thousands
+  grouping) now preserves its hyphen rather than converting to an en-dash.
+  Such sequences are most commonly 7-digit US phone numbers. Thousands-
+  grouped endings (`555-1,234`, `555-1.234`) still convert as ranges, since
+  the grouping disambiguates. No preceding area code is required anymore
+  for the skip to fire.
+- `Room is 10' x 12'` now converts to `Room is 10′ × 12′`. Prime marks
+  attached to a digit run no longer interrupt the multiplication match, so
+  dimension notation (Chicago §9.17) works through feet/inches marks.

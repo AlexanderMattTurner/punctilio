@@ -68,6 +68,12 @@ describe("multiplication", () => {
     ["5xword", "5xword"],
     ["10xbox", "10xbox"],
     ["2xLarge", "2xLarge"],
+    // Dimensions with prime marks already attached (post primeMarks pass)
+    [`10′ x 12′`, `10′ ${UNICODE_SYMBOLS.MULTIPLICATION} 12′`],
+    [`Room is 10′ x 12′`, `Room is 10′ ${UNICODE_SYMBOLS.MULTIPLICATION} 12′`],
+    [`5′ x 6′`, `5′ ${UNICODE_SYMBOLS.MULTIPLICATION} 6′`],
+    // Mixed feet/inches and feet
+    [`5′10″ x 6′`, `5′10″ ${UNICODE_SYMBOLS.MULTIPLICATION} 6′`],
   ])('converts "%s" to "%s"', (input, expected) => {
     expect(multiplication(input)).toBe(expected)
   })

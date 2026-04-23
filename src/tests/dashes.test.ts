@@ -672,8 +672,10 @@ describe("phone number preservation", () => {
     ["+33-1", "+33-1", "French country + city code"],
     ["+61-2", "+61-2", "Australian country + city code"],
     ["+91-22", "+91-22", "Indian country + city code"],
-    // Converted range patterns
-    ["555-1234", `555${EN_DASH}1234`, "standalone 3+4 as range"],
+    // Phone-shaped 3+4 bare digits preserve; thousands-grouped form converts
+    ["555-1234", "555-1234", "standalone 3+4 looks phone, preserve"],
+    ["555-1,234", `555${EN_DASH}1,234`, "3+4 with thousands comma converts"],
+    ["555-1.234", `555${EN_DASH}1.234`, "3+4 with thousands period converts"],
     ["1-5", `1${EN_DASH}5`, "simple range"],
     ["1-50", `1${EN_DASH}50`, "range to two digits"],
     ["1-99", `1${EN_DASH}99`, "range to 99"],
