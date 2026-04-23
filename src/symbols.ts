@@ -59,15 +59,29 @@ export function ellipsis(text: string, options: SymbolOptions = {}): string {
 export function multiplication(text: string, options: SymbolOptions = {}): string {
   const chr = getEscapedSeparator(options)
 
-  // Prime marks may sit between a number and the multiplication operator
-  // (e.g. "10′ x 12′" after primeMarks has run). Allow an optional prime or
-  // double-prime to attach to each digit run so feet/inches dimensions still
-  // convert to proper multiplication signs.
-  const primeSuffix = `(?:${chr}?[${PRIME}${DOUBLE_PRIME}])?`
+  // After a digit run, either a prime mark (10′) or a length/size unit may
+  // attach before the multiplication operator. Allowing both lets dimensions
+  // like "5m × 5m", "210mm × 297mm", or "1920px × 1080px" convert, matching
+  // Chicago §9.17's preference for × in dimension notation.
+  //
+  // Only length/size units that plausibly appear in two-dimensional
+  // dimensions are listed — mass/time/electrical units (kg, min, V, …) don't
+  // participate in "N × N" constructions and excluding them avoids false
+  // matches on words ending in those letters.
+  const dimensionUnits = "rem|vh|vw|km|cm|mm|nm|pm|mi|ft|yd|in|px|pt|em|m"
+  // Word-boundary lookahead: the unit must be followed by whitespace, a
+  // separator marker, the multiplication operator, end-of-string, or
+  // sentence punctuation — never another letter (which would mean the
+  // "unit" is actually a word prefix like "mold").
+  const unitBoundary = `(?=\\s|${chr}|[xX*.,;!?)}]|$)`
+  const unitAlt = `(?:\\s|${chr})?(?:${dimensionUnits})${unitBoundary}`
+  const primeAlt = `${chr}?[${PRIME}${DOUBLE_PRIME}]`
+  const digitSuffix = `(?:${primeAlt}|${unitAlt})?`
+
   // Match entire multiplication chains in one pass: "5 x 5 x 5" or "5x5x5"
   // Pattern matches: digit(s), then one or more (operator, digit(s)) groups
   const chainPattern = cachedRegExp(
-    `(?<!\\d)(?<firstNum>\\d+${primeSuffix})(?<rest>(?:${chr}?\\s*[xX*]\\s*${chr}?\\d+${primeSuffix})+)`,
+    `(?<!\\d)(?<firstNum>\\d+${digitSuffix})(?<rest>(?:${chr}?\\s*[xX*]\\s*${chr}?\\d+${digitSuffix})+)`,
     "g"
   )
 
@@ -76,13 +90,19 @@ export function multiplication(text: string, options: SymbolOptions = {}): strin
     // Skip hexadecimal: 0x... or 0X...
     if (firstNum === "0" && /^x/i.test(rest)) return args[0] as string
 
-    // Replace all operators in the chain, preserving spacing
+    // Replace each "operator + next digit group" segment in lockstep.
+    // Consuming the digit-suffix as part of each segment keeps the inner
+    // replace from misreading the `x` inside a trailing unit like `px` as
+    // another operator.
     const converted = rest.replace(
-      cachedRegExp(`(?<pre>${chr}?)(?<spaceBefore>\\s*)[xX*](?<spaceAfter>\\s*)(?<post>${chr}?)`, "g"),
+      cachedRegExp(
+        `(?<pre>${chr}?)(?<spaceBefore>\\s*)[xX*](?<spaceAfter>\\s*)(?<post>${chr}?)(?<num>\\d+${digitSuffix})`,
+        "g"
+      ),
       (...innerArgs) => {
         const g = innerArgs.at(-1) as Record<string, string>
         const space = g.spaceBefore || g.spaceAfter ? " " : ""
-        return `${g.pre}${space}${MULTIPLICATION}${space}${g.post}`
+        return `${g.pre}${space}${MULTIPLICATION}${space}${g.post}${g.num}`
       }
     )
     return `${firstNum}${converted}`

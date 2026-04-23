@@ -35,3 +35,10 @@
 - `Room is 10' x 12'` now converts to `Room is 10′ × 12′`. Prime marks
   attached to a digit run no longer interrupt the multiplication match, so
   dimension notation (Chicago §9.17) works through feet/inches marks.
+- Dimension notation with length units attached to both operands — e.g.
+  `5m × 5m`, `210mm × 297mm`, `1920px × 1080px`, `5 m × 5 m`, and three-
+  way chains like `120 cm × 60 cm × 75 cm` — now converts correctly. The
+  multiplication chain accepts an optional length/size unit (m, cm, mm,
+  km, nm, pm, mi, ft, yd, in, px, pt, em, rem, vh, vw) after each digit
+  run, with a word-boundary lookahead that avoids matching unit prefixes
+  inside longer words (`5mold x 10 mold` is left untouched).

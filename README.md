@@ -37,14 +37,14 @@ I tested `punctilio` against [`smartypants`](https://www.npmjs.com/package/smart
 
 My [`benchmark.mjs`](https://github.com/alexander-turner/punctilio/blob/main/benchmark.mjs) measures how well libraries handle a [wide range of scenarios](https://github.com/alexander-turner/punctilio/blob/main/benchmark_cases.json). The benchmark normalizes stylistic differences (e.g. non-breaking vs regular space, British vs American dash spacing) for fair comparison.
 
-|              Package | Passed (of 144) |
+|              Package | Passed (of 151) |
 | -------------------: | :-------------- |
-|          `punctilio` | 143 (99%)       |
-|          `tipograph` | 89 (62%)        |
-|        `smartquotes` | 77 (54%)        |
-|        `smartypants` | 72 (50%)        |
-| `retext-smartypants` | 69 (48%)        |
-|           `typograf` | 64 (44%)        |
+|          `punctilio` | 150 (99%)       |
+|          `tipograph` | 89 (59%)        |
+|        `smartquotes` | 77 (51%)        |
+|        `smartypants` | 72 (48%)        |
+| `retext-smartypants` | 69 (46%)        |
+|           `typograf` | 64 (42%)        |
 
 |              Feature |                        Example                        | `punctilio` | `smartypants` | `tipograph` | `smartquotes` | `typograf` |
 | -------------------: | :---------------------------------------------------: | :---------: | :-----------: | :---------: | :-----------: | :--------: |

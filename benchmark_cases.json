@@ -694,5 +694,35 @@
       "He's 6'2\".",
       "He’s 6′2″."
     ]
+  ],
+  "Dimension notation with units": [
+    [
+      "5m x 5m",
+      "5m × 5m"
+    ],
+    [
+      "10cm x 20cm",
+      "10cm × 20cm"
+    ],
+    [
+      "210mm x 297mm paper",
+      "210mm × 297mm paper"
+    ],
+    [
+      "5 m x 5 m",
+      "5 m × 5 m"
+    ],
+    [
+      "1920px x 1080px",
+      "1920px × 1080px"
+    ],
+    [
+      "5ft x 10ft",
+      "5ft × 10ft"
+    ],
+    [
+      "desk 120 cm x 60 cm x 75 cm",
+      "desk 120 cm × 60 cm × 75 cm"
+    ]
   ]
 }

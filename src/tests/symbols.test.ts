@@ -74,6 +74,26 @@ describe("multiplication", () => {
     [`5′ x 6′`, `5′ ${UNICODE_SYMBOLS.MULTIPLICATION} 6′`],
     // Mixed feet/inches and feet
     [`5′10″ x 6′`, `5′10″ ${UNICODE_SYMBOLS.MULTIPLICATION} 6′`],
+    // Dimensions with length units attached to both sides, unspaced
+    [`5m x 5m`, `5m ${UNICODE_SYMBOLS.MULTIPLICATION} 5m`],
+    [`10cm x 20cm`, `10cm ${UNICODE_SYMBOLS.MULTIPLICATION} 20cm`],
+    [`210mm x 297mm`, `210mm ${UNICODE_SYMBOLS.MULTIPLICATION} 297mm`],
+    [`5km x 10km`, `5km ${UNICODE_SYMBOLS.MULTIPLICATION} 10km`],
+    [`1920px x 1080px`, `1920px ${UNICODE_SYMBOLS.MULTIPLICATION} 1080px`],
+    [`5ft x 10ft`, `5ft ${UNICODE_SYMBOLS.MULTIPLICATION} 10ft`],
+    [`5in x 7in`, `5in ${UNICODE_SYMBOLS.MULTIPLICATION} 7in`],
+    // Dimensions with length units and spaces between number and unit
+    [`5 m x 5 m`, `5 m ${UNICODE_SYMBOLS.MULTIPLICATION} 5 m`],
+    [`10 cm x 20 cm`, `10 cm ${UNICODE_SYMBOLS.MULTIPLICATION} 20 cm`],
+    [`210 mm x 297 mm`, `210 mm ${UNICODE_SYMBOLS.MULTIPLICATION} 297 mm`],
+    // Mixed units across sides (rare but valid)
+    [`5m x 10cm`, `5m ${UNICODE_SYMBOLS.MULTIPLICATION} 10cm`],
+    // Three-dimensional chains
+    [`desk 120 cm x 60 cm x 75 cm`, `desk 120 cm ${UNICODE_SYMBOLS.MULTIPLICATION} 60 cm ${UNICODE_SYMBOLS.MULTIPLICATION} 75 cm`],
+    // Unit at end followed by noun (don't over-consume past the unit)
+    [`210mm x 297mm paper`, `210mm ${UNICODE_SYMBOLS.MULTIPLICATION} 297mm paper`],
+    // Unit-like prefix of a larger word must not match (mold ≠ m)
+    [`5mold x 10 mold`, `5mold x 10 mold`],
   ])('converts "%s" to "%s"', (input, expected) => {
     expect(multiplication(input)).toBe(expected)
   })
