@@ -286,18 +286,28 @@ function applyGermanQuotes(text: string): string {
     .replaceAll(RIGHT_SINGLE_QUOTE, LEFT_SINGLE_QUOTE)
 }
 
-/** Normalize French guillemets back to American for idempotent re-processing. */
+/**
+ * Normalize French guillemets back to American for idempotent re-processing.
+ * Strips either NBSP or NNBSP padding — older outputs used NBSP before the
+ * fix to the Unicode CLDR / Imprimerie nationale prescription of NNBSP.
+ */
 function normalizeFrenchQuotes(text: string): string {
+  const innerSpace = `[${UNICODE_SYMBOLS.NBSP}${UNICODE_SYMBOLS.NNBSP}]`
   return text
-    .replace(cachedRegExp(`${UNICODE_SYMBOLS.LEFT_GUILLEMET}${UNICODE_SYMBOLS.NBSP}?`, "g"), LEFT_DOUBLE_QUOTE)
-    .replace(cachedRegExp(`${UNICODE_SYMBOLS.NBSP}?${UNICODE_SYMBOLS.RIGHT_GUILLEMET}`, "g"), RIGHT_DOUBLE_QUOTE)
+    .replace(cachedRegExp(`${UNICODE_SYMBOLS.LEFT_GUILLEMET}${innerSpace}?`, "g"), LEFT_DOUBLE_QUOTE)
+    .replace(cachedRegExp(`${innerSpace}?${UNICODE_SYMBOLS.RIGHT_GUILLEMET}`, "g"), RIGHT_DOUBLE_QUOTE)
 }
 
-/** Remap American curly double quotes to French guillemets with NBSP padding. */
+/**
+ * Remap American curly double quotes to French guillemets with NNBSP padding.
+ * Uses U+202F (NARROW NO-BREAK SPACE) per Unicode CLDR fr locale and
+ * Imprimerie nationale's "Lexique des règles typographiques" (6th ed., 2002),
+ * which prescribe a narrow non-breaking space — not U+00A0 — inside `« … »`.
+ */
 function applyFrenchQuotes(text: string): string {
   return text
-    .replaceAll(LEFT_DOUBLE_QUOTE, `${UNICODE_SYMBOLS.LEFT_GUILLEMET}${UNICODE_SYMBOLS.NBSP}`)
-    .replaceAll(RIGHT_DOUBLE_QUOTE, `${UNICODE_SYMBOLS.NBSP}${UNICODE_SYMBOLS.RIGHT_GUILLEMET}`)
+    .replaceAll(LEFT_DOUBLE_QUOTE, `${UNICODE_SYMBOLS.LEFT_GUILLEMET}${UNICODE_SYMBOLS.NNBSP}`)
+    .replaceAll(RIGHT_DOUBLE_QUOTE, `${UNICODE_SYMBOLS.NNBSP}${UNICODE_SYMBOLS.RIGHT_GUILLEMET}`)
 }
 
 interface LocaleQuoteTransform {

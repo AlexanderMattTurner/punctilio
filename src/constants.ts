@@ -55,6 +55,7 @@ export const UNICODE_SYMBOLS = {
   RIGHT_SINGLE_QUOTE: "\u2019",
   MODIFIER_LETTER_APOSTROPHE: "\u02BC",
   NBSP: "\u00A0",
+  NNBSP: "\u202F",                   // Narrow no-break space (French typography, Unicode CLDR)
   DOUBLE_LOW_9_QUOTE: "\u201E",      // „
   SINGLE_LOW_9_QUOTE: "\u201A",     // ‚
   LEFT_GUILLEMET: "\u00AB",         // «

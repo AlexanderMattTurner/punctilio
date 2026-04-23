@@ -97,7 +97,7 @@ describe("transform", () => {
   describe("german and french locale styles", () => {
     it.each([
       ['"Guten Tag"', `${UNICODE_SYMBOLS.DOUBLE_LOW_9_QUOTE}Guten Tag${LEFT_DOUBLE_QUOTE}`, { punctuationStyle: "german" as const, nbsp: false }],
-      ['"Bonjour"', `${UNICODE_SYMBOLS.LEFT_GUILLEMET}${NBSP}Bonjour${NBSP}${UNICODE_SYMBOLS.RIGHT_GUILLEMET}`, { punctuationStyle: "french" as const, nbsp: false }],
+      ['"Bonjour"', `${UNICODE_SYMBOLS.LEFT_GUILLEMET}${UNICODE_SYMBOLS.NNBSP}Bonjour${UNICODE_SYMBOLS.NNBSP}${UNICODE_SYMBOLS.RIGHT_GUILLEMET}`, { punctuationStyle: "french" as const, nbsp: false }],
       ["it's", `it${RIGHT_SINGLE_QUOTE}s`, { punctuationStyle: "german" as const, nbsp: false }],
       ["l'homme", `l${RIGHT_SINGLE_QUOTE}homme`, { punctuationStyle: "french" as const, nbsp: false }],
     ])('transforms "%s" with locale style', (input, expected, options) => {

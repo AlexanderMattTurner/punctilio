@@ -69,9 +69,12 @@ export function enDashNumberRange(text: string, options: DashOptions = {}): stri
       const startNum = start.replace(cachedRegExp(chr, "g"), "")
       const endNum = end.replace(cachedRegExp(chr, "g"), "")
       if (/^(?:19|20)\d{2}$/.test(startNum) && /^(?:0[1-9]|1[0-2])$/.test(endNum)) return match
-      // Skip phone number patterns: 3 digits followed by 4 digits with preceding area code
-      // e.g., 555-123-4567 or (555) 123-4567 where we're matching the "123-4567" part
-      if (precedingAreaCode && /^\d{3}$/.test(startNum) && /^\d{4}$/.test(endNum)) return match
+      // Skip 3+4 digit phone-shaped patterns (555-1234, or the second half of
+      // 555-123-4567). Thousands-grouped endings (1,234 / 1.234) keep their
+      // internal separator and so fail /^\d{4}$/, falling through to convert
+      // as ranges. Space/NNBSP/thin-space grouping isn't captured by the outer
+      // range regex, so those variants currently aren't affected here.
+      if (/^\d{3}$/.test(startNum) && /^\d{4}$/.test(endNum)) return match
       // Skip US toll-free prefix pattern: 1-800, 1-888, 1-877, etc.
       // All US toll-free area codes start with 8 (800, 888, 877, 866, 855, 844, 833).
       // We only block 1-8XX to avoid false negatives on legitimate ranges like 1-100.
