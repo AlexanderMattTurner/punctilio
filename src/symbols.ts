@@ -126,9 +126,6 @@ export function mathSymbols(text: string, options: SymbolOptions = {}): string {
 /** Predicate that decides whether a legal symbol should be converted based on surrounding text. */
 type ContextPredicate = (before: string, after: string) => boolean
 
-/** Number of characters before/after a legal symbol to inspect for context clues. */
-const LEGAL_CONTEXT_WINDOW = 25
-
 /**
  * Context window, in characters, examined on each side of a legal-symbol
  * candidate. Large enough to fit a 4-digit year plus surrounding whitespace
