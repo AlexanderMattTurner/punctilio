@@ -1,310 +1,728 @@
 {
   "Double quotes - basic": [
-    ["\"This is a quote\", she said.", "\u201CThis is a quote,\u201D she said."],
-    ["She said, \"This is a quote.\"", "She said, \u201CThis is a quote.\u201D"],
-    ["\"Hello.\" Mary", "\u201CHello.\u201D Mary"]
+    [
+      "\"This is a quote\", she said.",
+      "“This is a quote,” she said."
+    ],
+    [
+      "She said, \"This is a quote.\"",
+      "She said, “This is a quote.”"
+    ],
+    [
+      "\"Hello.\" Mary",
+      "“Hello.” Mary"
+    ]
   ],
   "Double quotes - multiple": [
-    ["\"I am\" so \"tired\" of \"these\" \"quotes\".", "\u201CI am\u201D so \u201Ctired\u201D of \u201Cthese\u201D \u201Cquotes.\u201D"]
+    [
+      "\"I am\" so \"tired\" of \"these\" \"quotes\".",
+      "“I am” so “tired” of “these” “quotes.”"
+    ]
   ],
   "Double quotes - with punctuation": [
-    ["\"This is a quote!\".", "\u201CThis is a quote!\u201D."],
-    ["\"world model\";", "\u201Cworld model\u201D;"],
-    ["(\"the best\")", "(\u201Cthe best\u201D)"]
+    [
+      "\"world model\";",
+      "“world model”;"
+    ],
+    [
+      "(\"the best\")",
+      "(“the best”)"
+    ]
   ],
   "Single quotes - basic": [
-    ["He said, 'Hi'", "He said, \u2018Hi\u2019"],
-    ["He wanted 'power.'", "He wanted \u2018power.\u2019"]
+    [
+      "He said, 'Hi'",
+      "He said, ‘Hi’"
+    ],
+    [
+      "He wanted 'power.'",
+      "He wanted ‘power.’"
+    ]
   ],
   "Single quotes - after em-dash": [
-    ["\u2014'Hi'\u2014", "\u2014\u2018Hi\u2019\u2014"]
+    [
+      "—'Hi'—",
+      "—‘Hi’—"
+    ]
   ],
   "Contractions": [
-    ["I'd", "I\u2019d"],
-    ["don't", "don\u2019t"],
-    ["I'm not the best, haven't you heard?", "I\u2019m not the best, haven\u2019t you heard?"]
+    [
+      "I'd",
+      "I’d"
+    ],
+    [
+      "don't",
+      "don’t"
+    ],
+    [
+      "I'm not the best, haven't you heard?",
+      "I’m not the best, haven’t you heard?"
+    ]
   ],
   "Apostrophe ambiguity - leading apostrophe": [
-    ["'SUP", "\u2019SUP"],
-    ["Rock 'n' Roll", "Rock \u2019n\u2019 Roll"],
-    ["I was born in '99", "I was born in \u201999"],
-    ["'99 tigers weren't a match", "\u201999 tigers weren\u2019t a match"]
+    [
+      "'SUP",
+      "’SUP"
+    ],
+    [
+      "Rock 'n' Roll",
+      "Rock ’n’ Roll"
+    ],
+    [
+      "I was born in '99",
+      "I was born in ’99"
+    ],
+    [
+      "'99 tigers weren't a match",
+      "’99 tigers weren’t a match"
+    ]
   ],
   "Possessives": [
-    ["strategy s's return is good", "strategy s\u2019s return is good"]
+    [
+      "strategy s's return is good",
+      "strategy s’s return is good"
+    ]
   ],
   "Nested quotes": [
-    ["\"She said 'hello'\"", "\u201CShe said \u2018hello\u2019\u201D"],
-    ["\"'sup\"", "\u201C\u2019sup\u201D"]
+    [
+      "\"She said 'hello'\"",
+      "“She said ‘hello’”"
+    ],
+    [
+      "\"'sup\"",
+      "“’sup”"
+    ]
   ],
   "Em dashes - basic": [
-    ["This is a - hyphen.", "This is a\u2014hyphen."],
-    ["word \u2014 word", "word\u2014word"]
+    [
+      "This is a - hyphen.",
+      "This is a—hyphen."
+    ],
+    [
+      "word — word",
+      "word—word"
+    ]
   ],
   "Em dashes - double/triple": [
-    ["word ---", "word\u2014"],
-    ["Hi-- what do you think?", "Hi\u2014what do you think?"],
-    ["since--as you know", "since\u2014as you know"]
+    [
+      "word ---",
+      "word—"
+    ],
+    [
+      "Hi-- what do you think?",
+      "Hi—what do you think?"
+    ],
+    [
+      "since--as you know",
+      "since—as you know"
+    ]
   ],
   "Em dashes - between quotes": [
-    ["\"Hello\"--\"World\"", "\u201CHello\u201D\u2014\u201CWorld\u201D"]
+    [
+      "\"Hello\"--\"World\"",
+      "“Hello”—“World”"
+    ]
   ],
   "Number ranges - en dash": [
-    ["Pages 1-5", "Pages 1\u20135"],
-    ["2000-2020", "2000\u20132020"],
-    ["p.10-15", "p.10\u201315"]
+    [
+      "Pages 1-5",
+      "Pages 1–5"
+    ],
+    [
+      "2000-2020",
+      "2000–2020"
+    ],
+    [
+      "p.10-15",
+      "p.10–15"
+    ]
   ],
   "Number ranges - currency": [
-    ["\u20AC5-\u20AC10", "\u20AC5\u2013\u20AC10"],
-    ["\u00A3100-\u00A3200", "\u00A3100\u2013\u00A3200"]
+    [
+      "€5-€10",
+      "€5–€10"
+    ],
+    [
+      "£100-£200",
+      "£100–£200"
+    ]
   ],
   "Number ranges - time suffix": [
-    ["2-3pm", "2\u20133pm"],
-    ["9-10am", "9\u201310am"]
+    [
+      "2-3pm",
+      "2–3pm"
+    ],
+    [
+      "9-10am",
+      "9–10am"
+    ]
   ],
   "Date ranges - en dash": [
-    ["January-March", "January\u2013March"],
-    ["Jan-Mar", "Jan\u2013Mar"]
+    [
+      "January-March",
+      "January–March"
+    ],
+    [
+      "Jan-Mar",
+      "Jan–Mar"
+    ]
   ],
   "Minus signs": [
-    ["-5", "\u22125"],
-    ["(-5)", "(\u22125)"],
-    ["The value is -10", "The value is \u221210"]
+    [
+      "-5",
+      "−5"
+    ],
+    [
+      "(-5)",
+      "(−5)"
+    ],
+    [
+      "The value is -10",
+      "The value is −10"
+    ]
   ],
   "Compound words preserved": [
-    ["a browser- or OS-specific fashion", "a browser- or OS-specific fashion"],
-    ["well-known", "well-known"]
+    [
+      "a browser- or OS-specific fashion",
+      "a browser- or OS-specific fashion"
+    ],
+    [
+      "well-known",
+      "well-known"
+    ]
   ],
   "Ellipsis": [
-    ["Wait for it...", "Wait for it\u2026"],
-    ["Hmm... let me think", "Hmm\u2026 let me think"],
-    ["...", "\u2026"]
+    [
+      "Wait for it...",
+      "Wait for it…"
+    ],
+    [
+      "Hmm... let me think",
+      "Hmm… let me think"
+    ],
+    [
+      "...",
+      "…"
+    ]
   ],
   "Ellipsis - spaced": [
-    [". . .", "\u2026"],
-    ["Wait. . . more", "Wait\u2026 more"]
+    [
+      ". . .",
+      "…"
+    ],
+    [
+      "Wait. . . more",
+      "Wait… more"
+    ]
   ],
   "Ellipsis - preserve abbreviations": [
-    ["e.g.", "e.g."],
-    ["U.S.A.", "U.S.A."]
+    [
+      "e.g.",
+      "e.g."
+    ],
+    [
+      "U.S.A.",
+      "U.S.A."
+    ]
   ],
   "Multiplication": [
-    ["5x5", "5\u00D75"],
-    ["10 x 20", "10 \u00D7 20"],
-    ["Resolution: 1920x1080", "Resolution: 1920\u00D71080"]
+    [
+      "5x5",
+      "5×5"
+    ],
+    [
+      "10 x 20",
+      "10 × 20"
+    ],
+    [
+      "Resolution: 1920x1080",
+      "Resolution: 1920×1080"
+    ]
   ],
   "Multiplication - preserve words": [
-    ["extra", "extra"],
-    ["complex", "complex"],
-    ["x-axis", "x-axis"]
-  ],
-  "Math symbols": [
-    ["x != y", "x \u2260 y"],
-    ["+-5", "\u00B15"],
-    ["a <= b", "a \u2264 b"],
-    ["x >= y", "x \u2265 y"],
-    ["~= 5", "\u2248 5"]
+    [
+      "extra",
+      "extra"
+    ],
+    [
+      "complex",
+      "complex"
+    ],
+    [
+      "x-axis",
+      "x-axis"
+    ]
   ],
   "Legal symbols": [
-    ["Copyright (c) 2024", "Copyright \u00A9 2024"],
-    ["Brand(r)", "Brand\u00AE"],
-    ["Name(tm)", "Name\u2122"]
+    [
+      "Copyright (c) 2024",
+      "Copyright © 2024"
+    ],
+    [
+      "Brand(r)",
+      "Brand®"
+    ],
+    [
+      "Name(tm)",
+      "Name™"
+    ]
   ],
   "Arrows": [
-    ["A -> B", "A \u2192 B"],
-    ["A <- B", "A \u2190 B"],
-    ["A <-> B", "A \u2194 B"]
+    [
+      "A -> B",
+      "A → B"
+    ],
+    [
+      "A <- B",
+      "A ← B"
+    ],
+    [
+      "A <-> B",
+      "A ↔ B"
+    ]
   ],
   "Arrows - preserve code patterns": [
-    ["function->call", "function->call"],
-    ["array[0]->value", "array[0]->value"]
+    [
+      "function->call",
+      "function->call"
+    ],
+    [
+      "array[0]->value",
+      "array[0]->value"
+    ]
   ],
   "Prime marks - feet/inches": [
-    ["5'10\"", "5\u203210\u2033"],
-    ["He is 6'2\" tall", "He is 6\u20322\u2033 tall"],
-    ["The board is 8' long", "The board is 8\u2032 long"]
+    [
+      "5'10\"",
+      "5′10″"
+    ],
+    [
+      "He is 6'2\" tall",
+      "He is 6′2″ tall"
+    ],
+    [
+      "The board is 8' long",
+      "The board is 8′ long"
+    ]
   ],
   "Prime marks - coordinates": [
-    ["Location: 45\u00B0 30' 15\"", "Location: 45\u00B0 30\u2032 15\u2033"]
+    [
+      "Location: 45° 30' 15\"",
+      "Location: 45° 30′ 15″"
+    ]
   ],
   "Prime marks - multiple": [
-    ["Room is 10' x 12'", "Room is 10\u2032 \u00d7 12\u2032"],
-    ["5' and 8' boards", "5\u2032 and 8\u2032 boards"]
+    [
+      "Room is 10' x 12'",
+      "Room is 10′ × 12′"
+    ],
+    [
+      "5' and 8' boards",
+      "5′ and 8′ boards"
+    ]
   ],
   "Prime marks - after contractions": [
-    ["it's 5' long", "it\u2019s 5\u2032 long"],
-    ["don't measure 8'", "don\u2019t measure 8\u2032"]
+    [
+      "it's 5' long",
+      "it’s 5′ long"
+    ],
+    [
+      "don't measure 8'",
+      "don’t measure 8′"
+    ]
   ],
   "Prime marks - after possessives": [
-    ["the dogs' 5' leashes", "the dogs\u2019 5\u2032 leashes"]
+    [
+      "the dogs' 5' leashes",
+      "the dogs’ 5′ leashes"
+    ]
   ],
   "Prime marks - leading apostrophe (ambiguous)": [
-    ["'Twas a 5' board", "\u2019Twas a 5\u2032 board"]
-  ],
-  "Degrees": [
-    ["20 C", "20 \u00B0C"],
-    ["68 F", "68 \u00B0F"],
-    ["Water boils at 100 C", "Water boils at 100 \u00B0C"]
-  ],
-  "Fractions": [
-    ["1/2", "\u00BD"],
-    ["1/4", "\u00BC"],
-    ["3/4", "\u00BE"]
-  ],
-  "Fractions - preserve non-standard": [
-    ["page 1/25", "page 1/25"],
-    ["1/7", "1/7"]
-  ],
-  "Superscripts - ordinals": [
-    ["1st", "1\u02E2\u1D57"],
-    ["2nd", "2\u207F\u1D48"],
-    ["3rd", "3\u02B3\u1D48"],
-    ["4th", "4\u1D57\u02B0"],
-    ["21st place", "21\u02E2\u1D57 place"],
-    ["The 100th anniversary", "The 100\u1D57\u02B0 anniversary"]
-  ],
-  "Ligatures - punctuation": [
-    ["What??", "What\u2047"],
-    ["Really?!", "Really\u2048"],
-    ["Wait!?", "Wait\u2049"]
+    [
+      "'Twas a 5' board",
+      "’Twas a 5′ board"
+    ]
   ],
   "German quotes": [
-    ["\"Guten Tag\"", "\u201EGuten Tag\u201C"],
-    ["'Hallo'", "\u201AHallo\u2018"]
+    [
+      "\"Guten Tag\"",
+      "„Guten Tag“"
+    ],
+    [
+      "'Hallo'",
+      "‚Hallo‘"
+    ]
   ],
   "French quotes": [
-    ["\"Bonjour\"", "\u00AB\u00A0Bonjour\u00A0\u00BB"]
+    [
+      "\"Bonjour\"",
+      "« Bonjour »"
+    ]
   ],
   "Unicode text in quotes": [
-    ["\"caf\u00E9\"", "\u201Ccaf\u00E9\u201D"],
-    ["\"\u00C1guila\"", "\u201C\u00C1guila\u201D"],
-    ["\"na\u00EFve\"", "\u201Cna\u00EFve\u201D"]
+    [
+      "\"café\"",
+      "“café”"
+    ],
+    [
+      "\"Águila\"",
+      "“Águila”"
+    ],
+    [
+      "\"naïve\"",
+      "“naïve”"
+    ]
   ],
   "Irish/Scottish names": [
-    ["O'Brien's idea", "O\u2019Brien\u2019s idea"],
-    ["The O'Connors", "The O\u2019Connors"]
+    [
+      "O'Brien's idea",
+      "O’Brien’s idea"
+    ],
+    [
+      "The O'Connors",
+      "The O’Connors"
+    ]
   ],
   "Model name preservation": [
-    ["Llama-2-7B", "Llama-2-7B"],
-    ["Llama-3-8B-Instruct", "Llama-3-8B-Instruct"],
-    ["GPT-4", "GPT-4"],
-    ["Qwen1.5-1.8B", "Qwen1.5-1.8B"]
+    [
+      "Llama-2-7B",
+      "Llama-2-7B"
+    ],
+    [
+      "Llama-3-8B-Instruct",
+      "Llama-3-8B-Instruct"
+    ],
+    [
+      "GPT-4",
+      "GPT-4"
+    ],
+    [
+      "Qwen1.5-1.8B",
+      "Qwen1.5-1.8B"
+    ]
   ],
   "Multi-segment pattern preservation": [
-    ["555-123-4567", "555-123-4567"],
-    ["978-3-16-148410-0", "978-3-16-148410-0"],
-    ["2024-01-15", "2024-01-15"]
+    [
+      "555-123-4567",
+      "555-123-4567"
+    ],
+    [
+      "978-3-16-148410-0",
+      "978-3-16-148410-0"
+    ],
+    [
+      "2024-01-15",
+      "2024-01-15"
+    ]
   ],
   "Year ranges": [
-    ["2020-2024", "2020\u20132024"],
-    ["the 1990-1999 decade", "the 1990\u20131999 decade"]
+    [
+      "2020-2024",
+      "2020–2024"
+    ],
+    [
+      "the 1990-1999 decade",
+      "the 1990–1999 decade"
+    ]
   ],
   "Score ranges": [
-    ["won 3-2", "won 3\u20132"],
-    ["final score 21-17", "final score 21\u201317"]
+    [
+      "won 3-2",
+      "won 3–2"
+    ],
+    [
+      "final score 21-17",
+      "final score 21–17"
+    ]
   ],
   "Coordinate notation": [
-    ["40\u00B0 44' 54\" N", "40\u00B0 44\u2032 54\u2033 N"],
-    ["74\u00B0 0' 21\" W", "74\u00B0 0\u2032 21\u2033 W"]
+    [
+      "40° 44' 54\" N",
+      "40° 44′ 54″ N"
+    ],
+    [
+      "74° 0' 21\" W",
+      "74° 0′ 21″ W"
+    ]
   ],
   "Complex nested quotes": [
-    ["\"Alfred 'bertrand' cees\"", "\u201CAlfred \u2018bertrand\u2019 cees\u201D"],
-    ["'Alfred \"bertrand\" cees'", "\u2018Alfred \u201Cbertrand\u201D cees\u2019"]
+    [
+      "\"Alfred 'bertrand' cees\"",
+      "“Alfred ‘bertrand’ cees”"
+    ],
+    [
+      "'Alfred \"bertrand\" cees'",
+      "‘Alfred “bertrand” cees’"
+    ]
   ],
   "Hexadecimal preservation": [
-    ["0x5F3759DF", "0x5F3759DF"],
-    ["0xff", "0xff"]
-  ],
-  "Non-breaking space preservation": [
-    ["hello\u00A0world", "hello\u00A0world"],
-    ["100\u00A0kg", "100\u00A0kg"],
-    ["Dr.\u00A0Smith", "Dr.\u00A0Smith"]
+    [
+      "0x5F3759DF",
+      "0x5F3759DF"
+    ],
+    [
+      "0xff",
+      "0xff"
+    ]
   ],
   "Chained multiplications": [
-    ["5x5x5", "5\u00D75\u00D75"],
-    ["5 x 5 x 5", "5 \u00D7 5 \u00D7 5"],
-    ["10*10*10", "10\u00D710\u00D710"]
+    [
+      "5x5x5",
+      "5×5×5"
+    ],
+    [
+      "5 x 5 x 5",
+      "5 × 5 × 5"
+    ],
+    [
+      "10*10*10",
+      "10×10×10"
+    ]
   ],
   "Phone numbers - preserved": [
-    ["555-123-4567", "555-123-4567"],
-    ["(555) 123-4567", "(555) 123-4567"],
-    ["1-800-555-1234", "1-800-555-1234"],
-    ["1-800", "1-800"],
-    ["1-888", "1-888"],
-    ["+1-800-555-1234", "+1-800-555-1234"],
-    ["+44-20-7946-0958", "+44-20-7946-0958"]
+    [
+      "555-123-4567",
+      "555-123-4567"
+    ],
+    [
+      "(555) 123-4567",
+      "(555) 123-4567"
+    ],
+    [
+      "1-800-555-1234",
+      "1-800-555-1234"
+    ],
+    [
+      "1-800",
+      "1-800"
+    ],
+    [
+      "1-888",
+      "1-888"
+    ],
+    [
+      "+1-800-555-1234",
+      "+1-800-555-1234"
+    ],
+    [
+      "+44-20-7946-0958",
+      "+44-20-7946-0958"
+    ]
   ],
   "Number ranges vs. 7-digit phone numbers": [
-    ["555-1234", "555-1234"],
-    ["call 444-1000 now", "call 444-1000 now"],
-    ["the range 100-5000 items", "the range 100–5000 items"]
+    [
+      "555-1234",
+      "555-1234"
+    ],
+    [
+      "call 444-1000 now",
+      "call 444-1000 now"
+    ],
+    [
+      "the range 100-5,000 items",
+      "the range 100–5,000 items"
+    ],
+    [
+      "European range 100-5.000 items",
+      "European range 100–5.000 items"
+    ]
   ],
   "Empty quotes": [
-    ["\"\"", "\u201C\u201D"],
-    ["''", "\u2018\u2019"]
+    [
+      "\"\"",
+      "“”"
+    ],
+    [
+      "''",
+      "‘’"
+    ]
   ],
   "Split dialogue": [
-    ["\"Yes,\" he said, \"absolutely.\"", "\u201CYes,\u201D he said, \u201Cabsolutely.\u201D"],
-    ["\"No,\" she replied, \"I disagree.\"", "\u201CNo,\u201D she replied, \u201CI disagree.\u201D"]
+    [
+      "\"Yes,\" he said, \"absolutely.\"",
+      "“Yes,” he said, “absolutely.”"
+    ],
+    [
+      "\"No,\" she replied, \"I disagree.\"",
+      "“No,” she replied, “I disagree.”"
+    ]
   ],
   "Double contractions": [
-    ["I'd've", "I\u2019d\u2019ve"],
-    ["wouldn't've", "wouldn\u2019t\u2019ve"],
-    ["y'all'd've", "y\u2019all\u2019d\u2019ve"]
+    [
+      "I'd've",
+      "I’d’ve"
+    ],
+    [
+      "wouldn't've",
+      "wouldn’t’ve"
+    ],
+    [
+      "y'all'd've",
+      "y’all’d’ve"
+    ]
   ],
   "Year abbreviations": [
-    ["I was born in '99", "I was born in \u201999"],
-    ["The '80s were great", "The \u201980s were great"],
-    ["Class of '22", "Class of \u201922"]
-  ],
-  "Temperature extremes": [
-    ["-40 C", "\u221240 \u00B0C"],
-    ["0 C", "0 \u00B0C"],
-    ["1000 F", "1000 \u00B0F"]
+    [
+      "I was born in '99",
+      "I was born in ’99"
+    ],
+    [
+      "The '80s were great",
+      "The ’80s were great"
+    ],
+    [
+      "Class of '22",
+      "Class of ’22"
+    ]
   ],
   "Comma number ranges": [
-    ["1,000-2,000", "1,000\u20132,000"],
-    ["$1,000-$2,000", "$1,000\u2013$2,000"],
-    ["\u20AC100,000-\u20AC200,000", "\u20AC100,000\u2013\u20AC200,000"]
+    [
+      "1,000-2,000",
+      "1,000–2,000"
+    ],
+    [
+      "$1,000-$2,000",
+      "$1,000–$2,000"
+    ],
+    [
+      "€100,000-€200,000",
+      "€100,000–€200,000"
+    ]
   ],
   "Arrow chains": [
-    ["A -> B -> C", "A \u2192 B \u2192 C"],
-    ["A <- B <- C", "A \u2190 B \u2190 C"]
+    [
+      "A -> B -> C",
+      "A → B → C"
+    ],
+    [
+      "A <- B <- C",
+      "A ← B ← C"
+    ]
   ],
   "Ellipsis chains": [
-    ["One... Two... Three...", "One\u2026 Two\u2026 Three\u2026"],
-    ["Wait...", "Wait\u2026"]
+    [
+      "One... Two... Three...",
+      "One… Two… Three…"
+    ],
+    [
+      "Wait...",
+      "Wait…"
+    ]
   ],
   "Time ranges": [
-    ["10:30-11:30", "10:30\u201311:30"],
-    ["9:00-5:00", "9:00\u20135:00"],
-    ["12:00-1:00", "12:00\u20131:00"]
+    [
+      "10:30-11:30",
+      "10:30–11:30"
+    ],
+    [
+      "9:00-5:00",
+      "9:00–5:00"
+    ],
+    [
+      "12:00-1:00",
+      "12:00–1:00"
+    ]
   ],
   "Question/exclamation inside quotes": [
-    ["She asked, \"Why?\"", "She asked, \u201cWhy?\u201d"],
-    ["\"Really?\" he asked.", "\u201cReally?\u201d he asked."],
-    ["He shouted, \"Stop!\"", "He shouted, \u201cStop!\u201d"],
-    ["\"Are you sure?\", she said.", "\u201cAre you sure?\u201d, she said."]
+    [
+      "She asked, \"Why?\"",
+      "She asked, “Why?”"
+    ],
+    [
+      "\"Really?\" he asked.",
+      "“Really?” he asked."
+    ],
+    [
+      "He shouted, \"Stop!\"",
+      "He shouted, “Stop!”"
+    ],
+    [
+      "\"Are you sure?\", she said.",
+      "“Are you sure?”, she said."
+    ]
   ],
   "Nested quotes with inner terminal punctuation": [
-    ["\"He said, 'Hello.'\"", "\u201cHe said, \u2018Hello.\u2019\u201d"],
-    ["\"She replied, 'No way!'\"", "\u201cShe replied, \u2018No way!\u2019\u201d"]
+    [
+      "\"He said, 'Hello.'\"",
+      "“He said, ‘Hello.’”"
+    ],
+    [
+      "\"She replied, 'No way!'\"",
+      "“She replied, ‘No way!’”"
+    ]
   ],
   "Quote after colon": [
-    ["He said: \"Hello.\"", "He said: \u201cHello.\u201d"],
-    ["The sign read: \"Stop\"", "The sign read: \u201cStop\u201d"]
+    [
+      "He said: \"Hello.\"",
+      "He said: “Hello.”"
+    ],
+    [
+      "The sign read: \"Stop\"",
+      "The sign read: “Stop”"
+    ]
   ],
   "Interrupted dialogue": [
-    ["\"Wait--\" she began.", "\u201cWait\u2014\u201d she began."],
-    ["\"I was going to say--\" he paused.", "\u201cI was going to say\u2014\u201d he paused."]
+    [
+      "\"Wait--\" she began.",
+      "“Wait—” she began."
+    ],
+    [
+      "\"I was going to say--\" he paused.",
+      "“I was going to say—” he paused."
+    ]
   ],
   "Decimal number ranges": [
-    ["1.5-2.5", "1.5\u20132.5"],
-    ["0.25-0.75", "0.25\u20130.75"],
-    ["pH 7.0-7.4", "pH 7.0\u20137.4"]
+    [
+      "1.5-2.5",
+      "1.5–2.5"
+    ],
+    [
+      "0.25-0.75",
+      "0.25–0.75"
+    ],
+    [
+      "pH 7.0-7.4",
+      "pH 7.0–7.4"
+    ]
   ],
   "Prime marks at sentence end": [
-    ["The board is 8'.", "The board is 8\u2032."],
-    ["He's 6'2\".", "He\u2019s 6\u20322\u2033."]
+    [
+      "The board is 8'.",
+      "The board is 8′."
+    ],
+    [
+      "He's 6'2\".",
+      "He’s 6′2″."
+    ]
+  ],
+  "Dimension notation with units": [
+    [
+      "5m x 5m",
+      "5m × 5m"
+    ],
+    [
+      "10cm x 20cm",
+      "10cm × 20cm"
+    ],
+    [
+      "210mm x 297mm paper",
+      "210mm × 297mm paper"
+    ],
+    [
+      "5 m x 5 m",
+      "5 m × 5 m"
+    ],
+    [
+      "1920px x 1080px",
+      "1920px × 1080px"
+    ],
+    [
+      "5ft x 10ft",
+      "5ft × 10ft"
+    ],
+    [
+      "desk 120 cm x 60 cm x 75 cm",
+      "desk 120 cm × 60 cm × 75 cm"
+    ]
   ]
 }

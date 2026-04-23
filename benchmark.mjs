@@ -84,20 +84,10 @@ function normalizeCopyright(str) {
 }
 
 /**
- * Categories where nbsp should NOT be normalized (we're testing nbsp handling specifically)
- */
-const NBSP_TEST_CATEGORIES = ['Non-breaking space preservation', 'Non-breaking space collapsing'];
-
-/**
  * Full normalization for fair comparison.
- * @param {string} str - String to normalize
- * @param {string} category - Test category name
  */
-function normalize(str, category = '') {
-  // Skip space normalization for nbsp-specific tests
-  if (!NBSP_TEST_CATEGORIES.includes(category)) {
-    str = normalizeSpaces(str);
-  }
+function normalize(str) {
+  str = normalizeSpaces(str);
   str = normalizeDashes(str);
   str = normalizeCopyright(str);
   return str;
@@ -123,7 +113,7 @@ function getPunctuationStyleForCategory(category) {
 
 async function runPackage(pkg, input, category) {
   if (pkg === 'punctilio') {
-    return transform(input, { symbols: true, fractions: true, degrees: true, superscript: true, ligatures: true, punctuationStyle: getPunctuationStyleForCategory(category) });
+    return transform(input, { symbols: true, punctuationStyle: getPunctuationStyleForCategory(category) });
   } else if (pkg === 'smartypants') {
     return smartypantsu(input, "2");
   } else if (pkg === 'tipograph') {
@@ -158,8 +148,8 @@ async function runBenchmark() {
       for (const pkg of packages) {
         try {
           const actual = await runPackage(pkg, input, category);
-          const normalizedActual = normalize(actual, category);
-          const normalizedExpected = normalize(expected, category);
+          const normalizedActual = normalize(actual);
+          const normalizedExpected = normalize(expected);
           const passed = normalizedActual === normalizedExpected;
 
           if (passed) {
