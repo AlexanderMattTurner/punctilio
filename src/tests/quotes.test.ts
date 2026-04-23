@@ -14,7 +14,7 @@ const {
   SINGLE_LOW_9_QUOTE,
   LEFT_GUILLEMET,
   RIGHT_GUILLEMET,
-  NBSP,
+  NNBSP,
 } = UNICODE_SYMBOLS
 
 describe("niceQuotes", () => {
@@ -666,14 +666,14 @@ describe("niceQuotes", () => {
       ["'Hallo'", `${SINGLE_LOW_9_QUOTE}Hallo${LEFT_SINGLE_QUOTE}`, { punctuationStyle: "german" as const }],
       // German apostrophes stay as RSQ (after MLA→RSQ conversion in niceQuotes)
       ["it's", `it${RIGHT_SINGLE_QUOTE}s`, { punctuationStyle: "german" as const }],
-      // French double quotes
-      ['"Bonjour"', `${LEFT_GUILLEMET}${NBSP}Bonjour${NBSP}${RIGHT_GUILLEMET}`, { punctuationStyle: "french" as const }],
+      // French double quotes (NNBSP per Imprimerie nationale / Unicode CLDR)
+      ['"Bonjour"', `${LEFT_GUILLEMET}${NNBSP}Bonjour${NNBSP}${RIGHT_GUILLEMET}`, { punctuationStyle: "french" as const }],
       // French apostrophes stay as RSQ
       ["l'homme", `l${RIGHT_SINGLE_QUOTE}homme`, { punctuationStyle: "french" as const }],
       // Nested quotes in German
       [`"She said 'hello'"`, `${DOUBLE_LOW_9_QUOTE}She said ${SINGLE_LOW_9_QUOTE}hello${LEFT_SINGLE_QUOTE}${LEFT_DOUBLE_QUOTE}`, { punctuationStyle: "german" as const }],
       // French punctuation placement
-      ['"Bonjour," dit-il.', `${LEFT_GUILLEMET}${NBSP}Bonjour${NBSP}${RIGHT_GUILLEMET}, dit-il.`, { punctuationStyle: "french" as const }],
+      ['"Bonjour," dit-il.', `${LEFT_GUILLEMET}${NNBSP}Bonjour${NNBSP}${RIGHT_GUILLEMET}, dit-il.`, { punctuationStyle: "french" as const }],
       // German leading apostrophe ('Twas)
       ["'Twas the night", `${RIGHT_SINGLE_QUOTE}Twas the night`, { punctuationStyle: "german" as const }],
     ])("locale quotes: %s → %s", (input, expected, options) => {
@@ -685,7 +685,7 @@ describe("niceQuotes", () => {
     it.each([
       [`${DOUBLE_LOW_9_QUOTE}Guten Tag${LEFT_DOUBLE_QUOTE}`, { punctuationStyle: "german" as const }],
       [`${SINGLE_LOW_9_QUOTE}Hallo${LEFT_SINGLE_QUOTE}`, { punctuationStyle: "german" as const }],
-      [`${LEFT_GUILLEMET}${NBSP}Bonjour${NBSP}${RIGHT_GUILLEMET}`, { punctuationStyle: "french" as const }],
+      [`${LEFT_GUILLEMET}${NNBSP}Bonjour${NNBSP}${RIGHT_GUILLEMET}`, { punctuationStyle: "french" as const }],
       // German apostrophe idempotency — RSQ must not flip to LSQ on re-processing
       [`${RIGHT_SINGLE_QUOTE}Twas the night`, { punctuationStyle: "german" as const }],
     ])("locale output is idempotent: %s", (input, options) => {

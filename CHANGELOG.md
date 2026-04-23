@@ -13,3 +13,13 @@
   already-skipped elements. Backwards compatible.
 - `TextNodeSkipPredicate` and `ElementTransformOptions` exported from
   `punctilio/rehype`.
+- `NNBSP` (U+202F, NARROW NO-BREAK SPACE) added to `UNICODE_SYMBOLS`.
+
+### Changed
+
+- `punctuationStyle: "french"` now pads guillemets with U+202F (NARROW
+  NO-BREAK SPACE) instead of U+00A0 (NO-BREAK SPACE), per Unicode CLDR's
+  `fr` locale and the Imprimerie nationale's *Lexique des règles
+  typographiques en usage à l'Imprimerie nationale*. The idempotency
+  normalizer accepts either character as inner padding, so previously
+  generated output re-processes correctly.
