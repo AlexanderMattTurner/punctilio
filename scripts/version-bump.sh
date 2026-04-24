@@ -206,30 +206,75 @@ if [ -f CHANGELOG.md ] && [ -n "$CHANGELOG_SECTION" ]; then
   RELEASE_DATE="$RELEASE_DATE" \
   CHANGELOG_SECTION="$CHANGELOG_SECTION" \
   node -e '
+"use strict";
 const fs = require("fs");
-const path = "CHANGELOG.md";
-const src = fs.readFileSync(path, "utf8");
-const marker = /^## Unreleased[ \t]*$/m;
-const m = src.match(marker);
-if (!m) {
-  console.error("CHANGELOG.md has no \"## Unreleased\" heading; skipping update.");
-  process.exit(0);
-}
-const blockStart = m.index + m[0].length;
-// Body of the Unreleased block ends at the next "## " heading or EOF.
-const rest = src.slice(blockStart);
-const nextHeading = rest.search(/\n## /);
-const bodyEnd = nextHeading === -1 ? src.length : blockStart + nextHeading;
-const afterBlock = src.slice(bodyEnd);
 
-const { NEW_VERSION, RELEASE_DATE, CHANGELOG_SECTION } = process.env;
-const body = CHANGELOG_SECTION.replace(/\s+$/, "");
-const dated = `## [${NEW_VERSION}] - ${RELEASE_DATE}\n\n${body}\n`;
-const updated = src.slice(0, m.index) +
-  `## Unreleased\n\n${dated}` +
-  afterBlock.replace(/^\n+/, "\n");
-fs.writeFileSync(path, updated);
-console.log(`Promoted Unreleased → [${NEW_VERSION}] - ${RELEASE_DATE} in CHANGELOG.md`);
+function warn(msg) {
+  process.stderr.write(`CHANGELOG update: ${msg}\n`);
+}
+
+function promoteUnreleased() {
+  const path = "CHANGELOG.md";
+  const { NEW_VERSION, RELEASE_DATE, CHANGELOG_SECTION } = process.env;
+
+  for (const [name, value] of Object.entries({ NEW_VERSION, RELEASE_DATE, CHANGELOG_SECTION })) {
+    if (!value) {
+      warn(`missing required env var ${name}; skipping.`);
+      return;
+    }
+  }
+
+  const src = fs.readFileSync(path, "utf8");
+  const markerMatch = src.match(/^## Unreleased[ \t]*$/m);
+  if (!markerMatch) {
+    warn(`no "## Unreleased" heading in ${path}; skipping.`);
+    return;
+  }
+
+  // Body of the Unreleased block ends at the next "## " heading at a line
+  // start, or EOF. Limiting to line-start avoids accidentally matching "##"
+  // inside a bullet or code block.
+  const blockStart = markerMatch.index + markerMatch[0].length;
+  const rest = src.slice(blockStart);
+  const nextHeadingOffset = rest.search(/\n## /);
+  const bodyEnd = nextHeadingOffset === -1 ? src.length : blockStart + nextHeadingOffset;
+  const afterBlock = src.slice(bodyEnd);
+
+  // Defensive: strip any leading "## [vX.Y.Z]" heading Claude might have
+  // added despite the prompt saying "body only". Without this, the file
+  // would end up with two "## [...]" headings stacked.
+  const body = CHANGELOG_SECTION
+    .replace(/^\s*## \[[^\]]+\][^\n]*\n+/, "")
+    .replace(/\s+$/, "");
+
+  if (!body) {
+    warn("drafted changelog body is empty; skipping.");
+    return;
+  }
+
+  const dated = `## [${NEW_VERSION}] - ${RELEASE_DATE}\n\n${body}\n`;
+  const updated =
+    src.slice(0, markerMatch.index) +
+    `## Unreleased\n\n${dated}` +
+    afterBlock.replace(/^\n+/, "\n");
+
+  // Write via a temp file + rename to make the replacement atomic. A crash
+  // mid-write would otherwise leave the file partially rewritten.
+  const tmpPath = `${path}.tmp`;
+  fs.writeFileSync(tmpPath, updated);
+  fs.renameSync(tmpPath, path);
+  process.stdout.write(`Promoted Unreleased → [${NEW_VERSION}] - ${RELEASE_DATE} in ${path}\n`);
+}
+
+try {
+  promoteUnreleased();
+} catch (err) {
+  // Exit 0 deliberately — npm publish has already succeeded at this point;
+  // we do not want a CHANGELOG hiccup to abort the surrounding bash script
+  // and skip the tag push. Log the failure so the action log makes the
+  // follow-up obvious.
+  warn(`failed: ${err && err.stack ? err.stack : err}`);
+}
 '
   # Commit only CHANGELOG.md; package.json stays dirty (npm is the source of
   # truth for version). Use a bot identity and `[skip ci]` so the resulting
