@@ -96,6 +96,7 @@
     "smartypants": "0.2.2",
     "tipograph": "0.7.4",
     "ts-jest": "29.4.6",
+    "tsx": "4.21.0",
     "typescript": "5.9.3",
     "typescript-eslint": "8.54.0",
     "typograf": "7.6.0",
