@@ -1,12 +1,18 @@
 #!/bin/bash
-# Auto version bump using Claude API to analyze commits and publish to npm
-# Version is tracked via npm registry and git tags, not committed to the repository
+# Auto version bump using Claude API to analyze commits and publish to npm.
+# Version is tracked via npm registry and git tags, not committed to the repo.
+#
+# All diagnostics are written to stderr so stdout stays clean for callers that
+# pipe the output. The only intentional stdout writer is the TypeScript helper
+# `scripts/promote-changelog.ts`, which prints a one-line success confirmation.
 set -e
+
+log() { echo "$@" >&2; }
 
 # Get the latest published version from npm (source of truth)
 PACKAGE_NAME=$(node -p "require('./package.json').name")
 CURRENT_VERSION=$(npm view "$PACKAGE_NAME" version 2>/dev/null || echo "0.0.0")
-echo "Current npm version: $CURRENT_VERSION"
+log "Current npm version: $CURRENT_VERSION"
 
 # Find the latest version tag to determine which commits to analyze
 LAST_TAG=$(git describe --tags --match "v*" --abbrev=0 HEAD 2>/dev/null || echo "")
@@ -16,7 +22,7 @@ if [ -n "$LAST_TAG" ]; then
   LAST_TAG_SHA=$(git rev-list -1 "$LAST_TAG")
   HEAD_SHA=$(git rev-parse HEAD)
   if [ "$LAST_TAG_SHA" = "$HEAD_SHA" ]; then
-    echo "No new commits since $LAST_TAG. Skipping."
+    log "No new commits since $LAST_TAG. Skipping."
     exit 0
   fi
 
@@ -32,12 +38,12 @@ fi
 COMMITS=$(echo "$COMMITS_RAW" | head -20 | cut -c1-100 | tr -cd '[:print:]\n' | head -c 2000)
 
 if [ -z "$COMMITS" ]; then
-  echo "No commits to analyze. Skipping."
+  log "No commits to analyze. Skipping."
   exit 0
 fi
 
-echo "Commits to analyze:"
-echo "$COMMITS"
+log "Commits to analyze:"
+log "$COMMITS"
 
 # Extract the current "## Unreleased" block from CHANGELOG.md, if present.
 # The block runs from the "## Unreleased" heading up to (but not including) the
@@ -134,13 +140,13 @@ CHANGELOG_SECTION=$(echo "$TOOL_INPUT" | jq -r '.changelog_section // ""')
 
 # Validate response - fail if Claude couldn't determine bump type
 if [[ "$BUMP" != "major" && "$BUMP" != "minor" && "$BUMP" != "patch" ]]; then
-  echo "Error: Unexpected bump type from Claude: $BUMP"
+  log "Error: Unexpected bump type from Claude: $BUMP"
   # Log only the stop_reason and type, not the full response (may contain metadata)
-  echo "Response stop_reason: $(echo "$RESPONSE" | jq -r '.stop_reason // "unknown"')"
+  log "Response stop_reason: $(echo "$RESPONSE" | jq -r '.stop_reason // "unknown"')"
   exit 1
 fi
 
-echo "Claude determined bump level: $BUMP"
+log "Claude determined bump level: $BUMP"
 
 # Parse version components
 IFS='.' read -r MAJOR MINOR PATCH_NUM <<< "$CURRENT_VERSION"
@@ -158,17 +164,17 @@ case $BUMP in
     ;;
 esac
 
-echo "New version: $NEW_VERSION"
+log "New version: $NEW_VERSION"
 
 # Validate version format (strict semver: X.Y.Z where X, Y, Z are non-negative integers)
 if ! [[ "$NEW_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-  echo "Error: Invalid version format: $NEW_VERSION"
+  log "Error: Invalid version format: $NEW_VERSION"
   exit 1
 fi
 
 # Check if version already exists on npm (safety net for retries)
 if npm view "$PACKAGE_NAME@$NEW_VERSION" version &>/dev/null; then
-  echo "Version $NEW_VERSION already exists on npm. Skipping."
+  log "Version $NEW_VERSION already exists on npm. Skipping."
   exit 0
 fi
 
@@ -179,21 +185,21 @@ const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
 pkg.version = process.env.NEW_VERSION;
 fs.writeFileSync("package.json", JSON.stringify(pkg, null, 2) + "\n");
 '
-echo "Set package.json to $NEW_VERSION (working directory only)"
+log "Set package.json to $NEW_VERSION (working directory only)"
 
 # Build and publish to npm
 # Handle "already published" (exit code 1, HTTP 400/409) as success — can happen
 # when npm registry caching causes the earlier safety check to miss an existing version
 if ! PUBLISH_OUTPUT=$(pnpm publish --provenance --access public --no-git-checks 2>&1); then
   if echo "$PUBLISH_OUTPUT" | grep -q "Cannot publish over previously published version"; then
-    echo "Version $NEW_VERSION already published (detected at publish time). Skipping."
+    log "Version $NEW_VERSION already published (detected at publish time). Skipping."
     exit 0
   fi
-  echo "$PUBLISH_OUTPUT" >&2
+  log "$PUBLISH_OUTPUT"
   exit 1
 fi
-echo "$PUBLISH_OUTPUT"
-echo "✅ Published $PACKAGE_NAME@$NEW_VERSION"
+log "$PUBLISH_OUTPUT"
+log "✅ Published $PACKAGE_NAME@$NEW_VERSION"
 
 # Promote "## Unreleased" to a dated version section in CHANGELOG.md, using
 # Claude's drafted body. Committed back to main so users see the release notes
@@ -205,91 +211,22 @@ if [ -f CHANGELOG.md ] && [ -n "$CHANGELOG_SECTION" ]; then
   NEW_VERSION="$NEW_VERSION" \
   RELEASE_DATE="$RELEASE_DATE" \
   CHANGELOG_SECTION="$CHANGELOG_SECTION" \
-  node -e '
-"use strict";
-const fs = require("fs");
+    pnpm exec tsx scripts/promote-changelog.ts
 
-function warn(msg) {
-  process.stderr.write(`CHANGELOG update: ${msg}\n`);
-}
-
-function promoteUnreleased() {
-  const path = "CHANGELOG.md";
-  const { NEW_VERSION, RELEASE_DATE, CHANGELOG_SECTION } = process.env;
-
-  for (const [name, value] of Object.entries({ NEW_VERSION, RELEASE_DATE, CHANGELOG_SECTION })) {
-    if (!value) {
-      warn(`missing required env var ${name}; skipping.`);
-      return;
-    }
-  }
-
-  const src = fs.readFileSync(path, "utf8");
-  const markerMatch = src.match(/^## Unreleased[ \t]*$/m);
-  if (!markerMatch) {
-    warn(`no "## Unreleased" heading in ${path}; skipping.`);
-    return;
-  }
-
-  // Body of the Unreleased block ends at the next "## " heading at a line
-  // start, or EOF. Limiting to line-start avoids accidentally matching "##"
-  // inside a bullet or code block.
-  const blockStart = markerMatch.index + markerMatch[0].length;
-  const rest = src.slice(blockStart);
-  const nextHeadingOffset = rest.search(/\n## /);
-  const bodyEnd = nextHeadingOffset === -1 ? src.length : blockStart + nextHeadingOffset;
-  const afterBlock = src.slice(bodyEnd);
-
-  // Defensive: strip any leading "## [vX.Y.Z]" heading Claude might have
-  // added despite the prompt saying "body only". Without this, the file
-  // would end up with two "## [...]" headings stacked.
-  const body = CHANGELOG_SECTION
-    .replace(/^\s*## \[[^\]]+\][^\n]*\n+/, "")
-    .replace(/\s+$/, "");
-
-  if (!body) {
-    warn("drafted changelog body is empty; skipping.");
-    return;
-  }
-
-  const dated = `## [${NEW_VERSION}] - ${RELEASE_DATE}\n\n${body}\n`;
-  const updated =
-    src.slice(0, markerMatch.index) +
-    `## Unreleased\n\n${dated}` +
-    afterBlock.replace(/^\n+/, "\n");
-
-  // Write via a temp file + rename to make the replacement atomic. A crash
-  // mid-write would otherwise leave the file partially rewritten.
-  const tmpPath = `${path}.tmp`;
-  fs.writeFileSync(tmpPath, updated);
-  fs.renameSync(tmpPath, path);
-  process.stdout.write(`Promoted Unreleased → [${NEW_VERSION}] - ${RELEASE_DATE} in ${path}\n`);
-}
-
-try {
-  promoteUnreleased();
-} catch (err) {
-  // Exit 0 deliberately — npm publish has already succeeded at this point;
-  // we do not want a CHANGELOG hiccup to abort the surrounding bash script
-  // and skip the tag push. Log the failure so the action log makes the
-  // follow-up obvious.
-  warn(`failed: ${err && err.stack ? err.stack : err}`);
-}
-'
   # Commit only CHANGELOG.md; package.json stays dirty (npm is the source of
   # truth for version). Use a bot identity and `[skip ci]` so the resulting
   # push doesn't spawn another workflow run.
   git config user.name "github-actions[bot]"
   git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
   if git diff --quiet CHANGELOG.md; then
-    echo "No CHANGELOG.md changes to commit."
+    log "No CHANGELOG.md changes to commit."
   else
     git add CHANGELOG.md
     git commit -m "docs(changelog): release $NEW_VERSION [skip ci]"
     # Push to main explicitly so this works whether actions/checkout left us on
     # a branch or in detached HEAD state.
     if ! git push origin HEAD:main; then
-      echo "⚠️ Failed to push CHANGELOG update. Release was published; CHANGELOG can be updated manually."
+      log "⚠️ Failed to push CHANGELOG update. Release was published; CHANGELOG can be updated manually."
     fi
   fi
 fi
@@ -297,4 +234,4 @@ fi
 # Tag the release for future commit range detection. Tag HEAD (which now
 # includes the CHANGELOG commit, if any) so a re-trigger sees HEAD == tag SHA.
 git tag "v$NEW_VERSION"
-git push origin "v$NEW_VERSION" || echo "⚠️ Failed to push tag v$NEW_VERSION. Next run may re-analyze these commits."
+git push origin "v$NEW_VERSION" || log "⚠️ Failed to push tag v$NEW_VERSION. Next run may re-analyze these commits."
