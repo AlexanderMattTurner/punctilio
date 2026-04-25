@@ -34,8 +34,10 @@ else
   DIFF_STAT=$(git show --stat HEAD 2>/dev/null || echo "Unable to get diff")
 fi
 
-# Sanitize commit messages: truncate each line, remove control chars, limit total length
-COMMITS=$(echo "$COMMITS_RAW" | head -20 | cut -c1-100 | tr -cd '[:print:]\n' | head -c 2000)
+# Cap commit-message length: truncate each line, limit total length. Bytes pass
+# through verbatim so non-ASCII characters in commit subjects survive — the JSON
+# body is built via `jq -n --arg`, which handles arbitrary bytes safely.
+COMMITS=$(echo "$COMMITS_RAW" | head -20 | cut -c1-100 | head -c 2000)
 
 if [ -z "$COMMITS" ]; then
   log "No commits to analyze. Skipping."
@@ -47,14 +49,14 @@ log "$COMMITS"
 
 # Extract the current "## Unreleased" block from CHANGELOG.md, if present.
 # The block runs from the "## Unreleased" heading up to (but not including) the
-# next "## " heading or end of file. Sanitized the same way as commit messages.
+# next "## " heading or end of file.
 UNRELEASED_CONTENT=""
 if [ -f CHANGELOG.md ]; then
   UNRELEASED_CONTENT=$(awk '
     /^## Unreleased[[:space:]]*$/ { collecting = 1; next }
     collecting && /^## / { collecting = 0 }
     collecting { print }
-  ' CHANGELOG.md | tr -cd '[:print:]\n' | head -c 4000)
+  ' CHANGELOG.md | head -c 4000)
 fi
 
 # Call Claude API to determine version bump and draft changelog entries using
@@ -203,9 +205,10 @@ log "✅ Published $PACKAGE_NAME@$NEW_VERSION"
 
 # Promote "## Unreleased" to a dated version section in CHANGELOG.md, using
 # Claude's drafted body. Committed back to main so users see the release notes
-# in the repo. Tag is created AFTER this commit so HEAD == tag SHA and the
-# resulting push doesn't re-trigger this workflow meaningfully (the next run
-# will detect "HEAD is already tagged" and exit early).
+# in the repo. Tag is created AFTER this commit (and only if the commit reached
+# main) so HEAD == tag SHA and the resulting push doesn't re-trigger this
+# workflow meaningfully — the next run sees "HEAD is already tagged" and exits.
+CHANGELOG_PUSH_FAILED=0
 if [ -f CHANGELOG.md ] && [ -n "$CHANGELOG_SECTION" ]; then
   RELEASE_DATE=$(date -u +%Y-%m-%d)
   NEW_VERSION="$NEW_VERSION" \
@@ -227,8 +230,18 @@ if [ -f CHANGELOG.md ] && [ -n "$CHANGELOG_SECTION" ]; then
     # a branch or in detached HEAD state.
     if ! git push origin HEAD:main; then
       log "⚠️ Failed to push CHANGELOG update. Release was published; CHANGELOG can be updated manually."
+      CHANGELOG_PUSH_FAILED=1
     fi
   fi
+fi
+
+# Tag only when the CHANGELOG commit (if any) actually reached main. Otherwise
+# the local HEAD is an orphan commit that nobody can see, and tagging it would
+# leave v$NEW_VERSION pointing at a SHA outside the main-branch history.
+if [ "$CHANGELOG_PUSH_FAILED" = "1" ]; then
+  log "⚠️ Skipping tag v$NEW_VERSION because the CHANGELOG commit did not reach main."
+  log "    Release was published to npm; reconcile by pushing the CHANGELOG commit and tagging manually."
+  exit 1
 fi
 
 # Tag the release for future commit range detection. Tag HEAD (which now
