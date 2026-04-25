@@ -29,10 +29,12 @@
 - `degrees()` no longer false-positives on compound identifiers like
   `C-compiler`, `C++`, `C#`, `F-score`, or `F#`. A negative lookahead
   now rejects C/F followed by hyphen+letter or `+`/`#`.
-- `multiplication()` no longer false-positives on scientific notation
-  (`1e5x3`, `1e-5x3`, `3.5E+10x2`) or model-name identifiers
-  (`Surface5x3`, `RTX3060x2`, `iPhone5x`). Stacked lookbehinds
-  reject digit runs preceded by Latin letters or exponent markers.
+- `multiplication()` no longer false-positives on unsigned scientific
+  notation (`1e5x3`, `3.5e10x2`) — ambiguous with model SKUs — or on
+  model-name identifiers (`Surface5x3`, `RTX3060x2`, `iPhone5x`). Signed
+  exponents (`1e-5x3`, `3.5E+10x2`) are unambiguously scientific and now
+  convert. Stacked lookbehinds reject digit runs preceded by Latin
+  letters or an unsigned exponent marker.
 - Legal symbols `(c)`, `(r)`, `(tm)` are no longer converted inside
   URL-like path contexts (e.g., `example.com/path(r)` stays unchanged).
 - Stale JSDoc for `punctuationStyle: "french"` updated from NBSP
