@@ -50,6 +50,14 @@ export function buildMixedContent(charCount: number, seed: string = "42"): strin
 }
 
 /**
+ * Provably linear baseline: a single regex pass that touches every char and
+ * exercises the same V8 String.replace path the production transforms use.
+ * Its ms/char ratio is the platform's "what linear looks like right now"
+ * fingerprint — we divide fn's ratio by it to cancel shared CPU/GC noise.
+ */
+const linearBaseline = (s: string): string => s.replace(/[a-z]/gi, "x")
+
+/**
  * Asserts that a function scales linearly (not quadratically) with input size.
  *
  * Compares ms/char at the two largest of 4 input sizes (4x vs 8x of startingN)
@@ -59,10 +67,11 @@ export function buildMixedContent(charCount: number, seed: string = "42"): strin
  * Default startingN of 5000 produces inputs from ~5K to ~40K chars, which is
  * past V8's string allocation overhead inflection point where ms/char stabilizes.
  *
- * Interleaves 4x and 8x measurements so both experience the same CPU load at
- * each moment, then takes the minimum per-trial ratio. This is immune to both
- * transient noise (GC pauses) and persistent noise (CPU contention from other
- * CI jobs), since the ratio within each trial cancels out shared slowdowns.
+ * Each trial measures `fn` and a known-linear baseline back-to-back at both
+ * sizes, then divides `fn`'s 8x/4x ratio by the baseline's. Shared platform
+ * noise (CPU contention, scheduler jitter) inflates both numerator and
+ * denominator and cancels out; only `fn`-specific super-linear growth pushes
+ * the normalized ratio past 1. Min across trials picks the cleanest sample.
  *
  * @param fn - The function to benchmark
  * @param buildInput - Builds an input string of approximately `n` units
@@ -76,8 +85,9 @@ export function assertLinearScaling(
   const input4x = buildInput(startingN * 4)
   const input8x = buildInput(startingN * 8)
 
-  // Warmup with the largest input so JIT compiles all code paths before timing.
+  // Warmup both with the largest input so JIT compiles all code paths.
   fn(input8x)
+  linearBaseline(input8x)
 
   const minTrials = 5
   const minElapsedMs = 50
@@ -85,20 +95,30 @@ export function assertLinearScaling(
   let totalElapsed = 0
   let trials = 0
   while (trials < minTrials || totalElapsed < minElapsedMs) {
-    const start4 = performance.now()
+    const startFn4 = performance.now()
     fn(input4x)
-    const time4 = performance.now() - start4
+    const fnTime4 = performance.now() - startFn4
 
-    const start8 = performance.now()
+    const startBase4 = performance.now()
+    linearBaseline(input4x)
+    const baseTime4 = performance.now() - startBase4
+
+    const startFn8 = performance.now()
     fn(input8x)
-    const time8 = performance.now() - start8
+    const fnTime8 = performance.now() - startFn8
 
-    const ratio = (time8 / input8x.length) / (time4 / input4x.length)
+    const startBase8 = performance.now()
+    linearBaseline(input8x)
+    const baseTime8 = performance.now() - startBase8
+
+    const fnRatio = (fnTime8 / input8x.length) / (fnTime4 / input4x.length)
+    const baseRatio = (baseTime8 / input8x.length) / (baseTime4 / input4x.length)
+    const ratio = fnRatio / baseRatio
     bestRatio = Math.min(bestRatio, ratio)
-    totalElapsed += time4 + time8
+    totalElapsed += fnTime4 + fnTime8 + baseTime4 + baseTime8
     trials++
   }
 
-  // For linear: ratio ≈ 1. For quadratic: ≈ 2.
+  // After baseline-normalization: linear ≈ 1, quadratic ≈ 2.
   expect(bestRatio).toBeLessThan(1.5)
 }

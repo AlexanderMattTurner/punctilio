@@ -586,12 +586,7 @@ describe("scientific notation preservation", () => {
     "1E5x3",
     "2.5E8x100",
     "The value 1e5x is unchanged",
-    // Signed exponents
-    "1e-5x3",
-    "1e+5x3",
-    "3.5E-10x2",
-    "2.5E+8x100",
-  ])('preserves "%s"', (input) => {
+  ])('preserves unsigned-exponent "%s"', (input) => {
     expect(multiplication(input)).toBe(input)
   })
 
@@ -602,6 +597,18 @@ describe("scientific notation preservation", () => {
   it("converts spaced operands after scientific notation prefix", () => {
     // Spaced form: "3" is preceded by space, so it starts a new chain
     expect(multiplication("1e5 x 3 x 2")).toBe(`1e5 x 3 ${UNICODE_SYMBOLS.MULTIPLICATION} 2`)
+  })
+
+  // Signed exponents (e+/e-/E+/E-) are unambiguously scientific notation:
+  // model names and SKUs essentially never use signed exponents, so the
+  // ambiguity that protects "1e5x3" doesn't apply here.
+  it.each([
+    ["1e-5x3", `1e-5${UNICODE_SYMBOLS.MULTIPLICATION}3`],
+    ["1e+5x3", `1e+5${UNICODE_SYMBOLS.MULTIPLICATION}3`],
+    ["3.5E-10x2", `3.5E-10${UNICODE_SYMBOLS.MULTIPLICATION}2`],
+    ["2.5E+8x100", `2.5E+8${UNICODE_SYMBOLS.MULTIPLICATION}100`],
+  ])('converts signed-exponent "%s" → "%s"', (input, expected) => {
+    expect(multiplication(input)).toBe(expected)
   })
 })
 
