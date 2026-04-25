@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## [3.6.5] - 2026-04-25
+
 ### Added
 
 - `shouldSkipText` hook on `flattenTextNodes`, `transformElement`, and the
@@ -19,8 +21,8 @@
 
 - `punctuationStyle: "french"` now pads guillemets with U+202F (NARROW
   NO-BREAK SPACE) instead of U+00A0 (NO-BREAK SPACE), per Unicode CLDR's
-  `fr` locale and the Imprimerie nationale's *Lexique des règles
-  typographiques en usage à l'Imprimerie nationale*. The idempotency
+  `fr` locale and the Imprimerie nationale's *Lexique des rgles
+  typographiques en usage  l'Imprimerie nationale*. The idempotency
   normalizer accepts either character as inner padding, so previously
   generated output re-processes correctly.
 
@@ -32,12 +34,12 @@
   grouped endings (`555-1,234`, `555-1.234`) still convert as ranges, since
   the grouping disambiguates. No preceding area code is required anymore
   for the skip to fire.
-- `Room is 10' x 12'` now converts to `Room is 10′ × 12′`. Prime marks
+- `Room is 10' x 12'` now converts to `Room is 10  12`. Prime marks
   attached to a digit run no longer interrupt the multiplication match, so
-  dimension notation (Chicago §9.17) works through feet/inches marks.
-- Dimension notation with length units attached to both operands — e.g.
-  `5m × 5m`, `210mm × 297mm`, `1920px × 1080px`, `5 m × 5 m`, and three-
-  way chains like `120 cm × 60 cm × 75 cm` — now converts correctly. The
+  dimension notation (Chicago 9.17) works through feet/inches marks.
+- Dimension notation with length units attached to both operands  e.g.
+  `5m  5m`, `210mm  297mm`, `1920px  1080px`, `5 m  5 m`, and three-
+  way chains like `120 cm  60 cm  75 cm`  now converts correctly. The
   multiplication chain accepts an optional length/size unit (m, cm, mm,
   km, nm, pm, mi, ft, yd, in, px, pt, em, rem, vh, vw) after each digit
   run, with a word-boundary lookahead that avoids matching unit prefixes
