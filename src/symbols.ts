@@ -80,8 +80,9 @@ export function multiplication(text: string, options: SymbolOptions = {}): strin
 
   // Match entire multiplication chains in one pass: "5 x 5 x 5" or "5x5x5"
   // Pattern matches: digit(s), then one or more (operator, digit(s)) groups
+  // (?<![eE]) prevents matching inside scientific notation like 1e5x3 or 3.5E10x2
   const chainPattern = cachedRegExp(
-    `(?<!\\d)(?<firstNum>\\d+${digitSuffix})(?<rest>(?:${chr}?\\s*[xX*]\\s*${chr}?\\d+${digitSuffix})+)`,
+    `(?<![eE])(?<!\\d)(?<firstNum>\\d+${digitSuffix})(?<rest>(?:${chr}?\\s*[xX*]\\s*${chr}?\\d+${digitSuffix})+)`,
     "g"
   )
 
@@ -110,7 +111,7 @@ export function multiplication(text: string, options: SymbolOptions = {}): strin
 
   // Trailing multiplier: 5x (followed by word boundary - space, punctuation, etc.)
   const wbe = wordBoundaryEnd(chr)
-  const trailingPattern = cachedRegExp(`(?<!\\d)(?<num>\\d+${chr}?)[xX*]${wbe}`, "g")
+  const trailingPattern = cachedRegExp(`(?<![eE])(?<!\\d)(?<num>\\d+${chr}?)[xX*]${wbe}`, "g")
   text = text.replace(trailingPattern, (match, num: string) => {
     // Skip if this looks like start of hexadecimal
     if (num === "0") return match
@@ -186,19 +187,23 @@ function contextAwareLegalReplace(
 export function legalSymbols(text: string, options: SymbolOptions = {}): string {
   const separator = options.separator ?? DEFAULT_SEPARATOR
   // (c) → © only with positive copyright evidence (year or "copyright" keyword)
+  // and not in a path context (e.g., example.com/path(c))
   text = contextAwareLegalReplace(text, /\(c\)/gi, COPYRIGHT, (before, after) =>
-    /^\s*(?:19|20)\d{2}\b/.test(after) || /\bcopyright\s*$/i.test(before),
+    !/\/\S+$/.test(before) && (/^\s*(?:19|20)\d{2}\b/.test(after) || /\bcopyright\s*$/i.test(before)),
     separator
   )
 
-  // (r) → ® unless in enumeration "(q), (r)" or legal citation "(r)(1)" context
+  // (r) → ® unless in enumeration "(q), (r)", legal citation "(r)(1)", or path context
   text = contextAwareLegalReplace(text, /\(r\)/gi, REGISTERED, (before, after) =>
-    !/\([a-z]\)[,;]\s*$/i.test(before) && !/^\(\d/.test(after),
+    !/\([a-z]\)[,;]\s*$/i.test(before) && !/^\(\d/.test(after) && !/\/\S+$/.test(before),
     separator
   )
 
-  // (tm) → ™ unconditionally
-  text = text.replace(/\(tm\)/gi, TRADEMARK)
+  // (tm) → ™ unless in a path context
+  text = contextAwareLegalReplace(text, /\(tm\)/gi, TRADEMARK, (before) =>
+    !/\/\S+$/.test(before),
+    separator
+  )
 
   return text
 }
@@ -242,8 +247,10 @@ export function degrees(text: string, options: SymbolOptions = {}): string {
   // Handles separator between digit and unit
   // Uses marker-aware boundary to avoid false matches like "20C\uE000elsius"
   const wbe = wordBoundaryEnd(chr)
+  // Reject C/F followed by hyphen+letter ("C-compiler"), +/# ("C++", "F#")
+  const notCompound = `(?!-[${LATIN_LETTERS}]|[+#])`
   return text.replace(
-    cachedRegExp(`(?<num>\\d${chr}?) ?(?<unit>[CF])${wbe}`, "g"),
+    cachedRegExp(`(?<num>\\d${chr}?) ?(?<unit>[CF])${notCompound}${wbe}`, "g"),
     (_, num, unit) => `${num} ${DEGREE}${unit}`
   )
 }

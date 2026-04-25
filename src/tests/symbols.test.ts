@@ -198,7 +198,19 @@ describe("legalSymbols", () => {
     ["(Q); (R); (S)", "(Q); (R); (S)"],
     // (r) in legal citations
     ["See (r)(1)(A)", "See (r)(1)(A)"],
+    // (r) in URL paths
+    ["example.com/path(r)", "example.com/path(r)"],
   ])('preserves (r) in non-trademark context "%s"', (input, expected) => {
+    expect(legalSymbols(input)).toBe(expected)
+  })
+
+  it.each([
+    // Legal symbols in URL/path contexts
+    ["example.com/path(c) 2024", "example.com/path(c) 2024"],
+    ["example.com/path(tm)", "example.com/path(tm)"],
+    ["example.com/path(r)", "example.com/path(r)"],
+    ["/usr/local/bin(r)", "/usr/local/bin(r)"],
+  ])('preserves legal symbols in path context "%s"', (input, expected) => {
     expect(legalSymbols(input)).toBe(expected)
   })
 
@@ -247,6 +259,12 @@ describe("degrees", () => {
     ["68 f", "68 f"],
     ["20c", "20c"],
     ["68f", "68f"],
+    // Compound suffixes: C/F followed by hyphen+letter or +/# are not temperatures
+    ["20 C-compiler", "20 C-compiler"],
+    ["5 F-score", "5 F-score"],
+    ["20 C++", "20 C++"],
+    ["20 C#", "20 C#"],
+    ["100 F#", "100 F#"],
   ])('converts "%s" to "%s"', (input, expected) => {
     expect(degrees(input)).toBe(expected)
   })
@@ -546,6 +564,18 @@ describe("hexadecimal preservation", () => {
     "The magic number is 0x5F3759DF",
     "test 0x",
     "value: 0X",
+  ])('preserves "%s"', (input) => {
+    expect(multiplication(input)).toBe(input)
+  })
+})
+
+describe("scientific notation preservation", () => {
+  it.each([
+    "1e5x3",
+    "3.5e10x2",
+    "1E5x3",
+    "2.5E8x100",
+    "The value 1e5x is unchanged",
   ])('preserves "%s"', (input) => {
     expect(multiplication(input)).toBe(input)
   })
