@@ -80,9 +80,10 @@ export function multiplication(text: string, options: SymbolOptions = {}): strin
 
   // Match entire multiplication chains in one pass: "5 x 5 x 5" or "5x5x5"
   // Pattern matches: digit(s), then one or more (operator, digit(s)) groups
-  // (?<![eE]) prevents matching inside scientific notation like 1e5x3 or 3.5E10x2
+  // (?<!\d[eE]) prevents matching inside scientific notation like 1e5x3 or 3.5E10x2
+  // Uses \d[eE] instead of bare [eE] to avoid false negatives on words ending in e/E
   const chainPattern = cachedRegExp(
-    `(?<![eE])(?<!\\d)(?<firstNum>\\d+${digitSuffix})(?<rest>(?:${chr}?\\s*[xX*]\\s*${chr}?\\d+${digitSuffix})+)`,
+    `(?<!\\d[eE])(?<!\\d)(?<firstNum>\\d+${digitSuffix})(?<rest>(?:${chr}?\\s*[xX*]\\s*${chr}?\\d+${digitSuffix})+)`,
     "g"
   )
 
@@ -111,7 +112,7 @@ export function multiplication(text: string, options: SymbolOptions = {}): strin
 
   // Trailing multiplier: 5x (followed by word boundary - space, punctuation, etc.)
   const wbe = wordBoundaryEnd(chr)
-  const trailingPattern = cachedRegExp(`(?<![eE])(?<!\\d)(?<num>\\d+${chr}?)[xX*]${wbe}`, "g")
+  const trailingPattern = cachedRegExp(`(?<!\\d[eE])(?<!\\d)(?<num>\\d+${chr}?)[xX*]${wbe}`, "g")
   text = text.replace(trailingPattern, (match, num: string) => {
     // Skip if this looks like start of hexadecimal
     if (num === "0") return match
