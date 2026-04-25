@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## [3.7.0] - 2026-04-25
+
 ### Added
 
 - `shouldSkipText` hook on `flattenTextNodes`, `transformElement`, and the
