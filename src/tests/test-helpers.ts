@@ -79,12 +79,8 @@ export function assertLinearScaling(
   // Warmup with the largest input so JIT compiles all code paths before timing.
   fn(input8x)
 
-  // More trials shrink the min toward the true linear ratio: with random
-  // per-trial noise, P(every trial unlucky) drops geometrically. 20 trials
-  // is empirically enough to absorb GC pauses and CI scheduler jitter while
-  // keeping each test under ~250ms.
-  const minTrials = 20
-  const minElapsedMs = 200
+  const minTrials = 5
+  const minElapsedMs = 50
   let bestRatio = Infinity
   let totalElapsed = 0
   let trials = 0
@@ -103,8 +99,6 @@ export function assertLinearScaling(
     trials++
   }
 
-  // Linear: ratio ≈ 1. Quadratic: ≈ 2. The 1.75 threshold sits well below
-  // quadratic so genuine regressions still fail, while leaving headroom for
-  // residual noise that survives the min-of-trials reduction.
-  expect(bestRatio).toBeLessThan(1.75)
+  // For linear: ratio ≈ 1. For quadratic: ≈ 2.
+  expect(bestRatio).toBeLessThan(1.5)
 }
