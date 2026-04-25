@@ -160,6 +160,9 @@ type ContextPredicate = (before: string, after: string) => boolean
  */
 const LEGAL_SYMBOL_CONTEXT_WINDOW = 25
 
+/** Returns true when the context window ends with a path-like fragment (slash + non-whitespace). */
+const isPathContext = (before: string): boolean => /\/\S+$/.test(before)
+
 /**
  * Context-aware replacement for legal symbols like (c), (r), (tm).
  * Extracts surrounding text, strips separator characters from the context
@@ -189,19 +192,19 @@ export function legalSymbols(text: string, options: SymbolOptions = {}): string 
   // (c) → © only with positive copyright evidence (year or "copyright" keyword)
   // and not in a path context (e.g., example.com/path(c))
   text = contextAwareLegalReplace(text, /\(c\)/gi, COPYRIGHT, (before, after) =>
-    !/\/\S+$/.test(before) && (/^\s*(?:19|20)\d{2}\b/.test(after) || /\bcopyright\s*$/i.test(before)),
+    !isPathContext(before) && (/^\s*(?:19|20)\d{2}\b/.test(after) || /\bcopyright\s*$/i.test(before)),
     separator
   )
 
   // (r) → ® unless in enumeration "(q), (r)", legal citation "(r)(1)", or path context
   text = contextAwareLegalReplace(text, /\(r\)/gi, REGISTERED, (before, after) =>
-    !/\([a-z]\)[,;]\s*$/i.test(before) && !/^\(\d/.test(after) && !/\/\S+$/.test(before),
+    !/\([a-z]\)[,;]\s*$/i.test(before) && !/^\(\d/.test(after) && !isPathContext(before),
     separator
   )
 
   // (tm) → ™ unless in a path context
   text = contextAwareLegalReplace(text, /\(tm\)/gi, TRADEMARK, (before) =>
-    !/\/\S+$/.test(before),
+    !isPathContext(before),
     separator
   )
 

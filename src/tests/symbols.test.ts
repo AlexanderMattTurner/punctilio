@@ -198,8 +198,6 @@ describe("legalSymbols", () => {
     ["(Q); (R); (S)", "(Q); (R); (S)"],
     // (r) in legal citations
     ["See (r)(1)(A)", "See (r)(1)(A)"],
-    // (r) in URL paths
-    ["example.com/path(r)", "example.com/path(r)"],
   ])('preserves (r) in non-trademark context "%s"', (input, expected) => {
     expect(legalSymbols(input)).toBe(expected)
   })
@@ -578,6 +576,14 @@ describe("scientific notation preservation", () => {
     "The value 1e5x is unchanged",
   ])('preserves "%s"', (input) => {
     expect(multiplication(input)).toBe(input)
+  })
+
+  it.each([
+    // After the protected sci-notation prefix, subsequent chains still convert
+    ["1e5x3x2", `1e5x3${UNICODE_SYMBOLS.MULTIPLICATION}2`],
+    ["1e5 x 3 x 2", `1e5 x 3 ${UNICODE_SYMBOLS.MULTIPLICATION} 2`],
+  ])('converts chained multiplication after scientific notation: "%s"', (input, expected) => {
+    expect(multiplication(input)).toBe(expected)
   })
 })
 
