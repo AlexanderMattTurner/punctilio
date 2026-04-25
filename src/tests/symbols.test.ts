@@ -567,6 +567,18 @@ describe("hexadecimal preservation", () => {
   })
 })
 
+describe("model name / identifier preservation", () => {
+  it.each([
+    "Surface5x3",
+    "iPhone5x case",
+    "RTX3060x2",
+    "RX580x4",
+    "Pixel8x",
+  ])('preserves "%s"', (input) => {
+    expect(multiplication(input)).toBe(input)
+  })
+})
+
 describe("scientific notation preservation", () => {
   it.each([
     "1e5x3",
@@ -583,12 +595,13 @@ describe("scientific notation preservation", () => {
     expect(multiplication(input)).toBe(input)
   })
 
-  it.each([
-    // After the protected sci-notation prefix, subsequent chains still convert
-    ["1e5x3x2", `1e5x3${UNICODE_SYMBOLS.MULTIPLICATION}2`],
-    ["1e5 x 3 x 2", `1e5 x 3 ${UNICODE_SYMBOLS.MULTIPLICATION} 2`],
-  ])('converts chained multiplication after scientific notation: "%s"', (input, expected) => {
-    expect(multiplication(input)).toBe(expected)
+  it("preserves unspaced chains attached to scientific notation", () => {
+    expect(multiplication("1e5x3x2")).toBe("1e5x3x2")
+  })
+
+  it("converts spaced operands after scientific notation prefix", () => {
+    // Spaced form: "3" is preceded by space, so it starts a new chain
+    expect(multiplication("1e5 x 3 x 2")).toBe(`1e5 x 3 ${UNICODE_SYMBOLS.MULTIPLICATION} 2`)
   })
 })
 

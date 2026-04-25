@@ -30,9 +30,9 @@
   `C-compiler`, `C++`, `C#`, `F-score`, or `F#`. A negative lookahead
   now rejects C/F followed by hyphen+letter or `+`/`#`.
 - `multiplication()` no longer false-positives on scientific notation
-  like `1e5x3`, `3.5E10x2`, `1e-5x3`, or `1e+5x3`. Stacked
-  lookbehinds reject digit runs preceded by exponent markers,
-  including signed exponents (`e-`, `E+`).
+  (`1e5x3`, `1e-5x3`, `3.5E+10x2`) or model-name identifiers
+  (`Surface5x3`, `RTX3060x2`, `iPhone5x`). Stacked lookbehinds
+  reject digit runs preceded by Latin letters or exponent markers.
 - Legal symbols `(c)`, `(r)`, `(tm)` are no longer converted inside
   URL-like path contexts (e.g., `example.com/path(r)` stays unchanged).
 - Stale JSDoc for `punctuationStyle: "french"` updated from NBSP
