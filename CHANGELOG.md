@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## [3.7.1] - 2026-04-25
+
+### Fixed
+
+- Reduce false positives in degrees, multiplication, and legal symbols detection.
+
 ## [3.7.0] - 2026-04-25
 
 ### Added
