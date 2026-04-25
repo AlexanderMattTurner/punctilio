@@ -65,10 +65,10 @@ export function enDashNumberRange(text: string, options: DashOptions = {}): stri
   text = text.replace(
     cachedRegExp(positiveRangePattern, "g"),
     (...args) => {
-      const g = args.at(-1) as Record<string, string>
-      if (g.following) return args[0] as string
-      const startNum = g.start.replace(cachedRegExp(chr, "g"), "")
-      const endNum = g.end.replace(cachedRegExp(chr, "g"), "")
+      const groups = args.at(-1) as Record<string, string>
+      if (groups.following) return args[0] as string
+      const startNum = groups.start.replace(cachedRegExp(chr, "g"), "")
+      const endNum = groups.end.replace(cachedRegExp(chr, "g"), "")
       if (/^(?:19|20)\d{2}$/.test(startNum) && /^(?:0[1-9]|1[0-2])$/.test(endNum)) return args[0] as string
       // Skip 3+4 digit phone-shaped patterns (555-1234, or the second half of
       // 555-123-4567). Thousands-grouped endings (1,234 / 1.234) keep their
@@ -80,7 +80,7 @@ export function enDashNumberRange(text: string, options: DashOptions = {}): stri
       // All US toll-free area codes start with 8 (800, 888, 877, 866, 855, 844, 833).
       // We only block 1-8XX to avoid false negatives on legitimate ranges like 1-100.
       if (/^1$/.test(startNum) && /^8\d{2}$/.test(endNum)) return args[0] as string
-      return `${g.precedingAreaCode ?? ""}${g.start}${EN_DASH}${g.end}${g.suffix ?? ""}`
+      return `${groups.precedingAreaCode ?? ""}${groups.start}${EN_DASH}${groups.end}${groups.suffix ?? ""}`
     }
   )
 
@@ -92,9 +92,9 @@ export function enDashNumberRange(text: string, options: DashOptions = {}): stri
       "g"
     ),
     (...args) => {
-      const g = args.at(-1) as Record<string, string>
-      if (g.following) return args[0] as string
-      return `${g.start}${EN_DASH}${g.neg ? MINUS : ""}${g.end}${g.suffix ?? ""}`
+      const groups = args.at(-1) as Record<string, string>
+      if (groups.following) return args[0] as string
+      return `${groups.start}${EN_DASH}${groups.neg ? MINUS : ""}${groups.end}${groups.suffix ?? ""}`
     }
   )
 
@@ -112,9 +112,9 @@ export function enDashDateRange(text: string, options: DashOptions = {}): string
   return text.replace(
     cachedRegExp(`${wb}(?<startMonth>${months})(?<startYear>${chr}? \\d{4})?(?<preSep>${chr}?)(?<preSpace> ?)-(?<postSpace> ?)(?<postSep>${chr}?)(?<endMonth>${months})(?<endYear> \\d{4})?${wbe}`, "g"),
     (...args) => {
-      const g = args.at(-1) as Record<string, string>
+      const groups = args.at(-1) as Record<string, string>
       const [pre, post] = dashStyle === "british" ? [" ", " "] : ["", ""]
-      return `${g.startMonth}${g.startYear || ""}${g.preSep}${pre}${EN_DASH}${post}${g.postSep}${g.endMonth}${g.endYear || ""}`
+      return `${groups.startMonth}${groups.startYear || ""}${groups.preSep}${pre}${EN_DASH}${post}${groups.postSep}${groups.endMonth}${groups.endYear || ""}`
     }
   )
 }
