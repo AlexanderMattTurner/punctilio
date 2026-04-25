@@ -202,6 +202,16 @@ describe("legalSymbols", () => {
     expect(legalSymbols(input)).toBe(expected)
   })
 
+  it.each([
+    // Legal symbols in URL/path contexts
+    ["example.com/path(c) 2024", "example.com/path(c) 2024"],
+    ["example.com/path(tm)", "example.com/path(tm)"],
+    ["example.com/path(r)", "example.com/path(r)"],
+    ["/usr/local/bin(r)", "/usr/local/bin(r)"],
+  ])('preserves legal symbols in path context "%s"', (input, expected) => {
+    expect(legalSymbols(input)).toBe(expected)
+  })
+
   it("detects copyright year across separator boundary", () => {
     const sep = DEFAULT_SEPARATOR
     expect(legalSymbols(`(c)${sep} 2024`, { separator: sep })).toBe(`${UNICODE_SYMBOLS.COPYRIGHT}${sep} 2024`)
@@ -247,6 +257,12 @@ describe("degrees", () => {
     ["68 f", "68 f"],
     ["20c", "20c"],
     ["68f", "68f"],
+    // Compound suffixes: C/F followed by hyphen+letter or +/# are not temperatures
+    ["20 C-compiler", "20 C-compiler"],
+    ["5 F-score", "5 F-score"],
+    ["20 C++", "20 C++"],
+    ["20 C#", "20 C#"],
+    ["100 F#", "100 F#"],
   ])('converts "%s" to "%s"', (input, expected) => {
     expect(degrees(input)).toBe(expected)
   })
@@ -548,6 +564,51 @@ describe("hexadecimal preservation", () => {
     "value: 0X",
   ])('preserves "%s"', (input) => {
     expect(multiplication(input)).toBe(input)
+  })
+})
+
+describe("model name / identifier preservation", () => {
+  it.each([
+    "Surface5x3",
+    "iPhone5x case",
+    "RTX3060x2",
+    "RX580x4",
+    "Pixel8x",
+  ])('preserves "%s"', (input) => {
+    expect(multiplication(input)).toBe(input)
+  })
+})
+
+describe("scientific notation preservation", () => {
+  it.each([
+    "1e5x3",
+    "3.5e10x2",
+    "1E5x3",
+    "2.5E8x100",
+    "The value 1e5x is unchanged",
+  ])('preserves unsigned-exponent "%s"', (input) => {
+    expect(multiplication(input)).toBe(input)
+  })
+
+  it("preserves unspaced chains attached to scientific notation", () => {
+    expect(multiplication("1e5x3x2")).toBe("1e5x3x2")
+  })
+
+  it("converts spaced operands after scientific notation prefix", () => {
+    // Spaced form: "3" is preceded by space, so it starts a new chain
+    expect(multiplication("1e5 x 3 x 2")).toBe(`1e5 x 3 ${UNICODE_SYMBOLS.MULTIPLICATION} 2`)
+  })
+
+  // Signed exponents (e+/e-/E+/E-) are unambiguously scientific notation:
+  // model names and SKUs essentially never use signed exponents, so the
+  // ambiguity that protects "1e5x3" doesn't apply here.
+  it.each([
+    ["1e-5x3", `1e-5${UNICODE_SYMBOLS.MULTIPLICATION}3`],
+    ["1e+5x3", `1e+5${UNICODE_SYMBOLS.MULTIPLICATION}3`],
+    ["3.5E-10x2", `3.5E-10${UNICODE_SYMBOLS.MULTIPLICATION}2`],
+    ["2.5E+8x100", `2.5E+8${UNICODE_SYMBOLS.MULTIPLICATION}100`],
+  ])('converts signed-exponent "%s" → "%s"', (input, expected) => {
+    expect(multiplication(input)).toBe(expected)
   })
 })
 
