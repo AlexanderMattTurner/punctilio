@@ -2,6 +2,10 @@ name: Setup
 description: Setup Node.js, pnpm, and install dependencies
 
 inputs:
+  node-version:
+    description: Node.js version to install
+    required: false
+    default: "24"
   registry-url:
     description: npm registry URL (for publishing)
     required: false
@@ -16,7 +20,7 @@ runs:
     - name: Setup Node.js
       uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
       with:
-        node-version: "24"
+        node-version: ${{ inputs.node-version }}
         cache: "pnpm"
         registry-url: ${{ inputs.registry-url }}
 

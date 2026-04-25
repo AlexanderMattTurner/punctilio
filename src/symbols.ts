@@ -100,9 +100,9 @@ export function multiplication(text: string, options: SymbolOptions = {}): strin
         "g"
       ),
       (...innerArgs) => {
-        const g = innerArgs.at(-1) as Record<string, string>
-        const space = g.spaceBefore || g.spaceAfter ? " " : ""
-        return `${g.pre}${space}${MULTIPLICATION}${space}${g.post}${g.num}`
+        const groups = innerArgs.at(-1) as Record<string, string>
+        const space = groups.spaceBefore || groups.spaceAfter ? " " : ""
+        return `${groups.pre}${space}${MULTIPLICATION}${space}${groups.post}${groups.num}`
       }
     )
     return `${firstNum}${converted}`
@@ -440,7 +440,7 @@ export function superscriptOrdinal(text: string, options: SymbolOptions = {}): s
 
 /** Collapse multiple spaces (including tabs) to single space. Prefers nbsp if any nbsp is present. */
 export function collapseSpaces(text: string): string {
-  return text.replace(cachedRegExp(`[${SPACE_CHARS}\\t]{2,}`, "g"), (match) => {
+  return text.replace(cachedRegExp(`[${SPACE_CHARS}]{2,}`, "g"), (match) => {
     return match.includes(NBSP) ? NBSP : " "
   })
 }
