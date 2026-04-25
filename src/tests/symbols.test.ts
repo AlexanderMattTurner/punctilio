@@ -574,6 +574,11 @@ describe("scientific notation preservation", () => {
     "1E5x3",
     "2.5E8x100",
     "The value 1e5x is unchanged",
+    // Signed exponents
+    "1e-5x3",
+    "1e+5x3",
+    "3.5E-10x2",
+    "2.5E+8x100",
   ])('preserves "%s"', (input) => {
     expect(multiplication(input)).toBe(input)
   })
