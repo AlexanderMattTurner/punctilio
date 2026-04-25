@@ -196,10 +196,10 @@ export function wordBoundaryEnd(escapedSeparator: string): string {
 }
 
 /**
- * Pattern string for space characters (regular space and non-breaking space).
+ * Pattern string for space characters (regular space, tab, and non-breaking space).
  * Use inside regex character classes: `[${SPACE_CHARS}]`
  */
-export const SPACE_CHARS = ` ${UNICODE_SYMBOLS.NBSP}`
+export const SPACE_CHARS = ` \t${UNICODE_SYMBOLS.NBSP}`
 
 /**
  * Creates a lookbehind pattern that matches after whitespace, separator, or start of string.

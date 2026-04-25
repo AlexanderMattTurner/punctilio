@@ -204,11 +204,17 @@ async function runBenchmark() {
   // Performance benchmark
   console.log('\n\n=== PERFORMANCE BENCHMARK ===\n');
   const sampleText = `"Hello," she said. "It's a beautiful day -- isn't it?" The temperature was 20 C and he was 5'10" tall. Pages 1-5 contain important info... See section 1/2 for details.`;
+  const warmupIterations = 100;
   const iterations = 1000;
 
-  console.log(`Sample text (${sampleText.length} chars), ${iterations} iterations:\n`);
+  console.log(`Sample text (${sampleText.length} chars), ${warmupIterations} warmup + ${iterations} timed iterations:\n`);
 
   for (const pkg of packages) {
+    // Warmup: let JIT compile hot paths before timing
+    for (let i = 0; i < warmupIterations; i++) {
+      await runPackage(pkg, sampleText, 'test');
+    }
+
     const start = performance.now();
     for (let i = 0; i < iterations; i++) {
       await runPackage(pkg, sampleText, 'test');

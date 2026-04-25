@@ -440,7 +440,7 @@ export function superscriptOrdinal(text: string, options: SymbolOptions = {}): s
 
 /** Collapse multiple spaces (including tabs) to single space. Prefers nbsp if any nbsp is present. */
 export function collapseSpaces(text: string): string {
-  return text.replace(cachedRegExp(`[${SPACE_CHARS}\\t]{2,}`, "g"), (match) => {
+  return text.replace(cachedRegExp(`[${SPACE_CHARS}]{2,}`, "g"), (match) => {
     return match.includes(NBSP) ? NBSP : " "
   })
 }

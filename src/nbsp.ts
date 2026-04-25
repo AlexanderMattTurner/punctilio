@@ -25,7 +25,7 @@ const {
 export type NbspOptions = Pick<SymbolOptions, "separator">
 
 /** Space pattern matching regular space, tab, and nbsp. */
-const SPACE = `[ \\t${NBSP}]`
+const SPACE = `[${SPACE_CHARS}]`
 
 const UNICODE_UPPERCASE = "\\p{Lu}"
 
@@ -258,7 +258,7 @@ const NBSP_TRANSFORMS: NbspFn[] = [
 export function nbspTransform(text: string, options: NbspOptions = {}): string {
   // All nbsp patterns require a space, tab, or existing nbsp to match.
   // Short-circuit if the text contains none of these.
-  if (!cachedRegExp(`[${SPACE_CHARS}\\t]`, "").test(text)) return text
+  if (!cachedRegExp(`[${SPACE_CHARS}]`, "").test(text)) return text
 
   for (const fn of NBSP_TRANSFORMS) {
     text = fn(text, options)
