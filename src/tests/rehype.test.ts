@@ -1,4 +1,4 @@
-import type { Element, Parent, Text, ElementContent } from "hast"
+import type { Element, Parent, Root, Text, ElementContent } from "hast"
 import { h } from "hastscript"
 import { unified } from "unified"
 import rehypeParse from "rehype-parse"
@@ -617,6 +617,28 @@ describe("rehypePunctilio", () => {
       expect(await processHtml('<div>"Before" <code>"Inside"</code> "After"</div>', { nbsp: false })).toEqual(
         `<div>${LDQ}Before${RDQ} <code>"Inside"</code> ${LDQ}After${RDQ}</div>`
       )
+    })
+
+    it("handles string className property (non-standard AST)", async () => {
+      // rehype-parse always produces array classNames, but hand-crafted ASTs
+      // may use strings. The plugin should handle both.
+      const tree: Root = {
+        type: "root",
+        children: [{
+          type: "element",
+          tagName: "p",
+          // Cast to bypass hast's typed className (which expects string[])
+          properties: { className: "no-transform" as unknown as string[] },
+          children: [{ type: "text", value: '"Hello"' }],
+        }],
+      }
+      const processor = unified()
+        .use(rehypePunctilio, { skipClasses: ["no-transform"] })
+        .use(rehypeStringify)
+      await processor.run(tree)
+      // Text should remain untransformed because the class matches
+      const textNode = (tree.children[0] as Element).children[0] as Text
+      expect(textNode.value).toBe('"Hello"')
     })
 
     it("handles mixed skip and non-skip siblings", async () => {
