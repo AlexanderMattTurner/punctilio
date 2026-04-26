@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## [3.7.2] - 2026-04-26
+
+### Fixed
+- Hardened flaky performance test and optimized rehype plugin with regex caching.
+
 ## [3.7.1] - 2026-04-25
 
 ### Fixed
