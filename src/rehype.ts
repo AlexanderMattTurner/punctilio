@@ -446,6 +446,7 @@ function hasTextDescendant(
  * @param node - The root element to search from
  * @param shouldSkip - Function to determine which elements to skip
  * @param depth - Current recursion depth (internal use)
+ * @param alreadyTransformed - Elements already processed; skipped during traversal to avoid redundant work
  * @returns Array of elements that contain transformable text
  */
 export function collectTransformableElements(
@@ -553,24 +554,17 @@ export function rehypePunctilio(
   const skipTagSet = new Set(skipTags)
   const skipClassSet = new Set(skipClasses)
 
-  const shouldSkip = (node: Element): boolean => {
-    if (skipTagSet.has(node.tagName)) {
-      return true
-    }
-    if (skipClassSet.size > 0) {
-      const classNames = node.properties?.className
-      if (Array.isArray(classNames)) {
-        for (const cls of classNames) {
-          if (typeof cls === "string" && skipClassSet.has(cls)) return true
-        }
-      } else if (typeof classNames === "string") {
-        for (const cls of classNames.split(/\s+/)) {
-          if (skipClassSet.has(cls)) return true
-        }
-      }
-    }
-    return false
+  const hasSkipClass = (node: Element): boolean => {
+    if (skipClassSet.size === 0) return false
+    const classNames = node.properties?.className
+    const classes = Array.isArray(classNames)
+      ? classNames.filter((c): c is string => typeof c === "string")
+      : typeof classNames === "string" ? classNames.split(/\s+/) : []
+    return classes.some((cls) => skipClassSet.has(cls))
   }
+
+  const shouldSkip = (node: Element): boolean =>
+    skipTagSet.has(node.tagName) || hasSkipClass(node)
 
   // Default idempotency check to false in plugin context — the separator
   // count check already guards against corruption, and the double-pass

@@ -102,6 +102,8 @@ export const REFERENCE_ABBREVIATIONS = [
 // Precomputed regex fragments — sorted longest-first so the regex alternation
 // matches the most specific unit before a shorter prefix (e.g. "mbar" before "m").
 const UNIT_PATTERN = [...UNITS].sort((a, b) => b.length - a.length).join("|")
+// Honorifics and abbreviations don't need longest-first sorting because
+// the mandatory trailing `\.` disambiguates prefix overlaps (e.g. Mr\. vs Mrs\.).
 const HONORIFIC_PATTERN = HONORIFICS.map((h) => `${h}\\.`).join("|")
 const ABBREVIATION_PATTERN = REFERENCE_ABBREVIATIONS.map((a) => `${a}\\.`).join("|")
 const PUNCTUATION_OR_QUOTE = `[.,!?:;)(${LEFT_DOUBLE_QUOTE}${RIGHT_DOUBLE_QUOTE}\u00AB\u00BB${LEFT_SINGLE_QUOTE}${RIGHT_SINGLE_QUOTE}"]`
