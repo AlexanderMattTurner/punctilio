@@ -76,21 +76,6 @@ export interface RehypePunctilioOptions
 const DEFAULT_SKIP_TAGS = ["code", "pre", "script", "style", "kbd", "var", "samp"]
 
 /**
- * Check if an element has a specific CSS class.
- */
-function hasClass(node: Element, className: string): boolean {
-  const classNames = node.properties?.className
-  if (Array.isArray(classNames)) {
-    return classNames.includes(className)
-  }
-  /* istanbul ignore next -- rehype-parse always produces arrays, but handle strings defensively */
-  if (typeof classNames === "string") {
-    return classNames.split(/\s+/).includes(className)
-  }
-  return false
-}
-
-/**
  * Check if any ancestor of a node matches a predicate.
  */
 function hasAncestor(
@@ -461,12 +446,14 @@ function hasTextDescendant(
  * @param node - The root element to search from
  * @param shouldSkip - Function to determine which elements to skip
  * @param depth - Current recursion depth (internal use)
+ * @param alreadyTransformed - Elements already processed; skipped during traversal to avoid redundant work
  * @returns Array of elements that contain transformable text
  */
 export function collectTransformableElements(
   node: Element,
   shouldSkip: ElementPredicate,
-  depth: number = 0
+  depth: number = 0,
+  alreadyTransformed?: ReadonlySet<Element>
 ): Element[] {
   /* istanbul ignore if -- defensive: prevents stack overflow from malicious HTML */
   if (depth > MAX_RECURSION_DEPTH) {
@@ -475,7 +462,7 @@ export function collectTransformableElements(
 
   const results: Element[] = []
 
-  if (shouldSkip(node)) {
+  if (shouldSkip(node) || alreadyTransformed?.has(node)) {
     return []
   }
 
@@ -498,7 +485,7 @@ export function collectTransformableElements(
     // children that should be independent, or has no text to transform.
     for (const child of node.children) {
       if (child.type === "element") {
-        const childResults = collectTransformableElements(child, shouldSkip, depth + 1)
+        const childResults = collectTransformableElements(child, shouldSkip, depth + 1, alreadyTransformed)
         for (const r of childResults) results.push(r)
       }
     }
@@ -565,16 +552,19 @@ export function rehypePunctilio(
   } = options
 
   const skipTagSet = new Set(skipTags)
+  const skipClassSet = new Set(skipClasses)
 
-  const shouldSkip = (node: Element): boolean => {
-    if (skipTagSet.has(node.tagName)) {
-      return true
-    }
-    if (skipClasses.some((cls) => hasClass(node, cls))) {
-      return true
-    }
-    return false
+  const hasSkipClass = (node: Element): boolean => {
+    if (skipClassSet.size === 0) return false
+    const classNames = node.properties?.className
+    const classes = Array.isArray(classNames)
+      ? classNames.filter((c): c is string => typeof c === "string")
+      : typeof classNames === "string" ? classNames.split(/\s+/) : []
+    return classes.some((cls) => skipClassSet.has(cls))
   }
+
+  const shouldSkip = (node: Element): boolean =>
+    skipTagSet.has(node.tagName) || hasSkipClass(node)
 
   // Default idempotency check to false in plugin context — the separator
   // count check already guards against corruption, and the double-pass
@@ -615,7 +605,7 @@ export function rehypePunctilio(
       }
 
       // Collect and transform elements with text content
-      const elementsToTransform = collectTransformableElements(node, shouldSkip)
+      const elementsToTransform = collectTransformableElements(node, shouldSkip, 0, transformed)
       for (const elt of elementsToTransform) {
         if (!transformed.has(elt)) {
           transformElement(elt, transformFn, shouldSkip, separator, false, elementOptions)

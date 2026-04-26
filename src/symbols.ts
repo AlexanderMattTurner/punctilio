@@ -301,7 +301,7 @@ function balancedPrimeReplacer(primeChar: string, escapedSeparator: string) {
   // Matches when the text before a prime candidate ends with ′ followed by
   // any mix of digits and separators (e.g., "5′1" before the "0" in 5′10").
   const feetInchesContext = primeChar === DOUBLE_PRIME
-    ? new RegExp(`${PRIME}(?:${escapedSeparator}|\\d)*$`)
+    ? cachedRegExp(`${PRIME}(?:${escapedSeparator}|\\d)*$`, "")
     : null
 
   let balance = 0

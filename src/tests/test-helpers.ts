@@ -89,8 +89,8 @@ export function assertLinearScaling(
   fn(input8x)
   linearBaseline(input8x)
 
-  const minTrials = 5
-  const minElapsedMs = 50
+  const minTrials = 8
+  const minElapsedMs = 200
   let bestRatio = Infinity
   let totalElapsed = 0
   let trials = 0
