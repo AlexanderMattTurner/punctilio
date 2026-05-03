@@ -75,7 +75,6 @@ export interface RehypePunctilioOptions
 
 const DEFAULT_SKIP_TAGS = ["code", "pre", "script", "style", "kbd", "var", "samp"]
 
-
 /**
  * Flattens text nodes from an element tree into a single array.
  *
