@@ -89,27 +89,31 @@ export function assertLinearScaling(
   fn(input8x)
   linearBaseline(input8x)
 
-  const minTrials = 8
-  const minElapsedMs = 200
+  // Batch calls until at least minBatchMs elapse, so that even sub-ms
+  // functions produce reliable per-call timings.
+  const minBatchMs = 4
+  function timedBatch(f: (s: string) => unknown, input: string): number {
+    let iterations = 0
+    const start = performance.now()
+    let elapsed = 0
+    while (elapsed < minBatchMs) {
+      f(input)
+      iterations++
+      elapsed = performance.now() - start
+    }
+    return elapsed / iterations
+  }
+
+  const minTrials = 12
+  const minElapsedMs = 400
   let bestRatio = Infinity
   let totalElapsed = 0
   let trials = 0
   while (trials < minTrials || totalElapsed < minElapsedMs) {
-    const startFn4 = performance.now()
-    fn(input4x)
-    const fnTime4 = performance.now() - startFn4
-
-    const startBase4 = performance.now()
-    linearBaseline(input4x)
-    const baseTime4 = performance.now() - startBase4
-
-    const startFn8 = performance.now()
-    fn(input8x)
-    const fnTime8 = performance.now() - startFn8
-
-    const startBase8 = performance.now()
-    linearBaseline(input8x)
-    const baseTime8 = performance.now() - startBase8
+    const fnTime4 = timedBatch(fn, input4x)
+    const baseTime4 = timedBatch(linearBaseline, input4x)
+    const fnTime8 = timedBatch(fn, input8x)
+    const baseTime8 = timedBatch(linearBaseline, input8x)
 
     const fnRatio = (fnTime8 / input8x.length) / (fnTime4 / input4x.length)
     const baseRatio = (baseTime8 / input8x.length) / (baseTime4 / input4x.length)
