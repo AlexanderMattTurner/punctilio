@@ -20,10 +20,18 @@ run_check() {
   fi
 }
 
-# Node.js checks (tests intentionally omitted — they run in CI and the stop hook)
+# Node.js checks
 has_script build && run_check "build" "pnpm build"
 has_script lint && run_check "lint" "pnpm lint"
 has_script check && run_check "typecheck" "pnpm check"
+
+# Run tests if stop hook retries were exhausted (safety net)
+PROJ_HASH=$(printf '%s' "$PROJECT_DIR" | sha256sum | cut -c1-16)
+RETRY_DIR="/tmp/claude-stop-$(id -u)"
+if [[ ! -f "${RETRY_DIR}/attempts-${PROJ_HASH}" ]]; then
+  # No active retry counter means either first push or stop hook already passed
+  has_script test && run_check "tests" "pnpm test"
+fi
 
 # Python checks
 if [[ -f pyproject.toml ]] || [[ -f uv.lock ]]; then

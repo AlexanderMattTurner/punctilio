@@ -5,10 +5,11 @@ name: Sync from Template
 # No setup required - works out of the box.
 #
 # Features:
+# - 3-way merges local customizations with template updates automatically
+# - Falls back to template version + Claude resolution when no merge base exists
 # - Detects new files, changed files, and deleted files from the template
-# - Preserves local customizations (reports conflicts instead of overwriting)
 # - Tracks which template version the repo is synced to (.template-version)
-# - Requests @claude review for conflict resolution
+# - Requests @claude to resolve any remaining conflicts and finalize the merge
 #
 # =============================================================================
 # HANDLING CUSTOMIZATIONS DURING SYNC
@@ -39,7 +40,7 @@ env:
   # Only sync core automation files that don't need customization
   SYNC_PATHS: ".claude .hooks .github/scripts .github/workflows/template-sync.yaml .github/workflows/dependabot-auto-merge.yaml .github/workflows/claude.yaml .github/workflows/phone-home.yaml"
   # These are excluded because they require project-specific customization
-  # (comment-on-failed-checks needs workflow names, lint/test need project scripts)
+  # (lint/test need project scripts)
   EXCLUDE_PATHS: ""
 
 permissions:
@@ -51,16 +52,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout child repository
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
+          filter: blob:none
 
       - name: Checkout template repository
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           repository: ${{ env.TEMPLATE_REPO }}
           path: _template
           token: ${{ secrets.TEMPLATE_SYNC_TOKEN || secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+          filter: blob:none
 
       - name: Check token workflow scope
         env:
@@ -112,6 +116,7 @@ jobs:
           : > /tmp/conflict_files.txt
           : > /tmp/conflict_report.md
           : > /tmp/deleted_files.txt
+          : > /tmp/auto_merged_files.txt
 
           #############################################
           # Version tracking
@@ -119,8 +124,8 @@ jobs:
 
           TEMPLATE_SHA=$(git -C _template rev-parse HEAD)
           TEMPLATE_SHA_SHORT=$(echo "$TEMPLATE_SHA" | head -c 7)
-          echo "template_sha=$TEMPLATE_SHA" >> $GITHUB_OUTPUT
-          echo "template_sha_short=$TEMPLATE_SHA_SHORT" >> $GITHUB_OUTPUT
+          echo "template_sha=$TEMPLATE_SHA" >> "$GITHUB_OUTPUT"
+          echo "template_sha_short=$TEMPLATE_SHA_SHORT" >> "$GITHUB_OUTPUT"
 
           PREV_SHA=""
           if [ -f .template-version ]; then
@@ -133,11 +138,17 @@ jobs:
 
           # Generate changelog between versions if we have a previous SHA
           if [ -n "$PREV_SHA" ] && [ "$PREV_SHA" != "$TEMPLATE_SHA" ]; then
-            CHANGELOG=$(git -C _template log --oneline "$PREV_SHA..$TEMPLATE_SHA" 2>/dev/null || echo "Could not generate changelog (previous SHA may no longer exist)")
+            if git -C _template cat-file -e "$PREV_SHA" 2>/dev/null; then
+              CHANGELOG=$(git -C _template log --oneline "$PREV_SHA..$TEMPLATE_SHA")
+            else
+              echo "::warning::Previous template SHA $PREV_SHA not found in template history (likely rewritten by force-push or rebase)"
+              CHANGELOG="Previous SHA \`$PREV_SHA\` no longer exists in template history (force-push/rebase). Showing last 20 commits instead:"$'\n'
+              CHANGELOG+=$(git -C _template log --oneline -20 "$TEMPLATE_SHA")
+            fi
             if [ -n "$CHANGELOG" ]; then
-              echo "changelog<<CHANGELOG_DELIMITER_8a2b1c" >> $GITHUB_OUTPUT
-              echo "$CHANGELOG" >> $GITHUB_OUTPUT
-              echo "CHANGELOG_DELIMITER_8a2b1c" >> $GITHUB_OUTPUT
+              echo "changelog<<CHANGELOG_DELIMITER_8a2b1c" >> "$GITHUB_OUTPUT"
+              echo "$CHANGELOG" >> "$GITHUB_OUTPUT"
+              echo "CHANGELOG_DELIMITER_8a2b1c" >> "$GITHUB_OUTPUT"
             fi
           fi
 
@@ -148,13 +159,14 @@ jobs:
           # File processing
           #############################################
 
-          # Function to process a single file
+          # Process a single file: 3-way merge when possible, else apply template
           process_file() {
             local rel_path="$1"
             local template_file="_template/$rel_path"
 
             # Create parent directory if needed
-            local parent_dir=$(dirname "$rel_path")
+            local parent_dir
+            parent_dir=$(dirname "$rel_path")
             [ "$parent_dir" != "." ] && mkdir -p "$parent_dir"
 
             if [ ! -f "$rel_path" ]; then
@@ -166,45 +178,94 @@ jobs:
 
             # File exists locally - check if it differs from template
             if diff -q "$rel_path" "$template_file" > /dev/null 2>&1; then
-              # Files are identical - no action needed
               return
             fi
 
-            # Files differ - this is a potential conflict
-            # The local version may have customizations we want to preserve
-            echo "CONFLICT: $rel_path (local differs from template)"
+            # Files differ - attempt 3-way merge if we have a previous version
+            if [ -n "$PREV_SHA" ]; then
+              local safe_name
+              safe_name=$(echo "$rel_path" | tr '/' '_')
+              local base_file="/tmp/merge_base_${safe_name}"
+
+              if git -C _template show "${PREV_SHA}:${rel_path}" > "$base_file" 2>/dev/null; then
+                # Check if only the local side changed (template unchanged since last sync)
+                if diff -q "$base_file" "$template_file" > /dev/null 2>&1; then
+                  echo "Unchanged in template: $rel_path (keeping local version)"
+                  rm -f "$base_file"
+                  return
+                fi
+
+                # Check if only the template side changed (local unchanged since last sync)
+                if diff -q "$base_file" "$rel_path" > /dev/null 2>&1; then
+                  cp "$template_file" "$rel_path"
+                  echo "Updated: $rel_path (local was unmodified)"
+                  rm -f "$base_file"
+                  return
+                fi
+
+                # Both sides changed - do a proper 3-way merge
+                local merge_result="/tmp/merge_result_${safe_name}"
+                cp "$rel_path" "$merge_result"
+
+                if git merge-file -L "local" -L "base" -L "template" \
+                    "$merge_result" "$base_file" "$template_file" 2>/dev/null; then
+                  # Clean merge
+                  cp "$merge_result" "$rel_path"
+                  echo "Auto-merged: $rel_path (clean 3-way merge)"
+                  echo "$rel_path" >> /tmp/auto_merged_files.txt
+                  rm -f "$base_file" "$merge_result"
+                  return
+                else
+                  # Conflict markers produced - apply them for Claude to resolve
+                  cp "$merge_result" "$rel_path"
+                  echo "CONFLICT (merge markers): $rel_path"
+                  echo "$rel_path" >> /tmp/conflict_files.txt
+
+                  {
+                    echo "### \`$rel_path\`"
+                    echo ""
+                    echo "3-way merge produced **conflict markers** (\`<<<<<<<\`/\`=======\`/\`>>>>>>>\`)."
+                    echo "Resolve them: keep local customizations, adopt template improvements."
+                    echo ""
+                    echo "<details>"
+                    echo "<summary>View file with conflict markers</summary>"
+                    echo ""
+                    echo "\`\`\`"
+                    head -200 "$rel_path"
+                    echo "\`\`\`"
+                    echo "</details>"
+                    echo ""
+                  } >> /tmp/conflict_report.md
+
+                  rm -f "$base_file" "$merge_result"
+                  return
+                fi
+              fi
+              rm -f "$base_file"
+              # Fall through if base version not found
+            fi
+
+            # No PREV_SHA or base not found - apply template version for Claude to review
+            echo "CONFLICT (no base): $rel_path"
             echo "$rel_path" >> /tmp/conflict_files.txt
 
-            # Generate conflict report showing both versions
             {
               echo "### \`$rel_path\`"
               echo ""
+              echo "No merge base available (first sync or file history unavailable)."
+              echo "Template version has been applied. Restore any important local customizations."
+              echo ""
               echo "<details>"
-              echo "<summary>View conflict details</summary>"
+              echo "<summary>Diff (old local \u2192 new template)</summary>"
               echo ""
-              echo "**Your current version:**"
-              echo "\`\`\`"
-              head -100 "$rel_path"
-              [ "$(wc -l < "$rel_path")" -gt 100 ] && echo "... (truncated)"
-              echo "\`\`\`"
-              echo ""
-              echo "**Template version:**"
-              echo "\`\`\`"
-              head -100 "$template_file"
-              [ "$(wc -l < "$template_file")" -gt 100 ] && echo "... (truncated)"
-              echo "\`\`\`"
-              echo ""
-              echo "**Diff (your version → template):**"
               echo "\`\`\`diff"
-              diff -u "$rel_path" "$template_file" | head -80 || true
+              diff -u "$rel_path" "$template_file" | head -200 || true
               echo "\`\`\`"
               echo "</details>"
               echo ""
             } >> /tmp/conflict_report.md
 
-            # DO NOT overwrite - preserve local version for manual review
-            # The PR will show the template wants changes but won't force them
-            echo "  -> Preserved local version (manual merge required)"
+            cp "$template_file" "$rel_path"
           }
 
           #############################################
@@ -279,38 +340,44 @@ jobs:
           # Set outputs
           #############################################
 
+          # Auto-merged files
+          if [ -s /tmp/auto_merged_files.txt ]; then
+            auto_merged=$(tr '\n' ' ' < /tmp/auto_merged_files.txt)
+            echo "auto_merged_files=$auto_merged" >> "$GITHUB_OUTPUT"
+          fi
+
           # Conflicts
           if [ -s /tmp/conflict_files.txt ]; then
             conflicts=$(tr '\n' ' ' < /tmp/conflict_files.txt)
-            echo "has_conflicts=true" >> $GITHUB_OUTPUT
-            echo "conflict_files=$conflicts" >> $GITHUB_OUTPUT
+            echo "has_conflicts=true" >> "$GITHUB_OUTPUT"
+            echo "conflict_files=$conflicts" >> "$GITHUB_OUTPUT"
 
-            echo "conflict_report<<CONFLICT_REPORT_DELIMITER_7f3d9a" >> $GITHUB_OUTPUT
-            cat /tmp/conflict_report.md >> $GITHUB_OUTPUT
-            echo "CONFLICT_REPORT_DELIMITER_7f3d9a" >> $GITHUB_OUTPUT
+            echo "conflict_report<<CONFLICT_REPORT_DELIMITER_7f3d9a" >> "$GITHUB_OUTPUT"
+            cat /tmp/conflict_report.md >> "$GITHUB_OUTPUT"
+            echo "CONFLICT_REPORT_DELIMITER_7f3d9a" >> "$GITHUB_OUTPUT"
 
             echo "Template updates available for: $conflicts" > .template-sync-conflicts
           else
-            echo "has_conflicts=false" >> $GITHUB_OUTPUT
+            echo "has_conflicts=false" >> "$GITHUB_OUTPUT"
             rm -f .template-sync-conflicts
           fi
 
           # Deletions
           if [ -s /tmp/deleted_files.txt ]; then
             deleted=$(tr '\n' ' ' < /tmp/deleted_files.txt)
-            echo "has_deletions=true" >> $GITHUB_OUTPUT
-            echo "deleted_files=$deleted" >> $GITHUB_OUTPUT
+            echo "has_deletions=true" >> "$GITHUB_OUTPUT"
+            echo "deleted_files=$deleted" >> "$GITHUB_OUTPUT"
           else
-            echo "has_deletions=false" >> $GITHUB_OUTPUT
+            echo "has_deletions=false" >> "$GITHUB_OUTPUT"
           fi
 
           # Changes (new files added or version file updated)
           if git diff --quiet && [ -z "$(git ls-files --others --exclude-standard)" ]; then
-            echo "has_changes=false" >> $GITHUB_OUTPUT
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
           else
-            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
             changed_paths=$({ git diff --name-only; git ls-files --others --exclude-standard; } | tr '\n' ' ')
-            echo "changed_paths=$changed_paths" >> $GITHUB_OUTPUT
+            echo "changed_paths=$changed_paths" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Show diff (dry run)
@@ -325,8 +392,7 @@ jobs:
           git diff
           if [ "$HAS_CONFLICTS" = "true" ]; then
             echo ""
-            echo "=== CONFLICTS DETECTED ==="
-            echo "The following files have local customizations that would be overwritten:"
+            echo "=== CONFLICTS (will need Claude resolution) ==="
             echo "$CONFLICT_FILES"
           fi
           if [ "$HAS_DELETIONS" = "true" ]; then
@@ -338,7 +404,7 @@ jobs:
       - name: Create Pull Request
         if: inputs.dry-run != 'true' && (steps.sync.outputs.has_changes == 'true' || steps.sync.outputs.has_conflicts == 'true' || steps.sync.outputs.has_deletions == 'true')
         id: create-pr
-        uses: peter-evans/create-pull-request@98357b18bf14b5342f975ff684046ec3b2a07725 # v8.0.0
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
         with:
           token: ${{ secrets.TEMPLATE_SYNC_TOKEN || secrets.GITHUB_TOKEN }}
           commit-message: "chore: sync from template repository (${{ steps.sync.outputs.template_sha_short }})"
@@ -356,7 +422,13 @@ jobs:
             {0}
             ```
 
-            ', steps.sync.outputs.changelog) }}${{ steps.sync.outputs.has_deletions == 'true' && format('---
+            ', steps.sync.outputs.changelog) }}${{ steps.sync.outputs.auto_merged_files && format('### Auto-merged files
+
+            The following files were merged automatically (3-way merge, no conflicts):
+
+            `{0}`
+
+            ', steps.sync.outputs.auto_merged_files) || '' }}${{ steps.sync.outputs.has_deletions == 'true' && format('---
 
             ## Files Removed from Template
 
@@ -366,11 +438,9 @@ jobs:
 
             ', steps.sync.outputs.deleted_files) || '' }}${{ steps.sync.outputs.has_conflicts == 'true' && '---
 
-            ## Manual Merge Required
+            ## Conflicts for Claude to Resolve
 
-            The following files differ between your repository and the template. **Your local versions have been preserved** - this PR only adds new files.
-
-            ### Files Requiring Manual Merge
+            The following files need conflict resolution. Claude will resolve these automatically.
 
             ' || '' }}${{ steps.sync.outputs.conflict_report }}
 
@@ -380,31 +450,51 @@ jobs:
           delete-branch: true
           labels: ${{ steps.sync.outputs.has_conflicts == 'true' && 'template-sync,needs-conflict-resolution' || 'template-sync' }}
 
-      - name: Request Claude review for conflicts
+      - name: Request Claude to resolve conflicts
         if: inputs.dry-run != 'true' && (steps.sync.outputs.has_conflicts == 'true' || steps.sync.outputs.has_deletions == 'true') && steps.create-pr.outputs.pull-request-number
         env:
           GH_TOKEN: ${{ secrets.TEMPLATE_SYNC_TOKEN || github.token }}
           HAS_CONFLICTS: ${{ steps.sync.outputs.has_conflicts }}
           HAS_DELETIONS: ${{ steps.sync.outputs.has_deletions }}
+          CONFLICT_FILES: ${{ steps.sync.outputs.conflict_files }}
           DELETED_FILES: ${{ steps.sync.outputs.deleted_files }}
           PR_NUM: ${{ steps.create-pr.outputs.pull-request-number }}
         run: |
-          BODY="@claude This template sync PR needs your help."
+          # Only @-mention Claude if a listener exists in the repo. On the very
+          # first sync that adds claude.yaml, the workflow that responds to
+          # @claude mentions doesn't exist on any branch yet, so the mention is
+          # a no-op and produces a misleading "Claude is on it" signal. Same if
+          # the project deliberately doesn't ship claude.yaml.
+          if [ -f .github/workflows/claude.yaml ]; then
+            MENTION="@claude "
+          else
+            MENTION=""
+            echo "::notice::.github/workflows/claude.yaml is not present in this repo; posting comment without @claude mention. Conflicts must be resolved manually."
+          fi
+          BODY="${MENTION}Resolve this template sync PR so it's ready to merge."
 
           if [ "$HAS_CONFLICTS" = "true" ]; then
             BODY="$BODY
 
-          **Conflicts:** Files differ between the local repo and template. The local versions have been preserved. For each conflicting file:
-          1. Keep blocks marked with customization comments (e.g., 'project-specific', 'Future Claudes: Leave as-is')
-          2. Adopt new template features that don't conflict with local customizations
-          3. When in doubt, preserve local changes"
+          **Resolve conflicts in:** $CONFLICT_FILES
+
+          For each file:
+          1. Open the file on this branch and resolve all \`<<<<<<<\`/\`=======\`/\`>>>>>>>\` conflict markers
+          2. Keep blocks marked with customization comments (e.g., 'project-specific', 'Future Claudes: Leave as-is')
+          3. Adopt new template features that don't conflict with local customizations
+          4. When in doubt, preserve local changes - they exist for a reason
+          5. Remove the \`.template-sync-conflicts\` tracking file once all conflicts are resolved"
           fi
 
           if [ "$HAS_DELETIONS" = "true" ]; then
             BODY="$BODY
 
           **Deleted files:** These files were removed from the template: $DELETED_FILES
-          Check if they are still used locally. If not, remove them in this PR."
+          Check if they are still used locally. If not, delete them in this PR."
           fi
+
+          BODY="$BODY
+
+          Commit your changes and ensure the PR is ready for human review."
 
           gh pr comment "$PR_NUM" --body "$BODY"

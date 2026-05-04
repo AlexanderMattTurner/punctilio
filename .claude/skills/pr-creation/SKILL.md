@@ -56,14 +56,15 @@ Before updating an existing PR (pushing new commits, editing the description, et
 
 ### Step 1: Gather Context
 
-1. The base branch is in the env variable `$CLAUDE_CODE_BASE_REF` 
+1. The base branch is in the env variable `$CLAUDE_CODE_BASE_REF`
 2. Run `git diff <base-branch>...HEAD` to see all changes
 3. Run `git log <base-branch>..HEAD --oneline` to see all commits
 4. Review the changed files to understand the scope
+5. **Check for PR description guidance** — look for `CONTRIBUTING.md`, `.github/PULL_REQUEST_TEMPLATE.md`, or similar files in the repo. If found, read them and adapt the PR description to follow the repository's conventions (see [pr-templates.md](pr-templates.md) for details)
 
 ### Step 2: Self-Critique
 
-**Before creating the PR**, you MUST read [critique-prompt.md](critique-prompt.md) and launch a critique sub-agent using the Task tool:
+**Before creating the PR**, you MUST read the critique prompt at `.claude/skills/pr-creation/critique-prompt.md` and launch a critique sub-agent using the Task tool:
 
 - `subagent_type`: "general-purpose"
 - `description`: "Critique code changes"
@@ -93,16 +94,29 @@ You MUST read [pr-templates.md](pr-templates.md) for the PR template and formatt
    If a PR already exists, update it with `gh pr edit` instead of creating a new one.
 3. Create the PR using `gh pr create` with the template from the resource file. Make sure that you use the target branch
 
-After creating the PR, and after any subsequent fix commits, update the PR description with `gh pr edit --body "..."` to reflect the current state of all changes.
+### Step 6: Update PR Title and Description (after any post-creation changes)
 
-### Step 6: Wait for CI Checks (MANDATORY)
+If you made any commits after creating the PR (from critique, validation, or CI failures), **always** update the PR title and description to reflect the final state of all changes:
+
+1. Re-read the diff (`git diff $CLAUDE_CODE_BASE_REF...HEAD`) and commit log (`git log $CLAUDE_CODE_BASE_REF..HEAD --oneline`) to see the full scope
+2. Rewrite the title and body to accurately describe the **current totality** of changes, not just the original scope:
+   ```bash
+   gh pr edit <pr-number> --title "<type>: <updated description>" --body "$(cat <<'EOF'
+   <updated body using template from pr-templates.md>
+   EOF
+   )"
+   ```
+
+Skip this step if no commits were made after Step 5.
+
+### Step 7: Wait for CI Checks (MANDATORY)
 
 1. Run `gh pr checks <pr-number> --watch` to monitor
 2. If any checks fail, investigate and fix the issues
-3. Push fixes and wait again
+3. Push fixes, update the PR description (Step 6), and wait again
 4. Only proceed once all checks are green
 
-### Step 7: Report Result
+### Step 8: Report Result
 
 Provide the PR URL and confirm all CI checks have passed.
 
@@ -124,8 +138,9 @@ Provide the PR URL and confirm all CI checks have passed.
    ```
    gh pr create --title "fix: handle null session token in login flow" --body "..."
    ```
-8. Watches CI with `gh pr checks 47 --watch` — all green
-9. Reports: "PR #47 created and all CI checks pass: https://github.com/org/repo/pull/47"
+8. Updates PR description to reflect the null-check fix added during critique
+9. Watches CI with `gh pr checks 47 --watch` — all green
+10. Reports: "PR #47 created and all CI checks pass: https://github.com/org/repo/pull/47"
 
 ### Example 2: Multi-Commit Feature
 
@@ -141,9 +156,10 @@ Provide the PR URL and confirm all CI checks have passed.
 6. Re-runs critique (>3 fixes) — clean this time
 7. Runs validation — all pass
 8. Pushes and creates PR with detailed body summarizing the feature
-9. Watches CI — one check fails (lint warning on new file)
-10. Fixes lint issue, pushes, watches again — all green
-11. Reports success with PR URL
+9. Updates PR title and description to reflect all changes including critique fixes
+10. Watches CI — one check fails (lint warning on new file)
+11. Fixes lint issue, pushes, updates PR description again — all green
+12. Reports success with PR URL
 
 ### Example 3: When Input Is Unclear
 

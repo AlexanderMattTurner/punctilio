@@ -29,7 +29,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "f=/tmp/claude-ci-watch.log; sleep 10 && timeout 300 gh pr checks --watch >\"$f\" 2>&1; rc=$?; if [ $rc -eq 0 ]; then echo 'CI passed'; else echo \"CI failed (exit $rc) — see $f\"; tail -20 \"$f\"; fi",
+            "command": "f=/tmp/claude-ci-watch.log; for i in 1 2 3; do sleep 10; pr=$(gh pr list --head \"$(git branch --show-current)\" --json number --jq '.[0].number' 2>/dev/null); [ -n \"$pr\" ] && break; done; if [ -z \"$pr\" ]; then echo 'No PR found, skipping CI watch'; exit 0; fi; timeout 300 gh pr checks \"$pr\" --watch >\"$f\" 2>&1; rc=$?; if [ $rc -eq 0 ]; then echo 'CI passed'; else echo \"CI failed (exit $rc) — see $f\"; tail -20 \"$f\"; fi",
             "timeout": 360
           }
         ]
