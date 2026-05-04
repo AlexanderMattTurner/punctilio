@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## [3.7.3] - 2026-05-04
+
+### Fixed
+- Improve token validation for workflow file pushes (#162)
+
 ## [3.7.2] - 2026-04-26
 
 ### Fixed
