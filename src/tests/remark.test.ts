@@ -171,6 +171,66 @@ describe("remarkPunctilio", () => {
     expect(await processMarkdown(first, { nbsp: false })).toEqual(first)
   })
 
+  describe("nested blockquotes", () => {
+    it.each([
+      ["single level", '> "Hello," she said.', `> ${LDQ}Hello,${RDQ} she said.`],
+      ["double level", '> > "Hello," she said.', `> > ${LDQ}Hello,${RDQ} she said.`],
+      ["blockquote with emphasis", '> *"Hello,"* she said.', `> *${LDQ}Hello,${RDQ}* she said.`],
+      ["multiple paragraphs in blockquote", '> "First."\n>\n> "Second."', `> ${LDQ}First.${RDQ}\n>\n> ${LDQ}Second.${RDQ}`],
+    ])("transforms %s", async (_name, input, expected) => {
+      expect(await processMarkdown(input, { nbsp: false })).toEqual(expected)
+    })
+  })
+
+  describe("combined transforms in single paragraph", () => {
+    it.each([
+      [
+        "quotes + dashes + ellipsis",
+        '"Wait..." -- she said.',
+        `${LDQ}Wait${ELLIPSIS}${RDQ}${EM_DASH}she said.`,
+      ],
+      [
+        "quotes + multiplication + math",
+        '"5x5 != 26"',
+        `${LDQ}5${MULTIPLICATION}5 ${NOT_EQUAL} 26${RDQ}`,
+      ],
+      [
+        "all major transforms",
+        '"It\'s 5x5..." -- (c) 2024',
+        `${LDQ}It${RSQ}s 5${MULTIPLICATION}5${ELLIPSIS}${RDQ}${EM_DASH}${COPYRIGHT} 2024`,
+      ],
+    ])("transforms %s", async (_name, input, expected) => {
+      expect(await processMarkdown(input, { nbsp: false })).toEqual(expected)
+    })
+  })
+
+  describe("empty and whitespace-only content", () => {
+    it.each([
+      ["empty paragraph", "", ""],
+      ["whitespace paragraph", "   ", ""],
+      ["empty heading", "#", "#"],
+    ])("handles %s gracefully", async (_name, input, expected) => {
+      expect(await processMarkdown(input, { nbsp: false })).toEqual(expected)
+    })
+  })
+
+  describe("separator integrity across inline elements", () => {
+    it("preserves cross-element quote pairing with custom separator", async () => {
+      const input = '*"Hello,* world"'
+      const result = await processMarkdown(input, { separator: "", nbsp: false })
+      expect(result).toContain(LDQ)
+      expect(result).toContain(RDQ)
+    })
+
+    it("handles many inline elements without separator corruption", async () => {
+      const input = '*a* **b** *c* **d** *e* **f** *g* "hello"'
+      const result = await processMarkdown(input, { nbsp: false })
+      expect(result).toContain(LDQ)
+      expect(result).toContain(RDQ)
+      expect(result).not.toContain("")
+    })
+  })
+
   describe("stress tests", () => {
     it("handles many paragraphs", async () => {
       const count = 100
