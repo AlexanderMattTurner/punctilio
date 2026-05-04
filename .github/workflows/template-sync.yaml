@@ -66,17 +66,24 @@ jobs:
         env:
           TOKEN: ${{ secrets.TEMPLATE_SYNC_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
-          # GitHub requires 'workflow' scope on PATs to push .github/workflows/ changes.
-          # Check the x-oauth-scopes response header from the GitHub API.
-          SCOPES=$(curl -sS -I -H "Authorization: token $TOKEN" \
-            https://api.github.com/user 2>/dev/null \
-            | grep -i '^x-oauth-scopes:' | sed 's/^[^:]*: //' | tr -d '\r\n' || true)
+          # GitHub requires permission to write .github/workflows/ files:
+          # - Classic PATs: 'workflow' scope (advertised via x-oauth-scopes header)
+          # - Fine-grained PATs: 'Workflows: Read and write' permission (no scope header)
+          # - GITHUB_TOKEN: governed by job-level permissions (no scope header)
+          # Only classic PATs expose scopes, so we only fail-fast for that case.
+          HEADERS=$(curl -sS -I -H "Authorization: token $TOKEN" \
+            https://api.github.com/user 2>/dev/null || true)
+          SCOPES=$(echo "$HEADERS" | grep -i '^x-oauth-scopes:' | sed 's/^[^:]*: //' | tr -d '\r\n' || true)
 
-          if echo "$SCOPES" | tr ',' '\n' | sed 's/^ *//' | grep -qx 'workflow'; then
-            echo "Token has 'workflow' scope."
+          if echo "$HEADERS" | grep -qi '^x-oauth-scopes:'; then
+            if echo "$SCOPES" | tr ',' '\n' | sed 's/^ *//' | grep -qx 'workflow'; then
+              echo "Classic PAT has 'workflow' scope."
+            else
+              echo "::error::TEMPLATE_SYNC_TOKEN is a classic PAT and lacks the 'workflow' scope, which GitHub requires to push changes to .github/workflows/ files. Add the 'workflow' scope to your PAT at https://github.com/settings/tokens and update the TEMPLATE_SYNC_TOKEN repository secret."
+              exit 1
+            fi
           else
-            echo "::error::TEMPLATE_SYNC_TOKEN lacks the 'workflow' scope, which GitHub requires to push changes to .github/workflows/ files. Add the 'workflow' scope to your PAT at https://github.com/settings/tokens and update the TEMPLATE_SYNC_TOKEN repository secret."
-            exit 1
+            echo "Token does not expose OAuth scopes (fine-grained PAT or GITHUB_TOKEN); skipping scope check. Ensure 'Workflows: Read and write' is granted."
           fi
 
       - name: Sync template files with conflict detection
