@@ -407,7 +407,7 @@ describe("fractions", () => {
 })
 
 describe("collapseSpaces", () => {
-  const { NBSP } = UNICODE_SYMBOLS
+  const { NBSP, NNBSP } = UNICODE_SYMBOLS
 
   it.each([
     // Multiple regular spaces → single space
@@ -424,6 +424,13 @@ describe("collapseSpaces", () => {
     [`x${NBSP}  y`, `x${NBSP}y`],
     [`a ${NBSP} b`, `a${NBSP}b`],
     [`x${NBSP} ${NBSP}y`, `x${NBSP}y`],
+    // NNBSP: preserved when no NBSP is present
+    [`a${NNBSP} b`, `a${NNBSP}b`],
+    [`a ${NNBSP}b`, `a${NNBSP}b`],
+    [`a${NNBSP}${NNBSP}b`, `a${NNBSP}b`],
+    // NNBSP + NBSP: NBSP wins (higher priority)
+    [`a${NNBSP}${NBSP}b`, `a${NBSP}b`],
+    [`a${NBSP}${NNBSP}b`, `a${NBSP}b`],
     // Single spaces unchanged
     ["hello world", "hello world"],
     [`foo${NBSP}bar`, `foo${NBSP}bar`],

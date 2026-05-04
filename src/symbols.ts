@@ -452,10 +452,12 @@ export function superscriptOrdinal(text: string, options: SymbolOptions = {}): s
   })
 }
 
-/** Collapse multiple spaces (including tabs) to single space. Prefers nbsp if any nbsp is present. */
+/** Collapse multiple spaces (including tabs) to single space. Preserves the highest-priority space type present in the run: NBSP > NNBSP > regular. */
 export function collapseSpaces(text: string): string {
   return text.replace(cachedRegExp(`[${SPACE_CHARS}]{2,}`, "g"), (match) => {
-    return match.includes(NBSP) ? NBSP : " "
+    if (match.includes(NBSP)) return NBSP
+    if (match.includes(UNICODE_SYMBOLS.NNBSP)) return UNICODE_SYMBOLS.NNBSP
+    return " "
   })
 }
 

@@ -10,7 +10,7 @@
 import type { Root, Element, Text, ElementContent, Parent, RootContent } from "hast"
 import type { Transformer } from "unified"
 
-import { visitParents } from "unist-util-visit-parents"
+import { visitParents, SKIP } from "unist-util-visit-parents"
 
 import { transform, type TransformOptions } from "./index.js"
 import { DEFAULT_SEPARATOR, MAX_RECURSION_DEPTH } from "./constants.js"
@@ -74,21 +74,6 @@ export interface RehypePunctilioOptions
 }
 
 const DEFAULT_SKIP_TAGS = ["code", "pre", "script", "style", "kbd", "var", "samp"]
-
-/**
- * Check if any ancestor of a node matches a predicate.
- */
-function hasAncestor(
-  ancestors: Parent[],
-  predicate: ElementPredicate
-): boolean {
-  return ancestors.some((ancestor) => {
-    if (ancestor.type === "element") {
-      return predicate(ancestor as Element)
-    }
-    return false
-  })
-}
 
 /**
  * Flattens text nodes from an element tree into a single array.
@@ -590,18 +575,14 @@ export function rehypePunctilio(
     // Track transformed elements to avoid double-processing
     const transformed = new Set<Element>()
 
-    visitParents(tree, "element", (node, ancestors) => {
-      // Skip if already transformed
+    visitParents(tree, "element", (node) => {
+      // Skip subtree if already transformed
       if (transformed.has(node)) {
-        return
+        return SKIP
       }
 
-      // Check if this node or any ancestor should be skipped
       if (shouldSkip(node)) {
-        return
-      }
-      if (hasAncestor(ancestors as Parent[], shouldSkip)) {
-        return
+        return SKIP
       }
 
       // Collect and transform elements with text content

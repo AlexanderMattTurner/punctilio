@@ -646,6 +646,24 @@ describe("rehypePunctilio", () => {
         `<article><p>${LDQ}Hello${RDQ}</p><pre>"Code"</pre><p>${LDQ}World${RDQ}</p></article>`
       )
     })
+
+    it("skipClasses with elements that have no className property", async () => {
+      const tree: Root = {
+        type: "root",
+        children: [{
+          type: "element",
+          tagName: "p",
+          properties: {},
+          children: [{ type: "text", value: '"Hello"' }],
+        }],
+      }
+      const processor = unified()
+        .use(rehypePunctilio, { skipClasses: ["no-transform"] })
+        .use(rehypeStringify)
+      await processor.run(tree)
+      const textNode = (tree.children[0] as Element).children[0] as Text
+      expect(textNode.value).toBe(`${LDQ}Hello${RDQ}`)
+    })
   })
 
   describe("stress tests", () => {

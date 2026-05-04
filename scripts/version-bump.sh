@@ -9,6 +9,18 @@ set -e
 
 log() { echo "$@" >&2; }
 
+# Validate required environment variables upfront so failures are obvious,
+# not buried after minutes of commit analysis and API calls.
+missing_vars=()
+[ -z "$ANTHROPIC_API_KEY" ] && missing_vars+=("ANTHROPIC_API_KEY")
+[ -z "$NODE_AUTH_TOKEN" ] && missing_vars+=("NODE_AUTH_TOKEN")
+if [ ${#missing_vars[@]} -gt 0 ]; then
+  log "Error: Missing required environment variable(s): ${missing_vars[*]}"
+  log "ANTHROPIC_API_KEY is needed for Claude API version analysis."
+  log "NODE_AUTH_TOKEN is needed for npm registry authentication (set from secrets.NPM_TOKEN in the workflow)."
+  exit 1
+fi
+
 # Get the latest published version from npm (source of truth)
 PACKAGE_NAME=$(node -p "require('./package.json').name")
 CURRENT_VERSION=$(npm view "$PACKAGE_NAME" version 2>/dev/null || echo "0.0.0")
