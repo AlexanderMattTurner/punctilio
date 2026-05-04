@@ -60,6 +60,7 @@ export function assertSeparatorAbsent(textValues: string[], separator: string): 
 }
 
 export function countSeparators(text: string, separator: string = DEFAULT_SEPARATOR): number {
+  if (separator.length === 0) return 0
   let count = 0
   let index = 0
   while ((index = text.indexOf(separator, index)) !== -1) {

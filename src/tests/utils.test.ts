@@ -27,6 +27,7 @@ describe("countSeparators", () => {
     ["multiple separators", `${DEFAULT_SEPARATOR}a${DEFAULT_SEPARATOR}b${DEFAULT_SEPARATOR}`, DEFAULT_SEPARATOR, 3],
     ["consecutive separators", `${DEFAULT_SEPARATOR}${DEFAULT_SEPARATOR}${DEFAULT_SEPARATOR}`, DEFAULT_SEPARATOR, 3],
     ["custom separator", "a|b|c", "|", 2],
+    ["empty separator returns 0", "hello", "", 0],
   ])("%s: counts correctly", (_desc, input, separator, expected) => {
     expect(countSeparators(input, separator)).toBe(expected)
   })

@@ -133,7 +133,7 @@
   "dependencies": {
     "escape-string-regexp": "5.0.0",
     "quick-lru": "7.3.0",
-    "unist-util-visit-parents": "^6.0.1"
+    "unist-util-visit-parents": "6.0.1"
   },
   "lint-staged": {
     "*.{ts,js,mjs}": "eslint --fix"
