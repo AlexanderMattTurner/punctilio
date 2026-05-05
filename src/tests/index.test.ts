@@ -6,6 +6,7 @@ import { assertLinearScaling, buildMixedContent } from "./test-helpers.js"
 const {
   LEFT_DOUBLE_QUOTE,
   RIGHT_DOUBLE_QUOTE,
+  LEFT_SINGLE_QUOTE,
   RIGHT_SINGLE_QUOTE,
   EM_DASH,
   EN_DASH,
@@ -218,6 +219,7 @@ describe("transform", () => {
         // Minus signs - most competitors fail
         ["-5", `${MINUS}5`],
         ["(-5)", `(${MINUS}5)`],
+        ["'-5'", `${LEFT_SINGLE_QUOTE}${MINUS}5${RIGHT_SINGLE_QUOTE}`],
         // Prime marks - smartypants/typograf fail
         ['5\'10"', `5${PRIME}10${DOUBLE_PRIME}`],
         ['He is 6\'2" tall', `He is 6${PRIME}2${DOUBLE_PRIME} tall`],

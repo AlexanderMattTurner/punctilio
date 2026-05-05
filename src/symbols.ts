@@ -190,24 +190,28 @@ function contextAwareLegalReplace(
   })
 }
 
+const LEGAL_COPYRIGHT_RE = /\(c\)/gi
+const LEGAL_REGISTERED_RE = /\(r\)/gi
+const LEGAL_TRADEMARK_RE = /\(tm\)/gi
+
 /** Convert (c), (r), (tm) to ©, ®, ™. */
 export function legalSymbols(text: string, options: SymbolOptions = {}): string {
   const separator = options.separator ?? DEFAULT_SEPARATOR
   // (c) → © only with positive copyright evidence (year or "copyright" keyword)
   // and not in a path context (e.g., example.com/path(c))
-  text = contextAwareLegalReplace(text, /\(c\)/gi, COPYRIGHT, (before, after) =>
+  text = contextAwareLegalReplace(text, LEGAL_COPYRIGHT_RE, COPYRIGHT, (before, after) =>
     !isPathContext(before) && (/^\s*(?:19|20)\d{2}\b/.test(after) || /\bcopyright\s*$/i.test(before)),
     separator
   )
 
   // (r) → ® unless in enumeration "(q), (r)", legal citation "(r)(1)", or path context
-  text = contextAwareLegalReplace(text, /\(r\)/gi, REGISTERED, (before, after) =>
+  text = contextAwareLegalReplace(text, LEGAL_REGISTERED_RE, REGISTERED, (before, after) =>
     !/\([a-z]\)[,;]\s*$/i.test(before) && !/^\(\d/.test(after) && !isPathContext(before),
     separator
   )
 
   // (tm) → ™ unless in a path context
-  text = contextAwareLegalReplace(text, /\(tm\)/gi, TRADEMARK, (before) =>
+  text = contextAwareLegalReplace(text, LEGAL_TRADEMARK_RE, TRADEMARK, (before) =>
     !isPathContext(before),
     separator
   )
