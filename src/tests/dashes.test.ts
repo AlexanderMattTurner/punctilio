@@ -311,6 +311,10 @@ describe("minusReplace", () => {
     ["The value is -10", `The value is ${MINUS}10`],
     [" -3", ` ${MINUS}3`],
     ['"-5"', `"${MINUS}5"`],
+    ["'-5'", `'${MINUS}5'`],
+    // Curly quotes (pre-transformed text)
+    [`${LEFT_DOUBLE_QUOTE}-5${RIGHT_DOUBLE_QUOTE}`, `${LEFT_DOUBLE_QUOTE}${MINUS}5${RIGHT_DOUBLE_QUOTE}`],
+    [`${LEFT_SINGLE_QUOTE}-5${RIGHT_SINGLE_QUOTE}`, `${LEFT_SINGLE_QUOTE}${MINUS}5${RIGHT_SINGLE_QUOTE}`],
     // Spaced math subtraction (digit before)
     ["5 - 3", `5 ${MINUS} 3`],
     ["10 - 5 = 5", `10 ${MINUS} 5 = 5`],

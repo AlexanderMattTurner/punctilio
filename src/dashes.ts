@@ -35,6 +35,7 @@ const DISALLOWED_PREFIX_CLASS_FRAGMENT = numberRangeDisallowedPrefixes
 export const months = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December",
+  // "May" omitted — it's already 3 letters (the full name IS the abbreviation)
   "Jan", "Feb", "Mar", "Apr", "Jun",
   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
 ].join("|")
@@ -141,7 +142,7 @@ export function minusReplace(text: string, options: DashOptions = {}): string {
   // Match after: start of line, whitespace, (, or quotes (straight or curly)
   // No space allowed between hyphen and digit
   text = text.replace(
-    cachedRegExp(`(?<before>^|[\\s\\("${LEFT_DOUBLE_QUOTE}${RIGHT_DOUBLE_QUOTE}])-(?<num>\\d*\\.?\\d+)`, "gm"),
+    cachedRegExp(`(?<before>^|[\\s\\("'${LEFT_DOUBLE_QUOTE}${RIGHT_DOUBLE_QUOTE}${LEFT_SINGLE_QUOTE}${RIGHT_SINGLE_QUOTE}])-(?<num>\\d*\\.?\\d+)`, "gm"),
     `$<before>${MINUS}$<num>`
   )
 
