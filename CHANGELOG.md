@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## [3.7.4] - 2026-05-10
+
+### Fixed
+- Handle single-quoted negatives, hoist legal regexes, and exclude tests from package.
+- Guard countSeparators and pin dependencies.
+- Optimize rehype visitor and fix NNBSP collapse.
+- Drop NODE_AUTH_TOKEN requirement for OIDC publishing.
+
 ## [3.7.3] - 2026-05-04
 
 ### Fixed
