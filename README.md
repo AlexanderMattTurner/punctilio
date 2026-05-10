@@ -81,8 +81,8 @@ Setting aside the benchmark, `punctilio`’s test suite runs at 100% branch cove
 
 Perhaps the most innovative feature of the library is that it properly handles DOMs! Other typography libraries take one of two approaches, both with drawbacks. 
 
-1.  String-based libraries (like [`smartypants`](https://www.npmjs.com/package/smartypants)) transform plain text but are unaware of HTML structure. If you concatenate text from `<em>Wait</em>...`, transform the text so that it has a proper ellipse: `Wait…`, and then try to convert back—you've lost track of where the `</em>` belongs. 
-2.  AST-based libraries (like [`rehype-retext`](https://github.com/rehypejs/rehype-retext)) process each text node individually, preserving structure but losing cross-node information. A quote that opens inside `<em>"Wait</em>` and closes outside it `..."` spans two text nodes. Processed independently, the library can't tell whether the final `"` is opening or closing, because it never sees both at once. 
+1.  String-based libraries (like [`smartypants`](https://www.npmjs.com/package/smartypants)) transform plain text but are unaware of HTML structure. If you flatten text from `"<em>"Wait</em>"` into `"Wait"`, transform the text so that it has smart quotes (`“Wait”`), and then try to convert back—you've lost track of where the `</em>` belongs. 
+2.  AST-based libraries (like [`rehype-retext`](https://github.com/rehypejs/rehype-retext)) process each text node individually, preserving structure but losing cross-node information. A quote that opens inside `<em>"Wait</em>` and closes outside it `"` spans two text nodes. Processed independently, the library can't tell whether the final `"` is opening or closing, because it never sees both at once. 
 
 `punctilio` introduces _separation boundaries_ to get the best of both worlds:
 
@@ -116,7 +116,28 @@ unified()
 * For Markdown ASTs via `remark`, use `remarkPunctilio` which applies the same separator technique to preserve inline element boundaries, or use `transformMarkdown` for a simpler Markdown-to-Markdown pipeline.
 * For manual DOM walking or custom transforms, use `transformElement` from `punctilio/rehype`.
 
-The rehype plugin accepts additional options. Elements matching any `skipTags` tag name or carrying any `skipClasses` class are left untransformed (values shown are the defaults for `skipTags`):
+## Options
+
+`punctilio` doesn’t enable all transformations by default. Fractions and degrees tend to match too aggressively (perfectly applying the degree transformation requires semantic meaning). Superscript letters and punctuation ligatures have spotty font support. Furthermore, `ligatures = true` can change the meaning of text by collapsing question and exclamation marks.
+
+```typescript
+transform(text, {
+  punctuationStyle: "american" | "british" | "german" | "french" | "none", // default: 'american'
+  dashStyle: "american" | "british" | "none", // default: 'american'
+
+  symbols: true, // ellipsis, math, legal, arrows
+  includeArrows: true, // arrow transforms (-> → →); only applies when symbols is true
+  collapseSpaces: true, // normalize whitespace
+  fractions: false, // 1/2 → ½
+  degrees: false, // 20 C → 20 °C
+  superscript: false, // 1st → 1ˢᵗ
+  ligatures: false, // ??? → ⁇, ?! → ⁈, !? → ⁉, !!! → !
+  nbsp: true, // non-breaking spaces (after honorifics, between numbers and units, etc.)
+  checkIdempotency: true, // verify transform(transform(x)) === transform(x)
+});
+```
+
+The `rehype` plugin accepts additional options. Elements matching any `skipTags` tag name or carrying any `skipClasses` class are left untransformed (values shown are the defaults for `skipTags`):
 
 ```typescript
 rehypePunctilio({
@@ -139,26 +160,8 @@ rehypePunctilio({
 });
 ```
 
-## Options
 
-`punctilio` doesn’t enable all transformations by default. Fractions and degrees tend to match too aggressively (perfectly applying the degree transformation requires semantic meaning). Superscript letters and punctuation ligatures have spotty font support. Furthermore, `ligatures = true` can change the meaning of text by collapsing question and exclamation marks.
-
-```typescript
-transform(text, {
-  punctuationStyle: "american" | "british" | "german" | "french" | "none", // default: 'american'
-  dashStyle: "american" | "british" | "none", // default: 'american'
-
-  symbols: true, // ellipsis, math, legal, arrows
-  includeArrows: true, // arrow transforms (-> → →); only applies when symbols is true
-  collapseSpaces: true, // normalize whitespace
-  fractions: false, // 1/2 → ½
-  degrees: false, // 20 C → 20 °C
-  superscript: false, // 1st → 1ˢᵗ
-  ligatures: false, // ??? → ⁇, ?! → ⁈, !? → ⁉, !!! → !
-  nbsp: true, // non-breaking spaces (after honorifics, between numbers and units, etc.)
-  checkIdempotency: true, // verify transform(transform(x)) === transform(x)
-});
-```
+## Notes 
 
 - Fully general prime mark conversion (e.g. `5'10"` → `5′10″`) requires semantic understanding to distinguish from closing quotes (e.g. `"Term 1"` should produce closing quotes). `punctilio` tracks quote balance to heuristically determine whether a quote after a number is a closing quote or a prime mark. Other libraries like `tipograph` 0.7.4 use simpler patterns that make more mistakes.
 - The `american` style follows the [Chicago Manual of Style](https://www.chicagomanualofstyle.org/):
