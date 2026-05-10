@@ -59,7 +59,7 @@ export interface RehypePunctilioOptions
    * HTML tag names to skip when applying transformations.
    * Content inside these elements won't have formatting improvements applied.
    *
-   * Default: ["code", "pre", "script", "style", "kbd", "var", "samp"]
+   * Default: ["code", "pre", "script", "style", "kbd", "var", "samp", "template", "math", "svg"]
    */
   skipTags?: string[]
 
