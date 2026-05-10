@@ -83,7 +83,7 @@ Perhaps the most innovative feature of the library is that it properly handles D
 
 Other typography libraries take one of two approaches, both with drawbacks. 
 
-1.  String-based libraries (like [`smartypants`](https://www.npmjs.com/package/smartypants)) transform plain text but are unaware of HTML structure. If you concatenate text from `<em>Wait</em>...`, transform it into `Wait…`, and then try to convert back—you've lost track of where the `</em>` belongs. 
+1.  String-based libraries (like [`smartypants`](https://www.npmjs.com/package/smartypants)) transform plain text but are unaware of HTML structure. If you concatenate text from `<em>Wait</em>...`, transform the text so that it has a proper ellipse: `Wait…`, and then try to convert back—you've lost track of where the `</em>` belongs. 
 2.  AST-based libraries (like [`rehype-retext`](https://github.com/rehypejs/rehype-retext)) process each text node individually, preserving structure but losing cross-node information. A quote that opens inside `<em>"Wait</em>` and closes outside it `..."` spans two text nodes. Processed independently, the library can't tell whether the final `"` is opening or closing, because it never sees both at once. 
 
 `punctilio` introduces _separation boundaries_ to get the best of both worlds:
