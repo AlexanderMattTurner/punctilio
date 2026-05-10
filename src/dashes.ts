@@ -32,7 +32,7 @@ const DISALLOWED_PREFIX_CLASS_FRAGMENT = numberRangeDisallowedPrefixes
   .map((c) => (c === "-" ? c : `\\u${c.charCodeAt(0).toString(16).padStart(4, "0")}`))
   .join("")
 
-export const months: readonly string[] = [
+const months: readonly string[] = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December",
   // "May" omitted — it's already 3 letters (the full name IS the abbreviation)

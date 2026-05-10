@@ -60,18 +60,15 @@ const linearBaseline = (s: string): string => s.replace(/[a-z]/gi, "x")
 /**
  * Asserts that a function scales linearly (not quadratically) with input size.
  *
- * Compares ms/char at the two largest of 4 input sizes (4x vs 8x of startingN)
- * after a JIT warmup pass. For a linear algorithm, doubling input keeps ms/char
- * constant (ratio ~1). For a quadratic one, doubling input doubles ms/char (~2).
+ * Uses three input sizes (2x, 4x, 8x of startingN) and fits an OLS regression
+ * of `log(time/char)` vs `log(size)`. For O(n) the slope is ~0 (constant
+ * ms/char). For O(n²) the slope is ~1 (ms/char grows linearly with n).
+ * Three points make the fit robust to a single noisy measurement at any size.
  *
- * Default startingN of 5000 produces inputs from ~5K to ~40K chars, which is
- * past V8's string allocation overhead inflection point where ms/char stabilizes.
- *
- * Each trial measures `fn` and a known-linear baseline back-to-back at both
- * sizes, then divides `fn`'s 8x/4x ratio by the baseline's. Shared platform
- * noise (CPU contention, scheduler jitter) inflates both numerator and
- * denominator and cancels out; only `fn`-specific super-linear growth pushes
- * the normalized ratio past 1. Min across trials picks the cleanest sample.
+ * Each trial interleaves fn and baseline measurements at all sizes in a single
+ * tight loop, so GC pauses and scheduler jitter affect both equally. The fn's
+ * slope is normalized by the baseline's slope, cancelling platform-wide drift.
+ * The median across trials is used (resistant to outliers unlike min/max).
  *
  * @param fn - The function to benchmark
  * @param buildInput - Builds an input string of approximately `n` units
@@ -82,16 +79,16 @@ export function assertLinearScaling(
   buildInput: (n: number) => string,
   startingN: number = 5000
 ): void {
-  const input4x = buildInput(startingN * 4)
-  const input8x = buildInput(startingN * 8)
+  const multipliers = [2, 4, 8]
+  const inputs = multipliers.map((m) => buildInput(startingN * m))
+  const sizes = inputs.map((s) => s.length)
+  const logSizes = sizes.map(Math.log)
 
-  // Warmup both with the largest input so JIT compiles all code paths.
-  fn(input8x)
-  linearBaseline(input8x)
+  // Warmup with the largest input so JIT compiles all code paths.
+  fn(inputs[2])
+  linearBaseline(inputs[2])
 
-  // Batch calls until at least minBatchMs elapse, so that even sub-ms
-  // functions produce reliable per-call timings.
-  const minBatchMs = 4
+  const minBatchMs = 8
   function timedBatch(f: (s: string) => unknown, input: string): number {
     let iterations = 0
     const start = performance.now()
@@ -104,25 +101,51 @@ export function assertLinearScaling(
     return elapsed / iterations
   }
 
-  const minTrials = 12
-  const minElapsedMs = 400
-  let bestRatio = Infinity
-  let totalElapsed = 0
-  let trials = 0
-  while (trials < minTrials || totalElapsed < minElapsedMs) {
-    const fnTime4 = timedBatch(fn, input4x)
-    const baseTime4 = timedBatch(linearBaseline, input4x)
-    const fnTime8 = timedBatch(fn, input8x)
-    const baseTime8 = timedBatch(linearBaseline, input8x)
-
-    const fnRatio = (fnTime8 / input8x.length) / (fnTime4 / input4x.length)
-    const baseRatio = (baseTime8 / input8x.length) / (baseTime4 / input4x.length)
-    const ratio = fnRatio / baseRatio
-    bestRatio = Math.min(bestRatio, ratio)
-    totalElapsed += fnTime4 + fnTime8 + baseTime4 + baseTime8
-    trials++
+  // OLS slope of y vs x (both arrays of the same length).
+  function slope(x: number[], y: number[]): number {
+    const n = x.length
+    let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0
+    for (let i = 0; i < n; i++) {
+      sumX += x[i]
+      sumY += y[i]
+      sumXY += x[i] * y[i]
+      sumXX += x[i] * x[i]
+    }
+    return (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX)
   }
 
-  // After baseline-normalization: linear ≈ 1, quadratic ≈ 2.
-  expect(bestRatio).toBeLessThan(1.5)
+  const minTrials = 10
+  const minElapsedMs = 500
+  const ratios: number[] = []
+  let totalElapsed = 0
+
+  while (ratios.length < minTrials || totalElapsed < minElapsedMs) {
+    const fnTimes: number[] = []
+    const baseTimes: number[] = []
+
+    // Interleave fn and baseline at each size so GC/scheduler noise
+    // hits both measurements in the same thermal/load context.
+    for (let i = 0; i < inputs.length; i++) {
+      const ft = timedBatch(fn, inputs[i])
+      const bt = timedBatch(linearBaseline, inputs[i])
+      fnTimes.push(ft)
+      baseTimes.push(bt)
+      totalElapsed += ft + bt
+    }
+
+    const fnLogRates = fnTimes.map((t, i) => Math.log(t / sizes[i]))
+    const baseLogRates = baseTimes.map((t, i) => Math.log(t / sizes[i]))
+
+    const fnSlope = slope(logSizes, fnLogRates)
+    const baseSlope = slope(logSizes, baseLogRates)
+    ratios.push(fnSlope - baseSlope)
+  }
+
+  // Median is resistant to outliers (unlike min which rewards lucky noise).
+  ratios.sort((a, b) => a - b)
+  const median = ratios[Math.floor(ratios.length / 2)]
+
+  // Linear: slope ≈ 0 (normalized). Quadratic: slope ≈ 1.
+  // Threshold 0.5 sits comfortably between the two.
+  expect(median).toBeLessThan(0.5)
 }
