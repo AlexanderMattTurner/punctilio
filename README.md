@@ -79,9 +79,7 @@ Setting aside the benchmark, `punctilio`’s test suite runs at 100% branch cove
 
 ## Works with HTML DOMs via separation boundaries
 
-Perhaps the most innovative feature of the library is that it properly handles DOMs! For Markdown, use the built-in `remarkPunctilio` or `transformMarkdown` plugins instead of converting to HTML and back.
-
-Other typography libraries take one of two approaches, both with drawbacks. 
+Perhaps the most innovative feature of the library is that it properly handles DOMs! Other typography libraries take one of two approaches, both with drawbacks. 
 
 1.  String-based libraries (like [`smartypants`](https://www.npmjs.com/package/smartypants)) transform plain text but are unaware of HTML structure. If you concatenate text from `<em>Wait</em>...`, transform the text so that it has a proper ellipse: `Wait…`, and then try to convert back—you've lost track of where the `</em>` belongs. 
 2.  AST-based libraries (like [`rehype-retext`](https://github.com/rehypejs/rehype-retext)) process each text node individually, preserving structure but losing cross-node information. A quote that opens inside `<em>"Wait</em>` and closes outside it `..."` spans two text nodes. Processed independently, the library can't tell whether the final `"` is opening or closing, because it never sees both at once. 
@@ -115,9 +113,8 @@ unified()
 //  are both resolved correctly across the element boundary.
 ```
 
-For Markdown ASTs via `remark`, use `remarkPunctilio` which applies the same separator technique to preserve inline element boundaries, or use `transformMarkdown` for a simpler Markdown-to-Markdown pipeline.
-
-For manual DOM walking or custom transforms, use `transformElement` from `punctilio/rehype`.
+* For Markdown ASTs via `remark`, use `remarkPunctilio` which applies the same separator technique to preserve inline element boundaries, or use `transformMarkdown` for a simpler Markdown-to-Markdown pipeline.
+* For manual DOM walking or custom transforms, use `transformElement` from `punctilio/rehype`.
 
 The rehype plugin accepts additional options. Elements matching any `skipTags` tag name or carrying any `skipClasses` class are left untransformed (values shown are the defaults for `skipTags`):
 
