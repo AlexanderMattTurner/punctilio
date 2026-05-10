@@ -33,7 +33,7 @@ const UNICODE_UPPERCASE = "\\p{Lu}"
  * Common units for the number-unit nbsp pattern. Only matches these specific
  * abbreviations after a number to avoid false positives like "chapter 3 above".
  */
-export const UNITS = [
+export const UNITS: readonly string[] = [
   // Length
   "km", "cm", "mm", "mi", "ft", "yd", "nm", "pm", "m",
   // Mass
@@ -72,7 +72,7 @@ export const UNITS = [
   "lm",
 ]
 
-export const HONORIFICS = [
+export const HONORIFICS: readonly string[] = [
   // English
   "Mr", "Mrs", "Ms", "Dr", "Prof", "Rev",
   "St", "Sr", "Jr", "Hon", "Gov", "Sen", "Rep",
@@ -88,7 +88,7 @@ export const HONORIFICS = [
   "Dhr", "Mevr",
 ]
 
-export const REFERENCE_ABBREVIATIONS = [
+export const REFERENCE_ABBREVIATIONS: readonly string[] = [
   // English / Latin
   "Fig", "Figs", "Vol", "No", "Nos",
   "p", "pp", "Ch", "Chap", "Sec",

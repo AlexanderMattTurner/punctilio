@@ -59,6 +59,9 @@ export function assertSeparatorAbsent(textValues: string[], separator: string): 
   }
 }
 
+/**
+ * Counts non-overlapping occurrences of the separator string in the text.
+ */
 export function countSeparators(text: string, separator: string = DEFAULT_SEPARATOR): number {
   if (separator.length === 0) return 0
   let count = 0
