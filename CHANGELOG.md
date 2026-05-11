@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## [3.8.0] - 2026-05-11
+
+### Added
+- Deterministic ReDoS detection via static and runtime introspection for improved regex safety.
+
 ## [3.7.5] - 2026-05-11
 
 ### Changed
