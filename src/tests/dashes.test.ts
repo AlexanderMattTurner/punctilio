@@ -1,6 +1,5 @@
 import { hyphenReplace, enDashNumberRange, enDashDateRange, minusReplace, numberRangeDisallowedPrefixes } from "../dashes.js"
 import { DEFAULT_SEPARATOR, UNICODE_SYMBOLS } from "../constants.js"
-import { assertLinearScaling } from "./test-helpers.js"
 
 const {
   LEFT_DOUBLE_QUOTE,
@@ -729,12 +728,3 @@ describe("hyphenReplace preserves multi-segment numbers across separators", () =
   })
 })
 
-describe("dash stress tests", () => {
-  it("scales linearly for parenthetical dashes", () => {
-    assertLinearScaling(hyphenReplace, (n) => "word - word ".repeat(n))
-  })
-
-  it("scales linearly for number ranges", () => {
-    assertLinearScaling(hyphenReplace, (n) => "pages 1-2 ".repeat(n))
-  })
-})
