@@ -192,25 +192,6 @@ export function wordBoundaryEnd(escapedSeparator: string): string {
 export const SPACE_CHARS = ` \t${UNICODE_SYMBOLS.NBSP}${UNICODE_SYMBOLS.NNBSP}`
 
 /**
- * Boundary on the START side of a match: whitespace, the separator, or
- * start-of-string. The boundary character is *captured* (group 1 of the
- * compiled regex) so the caller can re-emit it in the replacement —
- * e.g. `text.replace(pattern, `$1${result}`)`. Pair with `spaceBoundaryEnd`.
- */
-export function spaceBoundaryStart(escapedSeparator: string): string {
-  return `(^|\\s|${escapedSeparator})`
-}
-
-/**
- * Boundary on the END side of a match: whitespace, the separator, or
- * end-of-string. Pure lookahead — does not consume or capture. Pair with
- * `spaceBoundaryStart`.
- */
-export function spaceBoundaryEnd(escapedSeparator: string): string {
-  return `(?=\\s|${escapedSeparator}|$)`
-}
-
-/**
  * Maximum recursion depth used by the rehype and remark tree walkers.
  * Guards against stack overflow from maliciously or accidentally deep
  * AST nesting. Shared so both plugins behave identically.

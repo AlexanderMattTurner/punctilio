@@ -2,7 +2,7 @@
  * Symbol transformations: ellipses, multiplication, math symbols, arrows.
  */
 
-import { UNICODE_SYMBOLS, DEFAULT_SEPARATOR, LATIN_LETTERS, wordBoundaryEnd, SPACE_CHARS, spaceBoundaryStart, spaceBoundaryEnd, cachedRegExp, getEscapedSeparator } from "./constants.js"
+import { UNICODE_SYMBOLS, DEFAULT_SEPARATOR, LATIN_LETTERS, wordBoundaryEnd, SPACE_CHARS, cachedRegExp, getEscapedSeparator } from "./constants.js"
 
 export interface SymbolOptions {
   /** Boundary marker for HTML element boundaries. Default: "\uE000\uE001" */
@@ -246,13 +246,14 @@ const ARROW_RULES: readonly [ArrowPatternBuilder, string][] = [
 /** Convert -> and <-> to arrows. */
 export function arrows(text: string, options: SymbolOptions = {}): string {
   const chr = getEscapedSeparator(options)
-  const start = spaceBoundaryStart(chr)
-  const end = spaceBoundaryEnd(chr)
+  // Boundary on the left is a capturing group rather than a lookbehind so
+  // the alternation stays out of the assertion (recheck-safe); `$1` re-emits
+  // the captured boundary char in the replacement.
+  const startBoundary = `(^|\\s|${chr})`
+  const endBoundary = `(?=\\s|${chr}|$)`
 
-  // `spaceBoundaryStart` captures the boundary char as group 1; re-emit
-  // it with `$1` so the surrounding text is preserved verbatim.
   for (const [buildArrow, replacement] of ARROW_RULES) {
-    const pattern = cachedRegExp(`${start}${buildArrow(chr)}${end}`, "g")
+    const pattern = cachedRegExp(`${startBoundary}${buildArrow(chr)}${endBoundary}`, "g")
     text = text.replace(pattern, `$1${replacement}`)
   }
 
