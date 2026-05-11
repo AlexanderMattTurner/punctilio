@@ -2,7 +2,7 @@
  * Symbol transformations: ellipses, multiplication, math symbols, arrows.
  */
 
-import { UNICODE_SYMBOLS, DEFAULT_SEPARATOR, LATIN_LETTERS, wordBoundaryEnd, SPACE_CHARS, spaceBoundaryStart, spaceBoundaryEnd, cachedRegExp, getEscapedSeparator } from "./constants.js"
+import { UNICODE_SYMBOLS, DEFAULT_SEPARATOR, LATIN_LETTERS, wordBoundaryEnd, SPACE_CHARS, cachedRegExp, getEscapedSeparator } from "./constants.js"
 
 export interface SymbolOptions {
   /** Boundary marker for HTML element boundaries. Default: "\uE000\uE001" */
@@ -247,12 +247,14 @@ const ARROW_RULES: readonly [ArrowPatternBuilder, string][] = [
 export function arrows(text: string, options: SymbolOptions = {}): string {
   const chr = getEscapedSeparator(options)
 
-  const start = spaceBoundaryStart(chr)
-  const end = spaceBoundaryEnd(chr)
-
+  // Capture the boundary on the left and re-emit it in the replacement.
+  // Keeping the alternation in a capturing group rather than a lookbehind
+  // moves the variable-width branch out of the assertion, which both V8
+  // and recheck handle straightforwardly. The right side stays a
+  // lookahead since nothing on that side needs to be re-emitted.
   for (const [buildArrow, replacement] of ARROW_RULES) {
-    const pattern = cachedRegExp(`${start}${buildArrow(chr)}${end}`, "g")
-    text = text.replace(pattern, replacement)
+    const pattern = cachedRegExp(`(^|\\s|${chr})${buildArrow(chr)}(?=\\s|${chr}|$)`, "g")
+    text = text.replace(pattern, `$1${replacement}`)
   }
 
   return text

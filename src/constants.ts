@@ -192,24 +192,6 @@ export function wordBoundaryEnd(escapedSeparator: string): string {
 export const SPACE_CHARS = ` \t${UNICODE_SYMBOLS.NBSP}${UNICODE_SYMBOLS.NNBSP}`
 
 /**
- * Lookbehind that matches after whitespace, the separator, or start of
- * string. Used for arrow patterns and other constructs that should appear
- * at word boundaries.
- */
-export function spaceBoundaryStart(escapedSeparator: string): string {
-  return `(?:(?<=\\s)|(?<=${escapedSeparator})|(?<=^))`
-}
-
-/**
- * Lookahead that matches before whitespace, the separator, or end of
- * string. Used for arrow patterns and other constructs that should appear
- * at word boundaries.
- */
-export function spaceBoundaryEnd(escapedSeparator: string): string {
-  return `(?:(?=\\s)|(?=${escapedSeparator})|(?=$))`
-}
-
-/**
  * Maximum recursion depth used by the rehype and remark tree walkers.
  * Guards against stack overflow from maliciously or accidentally deep
  * AST nesting. Shared so both plugins behave identically.
