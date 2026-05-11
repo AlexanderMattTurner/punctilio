@@ -71,8 +71,10 @@ it("transforms 100k pathological input under 2s", () => {
 ```
 
 Tradeoff: less precise (would miss a 1.5× → 2× regression) but the
-threshold has so much headroom that CI noise can't trip it. This is what
-most production codebases use — e.g. lodash, marked, micromark.
+threshold has so much headroom that CI noise can't trip it. This is the
+common pattern in production JS codebases — set a budget that's an order
+of magnitude above linear-case runtime and only fail on catastrophic
+regressions.
 
 For property-based coverage, `fast-check` can shrink failing inputs:
 
@@ -114,9 +116,10 @@ If we keep the current scaling test, we can dampen its noise:
    on a contended runner. Lose some precision, gain stability.
 
 3. **Optionally, add `eslint-plugin-redos`** as a stronger second check
-   if the simpler plugin proves too lossy. It's the same `recheck`
-   engine that GitHub's CodeQL uses for its `js/redos` query, so it's
-   well-validated.
+   if the simpler plugin proves too lossy. It wraps the `recheck`
+   engine, which is published academic work (Sugiyama et al.) and is
+   maintained — a higher-confidence analysis than the simpler NFA scan
+   in `eslint-plugin-regexp`.
 
 Together, (1) covers the bug class statically with zero flakiness, and
 (2) covers algorithmic regressions outside the regex layer with enough
