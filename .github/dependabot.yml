@@ -11,6 +11,14 @@ updates:
         update-types:
           - "minor"
           - "patch"
+    ignore:
+      # Jest 30 instruments more branches than 29 (defensive optional chains,
+      # short-circuited ||), breaking the 100% branch coverage threshold.
+      # Revisit once those branches are covered or the threshold is relaxed.
+      - dependency-name: "jest"
+        versions: [">=30"]
+      - dependency-name: "@types/jest"
+        versions: [">=30"]
 
   - package-ecosystem: "github-actions"
     directory: "/"

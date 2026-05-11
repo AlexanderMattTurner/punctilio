@@ -23,8 +23,9 @@ export function formatErrorString(content: string, label: string): string {
 
   // In Node.js, write full content to stderr for debugging
   try {
-    if (typeof globalThis.process?.stderr?.write === "function") {
-      globalThis.process.stderr.write(
+    const proc = (globalThis as { process?: { stderr?: { write?: (s: string) => void } } }).process
+    if (typeof proc?.stderr?.write === "function") {
+      proc.stderr.write(
         `\n[punctilio ${label} full content (${content.length} chars)]:\n${content}\n\n`
       )
     }
