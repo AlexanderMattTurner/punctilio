@@ -57,14 +57,11 @@ describe("regex safety (runtime introspection)", () => {
     const regexes = getCachedRegExps()
     expect(regexes.length).toBeGreaterThan(0)
 
-    // Fixed seed keeps the fuzz pass deterministic across machines. Without
-    // it, CI runners and local boxes occasionally disagree on whether a
-    // pattern is polynomial, which would flake the suite.
     const results = await Promise.all(
       regexes.map(async (re) => ({
         source: re.source,
         flags: re.flags,
-        result: await check(re.source, re.flags, { timeout: 5_000, seed: 0 }),
+        result: await check(re.source, re.flags, { timeout: 5_000 }),
       })),
     )
 

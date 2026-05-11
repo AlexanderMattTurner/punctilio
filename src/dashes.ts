@@ -110,9 +110,9 @@ export function enDashDateRange(text: string, options: DashOptions = {}): string
   const wb = wordBoundaryStart(chr)
   const wbe = wordBoundaryEnd(chr)
 
-  // Atomic-optional year groups via the lookahead-and-backref idiom. The
-  // capture inside the lookahead can't be backtracked, so the optional
-  // year doesn't combine with surrounding optional groups quadratically.
+  // Atomic-optional year groups (lookahead + backref). The capture inside
+  // the lookahead is locked in once matched, so the year group commits
+  // without backtracking.
   const startYear = `(?=(?<startYear>${chr}? \\d{4})?)\\k<startYear>`
   const endYear = `(?=(?<endYear> \\d{4})?)\\k<endYear>`
   return text.replace(
@@ -176,8 +176,8 @@ function convertParentheticalDashes(text: string, sep: string, style: DashStyle)
   // A single plain hyphen directly before a word character (through optional separators) is a
   // suspended/hanging hyphen ("Yes-men and -women"), not a parenthetical dash — skip it.
   // Em/en dashes and multiple hyphens can have zero trailing spaces.
-  // `sepAfter` and `trailing` share one optional unit so a long whitespace
-  // run can't be split ambiguously between two `[ ]*` groups.
+  // `sepAfter` and `trailing` share one optional unit so a whitespace run
+  // can only be assigned to it as a whole, keeping the match unambiguous.
   const spacedDashPattern = cachedRegExp(
     `(?<=[^\\s]|^)(?<sepBefore>${escapedSep}?)[ ]+(?:[${EN_DASH}${EM_DASH}][-${EN_DASH}${EM_DASH}]*|-{2,}|-(?!${escapedSep}*[${LATIN_LETTERS}\\d]))(?!-*>)[ ]*(?:(?<sepAfter>${escapedSep})(?<trailing>[ ]*))?(?=\\S|$)`, "g"
   )
@@ -224,8 +224,8 @@ function convertParentheticalDashes(text: string, sep: string, style: DashStyle)
 function normalizeEmDashSpacing(text: string, sep: string): string {
   const escapedSep = getEscapedSeparator({ separator: sep })
 
-  // Remove all spaces around em-dashes. The `\S|^` / `\S|$` anchors keep
-  // the match non-quadratic on long whitespace runs.
+  // Remove all spaces around em-dashes. The `\S|^` / `\S|$` boundary
+  // anchors restrict the match to dashes adjacent to non-whitespace.
   text = text.replace(
     cachedRegExp(`(?<=\\S|^)(?<before>${escapedSep}?)[ ]*${EM_DASH}[ ]*(?<after>${escapedSep}?)(?=\\S|$)`, "g"),
     `$<before>${EM_DASH}$<after>`
