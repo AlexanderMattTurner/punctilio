@@ -446,11 +446,20 @@ describe("collapseSpaces", () => {
     [`a\t${NBSP}b`, `a${NBSP}b`],
     // Edge cases
     ["", ""],
-    ["  ", " "],
-    [`${NBSP}${NBSP}`, NBSP],
     ["no spaces", "no spaces"],
     // Single tab unchanged
     ["hello\tworld", "hello\tworld"],
+    // Leading-of-line runs preserved (HN-style indented code blocks)
+    ["  ", "  "],
+    [`${NBSP}${NBSP}`, `${NBSP}${NBSP}`],
+    ["    indented", "    indented"],
+    ["\n   second line", "\n   second line"],
+    ["a  b\n   c  d", "a b\n   c d"],
+    ["\n\n  block", "\n\n  block"],
+    // Mid-line runs still collapse even when line also has leading indent
+    ["  foo   bar", "  foo bar"],
+    [`  foo${NBSP}${NBSP}bar`, `  foo${NBSP}bar`],
+    [`\n  a${NBSP}${NBSP}${NBSP}b`, `\n  a${NBSP}b`],
   ])('converts "%s" to "%s"', (input, expected) => {
     expect(collapseSpaces(input)).toBe(expected)
   })
