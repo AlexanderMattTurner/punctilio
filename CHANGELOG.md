@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## [3.7.5] - 2026-05-11
+
 ### Changed
 - `collapseSpaces` now preserves runs of whitespace at the start of a line (after `\n` or start-of-string), so indented blocks like HN-style code survive `transform()`. Mid-line runs still collapse.
 
