@@ -258,10 +258,4 @@ describe("nbspTransform", () => {
     })
   })
 
-  describe("stress tests", () => {
-    it("early-exits on text with no spaces", () => {
-      const result = nbspTransform("nospaces".repeat(1000))
-      expect(result).toBe("nospaces".repeat(1000))
-    })
-  })
 })

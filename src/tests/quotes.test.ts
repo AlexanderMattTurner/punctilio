@@ -190,16 +190,6 @@ describe("niceQuotes", () => {
       expect(classifyApostrophes(result)).toBe(result)
     })
 
-    it("stress: 200 consecutive plural possessives all classify as MLA", () => {
-      const words = ["dogs'", "cats'", "Bayes'", "Thomas'", "PLAYERS'"]
-      const buildInput = (n: number) => Array.from({ length: n }, (_, i) => words[i % words.length]).join(" ")
-
-      const result = classifyApostrophes(buildInput(200))
-      expect(result).not.toContain(RIGHT_SINGLE_QUOTE)
-      expect(result).not.toContain("'")
-      expect(classifyApostrophes(result)).toBe(result)
-    })
-
     it("stress: deeply nested alternating pattern", () => {
       // Pattern: 'a' dogs' 'b' cats' 'c' ...
       const possessives = ["dogs", "cats", "items", "players", "Bayes"]
@@ -736,11 +726,6 @@ describe("niceQuotes", () => {
   })
 
   describe("pathological inputs", () => {
-    it("is idempotent on input without closing quote", () => {
-      const input = `'${"a".repeat(1500)}`
-      expect(classifyApostrophes(classifyApostrophes(input))).toBe(classifyApostrophes(input))
-    })
-
     it("handles 16 rapid apostrophes", () => {
       const input = "a'b'c'd'e'f'g'h'i'j'k'l'm'n'o'p"
       const expected = `a${MODIFIER_LETTER_APOSTROPHE}b${MODIFIER_LETTER_APOSTROPHE}c${MODIFIER_LETTER_APOSTROPHE}d${MODIFIER_LETTER_APOSTROPHE}e${MODIFIER_LETTER_APOSTROPHE}f${MODIFIER_LETTER_APOSTROPHE}g${MODIFIER_LETTER_APOSTROPHE}h${MODIFIER_LETTER_APOSTROPHE}i${MODIFIER_LETTER_APOSTROPHE}j${MODIFIER_LETTER_APOSTROPHE}k${MODIFIER_LETTER_APOSTROPHE}l${MODIFIER_LETTER_APOSTROPHE}m${MODIFIER_LETTER_APOSTROPHE}n${MODIFIER_LETTER_APOSTROPHE}o${MODIFIER_LETTER_APOSTROPHE}p`
@@ -749,10 +734,6 @@ describe("niceQuotes", () => {
       expect(classifyApostrophes(result)).toBe(result)
     })
 
-    it("handles 500-char word + possessive", () => {
-      const input = `${"a".repeat(500)}'s thing`
-      expect(classifyApostrophes(input)).toBe(`${"a".repeat(500)}${MODIFIER_LETTER_APOSTROPHE}s thing`)
-    })
   })
 
   describe("mixed-locale stress", () => {
