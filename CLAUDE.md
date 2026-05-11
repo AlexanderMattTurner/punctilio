@@ -25,6 +25,11 @@
 - Use descriptive variable names; don't shorten for brevity
 - Split complex regex logic into named helper functions (pattern builder + replace callback)
 - Never leave comments that describe code that's no longer there ("the prior form did X", "previously this was Y", "we used to..."). Comments describe the current code; the diff and PR description carry the history. If a comment would lose its meaning once the change is merged and the diff is forgotten, rewrite it.
+- Don't write JSDoc that restates the function body. `@returns Pattern string: <literal>` for a one-line function whose body returns that literal adds nothing — delete it. Same for `@param` tags whose only content is the parameter name reworded.
+
+### Pull request descriptions
+
+- Only include a "Lessons learned" section when the lessons generalize to other repositories using this template. Project-specific takeaways belong in commit messages or inline comments, not in the PR body.
 
 ### Testing
 
