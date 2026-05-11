@@ -155,7 +155,7 @@ describe("rehypePunctilio", () => {
   describe("edge cases", () => {
     it.each([
       ["empty paragraphs", "<p></p>", "<p></p>"],
-      ["whitespace-only", "<p>   </p>", "<p> </p>"],
+      ["whitespace-only", "<p>   </p>", "<p>   </p>"],
       ["special characters", "<p>Café &amp; résumé</p>", "<p>Café &#x26; résumé</p>"],
       ["emoji", '<p>"Hello 👋"</p>', `<p>${LDQ}Hello 👋${RDQ}</p>`],
       ["links", '<p><a href="https://example.com">"Link"</a></p>', `<p><a href="https://example.com">${LDQ}Link${RDQ}</a></p>`],

@@ -456,9 +456,9 @@ export function superscriptOrdinal(text: string, options: SymbolOptions = {}): s
   })
 }
 
-/** Collapse multiple spaces (including tabs) to single space. Preserves the highest-priority space type present in the run: NBSP > NNBSP > regular. */
+/** Collapse multiple spaces (including tabs) to single space. Preserves the highest-priority space type present in the run: NBSP > NNBSP > regular. Leading whitespace at the start of a line (after `\n` or start-of-string) is preserved so indented blocks (e.g. HN-style code) survive. */
 export function collapseSpaces(text: string): string {
-  return text.replace(cachedRegExp(`[${SPACE_CHARS}]{2,}`, "g"), (match) => {
+  return text.replace(cachedRegExp(`(?<=[^\\n${SPACE_CHARS}])[${SPACE_CHARS}]{2,}`, "g"), (match) => {
     if (match.includes(NBSP)) return NBSP
     if (match.includes(UNICODE_SYMBOLS.NNBSP)) return UNICODE_SYMBOLS.NNBSP
     return " "

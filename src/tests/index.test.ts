@@ -315,8 +315,20 @@ describe("transform", () => {
       [" ", " "],
       ["\n", "\n"],
       ["\t", "\t"],
-      ["   ", " "],
+      ["   ", "   "],
     ])('handles empty/whitespace: "%s"', (input, expected) => {
+      expect(transform(input, { nbsp: false })).toBe(expected)
+    })
+  })
+
+  describe("leading-of-line whitespace preservation", () => {
+    it.each([
+      ["  hello world", "  hello world"],
+      ["    const x = 1;", "    const x = 1;"],
+      ["a  b\n   c  d", "a b\n   c d"],
+      ["line1\n\n  line2  word", "line1\n\n  line2 word"],
+      ["\n  code   line", "\n  code line"],
+    ])('preserves leading run on "%s"', (input, expected) => {
       expect(transform(input, { nbsp: false })).toBe(expected)
     })
   })
