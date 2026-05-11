@@ -165,7 +165,16 @@ type ContextPredicate = (before: string, after: string) => boolean
 const LEGAL_SYMBOL_CONTEXT_WINDOW = 25
 
 /** Returns true when the context window ends with a path-like fragment (slash + non-whitespace). */
-const isPathContext = (before: string): boolean => /\/\S+$/.test(before)
+const isPathContext = (before: string): boolean => {
+  let nonWsAfterSlash = 0
+  for (let i = before.length - 1; i >= 0; i--) {
+    const ch = before[i]
+    if (/\s/.test(ch)) return false
+    if (ch === "/" && nonWsAfterSlash > 0) return true
+    nonWsAfterSlash++
+  }
+  return false
+}
 
 /**
  * Context-aware replacement for legal symbols like (c), (r), (tm).

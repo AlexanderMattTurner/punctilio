@@ -9,6 +9,7 @@ export default tseslint.config(
   {
     rules: {
       "regexp/prefer-named-capture-group": "error",
+      "regexp/no-super-linear-move": "error",
     },
   },
   {
