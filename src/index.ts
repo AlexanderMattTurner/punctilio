@@ -72,8 +72,10 @@ export interface TransformOptions {
   /**
    * Whether to collapse multiple consecutive spaces (including non-breaking
    * spaces) into a single space. Keeps the first space in the sequence.
+   * Runs at the start of a line (after `\n` or start-of-string) are preserved
+   * so indented blocks (e.g. HN-style code) survive.
    *
-   * - `true` (default): "hello  world" → "hello world"
+   * - `true` (default): "hello  world" → "hello world"; "  indented" → "  indented"
    * - `false`: Preserve multiple spaces
    *
    * Default: true
