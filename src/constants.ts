@@ -171,8 +171,18 @@ export const REGEX_SPECIAL_CHARS = [".", "*", "+", "?", "^", "$", "[", "]", "\\"
  * const wb = wordBoundaryStart(ESCAPED_DEFAULT_SEPARATOR)
  * // With text "x\uE000ReLU": \b would match before R, but wb won't
  */
+/**
+ * Bounded repetition of the separator inside the boundary lookarounds. An
+ * unbounded `*` makes the variable-width lookbehind effectively quadratic
+ * under recheck's analysis (sep-heavy inputs spawn O(n) lookbehind attempts
+ * per starting position). `{0,3}` covers any realistic stack of adjacent
+ * element-boundary markers — text nodes don't nest deep enough to produce
+ * longer runs in practice.
+ */
+const MAX_BOUNDARY_SEPARATORS = 3
+
 export function wordBoundaryStart(escapedSeparator: string): string {
-  return `(?<!\\w${escapedSeparator}*)\\b`
+  return `(?<!\\w${escapedSeparator}{0,${MAX_BOUNDARY_SEPARATORS}})\\b`
 }
 
 /**
@@ -192,7 +202,7 @@ export function wordBoundaryStart(escapedSeparator: string): string {
  * // With text "1st\uE000ly": \b would match after t, but wbe won't
  */
 export function wordBoundaryEnd(escapedSeparator: string): string {
-  return `\\b(?!${escapedSeparator}*\\w)`
+  return `\\b(?!${escapedSeparator}{0,${MAX_BOUNDARY_SEPARATORS}}\\w)`
 }
 
 /**
@@ -264,6 +274,15 @@ export function cachedRegExp(pattern: string, flags: string): RegExp {
   }
   re.lastIndex = 0
   return re
+}
+
+/**
+ * Returns all currently cached RegExp objects. Exported for test
+ * introspection only (e.g. ReDoS scanning every compiled pattern).
+ * @internal
+ */
+export function getCachedRegExps(): RegExp[] {
+  return Array.from(regexCache.values())
 }
 
 /**

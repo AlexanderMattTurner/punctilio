@@ -99,10 +99,13 @@ export function multiplication(text: string, options: SymbolOptions = {}): strin
     // Consuming the digit-suffix as part of each segment keeps the inner
     // replace from misreading the `x` inside a trailing unit like `px` as
     // another operator.
+    // Sticky flag (`y`) anchors each segment at the previous one's end.
+    // `rest` always starts with a chain segment from the outer match, so
+    // the engine never tries multiple start positions across whitespace.
     const converted = rest.replace(
       cachedRegExp(
         `(?<pre>${chr}?)(?<spaceBefore>\\s*)[xX*](?<spaceAfter>\\s*)(?<post>${chr}?)(?<num>\\d+${digitSuffix})`,
-        "g"
+        "gy"
       ),
       (...innerArgs) => {
         const groups = innerArgs.at(-1) as Record<string, string>
@@ -166,14 +169,10 @@ const LEGAL_SYMBOL_CONTEXT_WINDOW = 25
 
 /** Returns true when the context window ends with a path-like fragment (slash + non-whitespace). */
 const isPathContext = (before: string): boolean => {
-  let nonWsAfterSlash = 0
-  for (let i = before.length - 1; i >= 0; i--) {
-    const ch = before[i]
-    if (/\s/.test(ch)) return false
-    if (ch === "/" && nonWsAfterSlash > 0) return true
-    nonWsAfterSlash++
-  }
-  return false
+  const parts = before.split(/\s+/)
+  const trailing = parts[parts.length - 1]
+  const slashIdx = trailing.indexOf("/")
+  return slashIdx >= 0 && slashIdx < trailing.length - 1
 }
 
 /**

@@ -75,7 +75,7 @@ My [`benchmark.mjs`](https://github.com/alexander-turner/punctilio/blob/main/ben
 
 ## Test suite
 
-Setting aside the benchmark, `punctilio`’s test suite runs at 100% branch coverage with well over a thousand tests, including edge cases derived from competitor libraries ([`smartquotes`](https://github.com/kellym/smartquotes.js), [`retext-smartypants`](https://github.com/retextjs/retext-smartypants), [`typograf`](https://github.com/typograf/typograf)) and the [Standard Ebooks typography manual](https://standardebooks.org/manual/). I also verify that all transformations are stable when applied multiple times. All transforms run in linear time, with scaling tests that guard against quadratic RegEx backtracking.
+Setting aside the benchmark, `punctilio`’s test suite runs at 100% branch coverage with well over a thousand tests, including edge cases derived from competitor libraries ([`smartquotes`](https://github.com/kellym/smartquotes.js), [`retext-smartypants`](https://github.com/retextjs/retext-smartypants), [`typograf`](https://github.com/typograf/typograf)) and the [Standard Ebooks typography manual](https://standardebooks.org/manual/). I also verify that all transformations are stable when applied multiple times. Uses [`recheck`](https://makenowjust-labs.github.io/recheck/) to statically verify the absence of inefficient RegEx patterns.
 
 ## Works with HTML DOMs via separation boundaries
 
