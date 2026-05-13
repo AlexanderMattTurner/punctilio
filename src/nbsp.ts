@@ -8,7 +8,7 @@
  * @module nbsp
  */
 
-import { UNICODE_SYMBOLS, LATIN_LETTERS, SPACE_CHARS, wordBoundaryEnd, getEscapedSeparator, cachedRegExp } from "./constants.js"
+import { UNICODE_SYMBOLS, LATIN_LETTERS, SPACE_CHARS, NBSP_CHARS, wordBoundaryEnd, getEscapedSeparator, cachedRegExp } from "./constants.js"
 import type { SymbolOptions } from "./symbols.js"
 
 const {
@@ -148,17 +148,27 @@ export function nbspBetweenNumberAndUnit(text: string, options: NbspOptions = {}
 const MAX_LAST_WORD_LENGTH = 10
 
 /**
+ * Maximum word length, in characters, considered for the cascade check.
+ * Bounded so the lookbehind in `nbspBeforeLastWord` stays ReDoS-safe.
+ */
+const MAX_MIDDLE_WORD_LENGTH = 15
+
+/**
  * Adds non-breaking space before the last word to prevent widows.
  *
  * Only applies to final words of 1 to {@link MAX_LAST_WORD_LENGTH} characters,
  * at end of string or paragraph break (\n\n). Uses non-multiline mode so $
  * matches only the true end of string.
+ *
+ * Skips when the second-to-last word is already glued backwards via NBSP,
+ * so the phrase doesn't become a 3-word non-breaking atom.
  */
 export function nbspBeforeLastWord(text: string, options: NbspOptions = {}): string {
   const sep = getEscapedSeparator(options)
+  const cascadeBlock = `(?<![${NBSP_CHARS}][${LATIN_LETTERS}]{1,${MAX_MIDDLE_WORD_LENGTH}})`
   // Use alternation instead of character classes for multi-char separator support
   const pattern = cachedRegExp(
-    `(?<=\\w|${sep})${SPACE}(?<lastWord>(?:(?!\\s)(?!${sep}).){1,${MAX_LAST_WORD_LENGTH}})(?<ending>${sep}?(?:\\n\\n|$))`,
+    `${cascadeBlock}(?<=\\w|${sep})${SPACE}(?<lastWord>(?:(?!\\s)(?!${sep}).){1,${MAX_LAST_WORD_LENGTH}})(?<ending>${sep}?(?:\\n\\n|$))`,
     "g"
   )
   return text.replace(pattern, `${NBSP}$<lastWord>$<ending>`)

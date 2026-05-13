@@ -258,4 +258,18 @@ describe("nbspTransform", () => {
     })
   })
 
+  describe("widow-protection cascade", () => {
+    it.each([
+      // Existing NBSP chain wins: widow protection skipped so the phrase
+      // doesn't become a 3-word non-breaking atom.
+      ["an Activation Vector", `an${NBSP}Activation Vector`],
+      ["in the cat", `in${NBSP}the cat`],
+      ["On the run", `On${NBSP}the run`],
+      ["by Adding an Activation Vector", `by${NBSP}Adding an${NBSP}Activation Vector`],
+      ["Prof. Wilson arrived", `Prof.${NBSP}Wilson arrived`],
+      ["Dr. Smith waited", `Dr.${NBSP}Smith waited`],
+    ])('"%s" → "%s"', (input, expected) => {
+      expect(nbspTransform(input)).toBe(expected)
+    })
+  })
 })
