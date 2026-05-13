@@ -260,16 +260,14 @@ describe("nbspTransform", () => {
 
   describe("widow-protection cascade", () => {
     it.each([
-      // Short-word chain wins: widow protection skipped so the noun phrase
-      // doesn't become a 3-word atom.
+      // Existing NBSP chain wins: widow protection skipped so the phrase
+      // doesn't become a 3-word non-breaking atom.
       ["an Activation Vector", `an${NBSP}Activation Vector`],
       ["in the cat", `in${NBSP}the cat`],
       ["On the run", `On${NBSP}the run`],
       ["by Adding an Activation Vector", `by${NBSP}Adding an${NBSP}Activation Vector`],
-      // Honorific/abbreviation chains keep widow protection — the NBSP sits
-      // after punctuation, not after a short word, so no cascade is detected.
-      ["Prof. Wilson arrived", `Prof.${NBSP}Wilson${NBSP}arrived`],
-      ["Dr. Smith waited", `Dr.${NBSP}Smith${NBSP}waited`],
+      ["Prof. Wilson arrived", `Prof.${NBSP}Wilson arrived`],
+      ["Dr. Smith waited", `Dr.${NBSP}Smith waited`],
     ])('"%s" → "%s"', (input, expected) => {
       expect(nbspTransform(input)).toBe(expected)
     })

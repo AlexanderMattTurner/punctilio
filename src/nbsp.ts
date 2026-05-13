@@ -160,15 +160,14 @@ const MAX_MIDDLE_WORD_LENGTH = 15
  * at end of string or paragraph break (\n\n). Uses non-multiline mode so $
  * matches only the true end of string.
  *
- * Skips when the second-to-last word is already glued backwards to a short
- * word (1-2 letters) via NBSP, e.g. "an Activation Vector" — gluing "Vector"
- * would create a 3-word atom. The short-word rule wins; widow protection
- * yields. Honorific/abbreviation chains (e.g. "Prof. Wilson arrived") are
- * unaffected because their NBSP follows punctuation, not letters.
+ * Skips when the second-to-last word is already glued backwards via NBSP
+ * (from short-word, honorific, abbreviation, or similar rules), so phrases
+ * like "an Activation Vector" or "Prof. Wilson arrived" don't become 3-word
+ * non-breaking atoms.
  */
 export function nbspBeforeLastWord(text: string, options: NbspOptions = {}): string {
   const sep = getEscapedSeparator(options)
-  const cascadeBlock = `(?<!\\b[${LATIN_LETTERS}]{1,2}[${NBSP_CHARS}][${LATIN_LETTERS}]{1,${MAX_MIDDLE_WORD_LENGTH}})`
+  const cascadeBlock = `(?<![${NBSP_CHARS}][${LATIN_LETTERS}]{1,${MAX_MIDDLE_WORD_LENGTH}})`
   // Use alternation instead of character classes for multi-char separator support
   const pattern = cachedRegExp(
     `${cascadeBlock}(?<=\\w|${sep})${SPACE}(?<lastWord>(?:(?!\\s)(?!${sep}).){1,${MAX_LAST_WORD_LENGTH}})(?<ending>${sep}?(?:\\n\\n|$))`,

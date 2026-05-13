@@ -149,7 +149,7 @@ describe("transform", () => {
 
     it("collapseSpaces cleans up after nbsp", () => {
       expect(transform("Prof. Wilson arrived", { nbsp: true }))
-        .toBe(`Prof.${NBSP}Wilson${NBSP}arrived`)
+        .toBe(`Prof.${NBSP}Wilson arrived`)
     })
 
     it("is idempotent with nbsp enabled", () => {
