@@ -502,12 +502,17 @@ const PUNCTUATION_LIGATURE_MAP: LigatureRule[] = [
 /** Convert ?? to ⁇, ?! to ⁈, !? to ⁉. Poor font support, disabled by default. */
 export function punctuationLigatures(text: string, options: SymbolOptions = {}): string {
   const chr = getEscapedSeparator(options)
+  const sepPattern = cachedRegExp(chr, "g")
 
   for (const [first, repeated, replacement] of PUNCTUATION_LIGATURE_MAP) {
-    const pattern = cachedRegExp(`${first}(?<sep>${chr})?${repeated}(?:${chr}?${repeated})*`, "g")
-    text = text.replace(pattern, (...args) => {
-      const { sep } = (args.at(-1) as Record<string, string | undefined>)
-      return replacement + (sep ?? "")
+    const pattern = cachedRegExp(`${first}(?:${chr}?${repeated})+`, "g")
+    // Re-emit every separator that fell inside the match. The repeat group
+    // can swallow more than one (e.g. across 3+ split text nodes), and
+    // dropping any of them breaks transformTextNodes's text-node-count
+    // invariant.
+    text = text.replace(pattern, (match) => {
+      const seps = match.match(sepPattern) ?? []
+      return replacement + seps.join("")
     })
   }
 

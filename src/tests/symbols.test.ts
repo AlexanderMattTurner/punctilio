@@ -585,6 +585,17 @@ describe("punctuationLigatures", () => {
     expect(punctuationLigatures(input, { separator: DEFAULT_SEPARATOR })).toBe(expected)
   })
 
+  // Multi-separator: 3+ punctuation chars split across 3+ text nodes produces
+  // a match with multiple separators inside the repeating group. Every one
+  // must be re-emitted so transformTextNodes's text-node-count invariant holds.
+  it.each([
+    [`?${DEFAULT_SEPARATOR}?${DEFAULT_SEPARATOR}?`, `${UNICODE_SYMBOLS.DOUBLE_QUESTION}${DEFAULT_SEPARATOR}${DEFAULT_SEPARATOR}`],
+    [`!${DEFAULT_SEPARATOR}!${DEFAULT_SEPARATOR}!`, `!${DEFAULT_SEPARATOR}${DEFAULT_SEPARATOR}`],
+    [`??${DEFAULT_SEPARATOR}?${DEFAULT_SEPARATOR}?`, `${UNICODE_SYMBOLS.DOUBLE_QUESTION}${DEFAULT_SEPARATOR}${DEFAULT_SEPARATOR}`],
+  ])("preserves every separator in multi-split %s", (input, expected) => {
+    expect(punctuationLigatures(input, { separator: DEFAULT_SEPARATOR })).toBe(expected)
+  })
+
   it("handles multiple ligatures in same text", () => {
     const input = "What?? Really?! No way!? Wow!!"
     const expected = `What${UNICODE_SYMBOLS.DOUBLE_QUESTION} Really${UNICODE_SYMBOLS.QUESTION_EXCLAMATION} No way${UNICODE_SYMBOLS.EXCLAMATION_QUESTION} Wow!`

@@ -85,6 +85,15 @@ describe("rehypePunctilio", () => {
     ])("%s", async (_name, html, expected) => {
       expect(await processHtml(html, { nbsp: false })).toEqual(expected)
     })
+
+    // Regression: 3+ punctuation chars split across 3+ text nodes must
+    // preserve every separator so the ligature pass doesn't crash. Ligatures
+    // are opt-in, so this test enables them explicitly.
+    it("punctuation ligature across 3 text nodes preserves every separator", async () => {
+      const html = "<p>What<em>?</em>?<em>?</em> done</p>"
+      const expected = `<p>What<em>${UNICODE_SYMBOLS.DOUBLE_QUESTION}</em><em></em> done</p>`
+      expect(await processHtml(html, { nbsp: false, ligatures: true })).toEqual(expected)
+    })
   })
 
   describe("skipped elements", () => {
