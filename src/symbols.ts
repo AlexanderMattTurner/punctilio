@@ -153,8 +153,14 @@ export function mathSymbols(text: string, options: SymbolOptions = {}): string {
   const chr = getEscapedSeparator(options)
 
   for (const [left, right, lookahead, replacement] of MATH_SYMBOL_MAP) {
-    const pattern = cachedRegExp(`${left}${chr}?${right}${lookahead}`, "g")
-    text = text.replace(pattern, replacement)
+    // Capture an optional separator between left and right so a cross-boundary
+    // match (e.g., `!<SEP>=`) re-emits the separator alongside the replacement
+    // and preserves the text-node-count invariant in transformTextNodes.
+    const pattern = cachedRegExp(`${left}(?<sep>${chr})?${right}${lookahead}`, "g")
+    text = text.replace(pattern, (...args) => {
+      const { sep } = args.at(-1) as Record<string, string | undefined>
+      return `${replacement}${sep ?? ""}`
+    })
   }
   return text
 }

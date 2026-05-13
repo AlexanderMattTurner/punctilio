@@ -162,14 +162,20 @@ describe("mathSymbols", () => {
     expect(mathSymbols(input)).toBe(expected)
   })
 
+  // Cross-boundary conversion must preserve the captured separator so the
+  // text-node-count invariant in transformTextNodes holds. Convention: the
+  // Unicode symbol replaces the left operator char, the separator is re-emitted
+  // after it (matching the multiplication test's pre/post-sep convention).
   it.each([
-    [`!${DEFAULT_SEPARATOR}=`, UNICODE_SYMBOLS.NOT_EQUAL],
-    [`<${DEFAULT_SEPARATOR}=`, UNICODE_SYMBOLS.LESS_EQUAL],
-    [`>${DEFAULT_SEPARATOR}=`, UNICODE_SYMBOLS.GREATER_EQUAL],
-    [`~${DEFAULT_SEPARATOR}=`, UNICODE_SYMBOLS.APPROXIMATE],
-    [`=${DEFAULT_SEPARATOR}~`, UNICODE_SYMBOLS.APPROXIMATE],
-  ])('converts across separator boundary: "%s"', (input, expected) => {
-    expect(mathSymbols(input)).toBe(expected)
+    [`!${DEFAULT_SEPARATOR}=`, `${UNICODE_SYMBOLS.NOT_EQUAL}${DEFAULT_SEPARATOR}`],
+    [`<${DEFAULT_SEPARATOR}=`, `${UNICODE_SYMBOLS.LESS_EQUAL}${DEFAULT_SEPARATOR}`],
+    [`>${DEFAULT_SEPARATOR}=`, `${UNICODE_SYMBOLS.GREATER_EQUAL}${DEFAULT_SEPARATOR}`],
+    [`~${DEFAULT_SEPARATOR}=`, `${UNICODE_SYMBOLS.APPROXIMATE}${DEFAULT_SEPARATOR}`],
+    [`=${DEFAULT_SEPARATOR}~`, `${UNICODE_SYMBOLS.APPROXIMATE}${DEFAULT_SEPARATOR}`],
+    [`+/${DEFAULT_SEPARATOR}-`, `${UNICODE_SYMBOLS.PLUS_MINUS}${DEFAULT_SEPARATOR}`],
+    [`+${DEFAULT_SEPARATOR}-`, `${UNICODE_SYMBOLS.PLUS_MINUS}${DEFAULT_SEPARATOR}`],
+  ])('converts across separator boundary preserving sep: "%s"', (input, expected) => {
+    expect(mathSymbols(input, { separator: DEFAULT_SEPARATOR })).toBe(expected)
   })
 })
 

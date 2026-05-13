@@ -79,6 +79,9 @@ describe("rehypePunctilio", () => {
       // Regression: a sentence-final period before a skipped element must not be
       // swallowed into an ellipsis sequence that lives in the next text node.
       ["ellipsis after skip element does not eat preceding period", "<p>a. <code>x</code>... b</p>", `<p>a. <code>x</code>${ELLIPSIS} b</p>`],
+      // Regression: a math operator split across an element boundary must
+      // preserve the separator so transformTextNodes doesn't throw.
+      ["math operator split across element boundary", "<p>x <em>!</em>= y</p>", `<p>x <em>${NOT_EQUAL}</em> y</p>`],
     ])("%s", async (_name, html, expected) => {
       expect(await processHtml(html, { nbsp: false })).toEqual(expected)
     })
