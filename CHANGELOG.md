@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## [3.8.3] - 2026-05-13
+
+### Fixed
+
+- Prevent widow-protection cascade in short-word chains.
+
 ## [3.8.2] - 2026-05-13
 
 ### Fixed
