@@ -42,6 +42,23 @@ describe("ellipsis", () => {
     const result = ellipsis(input, { separator: DEFAULT_SEPARATOR })
     expect(result).toBe(expected)
   })
+
+  it.each([
+    // Period at end of one text node + two dots at start of next is NOT an
+    // ellipsis — leave it alone.
+    ["sentence-final period stays put with two trailing dots", `a. ${DEFAULT_SEPARATOR}.. b`, `a. ${DEFAULT_SEPARATOR}.. b`],
+    // Period + space + separator + three dots: only the three contiguous
+    // dots after the separator form the ellipsis.
+    ["three dots after separator collapse without eating period", `a. ${DEFAULT_SEPARATOR}... b`, `a. ${DEFAULT_SEPARATOR}${UNICODE_SYMBOLS.ELLIPSIS} b`],
+    // Regression: same-text-node ellipsis still collapses.
+    ["same-text-node ellipsis", "a... b", `a${UNICODE_SYMBOLS.ELLIPSIS} b`],
+    // Regression: cross-boundary contiguous dots still collapse.
+    ["cross-boundary contiguous", `a.${DEFAULT_SEPARATOR}.${DEFAULT_SEPARATOR}. b`, `a${UNICODE_SYMBOLS.ELLIPSIS}${DEFAULT_SEPARATOR}${DEFAULT_SEPARATOR} b`],
+    // Regression: spaced dots still collapse.
+    ["spaced dots", "a. . . b", `a${UNICODE_SYMBOLS.ELLIPSIS} b`],
+  ])("does not merge across separator boundaries: %s", (_desc, input, expected) => {
+    expect(ellipsis(input, { separator: DEFAULT_SEPARATOR })).toBe(expected)
+  })
 })
 
 describe("multiplication", () => {
@@ -145,14 +162,20 @@ describe("mathSymbols", () => {
     expect(mathSymbols(input)).toBe(expected)
   })
 
+  // Cross-boundary conversion must preserve the captured separator so the
+  // text-node-count invariant in transformTextNodes holds. Convention: the
+  // Unicode symbol replaces the left operator char, the separator is re-emitted
+  // after it (matching the multiplication test's pre/post-sep convention).
   it.each([
-    [`!${DEFAULT_SEPARATOR}=`, UNICODE_SYMBOLS.NOT_EQUAL],
-    [`<${DEFAULT_SEPARATOR}=`, UNICODE_SYMBOLS.LESS_EQUAL],
-    [`>${DEFAULT_SEPARATOR}=`, UNICODE_SYMBOLS.GREATER_EQUAL],
-    [`~${DEFAULT_SEPARATOR}=`, UNICODE_SYMBOLS.APPROXIMATE],
-    [`=${DEFAULT_SEPARATOR}~`, UNICODE_SYMBOLS.APPROXIMATE],
-  ])('converts across separator boundary: "%s"', (input, expected) => {
-    expect(mathSymbols(input)).toBe(expected)
+    [`!${DEFAULT_SEPARATOR}=`, `${UNICODE_SYMBOLS.NOT_EQUAL}${DEFAULT_SEPARATOR}`],
+    [`<${DEFAULT_SEPARATOR}=`, `${UNICODE_SYMBOLS.LESS_EQUAL}${DEFAULT_SEPARATOR}`],
+    [`>${DEFAULT_SEPARATOR}=`, `${UNICODE_SYMBOLS.GREATER_EQUAL}${DEFAULT_SEPARATOR}`],
+    [`~${DEFAULT_SEPARATOR}=`, `${UNICODE_SYMBOLS.APPROXIMATE}${DEFAULT_SEPARATOR}`],
+    [`=${DEFAULT_SEPARATOR}~`, `${UNICODE_SYMBOLS.APPROXIMATE}${DEFAULT_SEPARATOR}`],
+    [`+/${DEFAULT_SEPARATOR}-`, `${UNICODE_SYMBOLS.PLUS_MINUS}${DEFAULT_SEPARATOR}`],
+    [`+${DEFAULT_SEPARATOR}-`, `${UNICODE_SYMBOLS.PLUS_MINUS}${DEFAULT_SEPARATOR}`],
+  ])('converts across separator boundary preserving sep: "%s"', (input, expected) => {
+    expect(mathSymbols(input, { separator: DEFAULT_SEPARATOR })).toBe(expected)
   })
 })
 
@@ -559,6 +582,17 @@ describe("punctuationLigatures", () => {
     ["!!", `!${DEFAULT_SEPARATOR}`],
   ])("preserves separator in %s", (marks, expected) => {
     const input = marks[0] + DEFAULT_SEPARATOR + marks[1]
+    expect(punctuationLigatures(input, { separator: DEFAULT_SEPARATOR })).toBe(expected)
+  })
+
+  // Multi-separator: 3+ punctuation chars split across 3+ text nodes produces
+  // a match with multiple separators inside the repeating group. Every one
+  // must be re-emitted so transformTextNodes's text-node-count invariant holds.
+  it.each([
+    [`?${DEFAULT_SEPARATOR}?${DEFAULT_SEPARATOR}?`, `${UNICODE_SYMBOLS.DOUBLE_QUESTION}${DEFAULT_SEPARATOR}${DEFAULT_SEPARATOR}`],
+    [`!${DEFAULT_SEPARATOR}!${DEFAULT_SEPARATOR}!`, `!${DEFAULT_SEPARATOR}${DEFAULT_SEPARATOR}`],
+    [`??${DEFAULT_SEPARATOR}?${DEFAULT_SEPARATOR}?`, `${UNICODE_SYMBOLS.DOUBLE_QUESTION}${DEFAULT_SEPARATOR}${DEFAULT_SEPARATOR}`],
+  ])("preserves every separator in multi-split %s", (input, expected) => {
     expect(punctuationLigatures(input, { separator: DEFAULT_SEPARATOR })).toBe(expected)
   })
 

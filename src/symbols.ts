@@ -43,8 +43,11 @@ export function ellipsis(text: string, options: SymbolOptions = {}): string {
   const chr = getEscapedSeparator(options)
 
   // Convert consecutive or spaced dots: ... or . . . → …
-  // Captures preserve any separators between dots
-  const pattern = cachedRegExp(`\\.[${SPACE_CHARS}]?(?<sep1>${chr})?\\.(?:[${SPACE_CHARS}]?)(?<sep2>${chr})?\\.`, "g")
+  // Each gap allows EITHER a space (same-text-node spaced dots) OR a separator
+  // (cross-boundary contiguous dots), but never both — a space adjacent to a
+  // separator means the dots straddle a text-node boundary and shouldn't fold
+  // into one ellipsis.
+  const pattern = cachedRegExp(`\\.(?:[${SPACE_CHARS}]|(?<sep1>${chr}))?\\.(?:[${SPACE_CHARS}]?|(?<sep2>${chr})?)\\.`, "g")
   text = text.replace(pattern, (...args) => {
     const { sep1, sep2 } = args.at(-1) as Record<string, string | undefined>
     return ELLIPSIS + (sep1 ?? "") + (sep2 ?? "")
@@ -150,8 +153,14 @@ export function mathSymbols(text: string, options: SymbolOptions = {}): string {
   const chr = getEscapedSeparator(options)
 
   for (const [left, right, lookahead, replacement] of MATH_SYMBOL_MAP) {
-    const pattern = cachedRegExp(`${left}${chr}?${right}${lookahead}`, "g")
-    text = text.replace(pattern, replacement)
+    // Capture an optional separator between left and right so a cross-boundary
+    // match (e.g., `!<SEP>=`) re-emits the separator alongside the replacement
+    // and preserves the text-node-count invariant in transformTextNodes.
+    const pattern = cachedRegExp(`${left}(?<sep>${chr})?${right}${lookahead}`, "g")
+    text = text.replace(pattern, (...args) => {
+      const { sep } = args.at(-1) as Record<string, string | undefined>
+      return `${replacement}${sep ?? ""}`
+    })
   }
   return text
 }
@@ -493,12 +502,17 @@ const PUNCTUATION_LIGATURE_MAP: LigatureRule[] = [
 /** Convert ?? to ⁇, ?! to ⁈, !? to ⁉. Poor font support, disabled by default. */
 export function punctuationLigatures(text: string, options: SymbolOptions = {}): string {
   const chr = getEscapedSeparator(options)
+  const sepPattern = cachedRegExp(chr, "g")
 
   for (const [first, repeated, replacement] of PUNCTUATION_LIGATURE_MAP) {
-    const pattern = cachedRegExp(`${first}(?<sep>${chr})?${repeated}(?:${chr}?${repeated})*`, "g")
-    text = text.replace(pattern, (...args) => {
-      const { sep } = (args.at(-1) as Record<string, string | undefined>)
-      return replacement + (sep ?? "")
+    const pattern = cachedRegExp(`${first}(?:${chr}?${repeated})+`, "g")
+    // Re-emit every separator that fell inside the match. The repeat group
+    // can swallow more than one (e.g. across 3+ split text nodes), and
+    // dropping any of them breaks transformTextNodes's text-node-count
+    // invariant.
+    text = text.replace(pattern, (match) => {
+      const seps = match.match(sepPattern) ?? []
+      return replacement + seps.join("")
     })
   }
 
