@@ -42,6 +42,23 @@ describe("ellipsis", () => {
     const result = ellipsis(input, { separator: DEFAULT_SEPARATOR })
     expect(result).toBe(expected)
   })
+
+  it.each([
+    // Period at end of one text node + two dots at start of next is NOT an
+    // ellipsis — leave it alone.
+    ["sentence-final period stays put with two trailing dots", `a. ${DEFAULT_SEPARATOR}.. b`, `a. ${DEFAULT_SEPARATOR}.. b`],
+    // Period + space + separator + three dots: only the three contiguous
+    // dots after the separator form the ellipsis.
+    ["three dots after separator collapse without eating period", `a. ${DEFAULT_SEPARATOR}... b`, `a. ${DEFAULT_SEPARATOR}${UNICODE_SYMBOLS.ELLIPSIS} b`],
+    // Regression: same-text-node ellipsis still collapses.
+    ["same-text-node ellipsis", "a... b", `a${UNICODE_SYMBOLS.ELLIPSIS} b`],
+    // Regression: cross-boundary contiguous dots still collapse.
+    ["cross-boundary contiguous", `a.${DEFAULT_SEPARATOR}.${DEFAULT_SEPARATOR}. b`, `a${UNICODE_SYMBOLS.ELLIPSIS}${DEFAULT_SEPARATOR}${DEFAULT_SEPARATOR} b`],
+    // Regression: spaced dots still collapse.
+    ["spaced dots", "a. . . b", `a${UNICODE_SYMBOLS.ELLIPSIS} b`],
+  ])("does not merge across separator boundaries: %s", (_desc, input, expected) => {
+    expect(ellipsis(input, { separator: DEFAULT_SEPARATOR })).toBe(expected)
+  })
 })
 
 describe("multiplication", () => {

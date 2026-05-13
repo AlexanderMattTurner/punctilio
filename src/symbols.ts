@@ -43,8 +43,11 @@ export function ellipsis(text: string, options: SymbolOptions = {}): string {
   const chr = getEscapedSeparator(options)
 
   // Convert consecutive or spaced dots: ... or . . . → …
-  // Captures preserve any separators between dots
-  const pattern = cachedRegExp(`\\.[${SPACE_CHARS}]?(?<sep1>${chr})?\\.(?:[${SPACE_CHARS}]?)(?<sep2>${chr})?\\.`, "g")
+  // Each gap allows EITHER a space (same-text-node spaced dots) OR a separator
+  // (cross-boundary contiguous dots), but never both — a space adjacent to a
+  // separator means the dots straddle a text-node boundary and shouldn't fold
+  // into one ellipsis.
+  const pattern = cachedRegExp(`\\.(?:[${SPACE_CHARS}]|(?<sep1>${chr}))?\\.(?:[${SPACE_CHARS}]?|(?<sep2>${chr})?)\\.`, "g")
   text = text.replace(pattern, (...args) => {
     const { sep1, sep2 } = args.at(-1) as Record<string, string | undefined>
     return ELLIPSIS + (sep1 ?? "") + (sep2 ?? "")

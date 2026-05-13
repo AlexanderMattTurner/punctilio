@@ -76,6 +76,9 @@ describe("rehypePunctilio", () => {
       // Regression: trailing space after a skipped element must survive em-dash conversion.
       // The space is the next text node's leading boundary, not whitespace around the dash.
       ["em-dash preserves space after skip element", "<p>a - <code>x</code> b</p>", `<p>a${EM_DASH}<code>x</code> b</p>`],
+      // Regression: a sentence-final period before a skipped element must not be
+      // swallowed into an ellipsis sequence that lives in the next text node.
+      ["ellipsis after skip element does not eat preceding period", "<p>a. <code>x</code>... b</p>", `<p>a. <code>x</code>${ELLIPSIS} b</p>`],
     ])("%s", async (_name, html, expected) => {
       expect(await processHtml(html, { nbsp: false })).toEqual(expected)
     })
