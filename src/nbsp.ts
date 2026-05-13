@@ -147,18 +147,34 @@ export function nbspBetweenNumberAndUnit(text: string, options: NbspOptions = {}
  */
 const MAX_LAST_WORD_LENGTH = 10
 
+/** Non-breaking space characters that signal an existing NBSP chain. */
+const NBSP_CHARS = `${NBSP}${UNICODE_SYMBOLS.NNBSP}`
+
+/**
+ * Maximum word length, in characters, considered for the cascade check.
+ * Bounded so the lookbehind in `nbspBeforeLastWord` stays ReDoS-safe.
+ */
+const MAX_MIDDLE_WORD_LENGTH = 15
+
 /**
  * Adds non-breaking space before the last word to prevent widows.
  *
  * Only applies to final words of 1 to {@link MAX_LAST_WORD_LENGTH} characters,
  * at end of string or paragraph break (\n\n). Uses non-multiline mode so $
  * matches only the true end of string.
+ *
+ * Skips when the second-to-last word is already glued backwards to a short
+ * word (1-2 letters) via NBSP, e.g. "an Activation Vector" — gluing "Vector"
+ * would create a 3-word atom. The short-word rule wins; widow protection
+ * yields. Honorific/abbreviation chains (e.g. "Prof. Wilson arrived") are
+ * unaffected because their NBSP follows punctuation, not letters.
  */
 export function nbspBeforeLastWord(text: string, options: NbspOptions = {}): string {
   const sep = getEscapedSeparator(options)
+  const cascadeBlock = `(?<!\\b[${LATIN_LETTERS}]{1,2}[${NBSP_CHARS}][${LATIN_LETTERS}]{1,${MAX_MIDDLE_WORD_LENGTH}})`
   // Use alternation instead of character classes for multi-char separator support
   const pattern = cachedRegExp(
-    `(?<=\\w|${sep})${SPACE}(?<lastWord>(?:(?!\\s)(?!${sep}).){1,${MAX_LAST_WORD_LENGTH}})(?<ending>${sep}?(?:\\n\\n|$))`,
+    `${cascadeBlock}(?<=\\w|${sep})${SPACE}(?<lastWord>(?:(?!\\s)(?!${sep}).){1,${MAX_LAST_WORD_LENGTH}})(?<ending>${sep}?(?:\\n\\n|$))`,
     "g"
   )
   return text.replace(pattern, `${NBSP}$<lastWord>$<ending>`)
