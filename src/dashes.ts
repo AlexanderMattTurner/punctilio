@@ -185,9 +185,10 @@ function convertParentheticalDashes(text: string, sep: string, style: DashStyle)
     // sepAfter and trailing are undefined when the optional group didn't match.
     sepAfter = sepAfter ?? ""
     trailing = trailing ?? ""
-    // For British style (spaced en-dash), preserve trailing spaces after separator.
-    // For American style (unspaced em-dash), consume trailing spaces (em-dash replaces surrounding space).
-    const keepTrailing = maybeSpace && sepAfter ? trailing : ""
+    // Trailing space after a separator belongs to the next text node — keep it
+    // regardless of style. Without a separator, the trailing space is part of
+    // the current node's whitespace around the dash and gets consumed.
+    const keepTrailing = sepAfter ? trailing : ""
     return `${sepBefore}${maybeSpace}${localizedDash}${maybeSpace}${sepAfter}${keepTrailing}`
   })
   // Convert dashes at text node boundaries: separator alone precedes dash (e.g., "word{sep}– rest")

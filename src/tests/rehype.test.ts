@@ -73,6 +73,9 @@ describe("rehypePunctilio", () => {
       ["model name preserved", "<p><em>GPT</em>-3</p>", "<p><em>GPT</em>-3</p>"],
       ["simple range still converts", "<p>pages <em>1</em>-5</p>", `<p>pages <em>1</em>${EN_DASH}5</p>`],
       ["genuine negative at element start", "<p><em>-5</em> degrees</p>", `<p><em>${UNICODE_SYMBOLS.MINUS}5</em> degrees</p>`],
+      // Regression: trailing space after a skipped element must survive em-dash conversion.
+      // The space is the next text node's leading boundary, not whitespace around the dash.
+      ["em-dash preserves space after skip element", "<p>a - <code>x</code> b</p>", `<p>a${EM_DASH}<code>x</code> b</p>`],
     ])("%s", async (_name, html, expected) => {
       expect(await processHtml(html, { nbsp: false })).toEqual(expected)
     })
