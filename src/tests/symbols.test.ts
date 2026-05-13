@@ -177,6 +177,16 @@ describe("mathSymbols", () => {
   ])('converts across separator boundary preserving sep: "%s"', (input, expected) => {
     expect(mathSymbols(input, { separator: DEFAULT_SEPARATOR })).toBe(expected)
   })
+
+  // Lookahead sees through the separator so `!==`/`<==`/`>==` split across a
+  // text-node boundary aren't misread as `!=`/`<=`/`>=`.
+  it.each([
+    [`x !${DEFAULT_SEPARATOR}== y`, `x !${DEFAULT_SEPARATOR}== y`],
+    [`x <${DEFAULT_SEPARATOR}== y`, `x <${DEFAULT_SEPARATOR}== y`],
+    [`x >${DEFAULT_SEPARATOR}== y`, `x >${DEFAULT_SEPARATOR}== y`],
+  ])('preserves multi-char operator split across separator: "%s"', (input, expected) => {
+    expect(mathSymbols(input, { separator: DEFAULT_SEPARATOR })).toBe(expected)
+  })
 })
 
 describe("legalSymbols", () => {
@@ -254,6 +264,17 @@ describe("arrows", () => {
     ["array[0]->value", "array[0]->value"],
   ])('converts "%s" to "%s"', (input, expected) => {
     expect(arrows(input)).toBe(expected)
+  })
+
+  // Arrow shapes split across element boundaries: separators between shape
+  // characters are allowed and re-emitted after the Unicode arrow.
+  it.each([
+    [`foo <-${DEFAULT_SEPARATOR}-${DEFAULT_SEPARATOR}> bar`, `foo ${UNICODE_SYMBOLS.ARROW_LEFT_RIGHT}${DEFAULT_SEPARATOR}${DEFAULT_SEPARATOR} bar`],
+    [`foo <${DEFAULT_SEPARATOR}-${DEFAULT_SEPARATOR}> bar`, `foo ${UNICODE_SYMBOLS.ARROW_LEFT_RIGHT}${DEFAULT_SEPARATOR}${DEFAULT_SEPARATOR} bar`],
+    [`foo -${DEFAULT_SEPARATOR}> bar`, `foo ${UNICODE_SYMBOLS.ARROW_RIGHT}${DEFAULT_SEPARATOR} bar`],
+    [`foo <${DEFAULT_SEPARATOR}- bar`, `foo ${UNICODE_SYMBOLS.ARROW_LEFT}${DEFAULT_SEPARATOR} bar`],
+  ])('converts across separator boundary: "%s"', (input, expected) => {
+    expect(arrows(input, { separator: DEFAULT_SEPARATOR })).toBe(expected)
   })
 })
 

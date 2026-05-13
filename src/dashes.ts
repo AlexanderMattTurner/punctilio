@@ -179,7 +179,7 @@ function convertParentheticalDashes(text: string, sep: string, style: DashStyle)
   // `sepAfter` and `trailing` share one optional unit so a whitespace run
   // can only be assigned to it as a whole, keeping the match unambiguous.
   const spacedDashPattern = cachedRegExp(
-    `(?<=[^\\s]|^)(?<sepBefore>${escapedSep}?)[ ]+(?:[${EN_DASH}${EM_DASH}][-${EN_DASH}${EM_DASH}]*|-{2,}|-(?!${escapedSep}*[${LATIN_LETTERS}\\d]))(?!-*>)[ ]*(?:(?<sepAfter>${escapedSep})(?<trailing>[ ]*))?(?=\\S|$)`, "g"
+    `(?<=[^\\s]|^)(?<sepBefore>${escapedSep}?)[ ]+(?:[${EN_DASH}${EM_DASH}][-${EN_DASH}${EM_DASH}]*|-{2,}|-(?!${escapedSep}*[${LATIN_LETTERS}\\d]))(?!${escapedSep}?-*${escapedSep}?>)[ ]*(?:(?<sepAfter>${escapedSep})(?<trailing>[ ]*))?(?=\\S|$)`, "g"
   )
   text = text.replace(spacedDashPattern, (_match, sepBefore, sepAfter, trailing) => {
     // sepAfter and trailing are undefined when the optional group didn't match.
