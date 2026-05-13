@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## [3.8.1] - 2026-05-13
+
+### Fixed
+
+- Fixed em-dash conversion to preserve leading space in the next text node across separator.
+
 ## [3.8.0] - 2026-05-11
 
 ### Added
