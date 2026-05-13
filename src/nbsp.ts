@@ -160,10 +160,8 @@ const MAX_MIDDLE_WORD_LENGTH = 15
  * at end of string or paragraph break (\n\n). Uses non-multiline mode so $
  * matches only the true end of string.
  *
- * Skips when the second-to-last word is already glued backwards via NBSP
- * (from short-word, honorific, abbreviation, or similar rules), so phrases
- * like "an Activation Vector" or "Prof. Wilson arrived" don't become 3-word
- * non-breaking atoms.
+ * Skips when the second-to-last word is already glued backwards via NBSP,
+ * so the phrase doesn't become a 3-word non-breaking atom.
  */
 export function nbspBeforeLastWord(text: string, options: NbspOptions = {}): string {
   const sep = getEscapedSeparator(options)
