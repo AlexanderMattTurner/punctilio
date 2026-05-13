@@ -8,7 +8,7 @@
  * @module nbsp
  */
 
-import { UNICODE_SYMBOLS, LATIN_LETTERS, SPACE_CHARS, wordBoundaryEnd, getEscapedSeparator, cachedRegExp } from "./constants.js"
+import { UNICODE_SYMBOLS, LATIN_LETTERS, SPACE_CHARS, NBSP_CHARS, wordBoundaryEnd, getEscapedSeparator, cachedRegExp } from "./constants.js"
 import type { SymbolOptions } from "./symbols.js"
 
 const {
@@ -146,9 +146,6 @@ export function nbspBetweenNumberAndUnit(text: string, options: NbspOptions = {}
  * widow prevention at end-of-string and paragraph breaks.
  */
 const MAX_LAST_WORD_LENGTH = 10
-
-/** Non-breaking space characters that signal an existing NBSP chain. */
-const NBSP_CHARS = `${NBSP}${UNICODE_SYMBOLS.NNBSP}`
 
 /**
  * Maximum word length, in characters, considered for the cascade check.

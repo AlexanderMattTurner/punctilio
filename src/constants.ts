@@ -192,6 +192,13 @@ export function wordBoundaryEnd(escapedSeparator: string): string {
 export const SPACE_CHARS = ` \t${UNICODE_SYMBOLS.NBSP}${UNICODE_SYMBOLS.NNBSP}`
 
 /**
+ * Pattern string for the non-breaking space characters only (NBSP and NNBSP).
+ * Use inside regex character classes: `[${NBSP_CHARS}]`. Used by patterns
+ * that need to detect existing nbsp chains without also matching plain spaces.
+ */
+export const NBSP_CHARS = `${UNICODE_SYMBOLS.NBSP}${UNICODE_SYMBOLS.NNBSP}`
+
+/**
  * Maximum recursion depth used by the rehype and remark tree walkers.
  * Guards against stack overflow from maliciously or accidentally deep
  * AST nesting. Shared so both plugins behave identically.
