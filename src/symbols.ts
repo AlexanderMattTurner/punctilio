@@ -131,21 +131,27 @@ export function multiplication(text: string, options: SymbolOptions = {}): strin
   return text
 }
 
-/** [leftChars, rightChars, negativeLookahead, replacement] */
-type MathSymbolRule = [string, string, string, string]
+/**
+ * Builds a negative lookahead that must see through an optional separator
+ * so e.g. `!<SEP>=` is correctly recognized as the start of `!==`.
+ */
+type MathLookaheadBuilder = (escapedSeparator: string) => string
+
+/** [leftChars, rightChars, negativeLookaheadBuilder, replacement] */
+type MathSymbolRule = [string, string, MathLookaheadBuilder, string]
 
 /**
  * Math symbol replacement map.
  * The separator is inserted between left and right when building the regex.
  */
 const MATH_SYMBOL_MAP: MathSymbolRule[] = [
-  ["!", "=", "(?!=)", NOT_EQUAL],
-  ["\\+/", "-", "", PLUS_MINUS],
-  ["\\+", "-", "", PLUS_MINUS],
-  ["<", "=", "(?!=)", LESS_EQUAL],
-  [">", "=", "(?!=)", GREATER_EQUAL],
-  ["~", "=", "", APPROXIMATE],
-  ["=", "~", "", APPROXIMATE],
+  ["!", "=", (chr) => `(?!${chr}?=)`, NOT_EQUAL],
+  ["\\+/", "-", () => "", PLUS_MINUS],
+  ["\\+", "-", () => "", PLUS_MINUS],
+  ["<", "=", (chr) => `(?!${chr}?=)`, LESS_EQUAL],
+  [">", "=", (chr) => `(?!${chr}?=)`, GREATER_EQUAL],
+  ["~", "=", () => "", APPROXIMATE],
+  ["=", "~", () => "", APPROXIMATE],
 ]
 
 /** Convert !=, <=, >=, +/-, ~= to Unicode equivalents. */
@@ -156,7 +162,7 @@ export function mathSymbols(text: string, options: SymbolOptions = {}): string {
     // Capture an optional separator between left and right so a cross-boundary
     // match (e.g., `!<SEP>=`) re-emits the separator alongside the replacement
     // and preserves the text-node-count invariant in transformTextNodes.
-    const pattern = cachedRegExp(`${left}(?<sep>${chr})?${right}${lookahead}`, "g")
+    const pattern = cachedRegExp(`${left}(?<sep>${chr})?${right}${lookahead(chr)}`, "g")
     text = text.replace(pattern, (...args) => {
       const { sep } = args.at(-1) as Record<string, string | undefined>
       return `${replacement}${sep ?? ""}`
@@ -242,28 +248,38 @@ export function legalSymbols(text: string, options: SymbolOptions = {}): string 
  */
 type ArrowPatternBuilder = (escapedSeparator: string) => string
 
-/** Arrow pattern map: shape builder → Unicode symbol */
+/**
+ * Arrow pattern map: shape builder → Unicode symbol.
+ *
+ * The leading `<` on the bidi pattern anchors its repeated-dash-run group
+ * so it stays linear-time; the right/left arrows can't anchor that way, so
+ * they only admit one optional separator at the un-anchored end.
+ */
 const ARROW_RULES: readonly [ArrowPatternBuilder, string][] = [
-  // Bidirectional: <-> or <--> (separator may fall between the halves)
-  [(sep) => `<-+${sep}?>`, ARROW_LEFT_RIGHT],
-  // Right: -> or -->
-  [() => "-+>", ARROW_RIGHT],
-  // Left: <- or <--
-  [() => "<-+", ARROW_LEFT],
+  [(sep) => `<${sep}?-+(?:${sep}-+)*${sep}?>`, ARROW_LEFT_RIGHT],
+  [(sep) => `-+${sep}?>`, ARROW_RIGHT],
+  [(sep) => `<${sep}?-+`, ARROW_LEFT],
 ]
 
 /** Convert -> and <-> to arrows. */
 export function arrows(text: string, options: SymbolOptions = {}): string {
   const chr = getEscapedSeparator(options)
+  const sepPattern = cachedRegExp(chr, "g")
   // Boundary on the left is a capturing group rather than a lookbehind so
-  // the alternation stays out of the assertion (recheck-safe); `$1` re-emits
-  // the captured boundary char in the replacement.
+  // the alternation stays out of the assertion (recheck-safe); the captured
+  // boundary char is re-emitted before the replacement.
   const startBoundary = `(^|\\s|${chr})`
   const endBoundary = `(?=\\s|${chr}|$)`
 
   for (const [buildArrow, replacement] of ARROW_RULES) {
     const pattern = cachedRegExp(`${startBoundary}${buildArrow(chr)}${endBoundary}`, "g")
-    text = text.replace(pattern, `$1${replacement}`)
+    // Re-emit every separator the arrow body consumed; dropping any would
+    // break the text-node-count invariant in transformTextNodes.
+    text = text.replace(pattern, (match: string, boundary: string) => {
+      const arrowPart = match.slice(boundary.length)
+      const seps = arrowPart.match(sepPattern) ?? []
+      return `${boundary}${replacement}${seps.join("")}`
+    })
   }
 
   return text

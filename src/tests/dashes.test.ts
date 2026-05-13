@@ -162,6 +162,11 @@ describe("hyphenReplace", () => {
       [`word -${sep} another`, `word${EM_DASH}${sep} another`, "hyphen before separator-space is parenthetical"],
       // Suspended hyphen across separator boundary: hyphen attached to word through separator
       [`and -${sep}women`, `and -${sep}women`, "suspended hyphen across separator preserved"],
+      // Arrow shape `-...>` split across separators must not em-dash; the
+      // lookahead sees through the separator(s) before `>`.
+      [`foo -${sep}> bar`, `foo -${sep}> bar`, "single dash before sep+> preserved for arrow"],
+      [`foo --${sep}> bar`, `foo --${sep}> bar`, "double dash before sep+> preserved for arrow"],
+      [`foo -${sep}-${sep}> bar`, `foo -${sep}-${sep}> bar`, "dash, sep, dash, sep, > preserved for arrow"],
     ])("%s → %s (%s)", (input, expected) => {
       expect(hyphenReplace(input, { separator: sep })).toBe(expected)
     })

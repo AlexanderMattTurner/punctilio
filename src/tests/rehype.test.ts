@@ -82,6 +82,14 @@ describe("rehypePunctilio", () => {
       // Regression: a math operator split across an element boundary must
       // preserve the separator so transformTextNodes doesn't throw.
       ["math operator split across element boundary", "<p>x <em>!</em>= y</p>", `<p>x <em>${NOT_EQUAL}</em> y</p>`],
+      // Arrow split across element boundary: dash pass must not em-dash the
+      // `-`, then the arrows pass converts the whole shape. The match starts
+      // in the first text node, so the arrow lands there and the em empties.
+      ["right arrow split across element boundary", "<p>foo -<em>></em> bar</p>", `<p>foo ${UNICODE_SYMBOLS.ARROW_RIGHT}<em></em> bar</p>`],
+      ["bidirectional arrow split across element boundary", "<p>foo <-<em>--</em>> bar</p>", `<p>foo ${UNICODE_SYMBOLS.ARROW_LEFT_RIGHT}<em></em> bar</p>`],
+      // The math-symbol lookahead must see through the separator so split
+      // `!==` is not misclassified as `!=`.
+      ["!== split across element boundary preserved", "<p>x !<em>=</em>= y</p>", "<p>x !<em>=</em>= y</p>"],
     ])("%s", async (_name, html, expected) => {
       expect(await processHtml(html, { nbsp: false })).toEqual(expected)
     })
