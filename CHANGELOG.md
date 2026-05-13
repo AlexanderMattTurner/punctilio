@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## [3.8.2] - 2026-05-13
+
+### Fixed
+
+- Fixed regex lookaheads across element boundaries
+
 ## [3.8.1] - 2026-05-13
 
 ### Fixed
