@@ -75,16 +75,14 @@ My [`benchmark.mjs`](https://github.com/alexander-turner/punctilio/blob/main/ben
 
 ## Test suite
 
-Setting aside the benchmark, `punctilio`’s test suite runs at 100% branch coverage with well over a thousand tests, including edge cases derived from competitor libraries ([`smartquotes`](https://github.com/kellym/smartquotes.js), [`retext-smartypants`](https://github.com/retextjs/retext-smartypants), [`typograf`](https://github.com/typograf/typograf)) and the [Standard Ebooks typography manual](https://standardebooks.org/manual/). I also verify that all transformations are stable when applied multiple times. All transforms run in linear time, with scaling tests that guard against quadratic RegEx backtracking.
+Setting aside the benchmark, `punctilio`’s test suite runs at 100% branch coverage with well over a thousand tests, including edge cases derived from competitor libraries ([`smartquotes`](https://github.com/kellym/smartquotes.js), [`retext-smartypants`](https://github.com/retextjs/retext-smartypants), [`typograf`](https://github.com/typograf/typograf)) and the [Standard Ebooks typography manual](https://standardebooks.org/manual/). I also verify that all transformations are stable when applied multiple times. Uses [`recheck`](https://makenowjust-labs.github.io/recheck/) to statically verify the absence of inefficient RegEx patterns.
 
 ## Works with HTML DOMs via separation boundaries
 
-Perhaps the most innovative feature of the library is that it properly handles DOMs! For Markdown, use the built-in `remarkPunctilio` or `transformMarkdown` plugins instead of converting to HTML and back.
+Perhaps the most innovative feature of the library is that it properly handles DOMs! Other typography libraries take one of two approaches, both with drawbacks. 
 
-Other typography libraries take one of two approaches, both with drawbacks. 
-
-1.  String-based libraries (like [`smartypants`](https://www.npmjs.com/package/smartypants)) transform plain text but are unaware of HTML structure. If you concatenate text from `<em>Wait</em>...`, transform it into `Wait…`, and then try to convert back—you've lost track of where the `</em>` belongs. 
-2.  AST-based libraries (like [`rehype-retext`](https://github.com/rehypejs/rehype-retext)) process each text node individually, preserving structure but losing cross-node information. A quote that opens inside `<em>"Wait</em>` and closes outside it `..."` spans two text nodes. Processed independently, the library can't tell whether the final `"` is opening or closing, because it never sees both at once. 
+1.  String-based libraries (like [`smartypants`](https://www.npmjs.com/package/smartypants)) transform plain text but are unaware of HTML structure. If you flatten text from `"<em>"Wait</em>"` into `"Wait"`, transform the text so that it has smart quotes (`“Wait”`), and then try to convert back—you've lost track of where the `</em>` belongs. 
+2.  AST-based libraries (like [`rehype-retext`](https://github.com/rehypejs/rehype-retext)) process each text node individually, preserving structure but losing cross-node information. A quote that opens inside `<em>"Wait</em>` and closes outside it `"` spans two text nodes. Processed independently, the library can't tell whether the final `"` is opening or closing, because it never sees both at once. 
 
 `punctilio` introduces _separation boundaries_ to get the best of both worlds:
 
@@ -115,32 +113,8 @@ unified()
 //  are both resolved correctly across the element boundary.
 ```
 
-For Markdown ASTs via `remark`, use `remarkPunctilio` which applies the same separator technique to preserve inline element boundaries, or use `transformMarkdown` for a simpler Markdown-to-Markdown pipeline.
-
-For manual DOM walking or custom transforms, use `transformElement` from `punctilio/rehype`.
-
-The rehype plugin accepts additional options. Elements matching any `skipTags` tag name or carrying any `skipClasses` class are left untransformed (values shown are the defaults for `skipTags`):
-
-```typescript
-rehypePunctilio({
-  skipTags: ["code", "pre", "script", "style", "kbd", "var", "samp"],
-  skipClasses: ["no-formatting"],
-});
-```
-
-For finer-grained control, `shouldSkipText` opts specific text nodes out of transformation without skipping their enclosing element. The predicate receives the text node and its ancestor chain (root first, nearest last); returning `true` leaves the node’s value untouched. `shouldSkipText` runs after element-level skipping—it is never called for text inside an already-skipped element.
-
-```typescript
-rehypePunctilio({
-  // Skip anchor text that equals its href (URL-like link text).
-  shouldSkipText: (textNode, ancestors) => {
-    const parent = ancestors[ancestors.length - 1];
-    if (parent?.tagName !== "a") return false;
-    const href = parent.properties?.href;
-    return typeof href === "string" && href === textNode.value;
-  },
-});
-```
+* For Markdown ASTs via `remark`, use `remarkPunctilio` which applies the same separator technique to preserve inline element boundaries, or use `transformMarkdown` for a simpler Markdown-to-Markdown pipeline.
+* For manual DOM walking or custom transforms, use `transformElement` from `punctilio/rehype`.
 
 ## Options
 
@@ -163,7 +137,33 @@ transform(text, {
 });
 ```
 
-- Fully general prime mark conversion (e.g. `5'10"` → `5′10″`) requires semantic understanding to distinguish from closing quotes (e.g. `"Term 1"` should produce closing quotes). `punctilio` tracks quote balance to heuristically determine whether a quote after a number is a closing quote or a prime mark. Other libraries like `tipograph` 0.7.4 use simpler patterns that make more mistakes.
+The `rehype` plugin accepts additional options. Elements matching any `skipTags` tag name or carrying any `skipClasses` class are left untransformed (values shown are the defaults for `skipTags`):
+
+```typescript
+rehypePunctilio({
+  skipTags: ["code", "pre", "script", "style", "kbd", "var", "samp"],
+  skipClasses: ["no-formatting"],
+});
+```
+
+For finer-grained control, `shouldSkipText` opts specific text nodes out of transformation without skipping their enclosing element. The predicate receives the text node and its ancestor chain (root first, nearest last); returning `true` leaves the node’s value untouched. `shouldSkipText` runs after element-level skipping—it is never called for text inside an already-skipped element.
+
+```typescript
+rehypePunctilio({
+  // Skip anchor text that equals its href (URL-like link text).
+  shouldSkipText: (textNode, ancestors) => {
+    const parent = ancestors[ancestors.length - 1];
+    if (parent?.tagName !== "a") return false;
+    const href = parent.properties?.href;
+    return typeof href === "string" && href === textNode.value;
+  },
+});
+```
+
+
+## Notes 
+
+- Fully general prime mark conversion (e.g. <span class="no-formatting">5'10" → 5′10″</span>) requires semantic understanding to distinguish from closing quotes (e.g. `"Term 1"` should produce closing quotes). `punctilio` tracks quote balance to heuristically determine whether a quote after a number is a closing quote or a prime mark. Other libraries like `tipograph` 0.7.4 use simpler patterns that make more mistakes.
 - The `american` style follows the [Chicago Manual of Style](https://www.chicagomanualofstyle.org/):
   - Periods and commas go inside quotation marks (“Hello,” she said.)
   - Unspaced em-dashes between words (word—word)

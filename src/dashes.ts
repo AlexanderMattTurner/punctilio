@@ -112,8 +112,13 @@ export function enDashDateRange(text: string, options: DashOptions = {}): string
   const wb = wordBoundaryStart(chr)
   const wbe = wordBoundaryEnd(chr)
 
+  // Atomic-optional year groups (lookahead + backref). The capture inside
+  // the lookahead is locked in once matched, so the year group commits
+  // without backtracking.
+  const startYear = `(?=(?<startYear>${chr}? \\d{4})?)\\k<startYear>`
+  const endYear = `(?=(?<endYear> \\d{4})?)\\k<endYear>`
   return text.replace(
-    cachedRegExp(`${wb}(?<startMonth>${monthPattern})(?<startYear>${chr}? \\d{4})?(?<preSep>${chr}?)(?<preSpace> ?)-(?<postSpace> ?)(?<postSep>${chr}?)(?<endMonth>${monthPattern})(?<endYear> \\d{4})?${wbe}`, "g"),
+    cachedRegExp(`${wb}(?<startMonth>${monthPattern})${startYear}(?<preSep>${chr}?)(?<preSpace> ?)-(?<postSpace> ?)(?<postSep>${chr}?)(?<endMonth>${monthPattern})${endYear}${wbe}`, "g"),
     (...args) => {
       const groups = args.at(-1) as Record<string, string>
       const [pre, post] = dashStyle === "british" ? [" ", " "] : ["", ""]
@@ -173,13 +178,19 @@ function convertParentheticalDashes(text: string, sep: string, style: DashStyle)
   // A single plain hyphen directly before a word character (through optional separators) is a
   // suspended/hanging hyphen ("Yes-men and -women"), not a parenthetical dash — skip it.
   // Em/en dashes and multiple hyphens can have zero trailing spaces.
+  // `sepAfter` and `trailing` share one optional unit so a whitespace run
+  // can only be assigned to it as a whole, keeping the match unambiguous.
   const spacedDashPattern = cachedRegExp(
-    `(?<=[^\\s]|^)(?<sepBefore>${escapedSep}?)[ ]+(?:[${EN_DASH}${EM_DASH}][-${EN_DASH}${EM_DASH}]*|-{2,}|-(?!${escapedSep}*[${LATIN_LETTERS}\\d]))(?!-*>)[ ]*(?<sepAfter>${escapedSep}?)(?<trailing>[ ]*)(?=\\S|$)`, "g"
+    `(?<=[^\\s]|^)(?<sepBefore>${escapedSep}?)[ ]+(?:[${EN_DASH}${EM_DASH}][-${EN_DASH}${EM_DASH}]*|-{2,}|-(?!${escapedSep}*[${LATIN_LETTERS}\\d]))(?!${escapedSep}?-*${escapedSep}?>)[ ]*(?:(?<sepAfter>${escapedSep})(?<trailing>[ ]*))?(?=\\S|$)`, "g"
   )
   text = text.replace(spacedDashPattern, (_match, sepBefore, sepAfter, trailing) => {
-    // For British style (spaced en-dash), preserve trailing spaces after separator
-    // For American style (unspaced em-dash), consume trailing spaces (em-dash replaces surrounding space)
-    const keepTrailing = maybeSpace && sepAfter ? trailing : ""
+    // sepAfter and trailing are undefined when the optional group didn't match.
+    sepAfter = sepAfter ?? ""
+    trailing = trailing ?? ""
+    // Trailing space after a separator belongs to the next text node — keep it
+    // regardless of style. Without a separator, the trailing space is part of
+    // the current node's whitespace around the dash and gets consumed.
+    const keepTrailing = sepAfter ? trailing : ""
     return `${sepBefore}${maybeSpace}${localizedDash}${maybeSpace}${sepAfter}${keepTrailing}`
   })
   // Convert dashes at text node boundaries: separator alone precedes dash (e.g., "word{sep}– rest")
@@ -189,9 +200,10 @@ function convertParentheticalDashes(text: string, sep: string, style: DashStyle)
     `$<sepBefore>${maybeSpace}${localizedDash}${maybeSpace}$<sepAfter>`
   )
   // Convert multiple dashes: "word--word" or "word---word" or "quote"--"quote"
+  // Upper bound of 50 prevents ReDoS on pathological runs of dashes.
   const quoteChars = `"'${LEFT_DOUBLE_QUOTE}${RIGHT_DOUBLE_QUOTE}${LEFT_SINGLE_QUOTE}${RIGHT_SINGLE_QUOTE}`
   text = text.replace(
-    cachedRegExp(`(?<=[${LATIN_LETTERS}\\d${quoteChars}])(?<sepBefore>${escapedSep}?)[${EN_DASH}${EM_DASH}-]{2,}(?<sepAfter>${escapedSep}?)(?=[${LATIN_LETTERS}${quoteChars} ])`, "g"),
+    cachedRegExp(`(?<=[${LATIN_LETTERS}\\d${quoteChars}])(?<sepBefore>${escapedSep}?)[${EN_DASH}${EM_DASH}-]{2,50}(?<sepAfter>${escapedSep}?)(?=[${LATIN_LETTERS}${quoteChars} ])`, "g"),
     `$<sepBefore>${maybeSpace}${localizedDash}${maybeSpace}$<sepAfter>`
   )
   // Convert dashes at start of line
@@ -216,9 +228,10 @@ function convertParentheticalDashes(text: string, sep: string, style: DashStyle)
 function normalizeEmDashSpacing(text: string, sep: string): string {
   const escapedSep = getEscapedSeparator({ separator: sep })
 
-  // Remove all spaces around em-dashes
+  // Remove all spaces around em-dashes. The `\S|^` / `\S|$` boundary
+  // anchors restrict the match to dashes adjacent to non-whitespace.
   text = text.replace(
-    cachedRegExp(`(?<before>${escapedSep}?)[ ]*${EM_DASH}[ ]*(?<after>${escapedSep}?)`, "g"),
+    cachedRegExp(`(?<=\\S|^)(?<before>${escapedSep}?)[ ]*${EM_DASH}[ ]*(?<after>${escapedSep}?)(?=\\S|$)`, "g"),
     `$<before>${EM_DASH}$<after>`
   )
 

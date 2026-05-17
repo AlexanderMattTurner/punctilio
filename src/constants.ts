@@ -156,43 +156,33 @@ export function getEscapedSeparator(options: { separator?: string }): string {
 export const REGEX_SPECIAL_CHARS = [".", "*", "+", "?", "^", "$", "[", "]", "\\", "|", "(", ")"] as const
 
 /**
- * Creates a marker-aware word boundary pattern for the START of a match.
+ * Maximum stack of adjacent separator markers tolerated in the boundary
+ * lookarounds. Three covers any realistic depth of nested HTML element
+ * boundaries; the bound also keeps the variable-width lookbehind in a
+ * range that static ReDoS analyzers can prove safe.
+ */
+const MAX_BOUNDARY_SEPARATORS = 3
+
+/**
+ * Marker-aware word boundary pattern for the START of a match.
  *
- * Standard `\b` can create false boundaries when separator markers appear between
- * word characters (e.g., `x\uE000ReLU` has a false boundary before `R`).
- *
- * This pattern uses a negative lookbehind to reject matches that are preceded
- * by word characters followed by any number of markers.
- *
- * @param escapedSeparator - Regex-escaped separator string
- * @returns Pattern string: `(?<!\w${sep}*)\b`
- *
- * @example
- * const wb = wordBoundaryStart(ESCAPED_DEFAULT_SEPARATOR)
- * // With text "x\uE000ReLU": \b would match before R, but wb won't
+ * Standard `\b` can create false boundaries when separator markers appear
+ * between word characters (e.g., `x\uE000ReLU` has a false `\b` before `R`).
+ * This pattern uses a negative lookbehind to reject matches preceded by a
+ * word character followed by up to `MAX_BOUNDARY_SEPARATORS` markers.
  */
 export function wordBoundaryStart(escapedSeparator: string): string {
-  return `(?<!\\w${escapedSeparator}*)\\b`
+  return `(?<!\\w${escapedSeparator}{0,${MAX_BOUNDARY_SEPARATORS}})\\b`
 }
 
 /**
- * Creates a marker-aware word boundary pattern for the END of a match.
+ * Marker-aware word boundary pattern for the END of a match.
  *
- * Standard `\b` can create false boundaries when separator markers appear between
- * word characters (e.g., `1st\uE000ly` has a false boundary after `t`).
- *
- * This pattern uses a negative lookahead to reject matches that are followed
- * by markers then word characters.
- *
- * @param escapedSeparator - Regex-escaped separator string
- * @returns Pattern string: `\b(?!${sep}*\w)`
- *
- * @example
- * const wbe = wordBoundaryEnd(ESCAPED_DEFAULT_SEPARATOR)
- * // With text "1st\uE000ly": \b would match after t, but wbe won't
+ * Mirror of `wordBoundaryStart` \u2014 rejects matches followed by up to
+ * `MAX_BOUNDARY_SEPARATORS` markers and then a word character.
  */
 export function wordBoundaryEnd(escapedSeparator: string): string {
-  return `\\b(?!${escapedSeparator}*\\w)`
+  return `\\b(?!${escapedSeparator}{0,${MAX_BOUNDARY_SEPARATORS}}\\w)`
 }
 
 /**
@@ -202,32 +192,11 @@ export function wordBoundaryEnd(escapedSeparator: string): string {
 export const SPACE_CHARS = ` \t${UNICODE_SYMBOLS.NBSP}${UNICODE_SYMBOLS.NNBSP}`
 
 /**
- * Creates a lookbehind pattern that matches after whitespace, separator, or start of string.
- * Used for arrow patterns and other constructs that should appear at word boundaries.
- *
- * Uses alternation instead of a character class so that multi-character
- * separators are matched as a sequence, not as individual characters.
- *
- * @param escapedSeparator - Regex-escaped separator string (may be grouped)
- * @returns Pattern string: `(?<=\\s|${sep}|^)`
+ * Pattern string for the non-breaking space characters only (NBSP and NNBSP).
+ * Use inside regex character classes: `[${NBSP_CHARS}]`. Used by patterns
+ * that need to detect existing nbsp chains without also matching plain spaces.
  */
-export function spaceBoundaryStart(escapedSeparator: string): string {
-  return `(?<=\\s|${escapedSeparator}|^)`
-}
-
-/**
- * Creates a lookahead pattern that matches before whitespace, separator, or end of string.
- * Used for arrow patterns and other constructs that should appear at word boundaries.
- *
- * Uses alternation instead of a character class so that multi-character
- * separators are matched as a sequence, not as individual characters.
- *
- * @param escapedSeparator - Regex-escaped separator string (may be grouped)
- * @returns Pattern string: `(?=\\s|${sep}|$)`
- */
-export function spaceBoundaryEnd(escapedSeparator: string): string {
-  return `(?=\\s|${escapedSeparator}|$)`
-}
+export const NBSP_CHARS = `${UNICODE_SYMBOLS.NBSP}${UNICODE_SYMBOLS.NNBSP}`
 
 /**
  * Maximum recursion depth used by the rehype and remark tree walkers.
@@ -264,6 +233,15 @@ export function cachedRegExp(pattern: string, flags: string): RegExp {
   }
   re.lastIndex = 0
   return re
+}
+
+/**
+ * Returns all currently cached RegExp objects. Exported for test
+ * introspection only (e.g. ReDoS scanning every compiled pattern).
+ * @internal
+ */
+export function getCachedRegExps(): RegExp[] {
+  return Array.from(regexCache.values())
 }
 
 /**

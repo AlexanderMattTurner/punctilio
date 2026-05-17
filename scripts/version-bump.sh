@@ -10,14 +10,12 @@ set -e
 log() { echo "$@" >&2; }
 
 # Validate required environment variables upfront so failures are obvious,
-# not buried after minutes of commit analysis and API calls.
-missing_vars=()
-[ -z "$ANTHROPIC_API_KEY" ] && missing_vars+=("ANTHROPIC_API_KEY")
-[ -z "$NODE_AUTH_TOKEN" ] && missing_vars+=("NODE_AUTH_TOKEN")
-if [ ${#missing_vars[@]} -gt 0 ]; then
-  log "Error: Missing required environment variable(s): ${missing_vars[*]}"
+# not buried after minutes of commit analysis and API calls. npm authentication
+# uses OIDC trusted publishing (id-token: write in the workflow), so no
+# NODE_AUTH_TOKEN / NPM_TOKEN is required.
+if [ -z "$ANTHROPIC_API_KEY" ]; then
+  log "Error: Missing required environment variable: ANTHROPIC_API_KEY"
   log "ANTHROPIC_API_KEY is needed for Claude API version analysis."
-  log "NODE_AUTH_TOKEN is needed for npm registry authentication (set from secrets.NPM_TOKEN in the workflow)."
   exit 1
 fi
 

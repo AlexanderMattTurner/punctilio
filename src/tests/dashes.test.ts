@@ -1,6 +1,5 @@
 import { hyphenReplace, enDashNumberRange, enDashDateRange, minusReplace, numberRangeDisallowedPrefixes } from "../dashes.js"
 import { DEFAULT_SEPARATOR, UNICODE_SYMBOLS } from "../constants.js"
-import { assertLinearScaling } from "./test-helpers.js"
 
 const {
   LEFT_DOUBLE_QUOTE,
@@ -145,16 +144,29 @@ describe("hyphenReplace", () => {
     it.each([
       [`word${sep} - ${sep}another`, `word${sep}${EM_DASH}${sep}another`, "em dash context"],
       [`pages 1${sep}-${sep}5`, `pages 1${sep}${EN_DASH}${sep}5`, "number ranges"],
-      // American em-dash (Chicago style) consumes surrounding spaces, even across separator boundaries
-      [`text ${EM_DASH} ${sep} more text`, `text${EM_DASH}${sep}more text`, "consumes space after separator for em-dash"],
-      [`text - ${sep} more`, `text${EM_DASH}${sep}more`, "consumes space after separator with hyphen"],
+      // American em-dash (Chicago) consumes spaces around the dash within the current text node,
+      // but trailing space after a separator is the leading space of the next text node — preserve it.
+      [`text ${EM_DASH} ${sep} more text`, `text${EM_DASH}${sep} more text`, "preserves space after separator for em-dash"],
+      [`text - ${sep} more`, `text${EM_DASH}${sep} more`, "preserves space after separator with hyphen"],
+      // Separator + trailing space + word: trailing space belongs to next text node
+      [`a - ${sep} w`, `a${EM_DASH}${sep} w`, "preserves leading space of next text node"],
+      // Separator immediately followed by punctuation: no trailing space to preserve
+      [`a - ${sep}, w`, `a${EM_DASH}${sep}, w`, "no trailing space when punctuation follows separator"],
+      // No separator: surrounding spaces are consumed (Chicago style, unchanged)
+      ["a - w", `a${EM_DASH}w`, "no separator: spaces consumed"],
       // Separator-only before dash (no space between word and separator): e.g., link text followed by dash
       [`word${sep}${EN_DASH} rest`, `word${sep}${EM_DASH}rest`, "en-dash after separator without preceding space"],
       [`word${sep}- rest`, `word${sep}${EM_DASH}rest`, "hyphen after separator without preceding space"],
-      // Spaced hyphen with separator after: "word -<sep> another" is a parenthetical dash, not suspended
-      [`word -${sep} another`, `word${EM_DASH}${sep}another`, "hyphen before separator-space is parenthetical"],
+      // Spaced hyphen with separator after: "word -<sep> another" is a parenthetical dash, not suspended.
+      // Trailing space after the separator is the next text node's leading space and is preserved.
+      [`word -${sep} another`, `word${EM_DASH}${sep} another`, "hyphen before separator-space is parenthetical"],
       // Suspended hyphen across separator boundary: hyphen attached to word through separator
       [`and -${sep}women`, `and -${sep}women`, "suspended hyphen across separator preserved"],
+      // Arrow shape `-...>` split across separators must not em-dash; the
+      // lookahead sees through the separator(s) before `>`.
+      [`foo -${sep}> bar`, `foo -${sep}> bar`, "single dash before sep+> preserved for arrow"],
+      [`foo --${sep}> bar`, `foo --${sep}> bar`, "double dash before sep+> preserved for arrow"],
+      [`foo -${sep}-${sep}> bar`, `foo -${sep}-${sep}> bar`, "dash, sep, dash, sep, > preserved for arrow"],
     ])("%s → %s (%s)", (input, expected) => {
       expect(hyphenReplace(input, { separator: sep })).toBe(expected)
     })
@@ -729,12 +741,3 @@ describe("hyphenReplace preserves multi-segment numbers across separators", () =
   })
 })
 
-describe("dash stress tests", () => {
-  it("scales linearly for parenthetical dashes", () => {
-    assertLinearScaling(hyphenReplace, (n) => "word - word ".repeat(n))
-  })
-
-  it("scales linearly for number ranges", () => {
-    assertLinearScaling(hyphenReplace, (n) => "pages 1-2 ".repeat(n))
-  })
-})
