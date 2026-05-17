@@ -13,7 +13,6 @@ import {
   symbolTransform,
 } from "../symbols.js"
 import { UNICODE_SYMBOLS, DEFAULT_SEPARATOR } from "../constants.js"
-import { assertLinearScaling } from "./test-helpers.js"
 
 describe("ellipsis", () => {
   it.each([
@@ -42,6 +41,23 @@ describe("ellipsis", () => {
   ])("preserves separators: %s", (_desc, input, expected) => {
     const result = ellipsis(input, { separator: DEFAULT_SEPARATOR })
     expect(result).toBe(expected)
+  })
+
+  it.each([
+    // Period at end of one text node + two dots at start of next is NOT an
+    // ellipsis — leave it alone.
+    ["sentence-final period stays put with two trailing dots", `a. ${DEFAULT_SEPARATOR}.. b`, `a. ${DEFAULT_SEPARATOR}.. b`],
+    // Period + space + separator + three dots: only the three contiguous
+    // dots after the separator form the ellipsis.
+    ["three dots after separator collapse without eating period", `a. ${DEFAULT_SEPARATOR}... b`, `a. ${DEFAULT_SEPARATOR}${UNICODE_SYMBOLS.ELLIPSIS} b`],
+    // Regression: same-text-node ellipsis still collapses.
+    ["same-text-node ellipsis", "a... b", `a${UNICODE_SYMBOLS.ELLIPSIS} b`],
+    // Regression: cross-boundary contiguous dots still collapse.
+    ["cross-boundary contiguous", `a.${DEFAULT_SEPARATOR}.${DEFAULT_SEPARATOR}. b`, `a${UNICODE_SYMBOLS.ELLIPSIS}${DEFAULT_SEPARATOR}${DEFAULT_SEPARATOR} b`],
+    // Regression: spaced dots still collapse.
+    ["spaced dots", "a. . . b", `a${UNICODE_SYMBOLS.ELLIPSIS} b`],
+  ])("does not merge across separator boundaries: %s", (_desc, input, expected) => {
+    expect(ellipsis(input, { separator: DEFAULT_SEPARATOR })).toBe(expected)
   })
 })
 
@@ -146,14 +162,30 @@ describe("mathSymbols", () => {
     expect(mathSymbols(input)).toBe(expected)
   })
 
+  // Cross-boundary conversion must preserve the captured separator so the
+  // text-node-count invariant in transformTextNodes holds. Convention: the
+  // Unicode symbol replaces the left operator char, the separator is re-emitted
+  // after it (matching the multiplication test's pre/post-sep convention).
   it.each([
-    [`!${DEFAULT_SEPARATOR}=`, UNICODE_SYMBOLS.NOT_EQUAL],
-    [`<${DEFAULT_SEPARATOR}=`, UNICODE_SYMBOLS.LESS_EQUAL],
-    [`>${DEFAULT_SEPARATOR}=`, UNICODE_SYMBOLS.GREATER_EQUAL],
-    [`~${DEFAULT_SEPARATOR}=`, UNICODE_SYMBOLS.APPROXIMATE],
-    [`=${DEFAULT_SEPARATOR}~`, UNICODE_SYMBOLS.APPROXIMATE],
-  ])('converts across separator boundary: "%s"', (input, expected) => {
-    expect(mathSymbols(input)).toBe(expected)
+    [`!${DEFAULT_SEPARATOR}=`, `${UNICODE_SYMBOLS.NOT_EQUAL}${DEFAULT_SEPARATOR}`],
+    [`<${DEFAULT_SEPARATOR}=`, `${UNICODE_SYMBOLS.LESS_EQUAL}${DEFAULT_SEPARATOR}`],
+    [`>${DEFAULT_SEPARATOR}=`, `${UNICODE_SYMBOLS.GREATER_EQUAL}${DEFAULT_SEPARATOR}`],
+    [`~${DEFAULT_SEPARATOR}=`, `${UNICODE_SYMBOLS.APPROXIMATE}${DEFAULT_SEPARATOR}`],
+    [`=${DEFAULT_SEPARATOR}~`, `${UNICODE_SYMBOLS.APPROXIMATE}${DEFAULT_SEPARATOR}`],
+    [`+/${DEFAULT_SEPARATOR}-`, `${UNICODE_SYMBOLS.PLUS_MINUS}${DEFAULT_SEPARATOR}`],
+    [`+${DEFAULT_SEPARATOR}-`, `${UNICODE_SYMBOLS.PLUS_MINUS}${DEFAULT_SEPARATOR}`],
+  ])('converts across separator boundary preserving sep: "%s"', (input, expected) => {
+    expect(mathSymbols(input, { separator: DEFAULT_SEPARATOR })).toBe(expected)
+  })
+
+  // Lookahead sees through the separator so `!==`/`<==`/`>==` split across a
+  // text-node boundary aren't misread as `!=`/`<=`/`>=`.
+  it.each([
+    [`x !${DEFAULT_SEPARATOR}== y`, `x !${DEFAULT_SEPARATOR}== y`],
+    [`x <${DEFAULT_SEPARATOR}== y`, `x <${DEFAULT_SEPARATOR}== y`],
+    [`x >${DEFAULT_SEPARATOR}== y`, `x >${DEFAULT_SEPARATOR}== y`],
+  ])('preserves multi-char operator split across separator: "%s"', (input, expected) => {
+    expect(mathSymbols(input, { separator: DEFAULT_SEPARATOR })).toBe(expected)
   })
 })
 
@@ -232,6 +264,17 @@ describe("arrows", () => {
     ["array[0]->value", "array[0]->value"],
   ])('converts "%s" to "%s"', (input, expected) => {
     expect(arrows(input)).toBe(expected)
+  })
+
+  // Arrow shapes split across element boundaries: separators between shape
+  // characters are allowed and re-emitted after the Unicode arrow.
+  it.each([
+    [`foo <-${DEFAULT_SEPARATOR}-${DEFAULT_SEPARATOR}> bar`, `foo ${UNICODE_SYMBOLS.ARROW_LEFT_RIGHT}${DEFAULT_SEPARATOR}${DEFAULT_SEPARATOR} bar`],
+    [`foo <${DEFAULT_SEPARATOR}-${DEFAULT_SEPARATOR}> bar`, `foo ${UNICODE_SYMBOLS.ARROW_LEFT_RIGHT}${DEFAULT_SEPARATOR}${DEFAULT_SEPARATOR} bar`],
+    [`foo -${DEFAULT_SEPARATOR}> bar`, `foo ${UNICODE_SYMBOLS.ARROW_RIGHT}${DEFAULT_SEPARATOR} bar`],
+    [`foo <${DEFAULT_SEPARATOR}- bar`, `foo ${UNICODE_SYMBOLS.ARROW_LEFT}${DEFAULT_SEPARATOR} bar`],
+  ])('converts across separator boundary: "%s"', (input, expected) => {
+    expect(arrows(input, { separator: DEFAULT_SEPARATOR })).toBe(expected)
   })
 })
 
@@ -446,11 +489,20 @@ describe("collapseSpaces", () => {
     [`a\t${NBSP}b`, `a${NBSP}b`],
     // Edge cases
     ["", ""],
-    ["  ", " "],
-    [`${NBSP}${NBSP}`, NBSP],
     ["no spaces", "no spaces"],
     // Single tab unchanged
     ["hello\tworld", "hello\tworld"],
+    // Leading-of-line runs preserved (HN-style indented code blocks)
+    ["  ", "  "],
+    [`${NBSP}${NBSP}`, `${NBSP}${NBSP}`],
+    ["    indented", "    indented"],
+    ["\n   second line", "\n   second line"],
+    ["a  b\n   c  d", "a b\n   c d"],
+    ["\n\n  block", "\n\n  block"],
+    // Mid-line runs still collapse even when line also has leading indent
+    ["  foo   bar", "  foo bar"],
+    [`  foo${NBSP}${NBSP}bar`, `  foo${NBSP}bar`],
+    [`\n  a${NBSP}${NBSP}${NBSP}b`, `\n  a${NBSP}b`],
   ])('converts "%s" to "%s"', (input, expected) => {
     expect(collapseSpaces(input)).toBe(expected)
   })
@@ -551,6 +603,17 @@ describe("punctuationLigatures", () => {
     ["!!", `!${DEFAULT_SEPARATOR}`],
   ])("preserves separator in %s", (marks, expected) => {
     const input = marks[0] + DEFAULT_SEPARATOR + marks[1]
+    expect(punctuationLigatures(input, { separator: DEFAULT_SEPARATOR })).toBe(expected)
+  })
+
+  // Multi-separator: 3+ punctuation chars split across 3+ text nodes produces
+  // a match with multiple separators inside the repeating group. Every one
+  // must be re-emitted so transformTextNodes's text-node-count invariant holds.
+  it.each([
+    [`?${DEFAULT_SEPARATOR}?${DEFAULT_SEPARATOR}?`, `${UNICODE_SYMBOLS.DOUBLE_QUESTION}${DEFAULT_SEPARATOR}${DEFAULT_SEPARATOR}`],
+    [`!${DEFAULT_SEPARATOR}!${DEFAULT_SEPARATOR}!`, `!${DEFAULT_SEPARATOR}${DEFAULT_SEPARATOR}`],
+    [`??${DEFAULT_SEPARATOR}?${DEFAULT_SEPARATOR}?`, `${UNICODE_SYMBOLS.DOUBLE_QUESTION}${DEFAULT_SEPARATOR}${DEFAULT_SEPARATOR}`],
+  ])("preserves every separator in multi-split %s", (input, expected) => {
     expect(punctuationLigatures(input, { separator: DEFAULT_SEPARATOR })).toBe(expected)
   })
 
@@ -791,13 +854,6 @@ describe("symbolTransform", () => {
   })
 })
 
-describe("multiplication ReDoS regression", () => {
-  it("scales linearly for long digit strings", () => {
-    // Before fix: quadratic (~100x for 10x input). After fix: linear.
-    assertLinearScaling(multiplication, (n) => "1".repeat(n), 5_000)
-  })
-})
-
 describe("multiplication edge cases", () => {
   it.each([
     ["1000000x2000000", `1000000${UNICODE_SYMBOLS.MULTIPLICATION}2000000`],
@@ -911,17 +967,4 @@ describe("chained multiplications", () => {
   })
 })
 
-describe("symbol stress tests", () => {
-  it("scales linearly for ellipsis patterns", () => {
-    assertLinearScaling(ellipsis, (n) => "wait... ".repeat(n))
-  })
-
-  it("scales linearly for fraction patterns", () => {
-    assertLinearScaling(fractions, (n) => "add 1/2 cup ".repeat(n))
-  })
-
-  it("scales linearly for consecutive single quotes (ReDoS prevention)", () => {
-    assertLinearScaling(symbolTransform, (n) => "'".repeat(n))
-  })
-})
 

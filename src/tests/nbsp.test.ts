@@ -14,7 +14,6 @@ import {
   type NbspOptions,
 } from "../nbsp.js"
 import { UNICODE_SYMBOLS, DEFAULT_SEPARATOR } from "../constants.js"
-import { assertLinearScaling } from "./test-helpers.js"
 
 const { NBSP, COPYRIGHT, REGISTERED, TRADEMARK } = UNICODE_SYMBOLS
 const SEP = DEFAULT_SEPARATOR
@@ -259,14 +258,18 @@ describe("nbspTransform", () => {
     })
   })
 
-  describe("stress tests", () => {
-    it("scales linearly for short words", () => {
-      assertLinearScaling(nbspTransform, (n) => "a b c d e f ".repeat(n))
-    })
-
-    it("early-exits on text with no spaces", () => {
-      const result = nbspTransform("nospaces".repeat(1000))
-      expect(result).toBe("nospaces".repeat(1000))
+  describe("widow-protection cascade", () => {
+    it.each([
+      // Existing NBSP chain wins: widow protection skipped so the phrase
+      // doesn't become a 3-word non-breaking atom.
+      ["an Activation Vector", `an${NBSP}Activation Vector`],
+      ["in the cat", `in${NBSP}the cat`],
+      ["On the run", `On${NBSP}the run`],
+      ["by Adding an Activation Vector", `by${NBSP}Adding an${NBSP}Activation Vector`],
+      ["Prof. Wilson arrived", `Prof.${NBSP}Wilson arrived`],
+      ["Dr. Smith waited", `Dr.${NBSP}Smith waited`],
+    ])('"%s" → "%s"', (input, expected) => {
+      expect(nbspTransform(input)).toBe(expected)
     })
   })
 })

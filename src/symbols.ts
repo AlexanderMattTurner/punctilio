@@ -2,7 +2,7 @@
  * Symbol transformations: ellipses, multiplication, math symbols, arrows.
  */
 
-import { UNICODE_SYMBOLS, DEFAULT_SEPARATOR, LATIN_LETTERS, wordBoundaryEnd, SPACE_CHARS, spaceBoundaryStart, spaceBoundaryEnd, cachedRegExp, getEscapedSeparator } from "./constants.js"
+import { UNICODE_SYMBOLS, DEFAULT_SEPARATOR, LATIN_LETTERS, wordBoundaryEnd, SPACE_CHARS, cachedRegExp, getEscapedSeparator } from "./constants.js"
 
 export interface SymbolOptions {
   /** Boundary marker for HTML element boundaries. Default: "\uE000\uE001" */
@@ -43,8 +43,11 @@ export function ellipsis(text: string, options: SymbolOptions = {}): string {
   const chr = getEscapedSeparator(options)
 
   // Convert consecutive or spaced dots: ... or . . . → …
-  // Captures preserve any separators between dots
-  const pattern = cachedRegExp(`\\.[${SPACE_CHARS}]?(?<sep1>${chr})?\\.(?:[${SPACE_CHARS}]?)(?<sep2>${chr})?\\.`, "g")
+  // Each gap allows EITHER a space (same-text-node spaced dots) OR a separator
+  // (cross-boundary contiguous dots), but never both — a space adjacent to a
+  // separator means the dots straddle a text-node boundary and shouldn't fold
+  // into one ellipsis.
+  const pattern = cachedRegExp(`\\.(?:[${SPACE_CHARS}]|(?<sep1>${chr}))?\\.(?:[${SPACE_CHARS}]?|(?<sep2>${chr})?)\\.`, "g")
   text = text.replace(pattern, (...args) => {
     const { sep1, sep2 } = args.at(-1) as Record<string, string | undefined>
     return ELLIPSIS + (sep1 ?? "") + (sep2 ?? "")
@@ -99,10 +102,13 @@ export function multiplication(text: string, options: SymbolOptions = {}): strin
     // Consuming the digit-suffix as part of each segment keeps the inner
     // replace from misreading the `x` inside a trailing unit like `px` as
     // another operator.
+    // Sticky flag (`y`) anchors each segment at the previous one's end.
+    // `rest` always starts with a chain segment from the outer match, so
+    // the engine never tries multiple start positions across whitespace.
     const converted = rest.replace(
       cachedRegExp(
         `(?<pre>${chr}?)(?<spaceBefore>\\s*)[xX*](?<spaceAfter>\\s*)(?<post>${chr}?)(?<num>\\d+${digitSuffix})`,
-        "g"
+        "gy"
       ),
       (...innerArgs) => {
         const groups = innerArgs.at(-1) as Record<string, string>
@@ -125,21 +131,27 @@ export function multiplication(text: string, options: SymbolOptions = {}): strin
   return text
 }
 
-/** [leftChars, rightChars, negativeLookahead, replacement] */
-type MathSymbolRule = [string, string, string, string]
+/**
+ * Builds a negative lookahead that must see through an optional separator
+ * so e.g. `!<SEP>=` is correctly recognized as the start of `!==`.
+ */
+type MathLookaheadBuilder = (escapedSeparator: string) => string
+
+/** [leftChars, rightChars, negativeLookaheadBuilder, replacement] */
+type MathSymbolRule = [string, string, MathLookaheadBuilder, string]
 
 /**
  * Math symbol replacement map.
  * The separator is inserted between left and right when building the regex.
  */
 const MATH_SYMBOL_MAP: MathSymbolRule[] = [
-  ["!", "=", "(?!=)", NOT_EQUAL],
-  ["\\+/", "-", "", PLUS_MINUS],
-  ["\\+", "-", "", PLUS_MINUS],
-  ["<", "=", "(?!=)", LESS_EQUAL],
-  [">", "=", "(?!=)", GREATER_EQUAL],
-  ["~", "=", "", APPROXIMATE],
-  ["=", "~", "", APPROXIMATE],
+  ["!", "=", (chr) => `(?!${chr}?=)`, NOT_EQUAL],
+  ["\\+/", "-", () => "", PLUS_MINUS],
+  ["\\+", "-", () => "", PLUS_MINUS],
+  ["<", "=", (chr) => `(?!${chr}?=)`, LESS_EQUAL],
+  [">", "=", (chr) => `(?!${chr}?=)`, GREATER_EQUAL],
+  ["~", "=", () => "", APPROXIMATE],
+  ["=", "~", () => "", APPROXIMATE],
 ]
 
 /** Convert !=, <=, >=, +/-, ~= to Unicode equivalents. */
@@ -147,8 +159,14 @@ export function mathSymbols(text: string, options: SymbolOptions = {}): string {
   const chr = getEscapedSeparator(options)
 
   for (const [left, right, lookahead, replacement] of MATH_SYMBOL_MAP) {
-    const pattern = cachedRegExp(`${left}${chr}?${right}${lookahead}`, "g")
-    text = text.replace(pattern, replacement)
+    // Capture an optional separator between left and right so a cross-boundary
+    // match (e.g., `!<SEP>=`) re-emits the separator alongside the replacement
+    // and preserves the text-node-count invariant in transformTextNodes.
+    const pattern = cachedRegExp(`${left}(?<sep>${chr})?${right}${lookahead(chr)}`, "g")
+    text = text.replace(pattern, (...args) => {
+      const { sep } = args.at(-1) as Record<string, string | undefined>
+      return `${replacement}${sep ?? ""}`
+    })
   }
   return text
 }
@@ -165,7 +183,12 @@ type ContextPredicate = (before: string, after: string) => boolean
 const LEGAL_SYMBOL_CONTEXT_WINDOW = 25
 
 /** Returns true when the context window ends with a path-like fragment (slash + non-whitespace). */
-const isPathContext = (before: string): boolean => /\/\S+$/.test(before)
+const isPathContext = (before: string): boolean => {
+  const parts = before.split(/\s+/)
+  const trailing = parts[parts.length - 1]
+  const slashIdx = trailing.indexOf("/")
+  return slashIdx >= 0 && slashIdx < trailing.length - 1
+}
 
 /**
  * Context-aware replacement for legal symbols like (c), (r), (tm).
@@ -225,26 +248,38 @@ export function legalSymbols(text: string, options: SymbolOptions = {}): string 
  */
 type ArrowPatternBuilder = (escapedSeparator: string) => string
 
-/** Arrow pattern map: shape builder → Unicode symbol */
+/**
+ * Arrow pattern map: shape builder → Unicode symbol.
+ *
+ * The leading `<` on the bidi pattern anchors its repeated-dash-run group
+ * so it stays linear-time; the right/left arrows can't anchor that way, so
+ * they only admit one optional separator at the un-anchored end.
+ */
 const ARROW_RULES: readonly [ArrowPatternBuilder, string][] = [
-  // Bidirectional: <-> or <--> (separator may fall between the halves)
-  [(sep) => `<-+${sep}?>`, ARROW_LEFT_RIGHT],
-  // Right: -> or -->
-  [() => "-+>", ARROW_RIGHT],
-  // Left: <- or <--
-  [() => "<-+", ARROW_LEFT],
+  [(sep) => `<${sep}?-+(?:${sep}-+)*${sep}?>`, ARROW_LEFT_RIGHT],
+  [(sep) => `-+${sep}?>`, ARROW_RIGHT],
+  [(sep) => `<${sep}?-+`, ARROW_LEFT],
 ]
 
 /** Convert -> and <-> to arrows. */
 export function arrows(text: string, options: SymbolOptions = {}): string {
   const chr = getEscapedSeparator(options)
-
-  const start = spaceBoundaryStart(chr)
-  const end = spaceBoundaryEnd(chr)
+  const sepPattern = cachedRegExp(chr, "g")
+  // Boundary on the left is a capturing group rather than a lookbehind so
+  // the alternation stays out of the assertion (recheck-safe); the captured
+  // boundary char is re-emitted before the replacement.
+  const startBoundary = `(^|\\s|${chr})`
+  const endBoundary = `(?=\\s|${chr}|$)`
 
   for (const [buildArrow, replacement] of ARROW_RULES) {
-    const pattern = cachedRegExp(`${start}${buildArrow(chr)}${end}`, "g")
-    text = text.replace(pattern, replacement)
+    const pattern = cachedRegExp(`${startBoundary}${buildArrow(chr)}${endBoundary}`, "g")
+    // Re-emit every separator the arrow body consumed; dropping any would
+    // break the text-node-count invariant in transformTextNodes.
+    text = text.replace(pattern, (match: string, boundary: string) => {
+      const arrowPart = match.slice(boundary.length)
+      const seps = arrowPart.match(sepPattern) ?? []
+      return `${boundary}${replacement}${seps.join("")}`
+    })
   }
 
   return text
@@ -456,9 +491,9 @@ export function superscriptOrdinal(text: string, options: SymbolOptions = {}): s
   })
 }
 
-/** Collapse multiple spaces (including tabs) to single space. Preserves the highest-priority space type present in the run: NBSP > NNBSP > regular. */
+/** Collapse multiple spaces (including tabs) to single space. Preserves the highest-priority space type present in the run: NBSP > NNBSP > regular. Leading whitespace at the start of a line (after `\n` or start-of-string) is preserved so indented blocks (e.g. HN-style code) survive. */
 export function collapseSpaces(text: string): string {
-  return text.replace(cachedRegExp(`[${SPACE_CHARS}]{2,}`, "g"), (match) => {
+  return text.replace(cachedRegExp(`(?<=[^\\n${SPACE_CHARS}])[${SPACE_CHARS}]{2,}`, "g"), (match) => {
     if (match.includes(NBSP)) return NBSP
     if (match.includes(UNICODE_SYMBOLS.NNBSP)) return UNICODE_SYMBOLS.NNBSP
     return " "
@@ -483,12 +518,17 @@ const PUNCTUATION_LIGATURE_MAP: LigatureRule[] = [
 /** Convert ?? to ⁇, ?! to ⁈, !? to ⁉. Poor font support, disabled by default. */
 export function punctuationLigatures(text: string, options: SymbolOptions = {}): string {
   const chr = getEscapedSeparator(options)
+  const sepPattern = cachedRegExp(chr, "g")
 
   for (const [first, repeated, replacement] of PUNCTUATION_LIGATURE_MAP) {
-    const pattern = cachedRegExp(`${first}(?<sep>${chr})?${repeated}(?:${chr}?${repeated})*`, "g")
-    text = text.replace(pattern, (...args) => {
-      const { sep } = (args.at(-1) as Record<string, string | undefined>)
-      return replacement + (sep ?? "")
+    const pattern = cachedRegExp(`${first}(?:${chr}?${repeated})+`, "g")
+    // Re-emit every separator that fell inside the match. The repeat group
+    // can swallow more than one (e.g. across 3+ split text nodes), and
+    // dropping any of them breaks transformTextNodes's text-node-count
+    // invariant.
+    text = text.replace(pattern, (match) => {
+      const seps = match.match(sepPattern) ?? []
+      return replacement + seps.join("")
     })
   }
 

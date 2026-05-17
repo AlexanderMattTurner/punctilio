@@ -76,8 +76,34 @@ describe("rehypePunctilio", () => {
       ["model name preserved", "<p><em>GPT</em>-3</p>", "<p><em>GPT</em>-3</p>"],
       ["simple range still converts", "<p>pages <em>1</em>-5</p>", `<p>pages <em>1</em>${EN_DASH}5</p>`],
       ["genuine negative at element start", "<p><em>-5</em> degrees</p>", `<p><em>${UNICODE_SYMBOLS.MINUS}5</em> degrees</p>`],
+      // Regression: trailing space after a skipped element must survive em-dash conversion.
+      // The space is the next text node's leading boundary, not whitespace around the dash.
+      ["em-dash preserves space after skip element", "<p>a - <code>x</code> b</p>", `<p>a${EM_DASH}<code>x</code> b</p>`],
+      // Regression: a sentence-final period before a skipped element must not be
+      // swallowed into an ellipsis sequence that lives in the next text node.
+      ["ellipsis after skip element does not eat preceding period", "<p>a. <code>x</code>... b</p>", `<p>a. <code>x</code>${ELLIPSIS} b</p>`],
+      // Regression: a math operator split across an element boundary must
+      // preserve the separator so transformTextNodes doesn't throw.
+      ["math operator split across element boundary", "<p>x <em>!</em>= y</p>", `<p>x <em>${NOT_EQUAL}</em> y</p>`],
+      // Arrow split across element boundary: dash pass must not em-dash the
+      // `-`, then the arrows pass converts the whole shape. The match starts
+      // in the first text node, so the arrow lands there and the em empties.
+      ["right arrow split across element boundary", "<p>foo -<em>></em> bar</p>", `<p>foo ${UNICODE_SYMBOLS.ARROW_RIGHT}<em></em> bar</p>`],
+      ["bidirectional arrow split across element boundary", "<p>foo <-<em>--</em>> bar</p>", `<p>foo ${UNICODE_SYMBOLS.ARROW_LEFT_RIGHT}<em></em> bar</p>`],
+      // The math-symbol lookahead must see through the separator so split
+      // `!==` is not misclassified as `!=`.
+      ["!== split across element boundary preserved", "<p>x !<em>=</em>= y</p>", "<p>x !<em>=</em>= y</p>"],
     ])("%s", async (_name, html, expected) => {
       expect(await processHtml(html, { nbsp: false })).toEqual(expected)
+    })
+
+    // Regression: 3+ punctuation chars split across 3+ text nodes must
+    // preserve every separator so the ligature pass doesn't crash. Ligatures
+    // are opt-in, so this test enables them explicitly.
+    it("punctuation ligature across 3 text nodes preserves every separator", async () => {
+      const html = "<p>What<em>?</em>?<em>?</em> done</p>"
+      const expected = `<p>What<em>${UNICODE_SYMBOLS.DOUBLE_QUESTION}</em><em></em> done</p>`
+      expect(await processHtml(html, { nbsp: false, ligatures: true })).toEqual(expected)
     })
   })
 
@@ -170,7 +196,7 @@ describe("rehypePunctilio", () => {
   describe("edge cases", () => {
     it.each([
       ["empty paragraphs", "<p></p>", "<p></p>"],
-      ["whitespace-only", "<p>   </p>", "<p> </p>"],
+      ["whitespace-only", "<p>   </p>", "<p>   </p>"],
       ["special characters", "<p>Café &amp; résumé</p>", "<p>Café &#x26; résumé</p>"],
       ["emoji", '<p>"Hello 👋"</p>', `<p>${LDQ}Hello 👋${RDQ}</p>`],
       ["links", '<p><a href="https://example.com">"Link"</a></p>', `<p><a href="https://example.com">${LDQ}Link${RDQ}</a></p>`],

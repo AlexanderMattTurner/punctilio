@@ -2,6 +2,48 @@
 
 ## Unreleased
 
+## [3.8.5] - 2026-05-17
+
+### Security
+
+- Fixed 2 ReDoS-vulnerable regex patterns in dashes and quotes modules.
+
+## [3.8.3] - 2026-05-13
+
+### Fixed
+
+- Prevent widow-protection cascade in short-word chains.
+
+## [3.8.2] - 2026-05-13
+
+### Fixed
+
+- Fixed regex lookaheads across element boundaries
+
+## [3.8.1] - 2026-05-13
+
+### Fixed
+
+- Fixed em-dash conversion to preserve leading space in the next text node across separator.
+
+## [3.8.0] - 2026-05-11
+
+### Added
+- Deterministic ReDoS detection via static and runtime introspection for improved regex safety.
+
+## [3.7.5] - 2026-05-11
+
+### Changed
+- `collapseSpaces` now preserves runs of whitespace at the start of a line (after `\n` or start-of-string), so indented blocks like HN-style code survive `transform()`. Mid-line runs still collapse.
+
+## [3.7.4] - 2026-05-10
+
+### Fixed
+- Handle single-quoted negatives, hoist legal regexes, and exclude tests from package.
+- Guard countSeparators and pin dependencies.
+- Optimize rehype visitor and fix NNBSP collapse.
+- Drop NODE_AUTH_TOKEN requirement for OIDC publishing.
+
 ## [3.7.3] - 2026-05-04
 
 ### Fixed
