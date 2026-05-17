@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## [3.9.0] - 2026-05-17
+
+### Added
+- Export `months` as a readonly array in dashes module for better programmatic access.
+
+### Changed
+- Updated rehype plugin to skip `template` and `math`/`svg` tags, and add support for `dialog` and `details` tags.
+
+### Fixed
+- Hardened linear scaling tests against CI noise by internalizing months data.
+
 ## [3.8.5] - 2026-05-17
 
 ### Security
