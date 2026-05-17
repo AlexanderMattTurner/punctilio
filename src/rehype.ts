@@ -59,7 +59,7 @@ export interface RehypePunctilioOptions
    * HTML tag names to skip when applying transformations.
    * Content inside these elements won't have formatting improvements applied.
    *
-   * Default: ["code", "pre", "script", "style", "kbd", "var", "samp"]
+   * Default: ["code", "pre", "script", "style", "kbd", "var", "samp", "template", "math", "svg"]
    */
   skipTags?: string[]
 
@@ -73,7 +73,7 @@ export interface RehypePunctilioOptions
   skipClasses?: string[]
 }
 
-const DEFAULT_SKIP_TAGS = ["code", "pre", "script", "style", "kbd", "var", "samp"]
+const DEFAULT_SKIP_TAGS = ["code", "pre", "script", "style", "kbd", "var", "samp", "template", "math", "svg"]
 
 /**
  * Flattens text nodes from an element tree into a single array.
@@ -361,6 +361,8 @@ const TRANSFORMABLE_ELEMENTS = new Set([
   "h6",
   "figcaption",
   "blockquote",
+  "details",
+  "dialog",
   "cite",
   "q",
   "a",

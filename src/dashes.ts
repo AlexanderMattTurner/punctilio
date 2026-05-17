@@ -32,13 +32,15 @@ const DISALLOWED_PREFIX_CLASS_FRAGMENT = numberRangeDisallowedPrefixes
   .map((c) => (c === "-" ? c : `\\u${c.charCodeAt(0).toString(16).padStart(4, "0")}`))
   .join("")
 
-export const months = [
+const months: readonly string[] = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December",
   // "May" omitted — it's already 3 letters (the full name IS the abbreviation)
   "Jan", "Feb", "Mar", "Apr", "Jun",
   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
-].join("|")
+]
+
+const monthPattern = months.join("|")
 
 /** Convert number ranges to en-dash (e.g., "1-5" → "1–5"). */
 export function enDashNumberRange(text: string, options: DashOptions = {}): string {
@@ -116,7 +118,7 @@ export function enDashDateRange(text: string, options: DashOptions = {}): string
   const startYear = `(?=(?<startYear>${chr}? \\d{4})?)\\k<startYear>`
   const endYear = `(?=(?<endYear> \\d{4})?)\\k<endYear>`
   return text.replace(
-    cachedRegExp(`${wb}(?<startMonth>${months})${startYear}(?<preSep>${chr}?)(?<preSpace> ?)-(?<postSpace> ?)(?<postSep>${chr}?)(?<endMonth>${months})${endYear}${wbe}`, "g"),
+    cachedRegExp(`${wb}(?<startMonth>${monthPattern})${startYear}(?<preSep>${chr}?)(?<preSpace> ?)-(?<postSpace> ?)(?<postSep>${chr}?)(?<endMonth>${monthPattern})${endYear}${wbe}`, "g"),
     (...args) => {
       const groups = args.at(-1) as Record<string, string>
       const [pre, post] = dashStyle === "british" ? [" ", " "] : ["", ""]

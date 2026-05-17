@@ -62,6 +62,9 @@ describe("rehypePunctilio", () => {
       // Regression: inline-only containers must share transformation context
       ["quotes across inline-only children", '<p><em>"Hello</em><span>, world"</span></p>', `<p><em>${LDQ}Hello</em><span>, world${RDQ}</span></p>`],
       ["dash across inline-only children", '<p><em>pages 1</em><span>-5</span></p>', `<p><em>pages 1</em><span>${EN_DASH}5</span></p>`],
+      ["dialog with text", '<dialog>"Hello" -- world</dialog>', `<dialog>${LDQ}Hello${RDQ}${EM_DASH}world</dialog>`],
+      ["details with direct text", '<details>"Hello" -- world</details>', `<details>${LDQ}Hello${RDQ}${EM_DASH}world</details>`],
+      ["details with summary", '<details><summary>"Hello"</summary></details>', `<details><summary>${LDQ}Hello${RDQ}</summary></details>`],
     ])("preserves %s", async (_name, html, expected) => {
       expect(await processHtml(html, { nbsp: false })).toEqual(expected)
     })
@@ -105,7 +108,7 @@ describe("rehypePunctilio", () => {
   })
 
   describe("skipped elements", () => {
-    it.each(["code", "pre", "script", "style", "kbd", "var", "samp"])(
+    it.each(["code", "pre", "script", "style", "kbd", "var", "samp", "template", "math", "svg"])(
       "skips %s elements",
       async (tag) => {
         expect(await processHtml(`<${tag}>"Hello"</${tag}>`)).toEqual(`<${tag}>"Hello"</${tag}>`)
@@ -115,6 +118,18 @@ describe("rehypePunctilio", () => {
     it("skips nested content inside code blocks", async () => {
       expect(await processHtml('<pre><code>"Hello" -- test...</code></pre>')).toEqual(
         '<pre><code>"Hello" -- test...</code></pre>'
+      )
+    })
+
+    it("skips template content while transforming siblings", async () => {
+      expect(await processHtml('<div><p>"Hello"</p><template>"Untouched" -- raw</template></div>', { nbsp: false })).toEqual(
+        `<div><p>${LDQ}Hello${RDQ}</p><template>"Untouched" -- raw</template></div>`
+      )
+    })
+
+    it("skips MathML content", async () => {
+      expect(await processHtml('<p>Formula: <math><mi>x</mi><mo>!=</mo><mn>5</mn></math></p>', { nbsp: false })).toEqual(
+        '<p>Formula: <math><mi>x</mi><mo>!=</mo><mn>5</mn></math></p>'
       )
     })
 

@@ -15,7 +15,6 @@ export {
   enDashNumberRange,
   enDashDateRange,
   minusReplace,
-  months,
   numberRangeDisallowedPrefixes,
   type DashOptions,
   type DashStyle,
