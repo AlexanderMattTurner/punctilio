@@ -198,6 +198,7 @@ function convertParentheticalDashes(text: string, sep: string, style: DashStyle)
     `$<sepBefore>${maybeSpace}${localizedDash}${maybeSpace}$<sepAfter>`
   )
   // Convert multiple dashes: "word--word" or "word---word" or "quote"--"quote"
+  // Upper bound of 50 prevents ReDoS on pathological runs of dashes.
   const quoteChars = `"'${LEFT_DOUBLE_QUOTE}${RIGHT_DOUBLE_QUOTE}${LEFT_SINGLE_QUOTE}${RIGHT_SINGLE_QUOTE}`
   text = text.replace(
     cachedRegExp(`(?<=[${LATIN_LETTERS}\\d${quoteChars}])(?<sepBefore>${escapedSep}?)[${EN_DASH}${EM_DASH}-]{2,50}(?<sepAfter>${escapedSep}?)(?=[${LATIN_LETTERS}${quoteChars} ])`, "g"),

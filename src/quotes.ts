@@ -119,7 +119,8 @@ function convertUnmatchedPluralPossessives(text: string, sep: string): string {
  * Build the beginning-double-quote regex pattern from named fragments.
  */
 function buildBeginningDoublePattern(escapedSep: string, rawEscSep: string): string {
-  // Consuming boundary group: re-emitted in the replacement string.
+  // Consuming boundary (not a lookbehind): variable-width lookbehinds
+  // with alternation cause ReDoS. Re-emitted via $<boundary> in the replacement.
   const boundary = `(?<boundary>^|[\\s\\(\\/\\[\\{\\-${EM_DASH}]|${escapedSep})`
   const beforeCapture = `(?<beforeChr>${escapedSep}?)`
 
