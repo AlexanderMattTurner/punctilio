@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## [3.8.5] - 2026-05-17
+
+### Security
+
+- Fixed 2 ReDoS-vulnerable regex patterns in dashes and quotes modules.
+
 ## [3.8.3] - 2026-05-13
 
 ### Fixed
