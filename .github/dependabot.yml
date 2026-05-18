@@ -11,6 +11,14 @@ updates:
         update-types:
           - "minor"
           - "patch"
+    ignore:
+      # jest 30 instruments branches more granularly via babel-plugin-istanbul,
+      # dropping coverage below the 100% threshold even with all tests passing.
+      # Revisit when a stable workaround exists.
+      - dependency-name: "jest"
+        versions: [">=30"]
+      - dependency-name: "@types/jest"
+        versions: [">=30"]
 
   - package-ecosystem: "github-actions"
     directory: "/"

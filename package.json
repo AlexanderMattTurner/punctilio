@@ -74,13 +74,13 @@
   },
   "packageManager": "pnpm@10.28.1",
   "devDependencies": {
-    "@eslint/js": "9.39.4",
+    "@eslint/js": "10.0.1",
     "@types/hast": "3.0.4",
     "@types/jest": "29.5.14",
     "@types/mdast": "4.0.4",
-    "@types/node": "20.19.30",
+    "@types/node": "25.6.2",
     "@types/seedrandom": "3.0.8",
-    "eslint": "9.39.2",
+    "eslint": "10.3.0",
     "eslint-plugin-redos": "4.5.0",
     "eslint-plugin-regexp": "3.1.0",
     "hastscript": "9.0.1",
@@ -100,7 +100,7 @@
     "tipograph": "0.7.4",
     "ts-jest": "29.4.9",
     "tsx": "4.21.0",
-    "typescript": "5.9.3",
+    "typescript": "6.0.3",
     "typescript-eslint": "8.59.2",
     "typograf": "7.7.0",
     "unified": "11.0.5"
@@ -140,5 +140,13 @@
   },
   "lint-staged": {
     "*.{ts,js,mjs}": "eslint --fix"
+  },
+  "pnpm": {
+    "overrides": {
+      "minimatch@<3.1.4": "^3.1.4",
+      "flatted@<3.4.2": "^3.4.2",
+      "ajv@<6.14.0": "^6.14.0",
+      "brace-expansion@<1.1.13": "^1.1.13"
+    }
   }
 }
