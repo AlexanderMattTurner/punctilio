@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## [3.9.1] - 2026-05-18
+
+### Fixed
+- Corrected `months` export and `NbspOptions` JSDoc
+- Fixed documentation issues and decoupled `NbspOptions`
+
 ## [3.9.0] - 2026-05-17
 
 ### Changed
