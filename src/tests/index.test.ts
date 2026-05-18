@@ -1,4 +1,4 @@
-import { transform, DEFAULT_SEPARATOR, countSeparators, months } from "../index.js"
+import { transform, DEFAULT_SEPARATOR, countSeparators } from "../index.js"
 import { ellipsis } from "../symbols.js"
 import { UNICODE_SYMBOLS, REGEX_SPECIAL_CHARS, MAX_REGEX_CACHE_SIZE } from "../constants.js"
 import { buildMixedContent } from "./test-helpers.js"
@@ -706,12 +706,6 @@ describe("transform", () => {
       const input = '"Hello," she said.'
       const withDefault = transform(input)
       expect(transform(input, { nbsp: undefined })).toBe(withDefault)
-    })
-
-    it("re-exports months from dashes module", () => {
-      expect(Array.isArray(months)).toBe(true)
-      expect(months).toContain("January")
-      expect(months).toContain("Dec")
     })
 
   })

@@ -1,4 +1,4 @@
-import { hyphenReplace, enDashNumberRange, enDashDateRange, minusReplace, numberRangeDisallowedPrefixes, months } from "../dashes.js"
+import { hyphenReplace, enDashNumberRange, enDashDateRange, minusReplace, numberRangeDisallowedPrefixes } from "../dashes.js"
 import { DEFAULT_SEPARATOR, UNICODE_SYMBOLS } from "../constants.js"
 
 const {
@@ -740,30 +740,3 @@ describe("hyphenReplace preserves multi-segment numbers across separators", () =
     expect(hyphenReplace(input, { separator: sep })).toBe(input)
   })
 })
-
-describe("months export", () => {
-  it("contains all 12 full month names", () => {
-    const fullMonths = ["January", "February", "March", "April", "May", "June",
-      "July", "August", "September", "October", "November", "December"]
-    for (const m of fullMonths) {
-      expect(months).toContain(m)
-    }
-  })
-
-  it("contains standard 3-letter abbreviations (except May which needs no abbreviation)", () => {
-    const abbreviations = ["Jan", "Feb", "Mar", "Apr", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-    for (const a of abbreviations) {
-      expect(months).toContain(a)
-    }
-    expect(months.filter(m => m === "May")).toHaveLength(1)
-  })
-
-  it("is used by enDashDateRange for all entries", () => {
-    for (const month of months) {
-      const input = `${month}-${month}`
-      const result = enDashDateRange(input)
-      expect(result).toBe(`${month}${EN_DASH}${month}`)
-    }
-  })
-})
-

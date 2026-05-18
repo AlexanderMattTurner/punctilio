@@ -16,7 +16,6 @@ export {
   enDashDateRange,
   minusReplace,
   numberRangeDisallowedPrefixes,
-  months,
   type DashOptions,
   type DashStyle,
 } from "./dashes.js"

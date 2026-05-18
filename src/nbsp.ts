@@ -22,7 +22,7 @@ const {
 } = UNICODE_SYMBOLS
 
 export interface NbspOptions {
-  /** Boundary marker for HTML element boundaries. Default: "" */
+  /** Boundary marker for HTML element boundaries. Default: "\uE000\uE001" */
   separator?: string
 }
 
