@@ -35,7 +35,7 @@ const DISALLOWED_PREFIX_CLASS_FRAGMENT = numberRangeDisallowedPrefixes
 const months: readonly string[] = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December",
-  // "May" omitted — it's already 3 letters (the full name IS the abbreviation)
+  // Abbreviated "May" omitted — the full name is already 3 letters
   "Jan", "Feb", "Mar", "Apr", "Jun",
   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
 ]

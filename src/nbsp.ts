@@ -9,7 +9,6 @@
  */
 
 import { UNICODE_SYMBOLS, LATIN_LETTERS, SPACE_CHARS, NBSP_CHARS, wordBoundaryEnd, getEscapedSeparator, cachedRegExp } from "./constants.js"
-import type { SymbolOptions } from "./symbols.js"
 
 const {
   NBSP,
@@ -22,7 +21,10 @@ const {
   TRADEMARK,
 } = UNICODE_SYMBOLS
 
-export type NbspOptions = Pick<SymbolOptions, "separator">
+export interface NbspOptions {
+  /** Boundary marker for HTML element boundaries. Default: "\uE000\uE001" */
+  separator?: string
+}
 
 /** Space pattern matching regular space, tab, and nbsp. */
 const SPACE = `[${SPACE_CHARS}]`

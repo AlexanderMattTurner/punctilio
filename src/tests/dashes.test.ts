@@ -740,4 +740,3 @@ describe("hyphenReplace preserves multi-segment numbers across separators", () =
     expect(hyphenReplace(input, { separator: sep })).toBe(input)
   })
 })
-
