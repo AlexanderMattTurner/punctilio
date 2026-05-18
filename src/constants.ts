@@ -1,11 +1,5 @@
 /**
- * Shared Unicode constants used throughout the punctilio package.
- *
- * This module provides a centralized location for all Unicode symbols
- * used in typography transformations, making the codebase more maintainable
- * and self-documenting.
- *
- * @module constants
+ * Shared Unicode constants and regex utilities.
  */
 
 import escapeStringRegexp from "escape-string-regexp"

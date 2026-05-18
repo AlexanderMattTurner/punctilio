@@ -141,7 +141,7 @@ The `rehype` plugin accepts additional options. Elements matching any `skipTags`
 
 ```typescript
 rehypePunctilio({
-  skipTags: ["code", "pre", "script", "style", "kbd", "var", "samp"],
+  skipTags: ["code", "pre", "script", "style", "kbd", "var", "samp", "template", "math", "svg"],
   skipClasses: ["no-formatting"],
 });
 ```
