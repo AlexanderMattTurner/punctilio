@@ -38,7 +38,7 @@ on:
 env:
   TEMPLATE_REPO: "alexander-turner/claude-automation-template"
   # Only sync core automation files that don't need customization
-  SYNC_PATHS: ".claude .hooks .github/scripts .github/workflows/template-sync.yaml .github/workflows/dependabot-auto-merge.yaml .github/workflows/claude.yaml .github/workflows/phone-home.yaml"
+  SYNC_PATHS: ".claude .hooks .github/scripts .github/workflows/template-sync.yaml .github/workflows/dependabot-auto-merge.yaml .github/workflows/claude.yaml .github/workflows/phone-home.yaml .github/workflows/security-vulnerability-scan.yaml .github/prompts/security-vulnerability-scan.md"
   # These are excluded because they require project-specific customization
   # (lint/test need project scripts)
   EXCLUDE_PATHS: ""
@@ -70,6 +70,7 @@ jobs:
         env:
           TOKEN: ${{ secrets.TEMPLATE_SYNC_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
+<<<<<<< local
           # Pushing changes to .github/workflows/ requires a token with workflow-edit
           # permission. The default GITHUB_TOKEN (installation token, prefix 'ghs_')
           # CANNOT modify workflow files regardless of the job's permissions block --
@@ -106,6 +107,32 @@ jobs:
               exit 1
               ;;
           esac
+=======
+          # GitHub requires 'workflow' scope on PATs to push .github/workflows/ changes.
+          # The x-oauth-scopes response header is only set for classic PATs;
+          # fine-grained PATs and GITHUB_TOKEN don't expose scopes there.
+          # For those tokens, skip the check and rely on GitHub's own permission
+          # errors at push time. Required fine-grained permissions:
+          #   Contents: Read and write
+          #   Pull requests: Read and write
+          #   Workflows: Read and write   (equivalent of the 'workflow' scope;
+          #                                 'Actions' is a different permission)
+          #   Metadata: Read
+          HEADERS=$(curl -sS -I -H "Authorization: token $TOKEN" \
+            https://api.github.com/user 2>/dev/null || true)
+
+          if echo "$HEADERS" | grep -qi '^x-oauth-scopes:'; then
+            SCOPES=$(echo "$HEADERS" | grep -i '^x-oauth-scopes:' | sed 's/^[^:]*: //' | tr -d '\r\n')
+            if echo "$SCOPES" | tr ',' '\n' | sed 's/^ *//' | grep -qx 'workflow'; then
+              echo "Classic PAT has 'workflow' scope."
+            else
+              echo "::error::Classic TEMPLATE_SYNC_TOKEN lacks the 'workflow' scope, which GitHub requires to push changes to .github/workflows/ files. Add the 'workflow' scope to your PAT at https://github.com/settings/tokens and update the TEMPLATE_SYNC_TOKEN repository secret."
+              exit 1
+            fi
+          else
+            echo "Token does not expose OAuth scopes (fine-grained PAT or GITHUB_TOKEN); skipping scope check. Ensure 'Workflows: Read and write' is granted."
+          fi
+>>>>>>> template
 
       - name: Sync template files with conflict detection
         id: sync
