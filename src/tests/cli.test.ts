@@ -111,16 +111,30 @@ describe("runCli", () => {
     },
   )
 
-  it("reads stdin and writes stdout when --stdin --type md", async () => {
+  it("reads stdin when positional is '-'", async () => {
     const cap = captureIO('"Hello."')
-    const code = await runCli(["--stdin", "--type", "md", "--no-nbsp"], cap.io)
+    const code = await runCli(["-", "--type", "md", "--no-nbsp"], cap.io)
     expect(code).toBe(0)
     expect(cap.stdout()).toContain(`${LDQ}Hello.${RDQ}`)
   })
 
+  it("reads stdin when --stdin-filepath is set (no positional)", async () => {
+    const cap = captureIO('"Hello."')
+    const code = await runCli(["--stdin-filepath", "doc.md", "--no-nbsp"], cap.io)
+    expect(code).toBe(0)
+    expect(cap.stdout()).toContain(`${LDQ}Hello.${RDQ}`)
+  })
+
+  it("--stdin-filepath infers type from extension", async () => {
+    const cap = captureIO('<p>"Hello"</p>')
+    const code = await runCli(["--stdin-filepath", "page.html", "--no-nbsp"], cap.io)
+    expect(code).toBe(0)
+    expect(cap.stdout()).toContain(`${LDQ}Hello${RDQ}`)
+  })
+
   it("handles string-typed stdin chunks", async () => {
     const cap = captureIO('"Hello."', /* stdinAsString */ true)
-    const code = await runCli(["--stdin", "--type", "md", "--no-nbsp"], cap.io)
+    const code = await runCli(["-", "--type", "md", "--no-nbsp"], cap.io)
     expect(code).toBe(0)
     expect(cap.stdout()).toContain(`${LDQ}Hello.${RDQ}`)
   })
@@ -128,7 +142,7 @@ describe("runCli", () => {
   it("--stdin --check returns 1 when input would change", async () => {
     const cap = captureIO('"Hello."')
     const code = await runCli(
-      ["--stdin", "--type", "md", "--check", "--no-nbsp"],
+      ["-", "--type", "md", "--check", "--no-nbsp"],
       cap.io,
     )
     expect(code).toBe(1)
@@ -137,28 +151,28 @@ describe("runCli", () => {
   it("--stdin --check returns 0 when input is already clean", async () => {
     const cap = captureIO(`${LDQ}Hello.${RDQ}`)
     const code = await runCli(
-      ["--stdin", "--type", "md", "--check", "--no-nbsp"],
+      ["-", "--type", "md", "--check", "--no-nbsp"],
       cap.io,
     )
     expect(code).toBe(0)
   })
 
-  it("--stdin rejects file arguments", async () => {
+  it("'-' rejects file arguments alongside it", async () => {
     const path = tmpFile("x", "doc.md")
     const cap = captureIO("x")
-    const code = await runCli(["--stdin", "--type", "md", path], cap.io)
+    const code = await runCli(["-", "--type", "md", path], cap.io)
     expect(code).toBe(2)
     expect(cap.stderr()).toContain("cannot be combined")
   })
 
-  it("--stdin requires --type", async () => {
+  it("'-' without --type or --stdin-filepath errors", async () => {
     const cap = captureIO("x")
-    const code = await runCli(["--stdin"], cap.io)
+    const code = await runCli(["-"], cap.io)
     expect(code).toBe(2)
-    expect(cap.stderr()).toContain("requires --type")
+    expect(cap.stderr()).toMatch(/--type/)
   })
 
-  it("errors when no positional and no --stdin", async () => {
+  it("errors when no positional and no stdin signal", async () => {
     const cap = captureIO()
     const code = await runCli([], cap.io)
     expect(code).toBe(2)
@@ -237,7 +251,7 @@ describe("runCli", () => {
   it("applies --punctuation-style british", async () => {
     const cap = captureIO('"Hello."')
     const code = await runCli(
-      ["--stdin", "--type", "md", "--punctuation-style", "british", "--no-nbsp"],
+      ["-", "--type", "md", "--punctuation-style", "british", "--no-nbsp"],
       cap.io,
     )
     expect(code).toBe(0)
@@ -247,7 +261,7 @@ describe("runCli", () => {
   it("--fractions enables fraction transforms", async () => {
     const cap = captureIO("Add 1/2 cup.")
     const code = await runCli(
-      ["--stdin", "--type", "md", "--fractions", "--no-nbsp"],
+      ["-", "--type", "md", "--fractions", "--no-nbsp"],
       cap.io,
     )
     expect(code).toBe(0)
@@ -257,7 +271,7 @@ describe("runCli", () => {
   it("--degrees enables degree transforms", async () => {
     const cap = captureIO("It is 20 C today.")
     const code = await runCli(
-      ["--stdin", "--type", "md", "--degrees", "--no-nbsp"],
+      ["-", "--type", "md", "--degrees", "--no-nbsp"],
       cap.io,
     )
     expect(code).toBe(0)
@@ -267,7 +281,7 @@ describe("runCli", () => {
   it("--superscript enables superscript ordinals", async () => {
     const cap = captureIO("1st place")
     const code = await runCli(
-      ["--stdin", "--type", "md", "--superscript", "--no-nbsp"],
+      ["-", "--type", "md", "--superscript", "--no-nbsp"],
       cap.io,
     )
     expect(code).toBe(0)
@@ -277,7 +291,7 @@ describe("runCli", () => {
   it("--ligatures enables punctuation ligatures", async () => {
     const cap = captureIO("Wait!?")
     const code = await runCli(
-      ["--stdin", "--type", "md", "--ligatures", "--no-nbsp"],
+      ["-", "--type", "md", "--ligatures", "--no-nbsp"],
       cap.io,
     )
     expect(code).toBe(0)
@@ -287,7 +301,7 @@ describe("runCli", () => {
   it("--no-symbols disables symbol transforms", async () => {
     const cap = captureIO("Wait... done.")
     const code = await runCli(
-      ["--stdin", "--type", "md", "--no-symbols", "--no-nbsp"],
+      ["-", "--type", "md", "--no-symbols", "--no-nbsp"],
       cap.io,
     )
     expect(code).toBe(0)
@@ -297,7 +311,7 @@ describe("runCli", () => {
   it("--no-arrows disables arrow transforms", async () => {
     const cap = captureIO("Go -> back")
     const code = await runCli(
-      ["--stdin", "--type", "md", "--no-arrows", "--no-nbsp"],
+      ["-", "--type", "md", "--no-arrows", "--no-nbsp"],
       cap.io,
     )
     expect(code).toBe(0)
@@ -307,7 +321,7 @@ describe("runCli", () => {
   it("--no-collapse-spaces preserves multiple spaces", async () => {
     const cap = captureIO("two  spaces.")
     const code = await runCli(
-      ["--stdin", "--type", "md", "--no-collapse-spaces", "--no-nbsp"],
+      ["-", "--type", "md", "--no-collapse-spaces", "--no-nbsp"],
       cap.io,
     )
     expect(code).toBe(0)
