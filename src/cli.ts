@@ -34,30 +34,30 @@ class UsageError extends Error {}
  * all derived from this table. To add or rename a flag, edit exactly
  * one row here.
  */
-type OptionSpec =
-  | {
-      kind: "flag"
-      flag: string
-      section: Section
-      summary: string
-      apply: (opts: CliOptions) => void
-    }
-  | {
-      kind: "string"
-      flag: string
-      section: Section
-      summary: string
-      choices: readonly string[]
-      apply: (opts: CliOptions, value: string) => void
-    }
-  | {
-      kind: "multi"
-      flag: string
-      section: Section
-      summary: string
-      placeholder: string
-      apply: (opts: CliOptions, value: string[]) => void
-    }
+interface OptionSpecBase {
+  flag: string
+  section: Section
+  summary: string
+}
+
+interface FlagSpec extends OptionSpecBase {
+  kind: "flag"
+  apply: (opts: CliOptions) => void
+}
+
+interface StringSpec extends OptionSpecBase {
+  kind: "string"
+  choices: readonly string[]
+  apply: (opts: CliOptions, value: string) => void
+}
+
+interface MultiSpec extends OptionSpecBase {
+  kind: "multi"
+  placeholder: string
+  apply: (opts: CliOptions, value: string[]) => void
+}
+
+type OptionSpec = FlagSpec | StringSpec | MultiSpec
 
 const OPTIONS: readonly OptionSpec[] = [
   // ── Transform options (apply to both Markdown and HTML) ────────────
