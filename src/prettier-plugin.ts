@@ -55,69 +55,41 @@ function readOptions(opts: PluginOptions): RemarkPunctilioOptions {
 
 const upstreamMarkdown = prettierMarkdown.parsers.markdown as Parser<Root>
 
-const wrappedMarkdown: Parser<Root> = {
-  ...upstreamMarkdown,
-  async parse(text, options) {
-    const ast = await upstreamMarkdown.parse(text, options)
-    // remarkPunctilio's transformer only inspects its tree argument; the
-    // file and next-callback params from the unified Transformer signature
-    // are unused here.
-    const transform = remarkPunctilio(readOptions(options as PluginOptions))
-    ;(transform as unknown as (tree: Root) => void)(ast)
-    return ast
-  },
-}
+const CATEGORY = "Punctilio"
+const choice = (values: readonly string[]) => values.map((value) => ({ value, description: value }))
 
 const options: Record<string, SupportOption> = {
   punctilioPunctuationStyle: {
-    type: "choice",
-    category: "Punctilio",
-    default: "american",
-    description: "Quote/punctuation style",
-    choices: PUNCTUATION_STYLES.map((value) => ({ value, description: value })),
+    category: CATEGORY, type: "choice", default: "american",
+    description: "Quote/punctuation style", choices: choice(PUNCTUATION_STYLES),
   },
   punctilioDashStyle: {
-    type: "choice",
-    category: "Punctilio",
-    default: "american",
-    description: "Dash style",
-    choices: DASH_STYLES.map((value) => ({ value, description: value })),
+    category: CATEGORY, type: "choice", default: "american",
+    description: "Dash style", choices: choice(DASH_STYLES),
   },
-  punctilioNbsp: {
-    type: "boolean",
-    category: "Punctilio",
-    default: true,
-    description: "Insert non-breaking spaces in typographically appropriate locations",
-  },
-  punctilioFractions: {
-    type: "boolean",
-    category: "Punctilio",
-    default: false,
-    description: "Convert 1/2 → ½",
-  },
-  punctilioDegrees: {
-    type: "boolean",
-    category: "Punctilio",
-    default: false,
-    description: "Convert 20 C → 20 °C",
-  },
-  punctilioSuperscript: {
-    type: "boolean",
-    category: "Punctilio",
-    default: false,
-    description: "Convert 1st → 1ˢᵗ",
-  },
-  punctilioLigatures: {
-    type: "boolean",
-    category: "Punctilio",
-    default: false,
-    description: "Convert !? → ⁉",
-  },
+  punctilioNbsp:       { category: CATEGORY, type: "boolean", default: true,  description: "Insert non-breaking spaces in typographically appropriate locations" },
+  punctilioFractions:  { category: CATEGORY, type: "boolean", default: false, description: "Convert 1/2 → ½" },
+  punctilioDegrees:    { category: CATEGORY, type: "boolean", default: false, description: "Convert 20 C → 20 °C" },
+  punctilioSuperscript:{ category: CATEGORY, type: "boolean", default: false, description: "Convert 1st → 1ˢᵗ" },
+  punctilioLigatures:  { category: CATEGORY, type: "boolean", default: false, description: "Convert !? → ⁉" },
 }
 
 const plugin: Plugin = {
-  parsers: { markdown: wrappedMarkdown },
   options,
+  parsers: {
+    markdown: {
+      ...upstreamMarkdown,
+      async parse(text, options) {
+        const ast = await upstreamMarkdown.parse(text, options)
+        // remarkPunctilio's transformer only reads its tree argument; the file
+        // and next-callback params from the unified Transformer signature are
+        // unused, so a narrowed cast is enough to call it.
+        const transform = remarkPunctilio(readOptions(options as PluginOptions)) as (tree: Root) => void
+        transform(ast)
+        return ast
+      },
+    },
+  },
 }
 
 export default plugin
