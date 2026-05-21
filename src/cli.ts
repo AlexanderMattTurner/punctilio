@@ -6,12 +6,15 @@
  * @packageDocumentation
  */
 
+import { existsSync, readFileSync } from "node:fs"
 import { readFile, writeFile } from "node:fs/promises"
-import { extname } from "node:path"
+import { extname, join, relative, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 
 import { Command, CommanderError, Option } from "commander"
 import { cosmiconfig } from "cosmiconfig"
+import ignore, { type Ignore } from "ignore"
+import { glob } from "tinyglobby"
 
 import { transformMarkdown, type MarkdownOptions } from "./markdown.js"
 import { transformHtml, type HtmlOptions } from "./html.js"
@@ -47,6 +50,7 @@ const HTML_EXTENSIONS = new Set([".html", ".htm"])
 interface ParsedFlags {
   check?: boolean
   config?: string | false  // string if --config <path>, false if --no-config
+  ignorePath?: string
   stdinFilepath?: string
   type?: FileType
   punctuationStyle?: PunctuationStyle
@@ -77,6 +81,7 @@ function buildProgram(version: string, io: CliIO): Command {
     .option("--check", "exit 1 if any file would change; write nothing")
     .option("--config <path>", "path to a punctilio config file (otherwise auto-discovered)")
     .option("--no-config", "ignore any auto-discovered config file")
+    .option("--ignore-path <path>", "path to an ignore file (otherwise .punctilioignore in cwd)")
     .option("--stdin-filepath <path>", "treat stdin as if it were this filename (infers type from extension)")
     .addOption(new Option("--type <type>", "force file type (otherwise inferred from extension)").choices(FILE_TYPES))
     .addOption(new Option("--punctuation-style <style>", "quote and punctuation style").choices(PUNCTUATION_STYLES))
@@ -136,6 +141,46 @@ async function loadConfig(
   const result = configPath ? await explorer.load(configPath) : await explorer.search(cwd)
   if (!result || result.isEmpty) return {}
   return result.config as CliOptions
+}
+
+/**
+ * Loads a .punctilioignore-style file into an `ignore` matcher.
+ * Falls back to the empty matcher (matches nothing) when the file
+ * doesn't exist.
+ */
+function loadIgnore(cwd: string, ignorePath: string | undefined): Ignore {
+  const ig = ignore()
+  const effective = ignorePath ?? join(cwd, ".punctilioignore")
+  if (existsSync(effective)) ig.add(readFileSync(effective, "utf8"))
+  return ig
+}
+
+function isGlobPattern(pattern: string): boolean {
+  return /[*?[\]{}]/.test(pattern)
+}
+
+/**
+ * Expands glob patterns and applies ignore rules. Non-glob positionals
+ * are passed through as literal file paths so they error loudly if
+ * missing (preserving the prior behavior of `punctilio file.md`); only
+ * literal paths matching an ignore rule are dropped silently.
+ */
+async function discoverFiles(
+  patterns: string[],
+  cwd: string,
+  ig: Ignore,
+): Promise<string[]> {
+  const literals = patterns.filter((p) => !isGlobPattern(p))
+  const globs = patterns.filter(isGlobPattern)
+  const expanded = globs.length > 0
+    ? await glob(globs, { cwd, absolute: true, onlyFiles: true })
+    : []
+  const all = [...literals.map((p) => resolve(cwd, p)), ...expanded]
+  return all.filter((file) => {
+    const rel = relative(cwd, file)
+    if (rel.startsWith("..") || rel === "") return true
+    return !ig.ignores(rel)
+  })
 }
 
 function buildOptions(flags: ParsedFlags): CliOptions {
@@ -270,8 +315,12 @@ async function runValidated(
     return 2
   }
 
+  const cwd = process.cwd()
+  const ig = loadIgnore(cwd, flags.ignorePath)
+  const files = await discoverFiles(positionals, cwd, ig)
+
   let anyChanged = false
-  for (const path of positionals) {
+  for (const path of files) {
     const type = inferFileType(path, flags.type)
     const original = await readFile(path, "utf8")
     const formatted = matchTrailingNewline(original, await transformContent(original, type, opts))

@@ -414,6 +414,50 @@ describe("runCli", () => {
     expect(cap.stdout()).toContain(`${LDQ}Hello.${RDQ}`)
   })
 
+  it("expands glob patterns and respects .punctilioignore", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "punctilio-glob-"))
+    createdDirs.push(dir)
+    writeFileSync(join(dir, "a.md"), '"a"\n')
+    writeFileSync(join(dir, "b.md"), '"b"\n')
+    writeFileSync(join(dir, ".punctilioignore"), "b.md\n")
+
+    const originalCwd = process.cwd()
+    process.chdir(dir)
+    try {
+      const cap = captureIO()
+      const code = await runCli(["*.md", "--no-nbsp"], cap.io)
+      expect(code).toBe(0)
+      expect(readFileSync(join(dir, "a.md"), "utf8")).toContain(`${LDQ}a${RDQ}`)
+      expect(readFileSync(join(dir, "b.md"), "utf8")).toBe('"b"\n')
+    } finally {
+      process.chdir(originalCwd)
+    }
+  })
+
+  it("--ignore-path overrides the default .punctilioignore lookup", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "punctilio-ignore-"))
+    createdDirs.push(dir)
+    writeFileSync(join(dir, "a.md"), '"a"\n')
+    writeFileSync(join(dir, "b.md"), '"b"\n')
+    const customIgnore = join(dir, "custom.ignore")
+    writeFileSync(customIgnore, "a.md\n")
+
+    const originalCwd = process.cwd()
+    process.chdir(dir)
+    try {
+      const cap = captureIO()
+      const code = await runCli(
+        ["*.md", "--ignore-path", customIgnore, "--no-nbsp"],
+        cap.io,
+      )
+      expect(code).toBe(0)
+      expect(readFileSync(join(dir, "a.md"), "utf8")).toBe('"a"\n')
+      expect(readFileSync(join(dir, "b.md"), "utf8")).toContain(`${LDQ}b${RDQ}`)
+    } finally {
+      process.chdir(originalCwd)
+    }
+  })
+
   it("--no-config skips config-file loading", async () => {
     const configPath = tmpFile(
       JSON.stringify({ punctuationStyle: "british", nbsp: false }),
