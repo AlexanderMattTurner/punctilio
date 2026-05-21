@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Security
+- Replaced the optional-separator captures in `minusReplace` (patterns 1a, 1b) and `convertParentheticalDashes` (multi-dash match) with atomic-optional forms (lookahead + backref) and a two-arm fixed-width lookbehind. Eliminates the branch ambiguity that recheck intermittently flagged as ReDoS-vulnerable in the regex-safety test, without changing observable behavior.
+
 ## [3.9.1] - 2026-05-18
 
 ### Fixed

@@ -131,17 +131,25 @@ export function enDashDateRange(text: string, options: DashOptions = {}): string
 export function minusReplace(text: string, options: DashOptions = {}): string {
   const chr = getEscapedSeparator(options)
 
+  // Variable-width lookbehind `(?<=\d${chr}?)` and inline optional separator
+  // `${chr}?` both create branch ambiguity that recheck flags as ReDoS-prone.
+  // Replace each with deterministic forms: a two-arm fixed-width lookbehind
+  // and an atomic-optional capture (lookahead + backref) for the leading
+  // separator, so the engine commits without backtracking across the choice.
+  const digitLookbehind = `(?:(?<=\\d${chr})|(?<=\\d))`
+  const atomicLeadingSep = `(?=(?<numSep>${chr})?)\\k<numSep>`
+
   // Pattern 1a: Subtraction of negative number (e.g., "5 - -3" → "5 − −3")
   // Must come before Pattern 1b so the negative hyphen is consumed first
   text = text.replace(
-    cachedRegExp(`(?<=\\d${chr}?) - -(?<num>${chr}?\\d*\\.?\\d+)`, "g"),
+    cachedRegExp(`${digitLookbehind} - -(?<num>${atomicLeadingSep}\\d*\\.?\\d+)`, "g"),
     ` ${MINUS} ${MINUS}$<num>`
   )
 
   // Pattern 1b: Spaced math subtraction (e.g., "5 - 3" → "5 − 3")
   // Only when preceded by a digit - this distinguishes "5 - 3" from "Safari) - 9"
   text = text.replace(
-    cachedRegExp(`(?<=\\d${chr}?) - (?<num>${chr}?\\d*\\.?\\d+)`, "g"),
+    cachedRegExp(`${digitLookbehind} - (?<num>${atomicLeadingSep}\\d*\\.?\\d+)`, "g"),
     ` ${MINUS} $<num>`
   )
 
@@ -201,9 +209,13 @@ function convertParentheticalDashes(text: string, sep: string, style: DashStyle)
   )
   // Convert multiple dashes: "word--word" or "word---word" or "quote"--"quote"
   // Upper bound of 50 prevents ReDoS on pathological runs of dashes.
+  // The optional separator captures use the atomic-optional idiom (lookahead
+  // + backref) instead of `${escapedSep}?` so the engine commits without
+  // backtracking across the empty-or-present choice. recheck flags the
+  // plain optional capture as ReDoS-prone.
   const quoteChars = `"'${LEFT_DOUBLE_QUOTE}${RIGHT_DOUBLE_QUOTE}${LEFT_SINGLE_QUOTE}${RIGHT_SINGLE_QUOTE}`
   text = text.replace(
-    cachedRegExp(`(?<=[${LATIN_LETTERS}\\d${quoteChars}])(?<sepBefore>${escapedSep}?)[${EN_DASH}${EM_DASH}-]{2,50}(?<sepAfter>${escapedSep}?)(?=[${LATIN_LETTERS}${quoteChars} ])`, "g"),
+    cachedRegExp(`(?<=[${LATIN_LETTERS}\\d${quoteChars}])(?=(?<sepBefore>${escapedSep})?)\\k<sepBefore>[${EN_DASH}${EM_DASH}-]{2,50}(?=(?<sepAfter>${escapedSep})?)\\k<sepAfter>(?=[${LATIN_LETTERS}${quoteChars} ])`, "g"),
     `$<sepBefore>${maybeSpace}${localizedDash}${maybeSpace}$<sepAfter>`
   )
   // Convert dashes at start of line
