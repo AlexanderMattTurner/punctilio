@@ -16,18 +16,9 @@ import { transformHtml, type HtmlOptions } from "./html.js"
 import type { PunctuationStyle } from "./quotes.js"
 import type { DashStyle } from "./dashes.js"
 
-const VALID_PUNCTUATION_STYLES: readonly PunctuationStyle[] = [
-  "american", "british", "german", "french", "none",
-]
-const VALID_DASH_STYLES: readonly DashStyle[] = ["american", "british", "none"]
-const VALID_EMPHASIS_MARKERS = ["*", "_"] as const
-const VALID_BULLET_MARKERS = ["-", "*", "+"] as const
-const VALID_RULE_MARKERS = ["-", "*", "_"] as const
-
-const MARKDOWN_EXTENSIONS = new Set([".md", ".markdown"])
-const HTML_EXTENSIONS = new Set([".html", ".htm"])
-
+type CliOptions = MarkdownOptions & HtmlOptions
 type FileType = "md" | "html"
+type Section = "transform" | "markdown" | "html"
 
 interface CliIO {
   stdin: AsyncIterable<string | Buffer>
@@ -37,42 +28,134 @@ interface CliIO {
 
 class UsageError extends Error {}
 
-const HELP = `Usage:
-  punctilio [options] <files...>           Format files in place
-  punctilio --check <files...>             Exit 1 if any file would change
-  punctilio --stdin --type <md|html>       Read stdin, write stdout
+/**
+ * Single source of truth for every CLI flag that maps onto a library
+ * option. `parseArgs` config, `buildOptions`, and the HELP string are
+ * all derived from this table. To add or rename a flag, edit exactly
+ * one row here.
+ */
+type OptionSpec =
+  | {
+      kind: "flag"
+      flag: string
+      section: Section
+      summary: string
+      apply: (opts: CliOptions) => void
+    }
+  | {
+      kind: "string"
+      flag: string
+      section: Section
+      summary: string
+      choices: readonly string[]
+      apply: (opts: CliOptions, value: string) => void
+    }
+  | {
+      kind: "multi"
+      flag: string
+      section: Section
+      summary: string
+      placeholder: string
+      apply: (opts: CliOptions, value: string[]) => void
+    }
 
-File-type detection (override with --type):
-  .md, .markdown       markdown
-  .html, .htm          html
+const OPTIONS: readonly OptionSpec[] = [
+  // ── Transform options (apply to both Markdown and HTML) ────────────
+  {
+    kind: "string", flag: "punctuation-style", section: "transform",
+    choices: ["american", "british", "german", "french", "none"] satisfies readonly PunctuationStyle[],
+    summary: "Quote/punctuation style",
+    apply: (o, v) => { o.punctuationStyle = v as PunctuationStyle },
+  },
+  {
+    kind: "string", flag: "dash-style", section: "transform",
+    choices: ["american", "british", "none"] satisfies readonly DashStyle[],
+    summary: "Dash style",
+    apply: (o, v) => { o.dashStyle = v as DashStyle },
+  },
+  {
+    kind: "flag", flag: "no-symbols", section: "transform",
+    summary: "Disable symbol transforms (ellipsis, ×, ©, etc.)",
+    apply: (o) => { o.symbols = false },
+  },
+  {
+    kind: "flag", flag: "no-nbsp", section: "transform",
+    summary: "Disable non-breaking space insertion",
+    apply: (o) => { o.nbsp = false },
+  },
+  {
+    kind: "flag", flag: "no-collapse-spaces", section: "transform",
+    summary: "Preserve runs of consecutive spaces",
+    apply: (o) => { o.collapseSpaces = false },
+  },
+  {
+    kind: "flag", flag: "no-arrows", section: "transform",
+    summary: "Disable -> → and friends",
+    apply: (o) => { o.includeArrows = false },
+  },
+  {
+    kind: "flag", flag: "fractions", section: "transform",
+    summary: "Enable 1/2 → ½",
+    apply: (o) => { o.fractions = true },
+  },
+  {
+    kind: "flag", flag: "degrees", section: "transform",
+    summary: "Enable 20 C → 20 °C",
+    apply: (o) => { o.degrees = true },
+  },
+  {
+    kind: "flag", flag: "superscript", section: "transform",
+    summary: "Enable 1st → 1ˢᵗ",
+    apply: (o) => { o.superscript = true },
+  },
+  {
+    kind: "flag", flag: "ligatures", section: "transform",
+    summary: "Enable !? → ⁉",
+    apply: (o) => { o.ligatures = true },
+  },
+  // ── Markdown-only options ──────────────────────────────────────────
+  {
+    kind: "string", flag: "emphasis-marker", section: "markdown",
+    choices: ["*", "_"], summary: "Emphasis character",
+    apply: (o, v) => { o.emphasisMarker = v as "*" | "_" },
+  },
+  {
+    kind: "string", flag: "strong-marker", section: "markdown",
+    choices: ["*", "_"], summary: "Strong emphasis character",
+    apply: (o, v) => { o.strongMarker = v as "*" | "_" },
+  },
+  {
+    kind: "string", flag: "bullet-marker", section: "markdown",
+    choices: ["-", "*", "+"], summary: "List bullet character",
+    apply: (o, v) => { o.bulletMarker = v as "-" | "*" | "+" },
+  },
+  {
+    kind: "string", flag: "rule-marker", section: "markdown",
+    choices: ["-", "*", "_"], summary: "Thematic break character",
+    apply: (o, v) => { o.ruleMarker = v as "-" | "*" | "_" },
+  },
+  // ── HTML-only options ──────────────────────────────────────────────
+  {
+    kind: "multi", flag: "skip-tag", section: "html",
+    placeholder: "<tag>",
+    summary: "Tags whose contents are left alone (repeatable)",
+    apply: (o, v) => { o.skipTags = v },
+  },
+  {
+    kind: "multi", flag: "skip-class", section: "html",
+    placeholder: "<class>",
+    summary: "Class names whose elements are skipped (repeatable)",
+    apply: (o, v) => { o.skipClasses = v },
+  },
+  {
+    kind: "flag", flag: "no-fragment", section: "html",
+    summary: "Parse input as a full HTML document",
+    apply: (o) => { o.fragment = false },
+  },
+]
 
-Transform options:
-  --punctuation-style <american|british|german|french|none>
-  --dash-style <american|british|none>
-  --no-symbols              Disable symbol transforms (ellipsis, ×, ©, etc.)
-  --no-nbsp                 Disable non-breaking space insertion
-  --no-collapse-spaces      Preserve runs of consecutive spaces
-  --no-arrows               Disable -> → → and friends
-  --fractions               Enable 1/2 → ½
-  --degrees                 Enable 20 C → 20 °C
-  --superscript             Enable 1st → 1ˢᵗ
-  --ligatures               Enable !? → ⁉
-
-Markdown-only options:
-  --emphasis-marker <*|_>
-  --strong-marker <*|_>
-  --bullet-marker <-|*|+>
-  --rule-marker <-|*|_>
-
-HTML-only options:
-  --skip-tag <tag>          (repeatable) Tags whose contents are left alone
-  --skip-class <class>      (repeatable) Class names whose elements are skipped
-  --no-fragment             Parse input as a full HTML document
-
-Other:
-  -h, --help                Show this help
-  -V, --version             Show version
-`
+const MARKDOWN_EXTENSIONS = new Set([".md", ".markdown"])
+const HTML_EXTENSIONS = new Set([".html", ".htm"])
 
 function inferFileType(path: string, override?: string): FileType {
   if (override !== undefined) {
@@ -89,87 +172,93 @@ function inferFileType(path: string, override?: string): FileType {
   )
 }
 
-function validateChoice<T extends readonly string[]>(
-  value: string | undefined,
-  choices: T,
-  flag: string,
-): T[number] | undefined {
-  if (value === undefined) return undefined
-  if (!choices.includes(value)) {
-    throw new UsageError(`Invalid value "${value}" for --${flag}. Choose from: ${choices.join(", ")}`)
+function parseArgsOptions(): Record<string, { type: "string" | "boolean"; short?: string; multiple?: boolean }> {
+  const out: Record<string, { type: "string" | "boolean"; short?: string; multiple?: boolean }> = {
+    help:    { type: "boolean", short: "h" },
+    version: { type: "boolean", short: "V" },
+    check:   { type: "boolean" },
+    stdin:   { type: "boolean" },
+    type:    { type: "string" },
   }
-  return value as T[number]
+  for (const spec of OPTIONS) {
+    out[spec.flag] = spec.kind === "multi"
+      ? { type: "string", multiple: true }
+      : { type: spec.kind === "flag" ? "boolean" : "string" }
+  }
+  return out
 }
 
-type ParsedValues = {
-  "punctuation-style"?: string
-  "dash-style"?: string
-  "no-symbols"?: boolean
-  "no-nbsp"?: boolean
-  "no-collapse-spaces"?: boolean
-  "no-arrows"?: boolean
-  fractions?: boolean
-  degrees?: boolean
-  superscript?: boolean
-  ligatures?: boolean
-  "emphasis-marker"?: string
-  "strong-marker"?: string
-  "bullet-marker"?: string
-  "rule-marker"?: string
-  "skip-tag"?: string[]
-  "skip-class"?: string[]
-  "no-fragment"?: boolean
+function buildOptions(values: Record<string, unknown>): CliOptions {
+  const opts: CliOptions = {}
+  for (const spec of OPTIONS) {
+    const value = values[spec.flag]
+    if (value === undefined) continue
+    switch (spec.kind) {
+      case "flag":
+        if (value === true) spec.apply(opts)
+        break
+      case "multi":
+        spec.apply(opts, value as string[])
+        break
+      case "string": {
+        const v = value as string
+        if (!spec.choices.includes(v)) {
+          throw new UsageError(
+            `Invalid value "${v}" for --${spec.flag}. Choose from: ${spec.choices.join(", ")}`,
+          )
+        }
+        spec.apply(opts, v)
+        break
+      }
+    }
+  }
+  return opts
 }
 
-interface BuiltOptions {
-  markdown: MarkdownOptions
-  html: HtmlOptions
+const HELP_COL = 28
+
+function formatHelpLine(spec: OptionSpec): string {
+  let lhs = `  --${spec.flag}`
+  let suffix = ""
+  if (spec.kind === "multi") lhs += ` ${spec.placeholder}`
+  if (spec.kind === "string") suffix = ` (${spec.choices.join("|")})`
+  return `${lhs.padEnd(HELP_COL)}${spec.summary}${suffix}`
 }
 
-function buildOptions(values: ParsedValues): BuiltOptions {
-  const shared: HtmlOptions & MarkdownOptions = {}
-
-  const punctuationStyle = validateChoice(values["punctuation-style"], VALID_PUNCTUATION_STYLES, "punctuation-style")
-  if (punctuationStyle) shared.punctuationStyle = punctuationStyle
-
-  const dashStyle = validateChoice(values["dash-style"], VALID_DASH_STYLES, "dash-style")
-  if (dashStyle) shared.dashStyle = dashStyle
-
-  if (values["no-symbols"]) shared.symbols = false
-  if (values["no-nbsp"]) shared.nbsp = false
-  if (values["no-collapse-spaces"]) shared.collapseSpaces = false
-  if (values["no-arrows"]) shared.includeArrows = false
-  if (values.fractions) shared.fractions = true
-  if (values.degrees) shared.degrees = true
-  if (values.superscript) shared.superscript = true
-  if (values.ligatures) shared.ligatures = true
-
-  const markdown: MarkdownOptions = { ...shared }
-  const emphasisMarker = validateChoice(values["emphasis-marker"], VALID_EMPHASIS_MARKERS, "emphasis-marker")
-  if (emphasisMarker) markdown.emphasisMarker = emphasisMarker
-  const strongMarker = validateChoice(values["strong-marker"], VALID_EMPHASIS_MARKERS, "strong-marker")
-  if (strongMarker) markdown.strongMarker = strongMarker
-  const bulletMarker = validateChoice(values["bullet-marker"], VALID_BULLET_MARKERS, "bullet-marker")
-  if (bulletMarker) markdown.bulletMarker = bulletMarker
-  const ruleMarker = validateChoice(values["rule-marker"], VALID_RULE_MARKERS, "rule-marker")
-  if (ruleMarker) markdown.ruleMarker = ruleMarker
-
-  const html: HtmlOptions = { ...shared }
-  if (values["skip-tag"]) html.skipTags = values["skip-tag"]
-  if (values["skip-class"]) html.skipClasses = values["skip-class"]
-  if (values["no-fragment"]) html.fragment = false
-
-  return { markdown, html }
+function buildHelp(): string {
+  const sections: Array<[Section, string]> = [
+    ["transform", "Transform options:"],
+    ["markdown", "Markdown-only options:"],
+    ["html", "HTML-only options:"],
+  ]
+  const lines = [
+    "Usage:",
+    "  punctilio [options] <files...>           Format files in place",
+    "  punctilio --check <files...>             Exit 1 if any file would change",
+    "  punctilio --stdin --type <md|html>       Read stdin, write stdout",
+    "",
+    "File-type detection (override with --type):",
+    "  .md, .markdown       markdown",
+    "  .html, .htm          html",
+    "",
+  ]
+  for (const [section, header] of sections) {
+    lines.push(header)
+    for (const spec of OPTIONS) {
+      if (spec.section === section) lines.push(formatHelpLine(spec))
+    }
+    lines.push("")
+  }
+  lines.push("Other:")
+  lines.push("  -h, --help                  Show this help")
+  lines.push("  -V, --version               Show version")
+  return lines.join("\n") + "\n"
 }
 
-async function transformContent(
-  input: string,
-  type: FileType,
-  opts: BuiltOptions,
-): Promise<string> {
-  return type === "md"
-    ? transformMarkdown(input, opts.markdown)
-    : transformHtml(input, opts.html)
+const HELP = buildHelp()
+
+async function transformContent(input: string, type: FileType, opts: CliOptions): Promise<string> {
+  return type === "md" ? transformMarkdown(input, opts) : transformHtml(input, opts)
 }
 
 /**
@@ -203,35 +292,7 @@ async function readStdin(stdin: AsyncIterable<string | Buffer>): Promise<string>
 export async function runCli(args: string[], io: CliIO): Promise<number> {
   let parsed
   try {
-    parsed = parseArgs({
-      args,
-      allowPositionals: true,
-      strict: true,
-      options: {
-        help: { type: "boolean", short: "h" },
-        version: { type: "boolean", short: "V" },
-        check: { type: "boolean" },
-        stdin: { type: "boolean" },
-        type: { type: "string" },
-        "punctuation-style": { type: "string" },
-        "dash-style": { type: "string" },
-        "no-symbols": { type: "boolean" },
-        "no-nbsp": { type: "boolean" },
-        "no-collapse-spaces": { type: "boolean" },
-        "no-arrows": { type: "boolean" },
-        fractions: { type: "boolean" },
-        degrees: { type: "boolean" },
-        superscript: { type: "boolean" },
-        ligatures: { type: "boolean" },
-        "emphasis-marker": { type: "string" },
-        "strong-marker": { type: "string" },
-        "bullet-marker": { type: "string" },
-        "rule-marker": { type: "string" },
-        "skip-tag": { type: "string", multiple: true },
-        "skip-class": { type: "string", multiple: true },
-        "no-fragment": { type: "boolean" },
-      },
-    })
+    parsed = parseArgs({ args, allowPositionals: true, strict: true, options: parseArgsOptions() })
   } catch (err) {
     io.stderr.write(`Error: ${(err as Error).message}\n`)
     return 2
@@ -263,7 +324,7 @@ async function runValidated(
   positionals: string[],
   io: CliIO,
 ): Promise<number> {
-  const opts = buildOptions(values as ParsedValues)
+  const opts = buildOptions(values)
   const typeOverride = values.type as string | undefined
   const check = values.check === true
 
@@ -277,9 +338,7 @@ async function runValidated(
     const type = inferFileType("<stdin>", typeOverride)
     const input = await readStdin(io.stdin)
     const output = matchTrailingNewline(input, await transformContent(input, type, opts))
-    if (check) {
-      return input === output ? 0 : 1
-    }
+    if (check) return input === output ? 0 : 1
     io.stdout.write(output)
     return 0
   }
