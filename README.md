@@ -26,12 +26,38 @@ npm install punctilio
 `punctilio` ships a CLI that formats Markdown (`.md`, `.markdown`) and HTML (`.html`, `.htm`) files in place. `--check` exits non-zero if any file would change, making it suitable as a pre-commit hook.
 
 ```bash
-punctilio README.md docs/*.md       # format files in place
-punctilio --check README.md         # exit 1 if it would change anything
+punctilio README.md 'docs/**/*.md'   # globs expand internally
+punctilio --check README.md          # exit 1 if it would change anything
 echo '"Hi" -- there' | punctilio - --type md
+punctilio --cache 'docs/**/*.md'     # skip files unchanged since last run
 ```
 
-To wire it into the [pre-commit framework](https://pre-commit.com), add to `.pre-commit-config.yaml`:
+#### Config file
+
+Drop a `.punctiliorc.json` (or `.punctiliorc.yaml` / `.punctiliorc.js` / a `"punctilio"` key in `package.json`) in your project root:
+
+```json
+{
+  "punctuationStyle": "british",
+  "dashStyle": "american",
+  "skipTags": ["pre", "code"]
+}
+```
+
+Auto-discovered via [`cosmiconfig`](https://github.com/cosmiconfig/cosmiconfig); use `--config <path>` to point at a specific file or `--no-config` to skip discovery. CLI flags override config-file values.
+
+#### Ignore file
+
+A `.punctilioignore` (gitignore syntax) in cwd excludes matching files from glob results:
+
+```
+CHANGELOG.md
+docs/generated/
+```
+
+Use `--ignore-path <path>` to point at a different file.
+
+#### Pre-commit framework
 
 ```yaml
 - repo: https://github.com/alexander-turner/punctilio
