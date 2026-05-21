@@ -6,9 +6,10 @@
  * @packageDocumentation
  */
 
-import { existsSync, readFileSync } from "node:fs"
+import { createHash } from "node:crypto"
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { readFile, writeFile } from "node:fs/promises"
-import { extname, join, relative, resolve } from "node:path"
+import { dirname, extname, join, relative, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 
 import { Command, CommanderError, Option } from "commander"
@@ -49,6 +50,8 @@ const HTML_EXTENSIONS = new Set([".html", ".htm"])
  */
 interface ParsedFlags {
   check?: boolean
+  cache?: boolean
+  cacheLocation?: string
   config?: string | false  // string if --config <path>, false if --no-config
   ignorePath?: string
   stdinFilepath?: string
@@ -82,6 +85,8 @@ function buildProgram(version: string, io: CliIO): Command {
     .option("--config <path>", "path to a punctilio config file (otherwise auto-discovered)")
     .option("--no-config", "ignore any auto-discovered config file")
     .option("--ignore-path <path>", "path to an ignore file (otherwise .punctilioignore in cwd)")
+    .option("--cache", "skip files whose content and options hash matches the last run")
+    .option("--cache-location <path>", "cache file location (default node_modules/.cache/punctilio/cache.json)")
     .option("--stdin-filepath <path>", "treat stdin as if it were this filename (infers type from extension)")
     .addOption(new Option("--type <type>", "force file type (otherwise inferred from extension)").choices(FILE_TYPES))
     .addOption(new Option("--punctuation-style <style>", "quote and punctuation style").choices(PUNCTUATION_STYLES))
@@ -181,6 +186,58 @@ async function discoverFiles(
     if (rel.startsWith("..") || rel === "") return true
     return !ig.ignores(rel)
   })
+}
+
+interface CacheEntry {
+  contentHash: string
+  optionsHash: string
+  version: string
+}
+
+interface Cache {
+  files: Record<string, CacheEntry>
+}
+
+const DEFAULT_CACHE_LOCATION = join("node_modules", ".cache", "punctilio", "cache.json")
+
+function hashString(s: string): string {
+  return createHash("sha256").update(s).digest("hex").slice(0, 16)
+}
+
+function hashOptions(opts: CliOptions): string {
+  const stable = Object.entries(opts)
+    .filter(([, v]) => v !== undefined)
+    .sort(([a], [b]) => a.localeCompare(b))
+  return hashString(JSON.stringify(stable))
+}
+
+function loadCache(location: string): Cache {
+  if (!existsSync(location)) return { files: {} }
+  try {
+    const parsed = JSON.parse(readFileSync(location, "utf8")) as Cache
+    return parsed.files ? parsed : { files: {} }
+  } catch {
+    return { files: {} }
+  }
+}
+
+function saveCache(location: string, cache: Cache): void {
+  mkdirSync(dirname(location), { recursive: true })
+  writeFileSync(location, JSON.stringify(cache))
+}
+
+function cacheHit(
+  cache: Cache,
+  filepath: string,
+  contentHash: string,
+  optionsHash: string,
+  version: string,
+): boolean {
+  const entry = cache.files[filepath]
+  if (!entry) return false
+  return entry.contentHash === contentHash
+    && entry.optionsHash === optionsHash
+    && entry.version === version
 }
 
 function buildOptions(flags: ParsedFlags): CliOptions {
@@ -319,20 +376,36 @@ async function runValidated(
   const ig = loadIgnore(cwd, flags.ignorePath)
   const files = await discoverFiles(positionals, cwd, ig)
 
+  const cacheLocation = flags.cache === true
+    ? resolve(cwd, flags.cacheLocation ?? DEFAULT_CACHE_LOCATION)
+    : undefined
+  const cache = cacheLocation ? loadCache(cacheLocation) : undefined
+  const optionsHash = cache ? hashOptions(opts) : ""
+  const version = cache ? await readPackageVersion() : ""
+
   let anyChanged = false
   for (const path of files) {
     const type = inferFileType(path, flags.type)
     const original = await readFile(path, "utf8")
+    const originalHash = cache ? hashString(original) : ""
+    if (cache && cacheHit(cache, path, originalHash, optionsHash, version)) continue
+
     const formatted = matchTrailingNewline(original, await transformContent(original, type, opts))
-    if (original === formatted) continue
+    if (original === formatted) {
+      if (cache) cache.files[path] = { contentHash: originalHash, optionsHash, version }
+      continue
+    }
     anyChanged = true
     if (check) {
       io.stderr.write(`Would reformat: ${path}\n`)
     } else {
       await writeFile(path, formatted)
       io.stdout.write(`Reformatted: ${path}\n`)
+      if (cache) cache.files[path] = { contentHash: hashString(formatted), optionsHash, version }
     }
   }
+
+  if (cache && cacheLocation) saveCache(cacheLocation, cache)
   return check && anyChanged ? 1 : 0
 }
 

@@ -1,4 +1,4 @@
-import { mkdtempSync, writeFileSync, readFileSync, rmSync } from "node:fs"
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { Readable, Writable } from "node:stream"
@@ -380,6 +380,163 @@ describe("runCli", () => {
     const code = await runCli(["--bogus"], cap.io)
     expect(code).toBe(2)
     expect(cap.stderr()).toMatch(/unknown option/i)
+  })
+
+  it("--cache writes a cache file and skips unchanged files on the second run", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "punctilio-cache-"))
+    createdDirs.push(dir)
+    const filePath = join(dir, "doc.md")
+    writeFileSync(filePath, '"Hello."\n')
+    const cacheLocation = join(dir, "cache.json")
+
+    const originalCwd = process.cwd()
+    process.chdir(dir)
+    try {
+      const first = captureIO()
+      const firstCode = await runCli(
+        ["doc.md", "--cache", "--cache-location", cacheLocation, "--no-nbsp"],
+        first.io,
+      )
+      expect(firstCode).toBe(0)
+      expect(first.stdout()).toContain("Reformatted")
+      expect(existsSync(cacheLocation)).toBe(true)
+
+      // Second run on the now-formatted file: cache should make it a no-op
+      const second = captureIO()
+      const secondCode = await runCli(
+        ["doc.md", "--cache", "--cache-location", cacheLocation, "--no-nbsp"],
+        second.io,
+      )
+      expect(secondCode).toBe(0)
+      expect(second.stdout()).not.toContain("Reformatted")
+    } finally {
+      process.chdir(originalCwd)
+    }
+  })
+
+  it("--cache without --cache-location uses the default location under cwd", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "punctilio-cache-default-"))
+    createdDirs.push(dir)
+    writeFileSync(join(dir, "doc.md"), '"Hello."\n')
+
+    const originalCwd = process.cwd()
+    process.chdir(dir)
+    try {
+      const cap = captureIO()
+      const code = await runCli(["doc.md", "--cache", "--no-nbsp"], cap.io)
+      expect(code).toBe(0)
+      expect(existsSync(join(dir, "node_modules", ".cache", "punctilio", "cache.json"))).toBe(true)
+    } finally {
+      process.chdir(originalCwd)
+    }
+  })
+
+  it("--cache invalidates when options change", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "punctilio-cache-opts-"))
+    createdDirs.push(dir)
+    const filePath = join(dir, "doc.md")
+    writeFileSync(filePath, `${LDQ}Hello.${RDQ}\n`)
+    const cacheLocation = join(dir, "cache.json")
+
+    const originalCwd = process.cwd()
+    process.chdir(dir)
+    try {
+      // Prime the cache with american style (file is already in american form)
+      const first = captureIO()
+      await runCli(
+        ["doc.md", "--cache", "--cache-location", cacheLocation, "--no-nbsp"],
+        first.io,
+      )
+
+      // Switch to british: cache hash mismatches, file gets reformatted
+      const second = captureIO()
+      const code = await runCli(
+        [
+          "doc.md", "--cache", "--cache-location", cacheLocation,
+          "--punctuation-style", "british", "--no-nbsp",
+        ],
+        second.io,
+      )
+      expect(code).toBe(0)
+      expect(second.stdout()).toContain("Reformatted")
+    } finally {
+      process.chdir(originalCwd)
+    }
+  })
+
+  it("--cache recovers gracefully from a corrupt cache file", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "punctilio-cache-corrupt-"))
+    createdDirs.push(dir)
+    const filePath = join(dir, "doc.md")
+    writeFileSync(filePath, '"Hello."\n')
+    const cacheLocation = join(dir, "cache.json")
+    writeFileSync(cacheLocation, "{not valid json")
+
+    const originalCwd = process.cwd()
+    process.chdir(dir)
+    try {
+      const cap = captureIO()
+      const code = await runCli(
+        ["doc.md", "--cache", "--cache-location", cacheLocation, "--no-nbsp"],
+        cap.io,
+      )
+      expect(code).toBe(0)
+      expect(cap.stdout()).toContain("Reformatted")
+    } finally {
+      process.chdir(originalCwd)
+    }
+  })
+
+  it("--cache ignores a JSON cache file missing the `files` key", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "punctilio-cache-shape-"))
+    createdDirs.push(dir)
+    const filePath = join(dir, "doc.md")
+    writeFileSync(filePath, '"Hello."\n')
+    const cacheLocation = join(dir, "cache.json")
+    writeFileSync(cacheLocation, "{}")
+
+    const originalCwd = process.cwd()
+    process.chdir(dir)
+    try {
+      const cap = captureIO()
+      const code = await runCli(
+        ["doc.md", "--cache", "--cache-location", cacheLocation, "--no-nbsp"],
+        cap.io,
+      )
+      expect(code).toBe(0)
+      expect(cap.stdout()).toContain("Reformatted")
+    } finally {
+      process.chdir(originalCwd)
+    }
+  })
+
+  it("--cache caches no-op (idempotent) files too, then skips them next run", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "punctilio-cache-noop-"))
+    createdDirs.push(dir)
+    const filePath = join(dir, "doc.md")
+    writeFileSync(filePath, `${LDQ}Hello.${RDQ}\n`)
+    const cacheLocation = join(dir, "cache.json")
+
+    const originalCwd = process.cwd()
+    process.chdir(dir)
+    try {
+      // First run: nothing to do, but cache should still record the clean state
+      const first = captureIO()
+      await runCli(
+        ["doc.md", "--cache", "--cache-location", cacheLocation, "--no-nbsp"],
+        first.io,
+      )
+      // Second run: cache hit, no transform attempted
+      const second = captureIO()
+      const code = await runCli(
+        ["doc.md", "--cache", "--cache-location", cacheLocation, "--no-nbsp"],
+        second.io,
+      )
+      expect(code).toBe(0)
+      expect(second.stdout()).not.toContain("Reformatted")
+    } finally {
+      process.chdir(originalCwd)
+    }
   })
 
   it("propagates unexpected errors instead of swallowing them", async () => {
