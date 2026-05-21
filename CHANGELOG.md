@@ -7,6 +7,12 @@
 - `.pre-commit-hooks.yaml` for direct integration with the pre-commit framework.
 - `punctilio/html` entry point exporting `transformHtml`, mirroring the existing `punctilio/markdown` entry.
 
+## [3.9.3] - 2026-05-21
+
+### Fixed
+
+- Fixed regex performance issue by converting optional-separator patterns to atomic-optional groups.
+
 ## [3.9.1] - 2026-05-18
 
 ### Fixed

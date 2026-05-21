@@ -17,9 +17,15 @@ importers:
       escape-string-regexp:
         specifier: 5.0.0
         version: 5.0.0
+      ignore:
+        specifier: 7.0.5
+        version: 7.0.5
       quick-lru:
         specifier: 7.3.0
         version: 7.3.0
+      tinyglobby:
+        specifier: 0.2.16
+        version: 0.2.16
       unist-util-visit-parents:
         specifier: 6.0.2
         version: 6.0.2

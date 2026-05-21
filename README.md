@@ -164,11 +164,14 @@ rehypePunctilio({
 ## CLI and editor integration
 
 ```bash
-punctilio README.md docs/*.md    # format in place
-punctilio --check README.md      # exit 1 if it would change anything
+punctilio README.md 'docs/**/*.md'   # format in place; globs expand internally
+punctilio --check README.md          # exit 1 if it would change anything
+echo '"Hi" -- there' | punctilio - --type md
 ```
 
-`--check` makes it a pre-commit hook (a `.pre-commit-hooks.yaml` ships in the package). For projects on prettier, add `punctilio/prettier-plugin` to `.prettierrc` `plugins`; options live under the `Punctilio` category.
+Subsequent runs skip files unchanged since the previous invocation via an incremental cache at `node_modules/.cache/punctilio/cache.json` (use `--no-cache` to disable, `--cache-location <path>` to override). Config is loaded from `.punctiliorc[.json|.yaml|.js]`, `punctilio.config.js`, or a `"punctilio"` key in `package.json` (via [`cosmiconfig`](https://github.com/cosmiconfig/cosmiconfig)); CLI flags override. A `.punctilioignore` (gitignore syntax) in cwd excludes matching files. A `.pre-commit-hooks.yaml` ships in the package for [pre-commit](https://pre-commit.com) integration. For prettier users, add `punctilio/prettier-plugin` to `.prettierrc` `plugins`; it reads the same `.punctiliorc`.
+
+Run `punctilio -h` for the full flag list.
 
 
 ## Notes 
