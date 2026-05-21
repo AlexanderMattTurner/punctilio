@@ -34,6 +34,11 @@
       "types": "./dist/html.d.ts",
       "import": "./dist/html.js",
       "default": "./dist/html.js"
+    },
+    "./prettier-plugin": {
+      "types": "./dist/prettier-plugin.d.ts",
+      "import": "./dist/prettier-plugin.js",
+      "default": "./dist/prettier-plugin.js"
     }
   },
   "files": [
@@ -95,6 +100,7 @@
     "hastscript": "9.0.1",
     "jest": "29.7.0",
     "lint-staged": "16.4.0",
+    "prettier": "3.8.1",
     "recheck": "4.5.0",
     "rehype-parse": "9.0.1",
     "rehype-stringify": "10.0.1",
@@ -115,6 +121,7 @@
     "unified": "11.0.5"
   },
   "peerDependencies": {
+    "prettier": "^3.0.0",
     "rehype-parse": "^9.0.0",
     "rehype-stringify": "^10.0.0",
     "remark-gfm": "^4.0.0",
@@ -123,6 +130,9 @@
     "unified": "^11.0.0"
   },
   "peerDependenciesMeta": {
+    "prettier": {
+      "optional": true
+    },
     "unified": {
       "optional": true
     },

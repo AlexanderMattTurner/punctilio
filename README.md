@@ -42,6 +42,20 @@ To wire it into the [pre-commit framework](https://pre-commit.com), add to `.pre
 
 Run `punctilio -h` for the full option list (style flags, marker overrides, skip tags/classes).
 
+### Prettier plugin
+
+If your project already runs prettier, register the plugin to have punctilio’s transforms happen as part of the normal `prettier` formatting pass. No new CLI step, no new pre-commit hook.
+
+```jsonc
+// .prettierrc
+{
+  "plugins": ["punctilio/prettier-plugin"],
+  "punctilioPunctuationStyle": "british"
+}
+```
+
+The plugin wraps prettier’s built-in markdown parser, runs the remark-punctilio transform on the AST, and lets prettier print the result—code spans, fenced blocks, and inline HTML are left untouched. Supported options: `punctilioPunctuationStyle`, `punctilioDashStyle`, `punctilioNbsp`, `punctilioFractions`, `punctilioDegrees`, `punctilioSuperscript`, `punctilioLigatures`.
+
 ## Why punctilio?
 
 As far as I can tell, `punctilio` is the most reliable and feature-complete. I built `punctilio` for [my website](https://turntrout.com/design). I wrote[^wrote] and sharpened the core regexes sporadically over several months, exhaustively testing edge cases. Eventually, I decided to spin off the functionality into its own package.
