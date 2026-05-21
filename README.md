@@ -21,6 +21,27 @@ transform(`"It's a beautiful thing, the destruction of words..." -- 1984`);
 npm install punctilio
 ```
 
+### Command-line / pre-commit usage
+
+`punctilio` ships a CLI that formats Markdown (`.md`, `.markdown`) and HTML (`.html`, `.htm`) files in place. `--check` exits non-zero if any file would change, making it suitable as a pre-commit hook.
+
+```bash
+punctilio README.md docs/*.md       # format files in place
+punctilio --check README.md         # exit 1 if it would change anything
+echo '"Hi" -- there' | punctilio --stdin --type md
+```
+
+To wire it into the [pre-commit framework](https://pre-commit.com), add to `.pre-commit-config.yaml`:
+
+```yaml
+- repo: https://github.com/alexander-turner/punctilio
+  rev: v3.9.1
+  hooks:
+    - id: punctilio-check    # or `punctilio` to rewrite in place
+```
+
+Run `punctilio --help` for the full option list (style flags, marker overrides, skip tags/classes).
+
 ## Why punctilio?
 
 As far as I can tell, `punctilio` is the most reliable and feature-complete. I built `punctilio` for [my website](https://turntrout.com/design). I wrote[^wrote] and sharpened the core regexes sporadically over several months, exhaustively testing edge cases. Eventually, I decided to spin off the functionality into its own package.

@@ -6,6 +6,9 @@
   "sideEffects": false,
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "bin": {
+    "punctilio": "./dist/cli.js"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -26,13 +29,19 @@
       "types": "./dist/markdown.d.ts",
       "import": "./dist/markdown.js",
       "default": "./dist/markdown.js"
+    },
+    "./html": {
+      "types": "./dist/html.d.ts",
+      "import": "./dist/html.js",
+      "default": "./dist/html.js"
     }
   },
   "files": [
     "dist",
     "src",
     "!src/tests",
-    "tsconfig.json"
+    "tsconfig.json",
+    ".pre-commit-hooks.yaml"
   ],
   "scripts": {
     "build": "tsc",

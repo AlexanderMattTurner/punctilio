@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Added
+- `punctilio` CLI: format Markdown and HTML files in place or via stdin. `--check` mode exits non-zero when a file would change, making it usable as a pre-commit hook.
+- `.pre-commit-hooks.yaml` for direct integration with the pre-commit framework.
+- `punctilio/html` entry point exporting `transformHtml`, mirroring the existing `punctilio/markdown` entry.
+
 ## [3.9.1] - 2026-05-18
 
 ### Fixed
