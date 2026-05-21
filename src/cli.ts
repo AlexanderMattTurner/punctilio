@@ -83,8 +83,8 @@ function buildProgram(version: string, io: CliIO): Command {
     .option("--config <path>", "path to a punctilio config file (otherwise auto-discovered)")
     .option("--no-config", "ignore any auto-discovered config file")
     .option("--ignore-path <path>", "path to an ignore file (otherwise .punctilioignore in cwd)")
-    .option("--cache", "skip files whose content and options hash matches the last run")
-    .option("--cache-location <path>", "cache file location (default node_modules/.cache/punctilio/cache.json)")
+    .option("--no-cache", "disable the incremental cache (default location node_modules/.cache/punctilio/cache.json)")
+    .option("--cache-location <path>", "override the cache file location")
     .option("--stdin-filepath <path>", "treat stdin as if it were this filename (infers type from extension)")
     .addOption(new Option("--type <type>", "force file type (otherwise inferred from extension)").choices(FILE_TYPES))
     .addOption(new Option("--punctuation-style <style>", "quote and punctuation style").choices(PUNCTUATION_STYLES))
@@ -341,9 +341,9 @@ async function runValidated(
   const ig = loadIgnore(cwd, flags.ignorePath)
   const files = await discoverFiles(positionals, cwd, ig)
 
-  const cacheLocation = flags.cache
-    ? resolve(cwd, flags.cacheLocation ?? DEFAULT_CACHE_LOCATION)
-    : undefined
+  const cacheLocation = flags.cache === false
+    ? undefined
+    : resolve(cwd, flags.cacheLocation ?? DEFAULT_CACHE_LOCATION)
   const cache = cacheLocation ? loadCache(cacheLocation) : undefined
   const optionsHash = cache ? hashOptions(opts) : ""
 

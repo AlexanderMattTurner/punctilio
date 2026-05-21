@@ -46,12 +46,26 @@ function captureIO(stdinInput: string = "", stdinAsString: boolean = false) {
   }
 }
 
+// Chdir to a tempdir for the test suite so the default --cache location
+// (cwd/node_modules/.cache/punctilio/cache.json) doesn't write into the
+// real project. Tests that need a specific cwd override via withTempCwd.
+let suiteRoot: string
+let projectCwd: string
+
+beforeAll(() => {
+  projectCwd = process.cwd()
+  suiteRoot = mkdtempSync(join(tmpdir(), "punctilio-test-root-"))
+  createdDirs.push(suiteRoot)
+  process.chdir(suiteRoot)
+})
+
 afterEach(() => {
   clearMarkdownCache()
   clearHtmlCache()
 })
 
 afterAll(() => {
+  process.chdir(projectCwd)
   for (const dir of createdDirs) rmSync(dir, { recursive: true, force: true })
 })
 
@@ -394,11 +408,11 @@ describe("runCli", () => {
     expect(cap.stderr()).toMatch(/unknown option/i)
   })
 
-  it("--cache writes a cache file and skips unchanged files on the second run", async () => {
+  it("cache writes a cache file and skips unchanged files on the second run", async () => {
     await withTempCwd("punctilio-cache-", async (dir) => {
       writeFileSync(join(dir, "doc.md"), '"Hello."\n')
       const cacheLocation = join(dir, "cache.json")
-      const args = ["doc.md", "--cache", "--cache-location", cacheLocation, "--no-nbsp"]
+      const args = ["doc.md", "--cache-location", cacheLocation, "--no-nbsp"]
 
       const first = captureIO()
       expect(await runCli(args, first.io)).toBe(0)
@@ -411,20 +425,20 @@ describe("runCli", () => {
     })
   })
 
-  it("--cache without --cache-location uses the default location under cwd", async () => {
+  it("cache without --cache-location uses the default location under cwd", async () => {
     await withTempCwd("punctilio-cache-default-", async (dir) => {
       writeFileSync(join(dir, "doc.md"), '"Hello."\n')
       const cap = captureIO()
-      expect(await runCli(["doc.md", "--cache", "--no-nbsp"], cap.io)).toBe(0)
+      expect(await runCli(["doc.md", "--no-nbsp"], cap.io)).toBe(0)
       expect(existsSync(join(dir, "node_modules", ".cache", "punctilio", "cache.json"))).toBe(true)
     })
   })
 
-  it("--cache invalidates when options change", async () => {
+  it("cache invalidates when options change", async () => {
     await withTempCwd("punctilio-cache-opts-", async (dir) => {
       writeFileSync(join(dir, "doc.md"), `${LDQ}Hello.${RDQ}\n`)
       const cacheLocation = join(dir, "cache.json")
-      const baseArgs = ["doc.md", "--cache", "--cache-location", cacheLocation, "--no-nbsp"]
+      const baseArgs = ["doc.md", "--cache-location", cacheLocation, "--no-nbsp"]
 
       const first = captureIO()
       await runCli(baseArgs, first.io)
@@ -438,23 +452,32 @@ describe("runCli", () => {
   it.each([
     ["recovers gracefully from a corrupt cache file", "{not valid json"],
     ["ignores a JSON cache file missing the `files` key", "{}"],
-  ])("--cache %s", async (_label, seedContent) => {
+  ])("cache %s", async (_label, seedContent) => {
     await withTempCwd("punctilio-cache-bad-", async (dir) => {
       writeFileSync(join(dir, "doc.md"), '"Hello."\n')
       const cacheLocation = join(dir, "cache.json")
       writeFileSync(cacheLocation, seedContent)
 
       const cap = captureIO()
-      expect(await runCli(["doc.md", "--cache", "--cache-location", cacheLocation, "--no-nbsp"], cap.io)).toBe(0)
+      expect(await runCli(["doc.md", "--cache-location", cacheLocation, "--no-nbsp"], cap.io)).toBe(0)
       expect(cap.stdout()).toContain("Reformatted")
     })
   })
 
-  it("--cache caches no-op (idempotent) files too, then skips them next run", async () => {
+  it("--no-cache disables the cache (no cache file written)", async () => {
+    await withTempCwd("punctilio-no-cache-", async (dir) => {
+      writeFileSync(join(dir, "doc.md"), '"Hello."\n')
+      const cap = captureIO()
+      expect(await runCli(["doc.md", "--no-cache", "--no-nbsp"], cap.io)).toBe(0)
+      expect(existsSync(join(dir, "node_modules", ".cache", "punctilio", "cache.json"))).toBe(false)
+    })
+  })
+
+  it("cache caches no-op (idempotent) files too, then skips them next run", async () => {
     await withTempCwd("punctilio-cache-noop-", async (dir) => {
       writeFileSync(join(dir, "doc.md"), `${LDQ}Hello.${RDQ}\n`)
       const cacheLocation = join(dir, "cache.json")
-      const args = ["doc.md", "--cache", "--cache-location", cacheLocation, "--no-nbsp"]
+      const args = ["doc.md", "--cache-location", cacheLocation, "--no-nbsp"]
 
       const first = captureIO()
       await runCli(args, first.io)
