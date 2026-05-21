@@ -57,13 +57,20 @@ describe("regex safety (runtime introspection)", () => {
     const regexes = getCachedRegExps()
     expect(regexes.length).toBeGreaterThan(0)
 
-    const results = await Promise.all(
-      regexes.map(async (re) => ({
+    // Run sequentially with a 60 s per-regex budget. recheck combines a
+    // static automaton with a random fuzzer; under the previous 5 s budget
+    // and parallel `Promise.all` execution, contention occasionally let the
+    // fuzzer land on a candidate counterexample that didn't reproduce under
+    // a fresh run, flipping a regex from "safe" to "vulnerable". Sequential
+    // execution and a generous budget make the analysis deterministic.
+    const results = []
+    for (const re of regexes) {
+      results.push({
         source: re.source,
         flags: re.flags,
-        result: await check(re.source, re.flags, { timeout: 5_000 }),
-      })),
-    )
+        result: await check(re.source, re.flags, { timeout: 60_000 }),
+      })
+    }
 
     const vulnerable = results.filter((r) => r.result.status === "vulnerable")
     if (vulnerable.length > 0) {
@@ -74,5 +81,5 @@ describe("regex safety (runtime introspection)", () => {
         `recheck flagged ${vulnerable.length} cached regex(es) as ReDoS-vulnerable:\n${details}`,
       )
     }
-  }, 120_000)
+  }, 600_000)
 })
