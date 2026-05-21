@@ -2,10 +2,17 @@
 
 ## Unreleased
 
+## [3.10.0] - 2026-05-21
+
 ### Added
 - `punctilio` CLI: format Markdown and HTML files in place or via stdin. `--check` mode exits non-zero when a file would change, making it usable as a pre-commit hook.
 - `.pre-commit-hooks.yaml` for direct integration with the pre-commit framework.
 - `punctilio/html` entry point exporting `transformHtml`, mirroring the existing `punctilio/markdown` entry.
+- Prettier plugin entry point for `punctilio` to format Markdown and HTML within Prettier workflows.
+- CLI features: glob expansion, `.punctilioignore` support, cosmiconfig-based configuration, incremental `--cache` for fast repeated runs, and stdin processing via `-` positional argument.
+
+### Changed
+- CLI interface: `--stdin` replaced with `-` positional argument and `--stdin-filepath` option.
 
 ## [3.9.3] - 2026-05-21
 
