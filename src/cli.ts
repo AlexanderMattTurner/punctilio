@@ -123,19 +123,8 @@ function inferFileType(path: string, override?: FileType): FileType {
   )
 }
 
-/**
- * Loads a punctilio config file via cosmiconfig.
- *
- * Search names tried (in order): `.punctiliorc`, `.punctiliorc.json`,
- * `.punctiliorc.yaml`, `.punctiliorc.yml`, `.punctiliorc.js`,
- * `.punctiliorc.cjs`, `punctilio.config.js`, `punctilio.config.cjs`,
- * and a `"punctilio"` key in `package.json`.
- *
- * Returns `{}` when no config is found, the file is empty, or
- * `--no-config` was passed. Keys in the loaded config must match the
- * library's option names (`punctuationStyle`, `skipTags`, etc.), not
- * the kebab-cased CLI flag names.
- */
+// Config keys must match library option names (punctuationStyle, skipTags, …),
+// not the kebab-cased CLI flag names.
 async function loadConfig(
   cwd: string,
   configPath: string | undefined,
@@ -148,11 +137,6 @@ async function loadConfig(
   return result.config as CliOptions
 }
 
-/**
- * Loads a .punctilioignore-style file into an `ignore` matcher.
- * Falls back to the empty matcher (matches nothing) when the file
- * doesn't exist.
- */
 function loadIgnore(cwd: string, ignorePath: string | undefined): Ignore {
   const ig = ignore()
   const effective = ignorePath ?? join(cwd, ".punctilioignore")
@@ -164,12 +148,8 @@ function isGlobPattern(pattern: string): boolean {
   return /[*?[\]{}]/.test(pattern)
 }
 
-/**
- * Expands glob patterns and applies ignore rules. Non-glob positionals
- * are passed through as literal file paths so they error loudly if
- * missing (preserving the prior behavior of `punctilio file.md`); only
- * literal paths matching an ignore rule are dropped silently.
- */
+// Non-glob positionals pass through as literal paths so they error loudly
+// if missing, matching the prior behavior of `punctilio file.md`.
 async function discoverFiles(
   patterns: string[],
   cwd: string,
@@ -183,8 +163,7 @@ async function discoverFiles(
   const all = [...literals.map((p) => resolve(cwd, p)), ...expanded]
   return all.filter((file) => {
     const rel = relative(cwd, file)
-    if (rel.startsWith("..") || rel === "") return true
-    return !ig.ignores(rel)
+    return rel.startsWith("..") || !ig.ignores(rel)
   })
 }
 
@@ -224,20 +203,6 @@ function loadCache(location: string): Cache {
 function saveCache(location: string, cache: Cache): void {
   mkdirSync(dirname(location), { recursive: true })
   writeFileSync(location, JSON.stringify(cache))
-}
-
-function cacheHit(
-  cache: Cache,
-  filepath: string,
-  contentHash: string,
-  optionsHash: string,
-  version: string,
-): boolean {
-  const entry = cache.files[filepath]
-  if (!entry) return false
-  return entry.contentHash === contentHash
-    && entry.optionsHash === optionsHash
-    && entry.version === version
 }
 
 function buildOptions(flags: ParsedFlags): CliOptions {
@@ -306,7 +271,8 @@ async function readPackageVersion(): Promise<string> {
  * 1 if `--check` saw a file that would change, 2 for usage errors.
  */
 export async function runCli(args: string[], io: CliIO): Promise<number> {
-  const program = buildProgram(await readPackageVersion(), io)
+  const version = await readPackageVersion()
+  const program = buildProgram(version, io)
 
   try {
     program.parse(args, { from: "user" })
@@ -321,7 +287,7 @@ export async function runCli(args: string[], io: CliIO): Promise<number> {
   const positionals = program.args
 
   try {
-    return await runValidated(flags, positionals, io, program)
+    return await runValidated(flags, positionals, io, program, version)
   } catch (err) {
     if (err instanceof UsageError) {
       io.stderr.write(`Error: ${err.message}\n`)
@@ -341,14 +307,16 @@ async function runValidated(
   positionals: string[],
   io: CliIO,
   program: Command,
+  version: string,
 ): Promise<number> {
+  const cwd = process.cwd()
   const config = await loadConfig(
-    process.cwd(),
+    cwd,
     typeof flags.config === "string" ? flags.config : undefined,
     flags.config === false,
   )
   const opts: CliOptions = { ...config, ...buildOptions(flags) }
-  const check = flags.check === true
+  const check = flags.check ?? false
 
   if (readsStdin(positionals, flags)) {
     const fileArgs = positionals.filter((p) => p !== "-")
@@ -372,40 +340,43 @@ async function runValidated(
     return 2
   }
 
-  const cwd = process.cwd()
   const ig = loadIgnore(cwd, flags.ignorePath)
   const files = await discoverFiles(positionals, cwd, ig)
 
-  const cacheLocation = flags.cache === true
+  const cacheLocation = flags.cache
     ? resolve(cwd, flags.cacheLocation ?? DEFAULT_CACHE_LOCATION)
     : undefined
   const cache = cacheLocation ? loadCache(cacheLocation) : undefined
   const optionsHash = cache ? hashOptions(opts) : ""
-  const version = cache ? await readPackageVersion() : ""
 
   let anyChanged = false
   for (const path of files) {
     const type = inferFileType(path, flags.type)
     const original = await readFile(path, "utf8")
-    const originalHash = cache ? hashString(original) : ""
-    if (cache && cacheHit(cache, path, originalHash, optionsHash, version)) continue
+    if (cache) {
+      const entry = cache.files[path]
+      if (entry?.contentHash === hashString(original)
+          && entry.optionsHash === optionsHash
+          && entry.version === version) continue
+    }
 
     const formatted = matchTrailingNewline(original, await transformContent(original, type, opts))
-    if (original === formatted) {
-      if (cache) cache.files[path] = { contentHash: originalHash, optionsHash, version }
-      continue
+    const unchanged = original === formatted
+    if (!unchanged) {
+      anyChanged = true
+      if (check) {
+        io.stderr.write(`Would reformat: ${path}\n`)
+      } else {
+        await writeFile(path, formatted)
+        io.stdout.write(`Reformatted: ${path}\n`)
+      }
     }
-    anyChanged = true
-    if (check) {
-      io.stderr.write(`Would reformat: ${path}\n`)
-    } else {
-      await writeFile(path, formatted)
-      io.stdout.write(`Reformatted: ${path}\n`)
-      if (cache) cache.files[path] = { contentHash: hashString(formatted), optionsHash, version }
+    if (cache && (unchanged || !check)) {
+      cache.files[path] = { contentHash: hashString(formatted), optionsHash, version }
     }
   }
 
-  if (cache && cacheLocation) saveCache(cacheLocation, cache)
+  if (cacheLocation && cache) saveCache(cacheLocation, cache)
   return check && anyChanged ? 1 : 0
 }
 
