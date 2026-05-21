@@ -34,18 +34,6 @@
           }
         ]
       }
-    ],
-    "Stop": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/verify_ci.py",
-            "timeout": 300
-          }
-        ]
-      }
     ]
   }
 }
