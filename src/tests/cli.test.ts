@@ -200,7 +200,8 @@ describe("runCli", () => {
     const cap = captureIO()
     const code = await runCli(["--type", "rtf", path], cap.io)
     expect(code).toBe(2)
-    expect(cap.stderr()).toMatch(/Invalid --type/)
+    expect(cap.stderr()).toContain("--type")
+    expect(cap.stderr()).toMatch(/invalid/i)
   })
 
   it.each([
@@ -229,7 +230,8 @@ describe("runCli", () => {
     const cap = captureIO()
     const code = await runCli([`--${flag}`, value, path], cap.io)
     expect(code).toBe(2)
-    expect(cap.stderr()).toMatch(/Invalid value/)
+    expect(cap.stderr()).toContain(`--${flag}`)
+    expect(cap.stderr()).toMatch(/invalid/i)
   })
 
   it("applies --punctuation-style british", async () => {
@@ -363,7 +365,7 @@ describe("runCli", () => {
     const cap = captureIO()
     const code = await runCli(["--bogus"], cap.io)
     expect(code).toBe(2)
-    expect(cap.stderr()).toContain("Error:")
+    expect(cap.stderr()).toMatch(/unknown option/i)
   })
 
   it("propagates unexpected errors instead of swallowing them", async () => {

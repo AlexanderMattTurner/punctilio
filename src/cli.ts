@@ -9,24 +9,15 @@
 import { readFile, writeFile } from "node:fs/promises"
 import { extname } from "node:path"
 import { fileURLToPath } from "node:url"
-import { parseArgs } from "node:util"
+
+import { Command, CommanderError, Option } from "commander"
 
 import { transformMarkdown, type MarkdownOptions } from "./markdown.js"
 import { transformHtml, type HtmlOptions } from "./html.js"
 import type { PunctuationStyle } from "./quotes.js"
 import type { DashStyle } from "./dashes.js"
 
-const VALID_PUNCTUATION_STYLES: readonly PunctuationStyle[] = [
-  "american", "british", "german", "french", "none",
-]
-const VALID_DASH_STYLES: readonly DashStyle[] = ["american", "british", "none"]
-const VALID_EMPHASIS_MARKERS = ["*", "_"] as const
-const VALID_BULLET_MARKERS = ["-", "*", "+"] as const
-const VALID_RULE_MARKERS = ["-", "*", "_"] as const
-
-const MARKDOWN_EXTENSIONS = new Set([".md", ".markdown"])
-const HTML_EXTENSIONS = new Set([".html", ".htm"])
-
+type CliOptions = MarkdownOptions & HtmlOptions
 type FileType = "md" | "html"
 
 interface CliIO {
@@ -37,139 +28,111 @@ interface CliIO {
 
 class UsageError extends Error {}
 
-const HELP = `Usage:
-  punctilio [options] <files...>           Format files in place
-  punctilio --check <files...>             Exit 1 if any file would change
-  punctilio --stdin --type <md|html>       Read stdin, write stdout
+const FILE_TYPES = ["md", "html"] as const satisfies readonly FileType[]
+const PUNCTUATION_STYLES = ["american", "british", "german", "french", "none"] as const satisfies readonly PunctuationStyle[]
+const DASH_STYLES = ["american", "british", "none"] as const satisfies readonly DashStyle[]
+const EMPHASIS_MARKERS = ["*", "_"] as const
+const BULLET_MARKERS = ["-", "*", "+"] as const
+const RULE_MARKERS = ["-", "*", "_"] as const
 
-File-type detection (override with --type):
-  .md, .markdown       markdown
-  .html, .htm          html
+const MARKDOWN_EXTENSIONS = new Set([".md", ".markdown"])
+const HTML_EXTENSIONS = new Set([".html", ".htm"])
 
-Transform options:
-  --punctuation-style <american|british|german|french|none>
-  --dash-style <american|british|none>
-  --no-symbols              Disable symbol transforms (ellipsis, ×, ©, etc.)
-  --no-nbsp                 Disable non-breaking space insertion
-  --no-collapse-spaces      Preserve runs of consecutive spaces
-  --no-arrows               Disable -> → → and friends
-  --fractions               Enable 1/2 → ½
-  --degrees                 Enable 20 C → 20 °C
-  --superscript             Enable 1st → 1ˢᵗ
-  --ligatures               Enable !? → ⁉
-
-Markdown-only options:
-  --emphasis-marker <*|_>
-  --strong-marker <*|_>
-  --bullet-marker <-|*|+>
-  --rule-marker <-|*|_>
-
-HTML-only options:
-  --skip-tag <tag>          (repeatable) Tags whose contents are left alone
-  --skip-class <class>      (repeatable) Class names whose elements are skipped
-  --no-fragment             Parse input as a full HTML document
-
-Other:
-  -h, --help                Show this help
-  -V, --version             Show version
-`
-
-function inferFileType(path: string, override?: string): FileType {
-  if (override !== undefined) {
-    if (override !== "md" && override !== "html") {
-      throw new UsageError(`Invalid --type "${override}". Use "md" or "html".`)
-    }
-    return override
-  }
-  const ext = extname(path).toLowerCase()
-  if (MARKDOWN_EXTENSIONS.has(ext)) return "md"
-  if (HTML_EXTENSIONS.has(ext)) return "html"
-  throw new UsageError(
-    `Cannot infer file type from extension "${ext}" for ${path}. Pass --type md|html.`
-  )
-}
-
-function validateChoice<T extends readonly string[]>(
-  value: string | undefined,
-  choices: T,
-  flag: string,
-): T[number] | undefined {
-  if (value === undefined) return undefined
-  if (!choices.includes(value)) {
-    throw new UsageError(`Invalid value "${value}" for --${flag}. Choose from: ${choices.join(", ")}`)
-  }
-  return value as T[number]
-}
-
-type ParsedValues = {
-  "punctuation-style"?: string
-  "dash-style"?: string
-  "no-symbols"?: boolean
-  "no-nbsp"?: boolean
-  "no-collapse-spaces"?: boolean
-  "no-arrows"?: boolean
+/**
+ * Shape of `program.opts()` after parsing. Fields named after their CLI
+ * flags (camelCased by commander). `commander.choices()` guarantees the
+ * literal types at runtime; we assert them at the boundary.
+ */
+interface ParsedFlags {
+  check?: boolean
+  stdin?: boolean
+  type?: FileType
+  punctuationStyle?: PunctuationStyle
+  dashStyle?: DashStyle
+  symbols?: boolean
+  nbsp?: boolean
+  collapseSpaces?: boolean
+  arrows?: boolean
   fractions?: boolean
   degrees?: boolean
   superscript?: boolean
   ligatures?: boolean
-  "emphasis-marker"?: string
-  "strong-marker"?: string
-  "bullet-marker"?: string
-  "rule-marker"?: string
-  "skip-tag"?: string[]
-  "skip-class"?: string[]
-  "no-fragment"?: boolean
+  emphasisMarker?: "*" | "_"
+  strongMarker?: "*" | "_"
+  bulletMarker?: "-" | "*" | "+"
+  ruleMarker?: "-" | "*" | "_"
+  skipTag?: string[]
+  skipClass?: string[]
+  fragment?: boolean
 }
 
-interface BuiltOptions {
-  markdown: MarkdownOptions
-  html: HtmlOptions
+function buildProgram(version: string, io: CliIO): Command {
+  return new Command()
+    .name("punctilio")
+    .description("Apply typographic improvements to Markdown and HTML files.")
+    .version(version, "-V, --version", "show version")
+    .argument("[files...]", "files to format; pair with --check for a dry run")
+    .option("--check", "exit 1 if any file would change; write nothing")
+    .option("--stdin", "read content from stdin and write to stdout")
+    .addOption(new Option("--type <type>", "force file type (otherwise inferred from extension)").choices(FILE_TYPES))
+    .addOption(new Option("--punctuation-style <style>", "quote and punctuation style").choices(PUNCTUATION_STYLES))
+    .addOption(new Option("--dash-style <style>", "dash style").choices(DASH_STYLES))
+    .option("--no-symbols", "disable symbol transforms (ellipsis, ×, ©, etc.)")
+    .option("--no-nbsp", "disable non-breaking space insertion")
+    .option("--no-collapse-spaces", "preserve runs of consecutive spaces")
+    .option("--no-arrows", "disable -> → arrow transforms")
+    .option("--fractions", "enable 1/2 → ½")
+    .option("--degrees", "enable 20 C → 20 °C")
+    .option("--superscript", "enable 1st → 1ˢᵗ")
+    .option("--ligatures", "enable !? → ⁉")
+    .addOption(new Option("--emphasis-marker <char>", "markdown emphasis character").choices(EMPHASIS_MARKERS))
+    .addOption(new Option("--strong-marker <char>", "markdown strong emphasis character").choices(EMPHASIS_MARKERS))
+    .addOption(new Option("--bullet-marker <char>", "markdown list bullet character").choices(BULLET_MARKERS))
+    .addOption(new Option("--rule-marker <char>", "markdown thematic break character").choices(RULE_MARKERS))
+    .option("--skip-tag <tag...>", "HTML tags whose contents are left alone (repeatable)")
+    .option("--skip-class <class...>", "HTML class names whose elements are skipped (repeatable)")
+    .option("--no-fragment", "parse input as a full HTML document")
+    .exitOverride()
+    .configureOutput({
+      writeOut: (str) => { io.stdout.write(str) },
+      writeErr: (str) => { io.stderr.write(str) },
+    })
 }
 
-function buildOptions(values: ParsedValues): BuiltOptions {
-  const shared: HtmlOptions & MarkdownOptions = {}
-
-  const punctuationStyle = validateChoice(values["punctuation-style"], VALID_PUNCTUATION_STYLES, "punctuation-style")
-  if (punctuationStyle) shared.punctuationStyle = punctuationStyle
-
-  const dashStyle = validateChoice(values["dash-style"], VALID_DASH_STYLES, "dash-style")
-  if (dashStyle) shared.dashStyle = dashStyle
-
-  if (values["no-symbols"]) shared.symbols = false
-  if (values["no-nbsp"]) shared.nbsp = false
-  if (values["no-collapse-spaces"]) shared.collapseSpaces = false
-  if (values["no-arrows"]) shared.includeArrows = false
-  if (values.fractions) shared.fractions = true
-  if (values.degrees) shared.degrees = true
-  if (values.superscript) shared.superscript = true
-  if (values.ligatures) shared.ligatures = true
-
-  const markdown: MarkdownOptions = { ...shared }
-  const emphasisMarker = validateChoice(values["emphasis-marker"], VALID_EMPHASIS_MARKERS, "emphasis-marker")
-  if (emphasisMarker) markdown.emphasisMarker = emphasisMarker
-  const strongMarker = validateChoice(values["strong-marker"], VALID_EMPHASIS_MARKERS, "strong-marker")
-  if (strongMarker) markdown.strongMarker = strongMarker
-  const bulletMarker = validateChoice(values["bullet-marker"], VALID_BULLET_MARKERS, "bullet-marker")
-  if (bulletMarker) markdown.bulletMarker = bulletMarker
-  const ruleMarker = validateChoice(values["rule-marker"], VALID_RULE_MARKERS, "rule-marker")
-  if (ruleMarker) markdown.ruleMarker = ruleMarker
-
-  const html: HtmlOptions = { ...shared }
-  if (values["skip-tag"]) html.skipTags = values["skip-tag"]
-  if (values["skip-class"]) html.skipClasses = values["skip-class"]
-  if (values["no-fragment"]) html.fragment = false
-
-  return { markdown, html }
+function inferFileType(path: string, override?: FileType): FileType {
+  if (override !== undefined) return override
+  const ext = extname(path).toLowerCase()
+  if (MARKDOWN_EXTENSIONS.has(ext)) return "md"
+  if (HTML_EXTENSIONS.has(ext)) return "html"
+  throw new UsageError(
+    `Cannot infer file type from extension "${ext}" for ${path}. Pass --type md|html.`,
+  )
 }
 
-async function transformContent(
-  input: string,
-  type: FileType,
-  opts: BuiltOptions,
-): Promise<string> {
-  return type === "md"
-    ? transformMarkdown(input, opts.markdown)
-    : transformHtml(input, opts.html)
+function buildOptions(flags: ParsedFlags): CliOptions {
+  const opts: CliOptions = {}
+  if (flags.punctuationStyle) opts.punctuationStyle = flags.punctuationStyle
+  if (flags.dashStyle) opts.dashStyle = flags.dashStyle
+  if (flags.symbols === false) opts.symbols = false
+  if (flags.nbsp === false) opts.nbsp = false
+  if (flags.collapseSpaces === false) opts.collapseSpaces = false
+  if (flags.arrows === false) opts.includeArrows = false
+  if (flags.fractions) opts.fractions = true
+  if (flags.degrees) opts.degrees = true
+  if (flags.superscript) opts.superscript = true
+  if (flags.ligatures) opts.ligatures = true
+  if (flags.emphasisMarker) opts.emphasisMarker = flags.emphasisMarker
+  if (flags.strongMarker) opts.strongMarker = flags.strongMarker
+  if (flags.bulletMarker) opts.bulletMarker = flags.bulletMarker
+  if (flags.ruleMarker) opts.ruleMarker = flags.ruleMarker
+  if (flags.skipTag) opts.skipTags = flags.skipTag
+  if (flags.skipClass) opts.skipClasses = flags.skipClass
+  if (flags.fragment === false) opts.fragment = false
+  return opts
+}
+
+async function transformContent(input: string, type: FileType, opts: CliOptions): Promise<string> {
+  return type === "md" ? transformMarkdown(input, opts) : transformHtml(input, opts)
 }
 
 /**
@@ -194,6 +157,17 @@ async function readStdin(stdin: AsyncIterable<string | Buffer>): Promise<string>
   return Buffer.concat(chunks).toString("utf8")
 }
 
+async function readPackageVersion(): Promise<string> {
+  const pkgPath = new URL("../package.json", import.meta.url)
+  /* istanbul ignore next -- the catch only fires when package.json is missing or unreadable */
+  try {
+    const raw = await readFile(pkgPath, "utf8")
+    return JSON.parse(raw).version ?? "unknown"
+  } catch {
+    return "unknown"
+  }
+}
+
 /**
  * Runs the CLI with the given arguments and I/O streams.
  *
@@ -201,54 +175,22 @@ async function readStdin(stdin: AsyncIterable<string | Buffer>): Promise<string>
  * 1 if `--check` saw a file that would change, 2 for usage errors.
  */
 export async function runCli(args: string[], io: CliIO): Promise<number> {
-  let parsed
+  const program = buildProgram(await readPackageVersion(), io)
+
   try {
-    parsed = parseArgs({
-      args,
-      allowPositionals: true,
-      strict: true,
-      options: {
-        help: { type: "boolean", short: "h" },
-        version: { type: "boolean", short: "V" },
-        check: { type: "boolean" },
-        stdin: { type: "boolean" },
-        type: { type: "string" },
-        "punctuation-style": { type: "string" },
-        "dash-style": { type: "string" },
-        "no-symbols": { type: "boolean" },
-        "no-nbsp": { type: "boolean" },
-        "no-collapse-spaces": { type: "boolean" },
-        "no-arrows": { type: "boolean" },
-        fractions: { type: "boolean" },
-        degrees: { type: "boolean" },
-        superscript: { type: "boolean" },
-        ligatures: { type: "boolean" },
-        "emphasis-marker": { type: "string" },
-        "strong-marker": { type: "string" },
-        "bullet-marker": { type: "string" },
-        "rule-marker": { type: "string" },
-        "skip-tag": { type: "string", multiple: true },
-        "skip-class": { type: "string", multiple: true },
-        "no-fragment": { type: "boolean" },
-      },
-    })
+    program.parse(args, { from: "user" })
   } catch (err) {
-    io.stderr.write(`Error: ${(err as Error).message}\n`)
+    /* istanbul ignore if -- commander only throws CommanderError from parse */
+    if (!(err instanceof CommanderError)) throw err
+    if (err.code === "commander.helpDisplayed" || err.code === "commander.version") return 0
     return 2
   }
-  const { values, positionals } = parsed
 
-  if (values.help) {
-    io.stdout.write(HELP)
-    return 0
-  }
-  if (values.version) {
-    io.stdout.write(`${await readPackageVersion()}\n`)
-    return 0
-  }
+  const flags = program.opts() as ParsedFlags
+  const positionals = program.args
 
   try {
-    return await runValidated(values, positionals as string[], io)
+    return await runValidated(flags, positionals, io, program)
   } catch (err) {
     if (err instanceof UsageError) {
       io.stderr.write(`Error: ${err.message}\n`)
@@ -259,39 +201,36 @@ export async function runCli(args: string[], io: CliIO): Promise<number> {
 }
 
 async function runValidated(
-  values: Record<string, unknown>,
+  flags: ParsedFlags,
   positionals: string[],
   io: CliIO,
+  program: Command,
 ): Promise<number> {
-  const opts = buildOptions(values as ParsedValues)
-  const typeOverride = values.type as string | undefined
-  const check = values.check === true
+  const opts = buildOptions(flags)
+  const check = flags.check === true
 
-  if (values.stdin) {
+  if (flags.stdin) {
     if (positionals.length > 0) {
       throw new UsageError("--stdin cannot be combined with file arguments.")
     }
-    if (typeOverride === undefined) {
+    if (flags.type === undefined) {
       throw new UsageError("--stdin requires --type md|html.")
     }
-    const type = inferFileType("<stdin>", typeOverride)
     const input = await readStdin(io.stdin)
-    const output = matchTrailingNewline(input, await transformContent(input, type, opts))
-    if (check) {
-      return input === output ? 0 : 1
-    }
+    const output = matchTrailingNewline(input, await transformContent(input, flags.type, opts))
+    if (check) return input === output ? 0 : 1
     io.stdout.write(output)
     return 0
   }
 
   if (positionals.length === 0) {
-    io.stderr.write(HELP)
+    io.stderr.write(program.helpInformation())
     return 2
   }
 
   let anyChanged = false
   for (const path of positionals) {
-    const type = inferFileType(path, typeOverride)
+    const type = inferFileType(path, flags.type)
     const original = await readFile(path, "utf8")
     const formatted = matchTrailingNewline(original, await transformContent(original, type, opts))
     if (original === formatted) continue
@@ -304,17 +243,6 @@ async function runValidated(
     }
   }
   return check && anyChanged ? 1 : 0
-}
-
-async function readPackageVersion(): Promise<string> {
-  const pkgPath = new URL("../package.json", import.meta.url)
-  /* istanbul ignore next -- the catch only fires when package.json is missing or unreadable */
-  try {
-    const raw = await readFile(pkgPath, "utf8")
-    return JSON.parse(raw).version ?? "unknown"
-  } catch {
-    return "unknown"
-  }
 }
 
 /* istanbul ignore next -- entry-point bootstrap; logic is covered via runCli */
