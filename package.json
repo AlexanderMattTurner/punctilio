@@ -144,8 +144,11 @@
   },
   "dependencies": {
     "commander": "14.0.3",
+    "cosmiconfig": "9.0.1",
     "escape-string-regexp": "5.0.0",
+    "ignore": "7.0.5",
     "quick-lru": "7.3.0",
+    "tinyglobby": "0.2.16",
     "unist-util-visit-parents": "6.0.2"
   },
   "lint-staged": {
