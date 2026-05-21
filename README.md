@@ -160,10 +160,20 @@ rehypePunctilio({
 });
 ```
 
+## CLI and editor integration
+
+```bash
+punctilio README.md 'docs/**/*.md'   # format in place; globs expand internally
+punctilio --check README.md          # exit 1 if it would change anything
+echo '"Hi" -- there' | punctilio - --type md
+```
+
+Subsequent runs skip files unchanged since the previous invocation via an incremental cache at `node_modules/.cache/punctilio/cache.json` (use `--no-cache` to disable, `--cache-location <path>` to override). Config is loaded from `.punctiliorc[.json|.yaml|.js]`, `punctilio.config.js`, or a `"punctilio"` key in `package.json` (via [`cosmiconfig`](https://github.com/cosmiconfig/cosmiconfig)); CLI flags override. A `.punctilioignore` (gitignore syntax) in cwd excludes matching files. A `.pre-commit-hooks.yaml` ships in the package for [pre-commit](https://pre-commit.com) integration. For prettier users, add `punctilio/prettier-plugin` to `.prettierrc` `plugins`; it reads the same `.punctiliorc`.
+
 
 ## Notes 
 
-- Fully general prime mark conversion (e.g. <span class="no-formatting">5'10" → 5′10″</span>) requires semantic understanding to distinguish from closing quotes (e.g. `"Term 1"` should produce closing quotes). `punctilio` tracks quote balance to heuristically determine whether a quote after a number is a closing quote or a prime mark. Other libraries like `tipograph` 0.7.4 use simpler patterns that make more mistakes.
+- Fully general prime mark conversion (e.g. <span class="no-formatting">5'10" → 5′10″</span>) requires semantic understanding to distinguish from closing quotes (e.g. `"Term 1"` should produce closing quotes). `punctilio` heuristically tracks quote balance to distinguish a prime after a number from a closing quote (`"Term 1"`). Simpler libraries like `tipograph` 0.7.4 make more mistakes here.
 - The `american` style follows the [Chicago Manual of Style](https://www.chicagomanualofstyle.org/):
   - Periods and commas go inside quotation marks (“Hello,” she said.)
   - Unspaced em-dashes between words (word—word)

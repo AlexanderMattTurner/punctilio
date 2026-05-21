@@ -1,0 +1,27 @@
+- id: punctilio
+  name: punctilio
+  description: Apply punctilio typography transformations to Markdown and HTML files.
+  entry: punctilio
+  language: node
+  types_or: [markdown, html]
+  additional_dependencies:
+    - unified@^11.0.0
+    - remark-parse@^11.0.0
+    - remark-stringify@^11.0.0
+    - remark-gfm@^4.0.0
+    - rehype-parse@^9.0.0
+    - rehype-stringify@^10.0.0
+
+- id: punctilio-check
+  name: punctilio (check)
+  description: Fail if punctilio would change any Markdown or HTML file (no writes).
+  entry: punctilio --check
+  language: node
+  types_or: [markdown, html]
+  additional_dependencies:
+    - unified@^11.0.0
+    - remark-parse@^11.0.0
+    - remark-stringify@^11.0.0
+    - remark-gfm@^4.0.0
+    - rehype-parse@^9.0.0
+    - rehype-stringify@^10.0.0

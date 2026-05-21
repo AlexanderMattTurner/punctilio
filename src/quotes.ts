@@ -25,7 +25,8 @@ const TERMINAL_PUNCTUATION_CLASS = TERMINAL_PUNCTUATION.join("")
  */
 const MAX_NESTED_QUOTES = 4
 
-export type PunctuationStyle = "american" | "british" | "german" | "french" | "none"
+export const PUNCTUATION_STYLES = ["american", "british", "german", "french", "none"] as const
+export type PunctuationStyle = (typeof PUNCTUATION_STYLES)[number]
 
 export interface QuoteOptions {
   /** Boundary marker for HTML element boundaries. Default: "\uE000\uE001" */
