@@ -40,7 +40,7 @@ To wire it into the [pre-commit framework](https://pre-commit.com), add to `.pre
     - id: punctilio-check    # or `punctilio` to rewrite in place
 ```
 
-Run `punctilio --help` for the full option list (style flags, marker overrides, skip tags/classes).
+Run `punctilio -h` for the full option list (style flags, marker overrides, skip tags/classes).
 
 ## Why punctilio?
 

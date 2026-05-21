@@ -66,23 +66,18 @@ describe("transformHtml", () => {
     expect(result).toContain(`Wait${ELLIPSIS} it${RSQ}s${EM_DASH}complicated.`)
   })
 
-  it("reuses cached processor for identical options", async () => {
-    const first = await transformHtml('<p>"a"</p>', { nbsp: false })
-    const second = await transformHtml('<p>"b"</p>', { nbsp: false })
-    expect(first).toContain(`${LDQ}a${RDQ}`)
-    expect(second).toContain(`${LDQ}b${RDQ}`)
-  })
-
   it("bypasses cache when shouldSkipText is supplied", async () => {
-    let calls = 0
-    const result = await transformHtml('<p>"only this"</p>', {
+    // If the cache wasn't bypassed, the second call would reuse the first
+    // processor (whose shouldSkipText returned false) and curl the quotes.
+    const transformed = await transformHtml('<p>"a"</p>', {
       nbsp: false,
-      shouldSkipText: () => {
-        calls += 1
-        return false
-      },
+      shouldSkipText: () => false,
     })
-    expect(calls).toBeGreaterThan(0)
-    expect(result).toContain(`${LDQ}only this${RDQ}`)
+    const skipped = await transformHtml('<p>"a"</p>', {
+      nbsp: false,
+      shouldSkipText: () => true,
+    })
+    expect(transformed).toContain(`${LDQ}a${RDQ}`)
+    expect(skipped).toContain('"a"')
   })
 })

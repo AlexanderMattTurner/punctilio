@@ -35,6 +35,8 @@ interface CliIO {
   stderr: NodeJS.WritableStream
 }
 
+class UsageError extends Error {}
+
 const HELP = `Usage:
   punctilio [options] <files...>           Format files in place
   punctilio --check <files...>             Exit 1 if any file would change
@@ -47,7 +49,6 @@ File-type detection (override with --type):
 Transform options:
   --punctuation-style <american|british|german|french|none>
   --dash-style <american|british|none>
-  --separator <string>
   --no-symbols              Disable symbol transforms (ellipsis, ×, ©, etc.)
   --no-nbsp                 Disable non-breaking space insertion
   --no-collapse-spaces      Preserve runs of consecutive spaces
@@ -56,7 +57,6 @@ Transform options:
   --degrees                 Enable 20 C → 20 °C
   --superscript             Enable 1st → 1ˢᵗ
   --ligatures               Enable !? → ⁉
-  --no-check-idempotency    Skip the post-transform idempotency check
 
 Markdown-only options:
   --emphasis-marker <*|_>
@@ -77,14 +77,14 @@ Other:
 function inferFileType(path: string, override?: string): FileType {
   if (override !== undefined) {
     if (override !== "md" && override !== "html") {
-      throw new Error(`Invalid --type "${override}". Use "md" or "html".`)
+      throw new UsageError(`Invalid --type "${override}". Use "md" or "html".`)
     }
     return override
   }
   const ext = extname(path).toLowerCase()
   if (MARKDOWN_EXTENSIONS.has(ext)) return "md"
   if (HTML_EXTENSIONS.has(ext)) return "html"
-  throw new Error(
+  throw new UsageError(
     `Cannot infer file type from extension "${ext}" for ${path}. Pass --type md|html.`
   )
 }
@@ -96,7 +96,7 @@ function validateChoice<T extends readonly string[]>(
 ): T[number] | undefined {
   if (value === undefined) return undefined
   if (!choices.includes(value)) {
-    throw new Error(`Invalid value "${value}" for --${flag}. Choose from: ${choices.join(", ")}`)
+    throw new UsageError(`Invalid value "${value}" for --${flag}. Choose from: ${choices.join(", ")}`)
   }
   return value as T[number]
 }
@@ -104,7 +104,6 @@ function validateChoice<T extends readonly string[]>(
 type ParsedValues = {
   "punctuation-style"?: string
   "dash-style"?: string
-  separator?: string
   "no-symbols"?: boolean
   "no-nbsp"?: boolean
   "no-collapse-spaces"?: boolean
@@ -113,7 +112,6 @@ type ParsedValues = {
   degrees?: boolean
   superscript?: boolean
   ligatures?: boolean
-  "no-check-idempotency"?: boolean
   "emphasis-marker"?: string
   "strong-marker"?: string
   "bullet-marker"?: string
@@ -137,7 +135,6 @@ function buildOptions(values: ParsedValues): BuiltOptions {
   const dashStyle = validateChoice(values["dash-style"], VALID_DASH_STYLES, "dash-style")
   if (dashStyle) shared.dashStyle = dashStyle
 
-  if (values.separator !== undefined) shared.separator = values.separator
   if (values["no-symbols"]) shared.symbols = false
   if (values["no-nbsp"]) shared.nbsp = false
   if (values["no-collapse-spaces"]) shared.collapseSpaces = false
@@ -146,7 +143,6 @@ function buildOptions(values: ParsedValues): BuiltOptions {
   if (values.degrees) shared.degrees = true
   if (values.superscript) shared.superscript = true
   if (values.ligatures) shared.ligatures = true
-  if (values["no-check-idempotency"]) shared.checkIdempotency = false
 
   const markdown: MarkdownOptions = { ...shared }
   const emphasisMarker = validateChoice(values["emphasis-marker"], VALID_EMPHASIS_MARKERS, "emphasis-marker")
@@ -219,7 +215,6 @@ export async function runCli(args: string[], io: CliIO): Promise<number> {
         type: { type: "string" },
         "punctuation-style": { type: "string" },
         "dash-style": { type: "string" },
-        separator: { type: "string" },
         "no-symbols": { type: "boolean" },
         "no-nbsp": { type: "boolean" },
         "no-collapse-spaces": { type: "boolean" },
@@ -228,7 +223,6 @@ export async function runCli(args: string[], io: CliIO): Promise<number> {
         degrees: { type: "boolean" },
         superscript: { type: "boolean" },
         ligatures: { type: "boolean" },
-        "no-check-idempotency": { type: "boolean" },
         "emphasis-marker": { type: "string" },
         "strong-marker": { type: "string" },
         "bullet-marker": { type: "string" },
@@ -253,18 +247,32 @@ export async function runCli(args: string[], io: CliIO): Promise<number> {
     return 0
   }
 
+  try {
+    return await runValidated(values, positionals as string[], io)
+  } catch (err) {
+    if (err instanceof UsageError) {
+      io.stderr.write(`Error: ${err.message}\n`)
+      return 2
+    }
+    throw err
+  }
+}
+
+async function runValidated(
+  values: Record<string, unknown>,
+  positionals: string[],
+  io: CliIO,
+): Promise<number> {
   const opts = buildOptions(values as ParsedValues)
-  const typeOverride = values.type
+  const typeOverride = values.type as string | undefined
   const check = values.check === true
 
   if (values.stdin) {
     if (positionals.length > 0) {
-      io.stderr.write("Error: --stdin cannot be combined with file arguments.\n")
-      return 2
+      throw new UsageError("--stdin cannot be combined with file arguments.")
     }
     if (typeOverride === undefined) {
-      io.stderr.write("Error: --stdin requires --type md|html.\n")
-      return 2
+      throw new UsageError("--stdin requires --type md|html.")
     }
     const type = inferFileType("<stdin>", typeOverride)
     const input = await readStdin(io.stdin)

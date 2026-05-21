@@ -53,13 +53,9 @@ export function clearProcessorCache(): void {
 /**
  * Transforms HTML text with typographic improvements.
  *
- * Parses the input as HTML, applies punctilio typography transformations
- * (smart quotes, em-dashes, ellipses, etc.), and serializes back to HTML.
- *
- * The unified processor pipeline is cached and reused across calls with
- * identical options. Calls that pass a function-valued option (such as
- * `shouldSkipText`) bypass the cache to avoid returning a processor built
- * with a different function reference.
+ * Parses the input as HTML, applies punctilio typography transformations,
+ * and serializes back to HTML. The unified processor pipeline is cached
+ * and reused across calls with identical options.
  *
  * @example
  * ```ts
@@ -73,6 +69,9 @@ export async function transformHtml(
   input: string,
   options: HtmlOptions = {}
 ): Promise<string> {
+  // Function-valued options aren't JSON-serializable, so the cache key
+  // can't distinguish them. Bypass the cache to avoid returning a
+  // processor wired to a different shouldSkipText.
   if (typeof options.shouldSkipText === "function") {
     const result = await createProcessor(options).process(input)
     return String(result)

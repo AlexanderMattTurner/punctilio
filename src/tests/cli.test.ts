@@ -182,7 +182,9 @@ describe("runCli", () => {
   it("rejects unknown file extensions without --type", async () => {
     const path = tmpFile("text", "file.txt")
     const cap = captureIO()
-    await expect(runCli([path], cap.io)).rejects.toThrow(/Cannot infer file type/)
+    const code = await runCli([path], cap.io)
+    expect(code).toBe(2)
+    expect(cap.stderr()).toMatch(/Cannot infer file type/)
   })
 
   it("respects --type override for unknown extensions", async () => {
@@ -196,9 +198,9 @@ describe("runCli", () => {
   it("rejects invalid --type values", async () => {
     const path = tmpFile("x", "file.txt")
     const cap = captureIO()
-    await expect(runCli(["--type", "rtf", path], cap.io)).rejects.toThrow(
-      /Invalid --type/,
-    )
+    const code = await runCli(["--type", "rtf", path], cap.io)
+    expect(code).toBe(2)
+    expect(cap.stderr()).toMatch(/Invalid --type/)
   })
 
   it.each([
@@ -225,9 +227,9 @@ describe("runCli", () => {
   ])("rejects invalid --%s=%s", async (flag, value) => {
     const path = tmpFile("x\n", "doc.md")
     const cap = captureIO()
-    await expect(
-      runCli([`--${flag}`, value, path], cap.io),
-    ).rejects.toThrow(/Invalid value/)
+    const code = await runCli([`--${flag}`, value, path], cap.io)
+    expect(code).toBe(2)
+    expect(cap.stderr()).toMatch(/Invalid value/)
   })
 
   it("applies --punctuation-style british", async () => {
@@ -238,16 +240,6 @@ describe("runCli", () => {
     )
     expect(code).toBe(0)
     expect(cap.stdout()).toContain(`${LDQ}Hello${RDQ}.`)
-  })
-
-  it("applies --separator", async () => {
-    const cap = captureIO("plain")
-    const code = await runCli(
-      ["--stdin", "--type", "md", "--separator", "|", "--no-nbsp"],
-      cap.io,
-    )
-    expect(code).toBe(0)
-    expect(cap.stdout().trim()).toBe("plain")
   })
 
   it("--fractions enables fraction transforms", async () => {
@@ -320,16 +312,6 @@ describe("runCli", () => {
     expect(cap.stdout()).toContain("two  spaces")
   })
 
-  it("--no-check-idempotency disables the idempotency check", async () => {
-    const path = tmpFile('"Hi."\n', "doc.md")
-    const cap = captureIO()
-    const code = await runCli(
-      ["--no-check-idempotency", "--no-nbsp", path],
-      cap.io,
-    )
-    expect(code).toBe(0)
-  })
-
   it("--skip-tag is repeatable for HTML", async () => {
     const path = tmpFile('<p>"a"</p><aside>"b"</aside>\n', "page.html")
     const cap = captureIO()
@@ -382,5 +364,12 @@ describe("runCli", () => {
     const code = await runCli(["--bogus"], cap.io)
     expect(code).toBe(2)
     expect(cap.stderr()).toContain("Error:")
+  })
+
+  it("propagates unexpected errors instead of swallowing them", async () => {
+    const cap = captureIO()
+    await expect(
+      runCli(["/does/not/exist.md", "--no-nbsp"], cap.io),
+    ).rejects.toThrow(/ENOENT/)
   })
 })
