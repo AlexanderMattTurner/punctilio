@@ -388,4 +388,43 @@ describe("runCli", () => {
       runCli(["/does/not/exist.md", "--no-nbsp"], cap.io),
     ).rejects.toThrow(/ENOENT/)
   })
+
+  it("loads transform options from --config <path>", async () => {
+    const configPath = tmpFile(
+      JSON.stringify({ punctuationStyle: "british", nbsp: false }),
+      ".punctiliorc.json",
+    )
+    const cap = captureIO('"Hello."')
+    const code = await runCli(["-", "--type", "md", "--config", configPath], cap.io)
+    expect(code).toBe(0)
+    expect(cap.stdout()).toContain(`${LDQ}Hello${RDQ}.`)
+  })
+
+  it("CLI flags override config-file values", async () => {
+    const configPath = tmpFile(
+      JSON.stringify({ punctuationStyle: "british", nbsp: false }),
+      ".punctiliorc.json",
+    )
+    const cap = captureIO('"Hello."')
+    const code = await runCli(
+      ["-", "--type", "md", "--config", configPath, "--punctuation-style", "american"],
+      cap.io,
+    )
+    expect(code).toBe(0)
+    expect(cap.stdout()).toContain(`${LDQ}Hello.${RDQ}`)
+  })
+
+  it("--no-config skips config-file loading", async () => {
+    const configPath = tmpFile(
+      JSON.stringify({ punctuationStyle: "british", nbsp: false }),
+      ".punctiliorc.json",
+    )
+    const cap = captureIO('"Hello."')
+    const code = await runCli(
+      ["-", "--type", "md", "--config", configPath, "--no-config", "--no-nbsp"],
+      cap.io,
+    )
+    expect(code).toBe(0)
+    expect(cap.stdout()).toContain(`${LDQ}Hello.${RDQ}`)
+  })
 })

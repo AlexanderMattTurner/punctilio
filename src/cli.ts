@@ -11,6 +11,7 @@ import { extname } from "node:path"
 import { fileURLToPath } from "node:url"
 
 import { Command, CommanderError, Option } from "commander"
+import { cosmiconfig } from "cosmiconfig"
 
 import { transformMarkdown, type MarkdownOptions } from "./markdown.js"
 import { transformHtml, type HtmlOptions } from "./html.js"
@@ -45,6 +46,7 @@ const HTML_EXTENSIONS = new Set([".html", ".htm"])
  */
 interface ParsedFlags {
   check?: boolean
+  config?: string | false  // string if --config <path>, false if --no-config
   stdinFilepath?: string
   type?: FileType
   punctuationStyle?: PunctuationStyle
@@ -73,6 +75,8 @@ function buildProgram(version: string, io: CliIO): Command {
     .version(version, "-V, --version", "show version")
     .argument("[files...]", "files to format (pass '-' to read from stdin)")
     .option("--check", "exit 1 if any file would change; write nothing")
+    .option("--config <path>", "path to a punctilio config file (otherwise auto-discovered)")
+    .option("--no-config", "ignore any auto-discovered config file")
     .option("--stdin-filepath <path>", "treat stdin as if it were this filename (infers type from extension)")
     .addOption(new Option("--type <type>", "force file type (otherwise inferred from extension)").choices(FILE_TYPES))
     .addOption(new Option("--punctuation-style <style>", "quote and punctuation style").choices(PUNCTUATION_STYLES))
@@ -107,6 +111,31 @@ function inferFileType(path: string, override?: FileType): FileType {
   throw new UsageError(
     `Cannot infer file type from extension "${ext}" for ${path}. Pass --type md|html.`,
   )
+}
+
+/**
+ * Loads a punctilio config file via cosmiconfig.
+ *
+ * Search names tried (in order): `.punctiliorc`, `.punctiliorc.json`,
+ * `.punctiliorc.yaml`, `.punctiliorc.yml`, `.punctiliorc.js`,
+ * `.punctiliorc.cjs`, `punctilio.config.js`, `punctilio.config.cjs`,
+ * and a `"punctilio"` key in `package.json`.
+ *
+ * Returns `{}` when no config is found, the file is empty, or
+ * `--no-config` was passed. Keys in the loaded config must match the
+ * library's option names (`punctuationStyle`, `skipTags`, etc.), not
+ * the kebab-cased CLI flag names.
+ */
+async function loadConfig(
+  cwd: string,
+  configPath: string | undefined,
+  disabled: boolean,
+): Promise<CliOptions> {
+  if (disabled) return {}
+  const explorer = cosmiconfig("punctilio")
+  const result = configPath ? await explorer.load(configPath) : await explorer.search(cwd)
+  if (!result || result.isEmpty) return {}
+  return result.config as CliOptions
 }
 
 function buildOptions(flags: ParsedFlags): CliOptions {
@@ -211,7 +240,12 @@ async function runValidated(
   io: CliIO,
   program: Command,
 ): Promise<number> {
-  const opts = buildOptions(flags)
+  const config = await loadConfig(
+    process.cwd(),
+    typeof flags.config === "string" ? flags.config : undefined,
+    flags.config === false,
+  )
+  const opts: CliOptions = { ...config, ...buildOptions(flags) }
   const check = flags.check === true
 
   if (readsStdin(positionals, flags)) {
