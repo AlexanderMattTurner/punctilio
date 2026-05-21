@@ -28,7 +28,7 @@ npm install punctilio
 ```bash
 punctilio README.md docs/*.md       # format files in place
 punctilio --check README.md         # exit 1 if it would change anything
-echo '"Hi" -- there' | punctilio --stdin --type md
+echo '"Hi" -- there' | punctilio - --type md
 ```
 
 To wire it into the [pre-commit framework](https://pre-commit.com), add to `.pre-commit-config.yaml`:

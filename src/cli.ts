@@ -45,7 +45,7 @@ const HTML_EXTENSIONS = new Set([".html", ".htm"])
  */
 interface ParsedFlags {
   check?: boolean
-  stdin?: boolean
+  stdinFilepath?: string
   type?: FileType
   punctuationStyle?: PunctuationStyle
   dashStyle?: DashStyle
@@ -71,9 +71,9 @@ function buildProgram(version: string, io: CliIO): Command {
     .name("punctilio")
     .description("Apply typographic improvements to Markdown and HTML files.")
     .version(version, "-V, --version", "show version")
-    .argument("[files...]", "files to format; pair with --check for a dry run")
+    .argument("[files...]", "files to format (pass '-' to read from stdin)")
     .option("--check", "exit 1 if any file would change; write nothing")
-    .option("--stdin", "read content from stdin and write to stdout")
+    .option("--stdin-filepath <path>", "treat stdin as if it were this filename (infers type from extension)")
     .addOption(new Option("--type <type>", "force file type (otherwise inferred from extension)").choices(FILE_TYPES))
     .addOption(new Option("--punctuation-style <style>", "quote and punctuation style").choices(PUNCTUATION_STYLES))
     .addOption(new Option("--dash-style <style>", "dash style").choices(DASH_STYLES))
@@ -200,6 +200,11 @@ export async function runCli(args: string[], io: CliIO): Promise<number> {
   }
 }
 
+function readsStdin(positionals: string[], flags: ParsedFlags): boolean {
+  if (positionals.includes("-")) return true
+  return flags.stdinFilepath !== undefined && positionals.length === 0
+}
+
 async function runValidated(
   flags: ParsedFlags,
   positionals: string[],
@@ -209,15 +214,18 @@ async function runValidated(
   const opts = buildOptions(flags)
   const check = flags.check === true
 
-  if (flags.stdin) {
-    if (positionals.length > 0) {
-      throw new UsageError("--stdin cannot be combined with file arguments.")
+  if (readsStdin(positionals, flags)) {
+    const fileArgs = positionals.filter((p) => p !== "-")
+    if (fileArgs.length > 0) {
+      throw new UsageError("'-' cannot be combined with file arguments.")
     }
-    if (flags.type === undefined) {
-      throw new UsageError("--stdin requires --type md|html.")
+    const type: FileType | undefined =
+      flags.type ?? (flags.stdinFilepath !== undefined ? inferFileType(flags.stdinFilepath) : undefined)
+    if (type === undefined) {
+      throw new UsageError("Reading from stdin requires --type md|html or --stdin-filepath <path>.")
     }
     const input = await readStdin(io.stdin)
-    const output = matchTrailingNewline(input, await transformContent(input, flags.type, opts))
+    const output = matchTrailingNewline(input, await transformContent(input, type, opts))
     if (check) return input === output ? 0 : 1
     io.stdout.write(output)
     return 0
