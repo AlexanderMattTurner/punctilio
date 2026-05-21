@@ -21,41 +21,6 @@ transform(`"It's a beautiful thing, the destruction of words..." -- 1984`);
 npm install punctilio
 ```
 
-### Command-line / pre-commit usage
-
-`punctilio` ships a CLI that formats Markdown (`.md`, `.markdown`) and HTML (`.html`, `.htm`) files in place. `--check` exits non-zero if any file would change, making it suitable as a pre-commit hook.
-
-```bash
-punctilio README.md docs/*.md       # format files in place
-punctilio --check README.md         # exit 1 if it would change anything
-echo '"Hi" -- there' | punctilio - --type md
-```
-
-To wire it into the [pre-commit framework](https://pre-commit.com), add to `.pre-commit-config.yaml`:
-
-```yaml
-- repo: https://github.com/alexander-turner/punctilio
-  rev: v3.9.1
-  hooks:
-    - id: punctilio-check    # or `punctilio` to rewrite in place
-```
-
-Run `punctilio -h` for the full option list (style flags, marker overrides, skip tags/classes).
-
-### Prettier plugin
-
-If your project already runs prettier, register the plugin to have punctilio’s transforms happen as part of the normal `prettier` formatting pass. No new CLI step, no new pre-commit hook.
-
-```jsonc
-// .prettierrc
-{
-  "plugins": ["punctilio/prettier-plugin"],
-  "punctilioPunctuationStyle": "british"
-}
-```
-
-The plugin wraps prettier’s built-in markdown parser, runs the remark-punctilio transform on the AST, and lets prettier print the result—code spans, fenced blocks, and inline HTML are left untouched. Supported options: `punctilioPunctuationStyle`, `punctilioDashStyle`, `punctilioNbsp`, `punctilioFractions`, `punctilioDegrees`, `punctilioSuperscript`, `punctilioLigatures`.
-
 ## Why punctilio?
 
 As far as I can tell, `punctilio` is the most reliable and feature-complete. I built `punctilio` for [my website](https://turntrout.com/design). I wrote[^wrote] and sharpened the core regexes sporadically over several months, exhaustively testing edge cases. Eventually, I decided to spin off the functionality into its own package.
@@ -196,9 +161,19 @@ rehypePunctilio({
 ```
 
 
+## CLI and editor integration
+
+```bash
+punctilio README.md docs/*.md    # format in place
+punctilio --check README.md      # exit 1 if it would change anything
+```
+
+`--check` makes it a pre-commit hook (a `.pre-commit-hooks.yaml` ships in the package). For projects on prettier, add `punctilio/prettier-plugin` to `.prettierrc` `plugins`; options live under the `Punctilio` category.
+
+
 ## Notes 
 
-- Fully general prime mark conversion (e.g. <span class="no-formatting">5'10" → 5′10″</span>) requires semantic understanding to distinguish from closing quotes (e.g. `"Term 1"` should produce closing quotes). `punctilio` tracks quote balance to heuristically determine whether a quote after a number is a closing quote or a prime mark. Other libraries like `tipograph` 0.7.4 use simpler patterns that make more mistakes.
+- Prime-mark detection (<span class="no-formatting">5'10" → 5′10″</span>) is heuristic: `punctilio` tracks quote balance to distinguish a prime after a number from a closing quote (`"Term 1"`). Simpler libraries like `tipograph` 0.7.4 make more mistakes here.
 - The `american` style follows the [Chicago Manual of Style](https://www.chicagomanualofstyle.org/):
   - Periods and commas go inside quotation marks (“Hello,” she said.)
   - Unspaced em-dashes between words (word—word)

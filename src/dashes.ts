@@ -4,7 +4,8 @@
 
 import { UNICODE_SYMBOLS, DEFAULT_SEPARATOR, LATIN_LETTERS, wordBoundaryStart, wordBoundaryEnd, getEscapedSeparator, cachedRegExp } from "./constants.js"
 
-export type DashStyle = "american" | "british" | "none"
+export const DASH_STYLES = ["american", "british", "none"] as const
+export type DashStyle = (typeof DASH_STYLES)[number]
 
 export interface DashOptions {
   /** Boundary marker for HTML element boundaries. Default: "\uE000\uE001" */

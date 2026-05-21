@@ -14,8 +14,8 @@ import { Command, CommanderError, Option } from "commander"
 
 import { transformMarkdown, type MarkdownOptions } from "./markdown.js"
 import { transformHtml, type HtmlOptions } from "./html.js"
-import type { PunctuationStyle } from "./quotes.js"
-import type { DashStyle } from "./dashes.js"
+import { PUNCTUATION_STYLES, type PunctuationStyle } from "./quotes.js"
+import { DASH_STYLES, type DashStyle } from "./dashes.js"
 
 type CliOptions = MarkdownOptions & HtmlOptions
 type FileType = "md" | "html"
@@ -29,8 +29,6 @@ interface CliIO {
 class UsageError extends Error {}
 
 const FILE_TYPES = ["md", "html"] as const satisfies readonly FileType[]
-const PUNCTUATION_STYLES = ["american", "british", "german", "french", "none"] as const satisfies readonly PunctuationStyle[]
-const DASH_STYLES = ["american", "british", "none"] as const satisfies readonly DashStyle[]
 const EMPHASIS_MARKERS = ["*", "_"] as const
 const BULLET_MARKERS = ["-", "*", "+"] as const
 const RULE_MARKERS = ["-", "*", "_"] as const

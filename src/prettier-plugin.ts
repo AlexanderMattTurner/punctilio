@@ -25,11 +25,8 @@ import type { Parser, Plugin, SupportOption } from "prettier"
 import type { Root } from "mdast"
 
 import { remarkPunctilio, type RemarkPunctilioOptions } from "./remark.js"
-import type { PunctuationStyle } from "./quotes.js"
-import type { DashStyle } from "./dashes.js"
-
-const PUNCTUATION_STYLES = ["american", "british", "german", "french", "none"] as const satisfies readonly PunctuationStyle[]
-const DASH_STYLES = ["american", "british", "none"] as const satisfies readonly DashStyle[]
+import { PUNCTUATION_STYLES, type PunctuationStyle } from "./quotes.js"
+import { DASH_STYLES, type DashStyle } from "./dashes.js"
 
 interface PluginOptions {
   punctilioPunctuationStyle?: PunctuationStyle
