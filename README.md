@@ -15,7 +15,7 @@ transform(`"It's a beautiful thing, the destruction of words..." -- 1984`);
 // → “It’s a beautiful thing, the destruction of words…”—1984
 ```
 
-`punctilio` accepts three input formats: text, Markdown, and HTML. Use it as a library, a [CLI](#cli), a [pre-commit hook](#pre-commit), or — for a zero-friction install in any project that already runs Prettier — a [Prettier plugin](#prettier-plugin).
+`punctilio` accepts three input formats: text, Markdown, and HTML. Use it as a library, a [CLI](#cli), a [pre-commit hook](#pre-commit), or—for a zero-friction install in any project that already runs Prettier—a [Prettier plugin](#prettier-plugin).
 
 ```bash
 npm install punctilio
@@ -164,7 +164,7 @@ rehypePunctilio({
 
 ### Prettier plugin
 
-Drop `punctilio` into any project that already uses [Prettier](https://prettier.io) — typography fixes apply on every `prettier --write`, with no extra build step. The plugin extends Prettier's Markdown parser, so `prettier` keeps owning whitespace and Markdown layout while `punctilio` rewrites the prose inside.
+Drop `punctilio` into any project that already uses [Prettier](https://prettier.io)—typography fixes ride along on every Prettier run, with no extra build step. The plugin extends Prettier’s Markdown parser, so Prettier keeps owning whitespace and Markdown layout while `punctilio` rewrites the prose inside.
 
 ```jsonc
 // .prettierrc

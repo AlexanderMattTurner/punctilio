@@ -450,9 +450,9 @@ describe("runCli", () => {
   })
 
   it.each([
-    ["recovers gracefully from a corrupt cache file", "{not valid json"],
-    ["ignores a JSON cache file missing the `files` key", "{}"],
-  ])("cache %s", async (_label, seedContent) => {
+    ["recovers gracefully from a corrupt cache file", "{not valid json", /could not be parsed/],
+    ["ignores a JSON cache file missing the `files` key", "{}", /missing the "files" key/],
+  ])("cache %s", async (_label, seedContent, expectedWarning) => {
     await withTempCwd("punctilio-cache-bad-", async (dir) => {
       writeFileSync(join(dir, "doc.md"), '"Hello."\n')
       const cacheLocation = join(dir, "cache.json")
@@ -461,6 +461,33 @@ describe("runCli", () => {
       const cap = captureIO()
       expect(await runCli(["doc.md", "--cache-location", cacheLocation, "--no-nbsp"], cap.io)).toBe(0)
       expect(cap.stdout()).toContain("Reformatted")
+      expect(cap.stderr()).toMatch(expectedWarning)
+    })
+  })
+
+  it("cache key is cwd-relative so cache survives a project move", async () => {
+    await withTempCwd("punctilio-cache-portable-src-", async (srcDir) => {
+      writeFileSync(join(srcDir, "doc.md"), '"Hello."\n')
+      const cacheLocation = join(srcDir, "cache.json")
+      const args = ["doc.md", "--cache-location", cacheLocation, "--no-nbsp"]
+
+      const first = captureIO()
+      expect(await runCli(args, first.io)).toBe(0)
+      expect(first.stdout()).toContain("Reformatted")
+
+      // Move the file + cache to a different directory and re-run.
+      // A cache keyed on absolute paths would miss; a cwd-relative cache hits.
+      const movedCache = readFileSync(cacheLocation, "utf8")
+      await withTempCwd("punctilio-cache-portable-dst-", async (dstDir) => {
+        writeFileSync(join(dstDir, "doc.md"), `${LDQ}Hello.${RDQ}\n`)
+        const dstCacheLocation = join(dstDir, "cache.json")
+        writeFileSync(dstCacheLocation, movedCache)
+
+        const second = captureIO()
+        const dstArgs = ["doc.md", "--cache-location", dstCacheLocation, "--no-nbsp"]
+        expect(await runCli(dstArgs, second.io)).toBe(0)
+        expect(second.stdout()).not.toContain("Reformatted")
+      })
     })
   })
 

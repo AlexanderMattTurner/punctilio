@@ -15,6 +15,7 @@ import rehypeStringify from "rehype-stringify"
 import QuickLRU from "quick-lru"
 
 import { rehypePunctilio, type RehypePunctilioOptions } from "./rehype.js"
+import { stableStringify } from "./utils.js"
 
 /**
  * Options for the HTML transform pipeline.
@@ -77,9 +78,7 @@ export async function transformHtml(
     return String(result)
   }
 
-  const optionsKey = JSON.stringify(
-    Object.entries(options).filter(([, v]) => v !== undefined).sort(([a], [b]) => a.localeCompare(b))
-  )
+  const optionsKey = stableStringify(options)
 
   let processor = processorCache.get(optionsKey)
   if (!processor) {

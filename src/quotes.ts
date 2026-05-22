@@ -215,7 +215,9 @@ function applyPunctuationStyle(text: string, sep: string, style: PunctuationStyl
     text = moveOutsideToInside(text, escapedSep, ".", `(?!\\.\\.\\.)\\.`)
     // Comma outside → inside: Hello", → Hello,"
     text = moveOutsideToInside(text, escapedSep, ",", `,`)
-  } else if (style === "british" || style === "german" || style === "french") {
+  } else {
+    // Every non-"american" non-"none" style (british/german/french) places
+    // punctuation outside the quotes.
     // Period inside → outside: "Hello." → "Hello".
     // No terminal punctuation guard — "Stop!." inside is always wrong; move the period out.
     // Match ALL consecutive closing quotes so nested quotes like .'" become '". in one pass.

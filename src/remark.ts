@@ -32,10 +32,6 @@ const SKIP_TYPES = new Set(["inlineCode", "html"])
 /**
  * Recursively collects text nodes from a phrasing content tree,
  * skipping code and HTML nodes.
- *
- * @param node - The phrasing content node to collect from
- * @param depth - Current recursion depth (internal use)
- * @returns Array of Text nodes
  */
 function flattenTextNodes(
   node: PhrasingContent,
@@ -65,9 +61,6 @@ function flattenTextNodes(
 
 /**
  * Remark plugin that applies punctilio typography transformations to Markdown.
- *
- * @param options - Plugin configuration options
- * @returns Unified transformer function
  *
  * @example
  * ```ts

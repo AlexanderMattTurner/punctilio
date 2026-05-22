@@ -73,6 +73,13 @@ describe("prettier-plugin-punctilio", () => {
     expect(out).toContain(expected)
   })
 
+  it("registers a Markdown parser only (HTML files go through the CLI or rehype plugin)", () => {
+    // The README and CHANGELOG advertise the plugin as Markdown-only. Lock
+    // that in: any change that registers extra parsers should update the
+    // docs first (and probably ship dedicated tests for the new parser).
+    expect(Object.keys(plugin.parsers ?? {})).toEqual(["markdown"])
+  })
+
   it("falls back to defaults when no config is found", async () => {
     // No .punctiliorc anywhere reachable; prettier passes no filepath, so cosmiconfig
     // searches from cwd and finds nothing under the project root (or returns whatever

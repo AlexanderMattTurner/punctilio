@@ -78,13 +78,9 @@ const DEFAULT_SKIP_TAGS = ["code", "pre", "script", "style", "kbd", "var", "samp
 /**
  * Flattens text nodes from an element tree into a single array.
  *
- * @param node - The element or element content to process
- * @param shouldSkip - Function to determine which elements to skip
- * @param options - Optional flattening options. Pass `shouldSkipText` to
- *   exclude individual text nodes from the result. Applied after
- *   element-level `shouldSkip`, so the hook is never invoked for text
- *   inside an already-skipped element.
- * @returns Array of Text nodes
+ * Pass `options.shouldSkipText` to exclude individual text nodes from the
+ * result. Applied after element-level `shouldSkip`, so the hook is never
+ * invoked for text inside an already-skipped element.
  *
  * @example
  * ```ts
@@ -143,10 +139,6 @@ function flattenTextNodesImpl(
 /**
  * Extracts concatenated text content from an element.
  *
- * @param node - The element to extract text from
- * @param shouldSkip - Optional function to determine which elements to skip
- * @returns The combined text content
- *
  * @example
  * ```ts
  * const text = getTextContent(paragraphElement)
@@ -164,10 +156,7 @@ export function getTextContent(
 
 /**
  * Recursively finds the first text node in a tree of HTML elements.
- *
- * @param node - The root node to search from
- * @param depth - Current recursion depth (internal use)
- * @returns The first text node found, or null if no text nodes exist
+ * Returns null if no text nodes exist.
  *
  * @example
  * ```ts
@@ -205,7 +194,6 @@ const CLOSER_TO_OPENER: Record<string, string> = { "\u201D": "\u201C" }
  * excluded because \u2019 (right single quote) doubles as an apostrophe,
  * making balance-checking unreliable.
  *
- * @param input - The text to validate
  * @throws Error if double quotes are mismatched
  *
  * @example
@@ -430,11 +418,7 @@ function hasTextDescendant(
  * When an element has block-level children, we recurse so each block
  * is processed independently (e.g., `<div><p>A</p><p>B</p></div>`).
  *
- * @param node - The root element to search from
- * @param shouldSkip - Function to determine which elements to skip
- * @param depth - Current recursion depth (internal use)
  * @param alreadyTransformed - Elements already processed; skipped during traversal to avoid redundant work
- * @returns Array of elements that contain transformable text
  */
 export function collectTransformableElements(
   node: Element,
@@ -502,9 +486,6 @@ function markDescendants(node: Element, set: Set<Element>, depth: number = 0): v
 
 /**
  * Rehype plugin that applies punctilio typography transformations to HTML.
- *
- * @param options - Plugin configuration options
- * @returns Unified transformer function
  *
  * @example
  * ```ts

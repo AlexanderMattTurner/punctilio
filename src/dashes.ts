@@ -3,6 +3,7 @@
  */
 
 import { UNICODE_SYMBOLS, DEFAULT_SEPARATOR, LATIN_LETTERS, wordBoundaryStart, wordBoundaryEnd, getEscapedSeparator, cachedRegExp } from "./constants.js"
+import { namedGroups } from "./utils.js"
 
 export const DASH_STYLES = ["american", "british", "none"] as const
 export type DashStyle = (typeof DASH_STYLES)[number]
@@ -69,7 +70,13 @@ export function enDashNumberRange(text: string, options: DashOptions = {}): stri
   text = text.replace(
     cachedRegExp(positiveRangePattern, "g"),
     (...args) => {
-      const groups = args.at(-1) as Record<string, string>
+      const groups = namedGroups<{
+        precedingAreaCode?: string
+        start: string
+        end: string
+        following?: string
+        suffix?: string
+      }>(args)
       if (groups.following) return args[0] as string
       const startNum = groups.start.replace(cachedRegExp(chr, "g"), "")
       const endNum = groups.end.replace(cachedRegExp(chr, "g"), "")
@@ -96,7 +103,13 @@ export function enDashNumberRange(text: string, options: DashOptions = {}): stri
       "g"
     ),
     (...args) => {
-      const groups = args.at(-1) as Record<string, string>
+      const groups = namedGroups<{
+        start: string
+        neg?: string
+        end: string
+        following?: string
+        suffix?: string
+      }>(args)
       if (groups.following) return args[0] as string
       return `${groups.start}${EN_DASH}${groups.neg ? MINUS : ""}${groups.end}${groups.suffix ?? ""}`
     }
@@ -121,7 +134,14 @@ export function enDashDateRange(text: string, options: DashOptions = {}): string
   return text.replace(
     cachedRegExp(`${wb}(?<startMonth>${monthPattern})${startYear}(?<preSep>${chr}?)(?<preSpace> ?)-(?<postSpace> ?)(?<postSep>${chr}?)(?<endMonth>${monthPattern})${endYear}${wbe}`, "g"),
     (...args) => {
-      const groups = args.at(-1) as Record<string, string>
+      const groups = namedGroups<{
+        startMonth: string
+        startYear?: string
+        preSep: string
+        endMonth: string
+        endYear?: string
+        postSep: string
+      }>(args)
       const [pre, post] = dashStyle === "british" ? [" ", " "] : ["", ""]
       return `${groups.startMonth}${groups.startYear || ""}${groups.preSep}${pre}${EN_DASH}${post}${groups.postSep}${groups.endMonth}${groups.endYear || ""}`
     }

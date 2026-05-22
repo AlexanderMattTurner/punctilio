@@ -173,7 +173,7 @@ import { niceQuotes } from "./quotes.js"
 import { hyphenReplace } from "./dashes.js"
 import { symbolTransform, fractions as fractionsTransform, degrees as degreesTransform, superscriptOrdinal as superscriptTransform, primeMarks, collapseSpaces as collapseSpacesTransform, punctuationLigatures as ligaturesTransform } from "./symbols.js"
 import { nbspTransform as nbspTransformFn } from "./nbsp.js"
-import { assertSeparatorCountPreserved, formatErrorString } from "./utils.js"
+import { assertSeparatorCountPreserved, filterUndefined, formatErrorString } from "./utils.js"
 import { DEFAULT_SEPARATOR, ISSUES_URL, UNICODE_SYMBOLS } from "./constants.js"
 
 export { assertSeparatorAbsent, assertSeparatorCountPreserved, countSeparators, transformTextNodes } from "./utils.js"
@@ -210,10 +210,6 @@ const defaultOpts: Required<Omit<TransformOptions, "separator">> = {
  * 9. collapseSpaces (collapses multiple spaces into one)
  * 10. nbsp (non-breaking spaces, enabled by default)
  *
- * @param text - The text to transform
- * @param options - Configuration options
- * @returns The text with all typography improvements applied
- *
  * @example
  * ```ts
  * import { transform } from 'punctilio'
@@ -231,52 +227,46 @@ const defaultOpts: Required<Omit<TransformOptions, "separator">> = {
 export function transform(text: string, options: TransformOptions = {}): string {
   const separator = options.separator ?? DEFAULT_SEPARATOR
 
-  // Validate separator: must be non-empty and contain only BMP characters.
-  // for...of iterates by code point; surrogate pairs (non-BMP) yield a
-  // two-UTF16-unit string, so ch.length > 1 detects them.
   if (separator.length === 0) {
     throw new Error("Invalid separator: must not be empty.")
   }
-  for (const ch of separator) {
-    if (ch.length > 1) {
-      throw new Error(
-        `Invalid separator: must contain only BMP characters (no characters outside the Basic Multilingual Plane). ` +
-        `Received "${separator}" which contains a non-BMP character.`
-      )
-    }
+  // Non-BMP characters are encoded in UTF-16 as surrogate pairs in the range
+  // U+D800–U+DFFF. A surrogate code unit (paired or lone) means the separator
+  // would survive some regexes as a single char and split others as two units.
+  if (/[\uD800-\uDFFF]/.test(separator)) {
+    throw new Error(
+      `Invalid separator: must contain only BMP characters (no characters outside the Basic Multilingual Plane). ` +
+      `Received "${separator}" which contains a non-BMP character.`
+    )
   }
 
   const original = text
-  // Filter undefined so { nbsp: undefined } uses the default, not falsy override
-  const definedOptions = Object.fromEntries(
-    Object.entries(options).filter(([, v]) => v !== undefined)
-  ) as TransformOptions
-  const { symbols, fractions, degrees, superscript, ligatures, nbsp, collapseSpaces, checkIdempotency, ...separatorOpts } = { ...defaultOpts, ...definedOptions }
+  const { symbols, fractions, degrees, superscript, ligatures, nbsp, collapseSpaces, checkIdempotency, ...pipelineOpts } = { ...defaultOpts, ...filterUndefined(options) }
 
-  text = hyphenReplace(text, separatorOpts)
-  if (separatorOpts.punctuationStyle !== "none") {
-    text = primeMarks(text, separatorOpts)
+  text = hyphenReplace(text, pipelineOpts)
+  if (pipelineOpts.punctuationStyle !== "none") {
+    text = primeMarks(text, pipelineOpts)
   }
-  text = niceQuotes(text, separatorOpts)
+  text = niceQuotes(text, pipelineOpts)
 
   if (symbols) {
-    text = symbolTransform(text, separatorOpts)
+    text = symbolTransform(text, pipelineOpts)
   }
 
   if (fractions) {
-    text = fractionsTransform(text, separatorOpts)
+    text = fractionsTransform(text, pipelineOpts)
   }
 
   if (degrees) {
-    text = degreesTransform(text, separatorOpts)
+    text = degreesTransform(text, pipelineOpts)
   }
 
   if (superscript) {
-    text = superscriptTransform(text, separatorOpts)
+    text = superscriptTransform(text, pipelineOpts)
   }
 
   if (ligatures) {
-    text = ligaturesTransform(text, separatorOpts)
+    text = ligaturesTransform(text, pipelineOpts)
   }
 
   if (collapseSpaces) {
@@ -284,7 +274,7 @@ export function transform(text: string, options: TransformOptions = {}): string 
   }
 
   if (nbsp) {
-    text = nbspTransformFn(text, separatorOpts)
+    text = nbspTransformFn(text, pipelineOpts)
   }
 
   assertSeparatorCountPreserved(original, text, separator, "transform")
