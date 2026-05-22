@@ -233,20 +233,17 @@ export function assertSmartQuotesMatch(input: string): void {
  * 2. Concatenates and transforms the whole paragraph
  * 3. Splits the result back into the original text nodes
  *
- * @param node - The element to transform
- * @param transformFn - The transformation function to apply
- * @param shouldSkip - Function to determine which elements to skip
- * @param separator - The marker character to use (default: DEFAULT_SEPARATOR)
- * @param checkInvariance - Whether to verify that the transform produces the same
- *   result with and without markers. When true, checks that
- *   `stripMarkers(transform(textWithMarkers)) === transform(stripMarkers(text))`.
- *   Useful for debugging transforms that accidentally interact with markers.
- *   Default: false
- * @param options - Optional transform options. Pass `shouldSkipText` here to
- *   opt individual text nodes out of transformation without skipping their
- *   enclosing element. Skipped text nodes keep their original `.value`.
+ * When `checkInvariance` is true, also verifies that the transform produces
+ * the same result with and without markers — i.e.,
+ * `stripMarkers(transform(textWithMarkers)) === transform(stripMarkers(text))`.
+ * Useful for debugging transforms that accidentally interact with markers.
+ *
+ * Pass `options.shouldSkipText` to opt individual text nodes out of
+ * transformation without skipping their enclosing element; skipped text
+ * nodes keep their original `.value`.
+ *
  * @throws Error if transformation alters the number of text nodes
- * @throws Error if checkInvariance is true and the invariance check fails
+ * @throws Error if `checkInvariance` is true and the invariance check fails
  *
  * @example
  * ```ts

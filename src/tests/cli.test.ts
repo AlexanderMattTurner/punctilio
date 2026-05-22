@@ -465,29 +465,25 @@ describe("runCli", () => {
     })
   })
 
-  it("cache key is cwd-relative so cache survives a project move", async () => {
+  it("cache keys are cwd-relative so cache survives a project move", async () => {
+    // The visible "Reformatted" output is the same whether the cache hit
+    // or missed (a miss still re-transforms to an unchanged result and
+    // skips the rewrite), so neither stdout nor file mtime distinguishes
+    // the two code paths. Inspect the cache file directly instead.
     await withTempCwd("punctilio-cache-portable-src-", async (srcDir) => {
       writeFileSync(join(srcDir, "doc.md"), '"Hello."\n')
       const cacheLocation = join(srcDir, "cache.json")
       const args = ["doc.md", "--cache-location", cacheLocation, "--no-nbsp"]
 
-      const first = captureIO()
-      expect(await runCli(args, first.io)).toBe(0)
-      expect(first.stdout()).toContain("Reformatted")
-
-      // Move the file + cache to a different directory and re-run.
-      // A cache keyed on absolute paths would miss; a cwd-relative cache hits.
-      const movedCache = readFileSync(cacheLocation, "utf8")
-      await withTempCwd("punctilio-cache-portable-dst-", async (dstDir) => {
-        writeFileSync(join(dstDir, "doc.md"), `${LDQ}Hello.${RDQ}\n`)
-        const dstCacheLocation = join(dstDir, "cache.json")
-        writeFileSync(dstCacheLocation, movedCache)
-
-        const second = captureIO()
-        const dstArgs = ["doc.md", "--cache-location", dstCacheLocation, "--no-nbsp"]
-        expect(await runCli(dstArgs, second.io)).toBe(0)
-        expect(second.stdout()).not.toContain("Reformatted")
-      })
+      expect(await runCli(args, captureIO().io)).toBe(0)
+      const parsed = JSON.parse(readFileSync(cacheLocation, "utf8")) as {
+        files: Record<string, unknown>
+      }
+      expect(Object.keys(parsed.files)).toEqual(["doc.md"])
+      for (const key of Object.keys(parsed.files)) {
+        expect(key.startsWith("/")).toBe(false)
+        expect(key.includes(srcDir)).toBe(false)
+      }
     })
   })
 
