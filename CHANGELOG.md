@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## [3.11.1] - 2026-05-22
+
+### Fixed
+
+- Resolved template-sync.yaml conflict and removed orphaned hook during template synchronization.
+
 ## [3.11.0] - 2026-05-22
 
 ### Changed
