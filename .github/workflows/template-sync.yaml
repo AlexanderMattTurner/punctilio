@@ -38,7 +38,7 @@ on:
 env:
   TEMPLATE_REPO: "alexander-turner/claude-automation-template"
   # Only sync core automation files that don't need customization
-  SYNC_PATHS: ".claude .hooks .github/scripts .github/workflows/template-sync.yaml .github/workflows/dependabot-auto-merge.yaml .github/workflows/claude.yaml .github/workflows/phone-home.yaml"
+  SYNC_PATHS: ".claude .hooks .github/scripts .github/workflows/template-sync.yaml .github/workflows/dependabot-auto-merge.yaml .github/workflows/claude.yaml .github/workflows/phone-home.yaml .github/workflows/security-vulnerability-scan.yaml .github/prompts/security-vulnerability-scan.md"
   # These are excluded because they require project-specific customization
   # (lint/test need project scripts)
   EXCLUDE_PATHS: ""
@@ -80,7 +80,10 @@ jobs:
           #   x-oauth-scopes header on GET /user.
           # - Fine-grained PAT (prefix 'github_pat_'): granted permissions are not
           #   exposed via API, so we trust the configuration and let GitHub return
-          #   the real error at push time if it's wrong.
+          #   the real error at push time if it's wrong. Required fine-grained
+          #   permissions: Contents: Read and write, Pull requests: Read and write,
+          #   Workflows: Read and write (equivalent of the 'workflow' scope;
+          #   'Actions' is a different permission), Metadata: Read.
           HEADERS=$(curl -sS -I -H "Authorization: token $TOKEN" \
             https://api.github.com/user 2>/dev/null || true)
           SCOPES=$(echo "$HEADERS" | grep -i '^x-oauth-scopes:' | sed 's/^[^:]*: //' | tr -d '\r\n' || true)

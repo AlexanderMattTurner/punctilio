@@ -75,7 +75,7 @@ After pushing, dynamically update the PR to reflect **all** changes (not just th
 timeout 15m gh pr checks --watch || true
 ```
 
-The stop hook (`verify_ci.py`) will automatically block completion if CI fails. If checks fail, fix issues and repeat steps 3-6.
+If checks fail, fix issues and repeat steps 3-6.
 
 ### 7. Report Result
 
@@ -91,4 +91,4 @@ Confirm the PR is updated and provide the URL.
 
 - **No PR for branch**: Ask if they want to create one (`/pr-creation`)
 - **PR merged/closed**: Ask user what to do (don't modify merged PRs)
-- **CI fails**: Fix issues, push again, and update the PR description (stop hook enforces this)
+- **CI fails**: Fix issues, push again, and update the PR description

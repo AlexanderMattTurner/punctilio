@@ -10,7 +10,6 @@ This directory contains configuration and skills for Claude Code.
 ├── hooks/
 │   ├── session-setup.sh      # Runs on session start (installs tools, configures git)
 │   ├── pre-push-check.sh    # Runs before git push / gh pr (build, lint, typecheck)
-│   ├── verify_ci.py          # Runs on session stop (blocks if checks fail, max 3 retries)
 │   └── lib-checks.sh        # Shared bash helpers (exists, has_script)
 └── skills/
     └── pr-creation/       # PR creation workflow with self-critique
@@ -41,16 +40,6 @@ Before `git push` or `gh pr` commands, `pre-push-check.sh` runs any configured c
 - **ruff**: Python linting if applicable
 
 Only runs scripts that are actually configured in `package.json` — skips placeholder scripts.
-
-### Stop Hook
-
-When Claude finishes a session, `verify_ci.py` blocks completion if any checks fail:
-
-- Runs test, lint, and typecheck (superset of pre-push checks — adds tests)
-- Returns `decision: "block"` with failure details so Claude continues fixing issues
-- Returns `decision: "approve"` if all checks pass
-- **Retry limit**: After 3 failed attempts (configurable via `MAX_STOP_RETRIES`), approves anyway with a warning to prevent infinite token burn
-- Written in Python for reliability — reads `package.json` directly, no `jq` dependency
 
 ### Skills
 
