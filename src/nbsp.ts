@@ -115,6 +115,11 @@ const COPYRIGHT_SYMBOLS = `[${COPYRIGHT}${REGISTERED}${TRADEMARK}]`
  * Adds non-breaking space after short words (1-2 letters) to prevent them from
  * being left alone at the end of a line.
  *
+ * Skips when the short word is already preceded by an NBSP from an earlier
+ * transform, or when this match immediately follows the previous one
+ * (back-to-back short words in the same pass). Either case would bind three
+ * or more words into a single line-break atom — defeating widow protection.
+ *
  * @example "a cat" → "a\u00A0cat", "I am" → "I\u00A0am"
  */
 export function nbspAfterShortWords(text: string, options: NbspOptions = {}): string {
@@ -123,7 +128,13 @@ export function nbspAfterShortWords(text: string, options: NbspOptions = {}): st
     `(?<=^|${SPACE}|${PUNCTUATION_OR_QUOTE}|>)(?<shortWord>[${LATIN_LETTERS}]{1,2})(?<marker>${sep}?)${SPACE}`,
     "gmu"
   )
-  return text.replace(pattern, `$<shortWord>$<marker>${NBSP}`)
+  let previousMatchEnd = -1
+  return text.replace(pattern, (match, shortWord: string, marker: string, offset: number) => {
+    if (offset === previousMatchEnd) return match
+    if (offset > 0 && NBSP_CHARS.includes(text[offset - 1])) return match
+    previousMatchEnd = offset + match.length
+    return `${shortWord}${marker}${NBSP}`
+  })
 }
 
 /**

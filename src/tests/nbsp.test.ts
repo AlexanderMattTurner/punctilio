@@ -40,8 +40,15 @@ describe("nbspAfterShortWords", () => {
     ["or if", `or${NBSP}if`],
     ["I think", `I${NBSP}think`],
     ['"a cat"', `"a${NBSP}cat"`],
-    ["the cat sat on a mat", `the cat sat on${NBSP}a${NBSP}mat`],
-    ["Go to the store", `Go${NBSP}to${NBSP}the store`],
+    // Cascade prevention: only the first short word in a run gets glued, so
+    // the result never binds three or more words into a non-breaking atom.
+    ["the cat sat on a mat", `the cat sat on${NBSP}a mat`],
+    ["Go to the store", `Go${NBSP}to the store`],
+    ["is a Monte Carlo", `is${NBSP}a Monte Carlo`],
+    ["I am here", `I${NBSP}am here`],
+    // Pre-existing NBSP from an earlier transform: don't extend the chain.
+    [`Dr.${NBSP}is here`, `Dr.${NBSP}is here`],
+    [`5${NBSP}kg of items`, `5${NBSP}kg of${NBSP}items`],
     ["the cat", "the cat"],
     // Accented Latin short words
     ["à chat", `à${NBSP}chat`],
