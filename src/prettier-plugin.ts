@@ -30,6 +30,19 @@ async function loadPunctilioConfig(searchFrom: string): Promise<RemarkPunctilioO
   return !result || result.isEmpty ? {} : (result.config as RemarkPunctilioOptions)
 }
 
+/**
+ * Runs `remarkPunctilio`'s transformer against an mdast tree. The plugin
+ * mutates the tree in place; awaiting handles any future async variant
+ * without churning callers.
+ */
+async function runRemarkPunctilio(opts: RemarkPunctilioOptions, ast: Root): Promise<void> {
+  // The unified `Transformer` signature requires a VFile and a callback,
+  // but `remarkPunctilio` only ever reads the tree. Narrow to the actual
+  // shape here so the cast lives in one well-commented place.
+  const transformer = remarkPunctilio(opts) as (tree: Root) => void | Promise<void>
+  await transformer(ast)
+}
+
 const plugin: Plugin = {
   parsers: {
     markdown: {
@@ -38,8 +51,7 @@ const plugin: Plugin = {
         const ast = await upstreamMarkdown.parse(text, options)
         const searchFrom = typeof options.filepath === "string" ? dirname(options.filepath) : process.cwd()
         const opts = await loadPunctilioConfig(searchFrom)
-        const transform = remarkPunctilio(opts) as (tree: Root) => void
-        transform(ast)
+        await runRemarkPunctilio(opts, ast)
         return ast
       },
     },

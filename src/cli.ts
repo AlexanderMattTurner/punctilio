@@ -9,7 +9,7 @@
 import { createHash } from "node:crypto"
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { readFile, writeFile } from "node:fs/promises"
-import { dirname, extname, join, relative, resolve } from "node:path"
+import { dirname, extname, isAbsolute, join, relative, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 
 import { Command, CommanderError, Option } from "commander"
@@ -21,6 +21,7 @@ import { transformMarkdown, type MarkdownOptions } from "./markdown.js"
 import { transformHtml, type HtmlOptions } from "./html.js"
 import { PUNCTUATION_STYLES, type PunctuationStyle } from "./quotes.js"
 import { DASH_STYLES, type DashStyle } from "./dashes.js"
+import { stableStringify } from "./utils.js"
 
 type CliOptions = MarkdownOptions & HtmlOptions
 type FileType = "md" | "html"
@@ -182,18 +183,27 @@ function hashString(s: string): string {
 }
 
 function hashOptions(opts: CliOptions): string {
-  const stable = Object.entries(opts)
-    .filter(([, v]) => v !== undefined)
-    .sort(([a], [b]) => a.localeCompare(b))
-  return hashString(JSON.stringify(stable))
+  return hashString(stableStringify(opts))
 }
 
-function loadCache(location: string): Cache {
+function loadCache(location: string, stderr: NodeJS.WritableStream): Cache {
   if (!existsSync(location)) return { files: {} }
   try {
     const parsed = JSON.parse(readFileSync(location, "utf8")) as Cache
-    return parsed.files ? parsed : { files: {} }
+    if (!parsed.files) {
+      stderr.write(`Warning: cache at ${location} is missing the "files" key; discarding.\n`)
+      return { files: {} }
+    }
+    // Drop absolute-path keys carried over from a pre-cwd-relative version
+    // of the cache. They never match modern lookups, so keeping them
+    // forever would just bloat the cache file on every save.
+    const files: Record<string, CacheEntry> = {}
+    for (const [k, v] of Object.entries(parsed.files)) {
+      if (!isAbsolute(k)) files[k] = v
+    }
+    return { files }
   } catch {
+    stderr.write(`Warning: cache at ${location} could not be parsed; discarding.\n`)
     return { files: {} }
   }
 }
@@ -201,6 +211,16 @@ function loadCache(location: string): Cache {
 function saveCache(location: string, cache: Cache): void {
   mkdirSync(dirname(location), { recursive: true })
   writeFileSync(location, JSON.stringify(cache))
+}
+
+/**
+ * Cache key for a file. Always cwd-relative so a project that moves
+ * directories (or syncs the cache file across machines via the same
+ * repo layout) keeps hitting the cache. Files outside cwd appear as
+ * `../foo.md` and still hash consistently.
+ */
+function cacheKey(filePath: string, cwd: string): string {
+  return relative(cwd, filePath)
 }
 
 function buildOptions(flags: ParsedFlags): CliOptions {
@@ -344,18 +364,22 @@ async function runValidated(
   const cacheLocation = flags.cache === false
     ? undefined
     : resolve(cwd, flags.cacheLocation ?? DEFAULT_CACHE_LOCATION)
-  const cache = cacheLocation ? loadCache(cacheLocation) : undefined
+  const cache = cacheLocation ? loadCache(cacheLocation, io.stderr) : undefined
   const optionsHash = cache ? hashOptions(opts) : ""
 
   let anyChanged = false
   for (const path of files) {
     const type = inferFileType(path, flags.type)
     const original = await readFile(path, "utf8")
+    const key = cache ? cacheKey(path, cwd) : ""
     if (cache) {
-      const entry = cache.files[path]
-      if (entry?.contentHash === hashString(original)
-          && entry.optionsHash === optionsHash
-          && entry.version === version) continue
+      const entry = cache.files[key]
+      if (
+        entry !== undefined &&
+        entry.contentHash === hashString(original) &&
+        entry.optionsHash === optionsHash &&
+        entry.version === version
+      ) continue
     }
 
     const formatted = matchTrailingNewline(original, await transformContent(original, type, opts))
@@ -370,7 +394,7 @@ async function runValidated(
       }
     }
     if (cache && (unchanged || !check)) {
-      cache.files[path] = { contentHash: hashString(formatted), optionsHash, version }
+      cache.files[key] = { contentHash: hashString(formatted), optionsHash, version }
     }
   }
 

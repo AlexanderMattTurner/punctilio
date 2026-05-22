@@ -16,6 +16,7 @@ import remarkStringify from "remark-stringify"
 import QuickLRU from "quick-lru"
 
 import { remarkPunctilio, type RemarkPunctilioOptions } from "./remark.js"
+import { stableStringify } from "./utils.js"
 
 /**
  * Options for the Markdown transform pipeline.
@@ -94,10 +95,6 @@ export function clearProcessorCache(): void {
  * The unified processor pipeline is cached and reused across calls with
  * identical options, avoiding redundant pipeline construction.
  *
- * @param input - The Markdown text to transform
- * @param options - Configuration options for both the transform and serializer
- * @returns The typographically improved Markdown text
- *
  * @example
  * ```ts
  * import { transformMarkdown } from 'punctilio/markdown'
@@ -110,9 +107,7 @@ export async function transformMarkdown(
   input: string,
   options: MarkdownOptions = {}
 ): Promise<string> {
-  const optionsKey = JSON.stringify(
-    Object.entries(options).filter(([, v]) => v !== undefined).sort(([a], [b]) => a.localeCompare(b))
-  )
+  const optionsKey = stableStringify(options)
 
   let processor = processorCache.get(optionsKey)
   if (!processor) {

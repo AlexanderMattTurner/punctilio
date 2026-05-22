@@ -15,7 +15,7 @@ transform(`"It's a beautiful thing, the destruction of words..." -- 1984`);
 // → “It’s a beautiful thing, the destruction of words…”—1984
 ```
 
-`punctilio` accepts three input formats: text, Markdown, and HTML.
+`punctilio` accepts three input formats: text, Markdown, and HTML. Use it as a library, a [CLI](#cli), a [pre-commit hook](#pre-commit), or—for a zero-friction install in any project that already runs Prettier—a [Prettier plugin](#prettier-plugin).
 
 ```bash
 npm install punctilio
@@ -160,7 +160,36 @@ rehypePunctilio({
 });
 ```
 
-## CLI and editor integration
+## Integrations
+
+### Prettier plugin
+
+Drop `punctilio` into any project that already uses [Prettier](https://prettier.io)—typography fixes ride along on every Prettier run, with no extra build step. The plugin extends Prettier’s Markdown parser, so Prettier keeps owning whitespace and Markdown layout while `punctilio` rewrites the prose inside.
+
+```jsonc
+// .prettierrc
+{
+  "plugins": ["punctilio/prettier-plugin"]
+}
+```
+
+```jsonc
+// .punctiliorc.json (optional — same keys as the library options)
+{
+  "punctuationStyle": "british",
+  "dashStyle": "british",
+  "nbsp": true
+}
+```
+
+```bash
+prettier --write 'docs/**/*.md'
+# "Hello" -- world.    →    “Hello” – world.
+```
+
+Code spans, fenced code blocks, and inline HTML are left untouched. The plugin currently transforms Markdown (`*.md`, `*.mdx` via the markdown parser); for HTML files, use the [CLI](#cli) or the [`rehype` plugin](#works-with-html-doms-via-separation-boundaries) below.
+
+### CLI
 
 ```bash
 punctilio README.md 'docs/**/*.md'   # format in place; globs expand internally
@@ -168,7 +197,21 @@ punctilio --check README.md          # exit 1 if it would change anything
 echo '"Hi" -- there' | punctilio - --type md
 ```
 
-Subsequent runs skip files unchanged since the previous invocation via an incremental cache at `node_modules/.cache/punctilio/cache.json` (use `--no-cache` to disable, `--cache-location <path>` to override). Config is loaded from `.punctiliorc[.json|.yaml|.js]`, `punctilio.config.js`, or a `"punctilio"` key in `package.json` (via [`cosmiconfig`](https://github.com/cosmiconfig/cosmiconfig)); CLI flags override. A `.punctilioignore` (gitignore syntax) in cwd excludes matching files. A `.pre-commit-hooks.yaml` ships in the package for [pre-commit](https://pre-commit.com) integration. For prettier users, add `punctilio/prettier-plugin` to `.prettierrc` `plugins`; it reads the same `.punctiliorc`.
+Subsequent runs skip files unchanged since the previous invocation via an incremental cache at `node_modules/.cache/punctilio/cache.json` (use `--no-cache` to disable, `--cache-location <path>` to override). Config is loaded from `.punctiliorc[.json|.yaml|.js]`, `punctilio.config.js`, or a `"punctilio"` key in `package.json` (via [`cosmiconfig`](https://github.com/cosmiconfig/cosmiconfig)); CLI flags override. A `.punctilioignore` (gitignore syntax) in cwd excludes matching files.
+
+### pre-commit
+
+A `.pre-commit-hooks.yaml` ships in the package, so [pre-commit](https://pre-commit.com) users can wire `punctilio` in directly:
+
+```yaml
+# .pre-commit-config.yaml
+repos:
+  - repo: https://github.com/alexander-turner/punctilio
+    rev: v3.10.0
+    hooks:
+      - id: punctilio          # rewrites *.md / *.html in place
+      - id: punctilio-check    # or: fail without writing (CI-friendly)
+```
 
 
 ## Notes 

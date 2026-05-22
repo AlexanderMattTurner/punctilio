@@ -40,8 +40,6 @@ export function formatErrorString(content: string, label: string): string {
  * Throws if any text node contains the separator character, which would
  * corrupt the split/join mechanism used by the rehype and remark plugins.
  *
- * @param textValues - The raw text values to check
- * @param separator - The separator character
  * @throws Error if the separator is found in any text value
  */
 export function assertSeparatorAbsent(textValues: string[], separator: string): void {
@@ -88,9 +86,8 @@ interface TextNode {
  * 4. Splits the result back on the separator and writes each fragment
  *    back into the corresponding text node.
  *
- * @param textNodes - The text nodes to transform (mutated in place)
- * @param transformFn - The transformation function to apply
- * @param separator - The marker string used to track node boundaries
+ * `textNodes` is mutated in place.
+ *
  * @throws Error if the transformation alters the number of text nodes
  */
 export function transformTextNodes(
@@ -122,10 +119,6 @@ export function transformTextNodes(
  * Validates that a transformation preserved the separator count.
  * Throws an error if separators were added or removed.
  *
- * @param original - The original text before transformation
- * @param transformed - The text after transformation
- * @param separator - The separator character to check (default: DEFAULT_SEPARATOR)
- * @param transformName - Name of the transform for error messages (default: "transform")
  * @throws Error if separator count changed
  */
 export function assertSeparatorCountPreserved(
@@ -143,4 +136,44 @@ export function assertSeparatorCountPreserved(
       `Include the input text that caused this error.`
     )
   }
+}
+
+/**
+ * Returns a copy of `obj` with `undefined`-valued keys removed.
+ * Used so caller-supplied `{ foo: undefined }` doesn't override a default.
+ *
+ * @internal
+ */
+export function filterUndefined<T extends object>(obj: T): Partial<T> {
+  const result: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(obj)) {
+    if (v !== undefined) result[k] = v
+  }
+  return result as Partial<T>
+}
+
+/**
+ * Returns a deterministic JSON-style string for an options object: drops
+ * `undefined` values and sorts keys, so equivalent option sets always
+ * produce the same string (suitable as a cache or LRU key).
+ *
+ * @internal
+ */
+export function stableStringify(obj: object): string {
+  const entries = Object.entries(obj)
+    .filter(([, v]) => v !== undefined)
+    .sort(([a], [b]) => a.localeCompare(b))
+  return JSON.stringify(entries)
+}
+
+/**
+ * Extracts the named-groups object from a `String.prototype.replace`
+ * callback's argument tuple. The last element is always the groups
+ * object when the regex has named captures. Callers supply the group
+ * shape via the type parameter to localise the unavoidable type cast.
+ *
+ * @internal
+ */
+export function namedGroups<G>(args: unknown[]): G {
+  return args[args.length - 1] as G
 }

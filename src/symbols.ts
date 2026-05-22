@@ -3,6 +3,7 @@
  */
 
 import { UNICODE_SYMBOLS, DEFAULT_SEPARATOR, LATIN_LETTERS, wordBoundaryEnd, SPACE_CHARS, cachedRegExp, getEscapedSeparator } from "./constants.js"
+import { namedGroups } from "./utils.js"
 
 export interface SymbolOptions {
   /** Boundary marker for HTML element boundaries. Default: "\uE000\uE001" */
@@ -49,7 +50,7 @@ export function ellipsis(text: string, options: SymbolOptions = {}): string {
   // into one ellipsis.
   const pattern = cachedRegExp(`\\.(?:[${SPACE_CHARS}]|(?<sep1>${chr}))?\\.(?:[${SPACE_CHARS}]?|(?<sep2>${chr})?)\\.`, "g")
   text = text.replace(pattern, (...args) => {
-    const { sep1, sep2 } = args.at(-1) as Record<string, string | undefined>
+    const { sep1, sep2 } = namedGroups<{ sep1?: string; sep2?: string }>(args)
     return ELLIPSIS + (sep1 ?? "") + (sep2 ?? "")
   })
 
@@ -94,7 +95,7 @@ export function multiplication(text: string, options: SymbolOptions = {}): strin
   )
 
   text = text.replace(chainPattern, (...args) => {
-    const { firstNum, rest } = args.at(-1) as Record<string, string>
+    const { firstNum, rest } = namedGroups<{ firstNum: string; rest: string }>(args)
     // Skip hexadecimal: 0x... or 0X...
     if (firstNum === "0" && /^x/i.test(rest)) return args[0] as string
 
@@ -111,7 +112,13 @@ export function multiplication(text: string, options: SymbolOptions = {}): strin
         "gy"
       ),
       (...innerArgs) => {
-        const groups = innerArgs.at(-1) as Record<string, string>
+        const groups = namedGroups<{
+          pre: string
+          spaceBefore: string
+          spaceAfter: string
+          post: string
+          num: string
+        }>(innerArgs)
         const space = groups.spaceBefore || groups.spaceAfter ? " " : ""
         return `${groups.pre}${space}${MULTIPLICATION}${space}${groups.post}${groups.num}`
       }
@@ -164,7 +171,7 @@ export function mathSymbols(text: string, options: SymbolOptions = {}): string {
     // and preserves the text-node-count invariant in transformTextNodes.
     const pattern = cachedRegExp(`${left}(?<sep>${chr})?${right}${lookahead(chr)}`, "g")
     text = text.replace(pattern, (...args) => {
-      const { sep } = args.at(-1) as Record<string, string | undefined>
+      const { sep } = namedGroups<{ sep?: string }>(args)
       return `${replacement}${sep ?? ""}`
     })
   }
@@ -348,7 +355,13 @@ function balancedPrimeReplacer(primeChar: string, escapedSeparator: string) {
   // Replace callback: (match, ...captures, offset, fullString, namedGroups)
   return (...args: unknown[]): string => {
     const fullMatch = args[0] as string
-    const groups = args.at(-1) as Record<string, string | undefined>
+    const groups = namedGroups<{
+      digit?: string
+      sep?: string
+      afterSep?: string
+      contraction?: string
+      trailing?: string
+    }>(args)
 
     // Contraction (letter + quote + letter): skip entirely
     if (groups.contraction !== undefined) {
