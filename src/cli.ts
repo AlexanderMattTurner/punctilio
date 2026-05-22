@@ -9,7 +9,7 @@
 import { createHash } from "node:crypto"
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { readFile, writeFile } from "node:fs/promises"
-import { dirname, extname, join, relative, resolve } from "node:path"
+import { dirname, extname, isAbsolute, join, relative, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 
 import { Command, CommanderError, Option } from "commander"
@@ -190,9 +190,18 @@ function loadCache(location: string, stderr: NodeJS.WritableStream): Cache {
   if (!existsSync(location)) return { files: {} }
   try {
     const parsed = JSON.parse(readFileSync(location, "utf8")) as Cache
-    if (parsed.files) return parsed
-    stderr.write(`Warning: cache at ${location} is missing the "files" key; discarding.\n`)
-    return { files: {} }
+    if (!parsed.files) {
+      stderr.write(`Warning: cache at ${location} is missing the "files" key; discarding.\n`)
+      return { files: {} }
+    }
+    // Drop absolute-path keys carried over from a pre-cwd-relative version
+    // of the cache. They never match modern lookups, so keeping them
+    // forever would just bloat the cache file on every save.
+    const files: Record<string, CacheEntry> = {}
+    for (const [k, v] of Object.entries(parsed.files)) {
+      if (!isAbsolute(k)) files[k] = v
+    }
+    return { files }
   } catch {
     stderr.write(`Warning: cache at ${location} could not be parsed; discarding.\n`)
     return { files: {} }

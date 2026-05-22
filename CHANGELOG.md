@@ -3,7 +3,7 @@
 ## Unreleased
 
 ### Changed
-- CLI cache entries are now keyed by cwd-relative paths instead of absolute paths, so the on-disk cache survives moving the project to a new location (or syncing it across machines with the same repo layout). Existing caches written by older versions still load but won't hit until they're rewritten on the next run.
+- CLI cache entries are now keyed by cwd-relative paths instead of absolute paths, so the on-disk cache survives moving the project to a new location (or syncing it across machines with the same repo layout). Absolute-path entries left over from older versions are silently dropped on the next load to keep the cache file from growing forever.
 
 ### Fixed
 - CLI now writes a `Warning:` line to stderr when the incremental cache file is unparseable or missing the expected `files` key, instead of discarding silently. The cache is still rebuilt from scratch.

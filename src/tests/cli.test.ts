@@ -465,6 +465,38 @@ describe("runCli", () => {
     })
   })
 
+  it("cache silently drops absolute-path keys carried over from older versions", async () => {
+    await withTempCwd("punctilio-cache-migrate-", async (dir) => {
+      writeFileSync(join(dir, "doc.md"), `${LDQ}Hello.${RDQ}\n`)
+      const cacheLocation = join(dir, "cache.json")
+      // Seed the cache with a stale absolute-path entry that no modern
+      // lookup could ever hit.
+      writeFileSync(
+        cacheLocation,
+        JSON.stringify({
+          files: {
+            [join("/", "stale", "absolute", "doc.md")]: {
+              contentHash: "deadbeef00000000",
+              optionsHash: "deadbeef00000000",
+              version: "0.0.0",
+            },
+          },
+        }),
+      )
+
+      const cap = captureIO()
+      expect(await runCli(["doc.md", "--cache-location", cacheLocation, "--no-nbsp"], cap.io)).toBe(0)
+      expect(cap.stderr()).toBe("") // silent migration
+
+      const parsed = JSON.parse(readFileSync(cacheLocation, "utf8")) as {
+        files: Record<string, unknown>
+      }
+      const keys = Object.keys(parsed.files)
+      expect(keys).toContain("doc.md")
+      for (const key of keys) expect(key.startsWith("/")).toBe(false)
+    })
+  })
+
   it("cache keys are cwd-relative so cache survives a project move", async () => {
     // The visible "Reformatted" output is the same whether the cache hit
     // or missed (a miss still re-transforms to an unchanged result and
