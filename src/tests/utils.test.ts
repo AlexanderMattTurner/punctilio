@@ -1,6 +1,6 @@
 import { jest } from "@jest/globals"
-import { assertSeparatorAbsent, countSeparators, assertSeparatorCountPreserved, formatErrorString } from "../utils.js"
-import { DEFAULT_SEPARATOR, cachedRegExp, clearRegexCache } from "../constants.js"
+import { assertSeparatorAbsent, assertSeparatorCountPreserved, countSeparators, formatErrorString } from "../utils.js"
+import { cachedRegExp, clearRegexCache, DEFAULT_SEPARATOR } from "../constants.js"
 
 describe("assertSeparatorAbsent", () => {
   it.each([

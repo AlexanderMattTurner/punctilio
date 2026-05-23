@@ -1,4 +1,4 @@
-import { hyphenReplace, enDashNumberRange, enDashDateRange, minusReplace, numberRangeDisallowedPrefixes } from "../dashes.js"
+import { enDashDateRange, enDashNumberRange, hyphenReplace, minusReplace, numberRangeDisallowedPrefixes } from "../dashes.js"
 import { DEFAULT_SEPARATOR, UNICODE_SYMBOLS } from "../constants.js"
 
 const {

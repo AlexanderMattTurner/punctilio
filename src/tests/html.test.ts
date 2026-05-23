@@ -1,4 +1,4 @@
-import { transformHtml, clearProcessorCache } from "../html.js"
+import { clearProcessorCache, transformHtml } from "../html.js"
 import { UNICODE_SYMBOLS } from "../constants.js"
 
 const {

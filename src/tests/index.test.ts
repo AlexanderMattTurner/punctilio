@@ -1,6 +1,6 @@
-import { transform, DEFAULT_SEPARATOR, countSeparators } from "../index.js"
+import { countSeparators, DEFAULT_SEPARATOR, transform } from "../index.js"
 import { ellipsis } from "../symbols.js"
-import { UNICODE_SYMBOLS, REGEX_SPECIAL_CHARS, MAX_REGEX_CACHE_SIZE } from "../constants.js"
+import { MAX_REGEX_CACHE_SIZE, REGEX_SPECIAL_CHARS, UNICODE_SYMBOLS } from "../constants.js"
 import { buildMixedContent } from "./test-helpers.js"
 
 const {

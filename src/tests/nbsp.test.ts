@@ -1,19 +1,19 @@
 import {
-  nbspAfterShortWords,
-  nbspBetweenNumberAndUnit,
-  nbspBeforeLastWord,
+  HONORIFICS,
+  nbspAfterCopyrightSymbols,
+  nbspAfterHonorifics,
   nbspAfterReferenceAbbreviations,
   nbspAfterSectionSymbols,
-  nbspAfterHonorifics,
-  nbspAfterCopyrightSymbols,
+  nbspAfterShortWords,
+  nbspBeforeLastWord,
   nbspBetweenInitials,
-  nbspTransform,
-  UNITS,
-  HONORIFICS,
-  REFERENCE_ABBREVIATIONS,
+  nbspBetweenNumberAndUnit,
   type NbspOptions,
+  nbspTransform,
+  REFERENCE_ABBREVIATIONS,
+  UNITS,
 } from "../nbsp.js"
-import { UNICODE_SYMBOLS, DEFAULT_SEPARATOR } from "../constants.js"
+import { DEFAULT_SEPARATOR, UNICODE_SYMBOLS } from "../constants.js"
 
 const { NBSP, COPYRIGHT, REGISTERED, TRADEMARK } = UNICODE_SYMBOLS
 const SEP = DEFAULT_SEPARATOR

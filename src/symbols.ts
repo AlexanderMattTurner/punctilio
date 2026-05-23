@@ -2,7 +2,7 @@
  * Symbol transformations: ellipses, multiplication, math symbols, arrows.
  */
 
-import { UNICODE_SYMBOLS, DEFAULT_SEPARATOR, LATIN_LETTERS, wordBoundaryEnd, SPACE_CHARS, cachedRegExp, getEscapedSeparator } from "./constants.js"
+import { cachedRegExp, DEFAULT_SEPARATOR, getEscapedSeparator, LATIN_LETTERS, SPACE_CHARS, UNICODE_SYMBOLS, wordBoundaryEnd } from "./constants.js"
 import { namedGroups } from "./utils.js"
 
 export interface SymbolOptions {

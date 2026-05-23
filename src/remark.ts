@@ -7,7 +7,7 @@
  * @packageDocumentation
  */
 
-import type { Root, PhrasingContent, Text } from "mdast"
+import type { PhrasingContent, Root, Text } from "mdast"
 import type { Transformer } from "unified"
 
 import { visitParents } from "unist-util-visit-parents"

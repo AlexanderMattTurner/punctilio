@@ -95,6 +95,7 @@
     "@types/node": "20.19.30",
     "@types/seedrandom": "3.0.8",
     "eslint": "9.39.2",
+    "eslint-plugin-perfectionist": "5.9.0",
     "eslint-plugin-redos": "4.5.0",
     "eslint-plugin-regexp": "3.1.0",
     "hastscript": "9.0.1",

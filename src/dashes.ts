@@ -2,7 +2,7 @@
  * Dash transformation: hyphens → em-dashes, en-dashes, minus signs.
  */
 
-import { UNICODE_SYMBOLS, DEFAULT_SEPARATOR, LATIN_LETTERS, wordBoundaryStart, wordBoundaryEnd, getEscapedSeparator, cachedRegExp } from "./constants.js"
+import { cachedRegExp, DEFAULT_SEPARATOR, getEscapedSeparator, LATIN_LETTERS, UNICODE_SYMBOLS, wordBoundaryEnd, wordBoundaryStart } from "./constants.js"
 import { namedGroups } from "./utils.js"
 
 export const DASH_STYLES = ["american", "british", "none"] as const

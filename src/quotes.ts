@@ -3,7 +3,7 @@
  */
 
 import escapeStringRegexp from "escape-string-regexp"
-import { UNICODE_SYMBOLS, DEFAULT_SEPARATOR, LATIN_LETTERS, TERMINAL_PUNCTUATION, getEscapedSeparator, cachedRegExp } from "./constants.js"
+import { cachedRegExp, DEFAULT_SEPARATOR, getEscapedSeparator, LATIN_LETTERS, TERMINAL_PUNCTUATION, UNICODE_SYMBOLS } from "./constants.js"
 
 const {
   EM_DASH,

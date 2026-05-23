@@ -8,7 +8,7 @@
  * @module nbsp
  */
 
-import { UNICODE_SYMBOLS, LATIN_LETTERS, SPACE_CHARS, NBSP_CHARS, wordBoundaryEnd, getEscapedSeparator, cachedRegExp } from "./constants.js"
+import { cachedRegExp, getEscapedSeparator, LATIN_LETTERS, NBSP_CHARS, SPACE_CHARS, UNICODE_SYMBOLS, wordBoundaryEnd } from "./constants.js"
 
 const {
   NBSP,
