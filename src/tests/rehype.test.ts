@@ -623,12 +623,12 @@ describe("rehypePunctilio", () => {
 
     it("inserts nbsp when option enabled", async () => {
       const result = await processHtml('<p>Dr. Smith has 5 kg of items.</p>', { nbsp: true })
-      expect(result).toBe(`<p>Dr.${NBSP}Smith has 5${NBSP}kg${NBSP}of${NBSP}items.</p>`)
+      expect(result).toBe(`<p>Dr.${NBSP}Smith has 5${NBSP}kg of${NBSP}items.</p>`)
     })
 
     it("inserts nbsp by default", async () => {
       const result = await processHtml('<p>Dr. Smith has 5 kg of items.</p>')
-      expect(result).toBe(`<p>Dr.${NBSP}Smith has 5${NBSP}kg${NBSP}of${NBSP}items.</p>`)
+      expect(result).toBe(`<p>Dr.${NBSP}Smith has 5${NBSP}kg of${NBSP}items.</p>`)
     })
 
     it("does not insert nbsp when option disabled", async () => {
