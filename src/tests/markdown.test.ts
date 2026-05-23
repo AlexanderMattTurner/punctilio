@@ -1,7 +1,7 @@
 import { readFileSync } from "fs"
 import { resolve } from "path"
 import { fileURLToPath } from "url"
-import { transformMarkdown, clearProcessorCache } from "../markdown.js"
+import { clearProcessorCache, transformMarkdown } from "../markdown.js"
 import { transform } from "../index.js"
 import { UNICODE_SYMBOLS } from "../constants.js"
 

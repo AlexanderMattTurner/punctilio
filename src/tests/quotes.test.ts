@@ -1,5 +1,5 @@
-import { niceQuotes, classifyApostrophes } from "../quotes.js"
-import { UNICODE_SYMBOLS, DEFAULT_SEPARATOR, TERMINAL_PUNCTUATION } from "../constants.js"
+import { classifyApostrophes, niceQuotes } from "../quotes.js"
+import { DEFAULT_SEPARATOR, TERMINAL_PUNCTUATION, UNICODE_SYMBOLS } from "../constants.js"
 
 const {
   LEFT_DOUBLE_QUOTE,

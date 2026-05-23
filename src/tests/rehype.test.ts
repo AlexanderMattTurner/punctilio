@@ -1,19 +1,19 @@
-import type { Element, Parent, Root, Text, ElementContent } from "hast"
+import type { Element, ElementContent, Parent, Root, Text } from "hast"
 import { h } from "hastscript"
 import { unified } from "unified"
 import rehypeParse from "rehype-parse"
 import rehypeStringify from "rehype-stringify"
 import {
+  assertSmartQuotesMatch,
+  collectTransformableElements,
+  flattenTextNodes,
+  getFirstTextNode,
+  getTextContent,
   rehypePunctilio,
   type RehypePunctilioOptions,
   transformElement,
-  flattenTextNodes,
-  getTextContent,
-  getFirstTextNode,
-  assertSmartQuotesMatch,
-  collectTransformableElements,
 } from "../rehype.js"
-import { UNICODE_SYMBOLS, DEFAULT_SEPARATOR } from "../constants.js"
+import { DEFAULT_SEPARATOR, UNICODE_SYMBOLS } from "../constants.js"
 
 const {
   LEFT_DOUBLE_QUOTE: LDQ,

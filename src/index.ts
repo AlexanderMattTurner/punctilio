@@ -8,48 +8,34 @@
  * @packageDocumentation
  */
 
-export { niceQuotes, classifyApostrophes, type QuoteOptions, type PunctuationStyle } from "./quotes.js"
+export { DEFAULT_SEPARATOR, UNICODE_SYMBOLS } from "./constants.js"
 import type { PunctuationStyle } from "./quotes.js"
 export {
-  hyphenReplace,
-  enDashNumberRange,
-  enDashDateRange,
-  minusReplace,
-  numberRangeDisallowedPrefixes,
   type DashOptions,
   type DashStyle,
+  enDashDateRange,
+  enDashNumberRange,
+  hyphenReplace,
+  minusReplace,
+  numberRangeDisallowedPrefixes,
 } from "./dashes.js"
 import type { DashStyle } from "./dashes.js"
 export {
-  ellipsis,
-  multiplication,
-  mathSymbols,
-  legalSymbols,
-  arrows,
-  degrees,
-  fractions,
-  primeMarks,
-  collapseSpaces,
-  superscriptOrdinal,
-  punctuationLigatures,
-  symbolTransform,
-  type SymbolOptions,
-} from "./symbols.js"
-export {
-  nbspAfterShortWords,
-  nbspBetweenNumberAndUnit,
-  nbspBeforeLastWord,
+  HONORIFICS,
+  nbspAfterCopyrightSymbols,
+  nbspAfterHonorifics,
   nbspAfterReferenceAbbreviations,
   nbspAfterSectionSymbols,
-  nbspAfterHonorifics,
-  nbspAfterCopyrightSymbols,
+  nbspAfterShortWords,
+  nbspBeforeLastWord,
   nbspBetweenInitials,
-  nbspTransform,
-  UNITS,
-  HONORIFICS,
-  REFERENCE_ABBREVIATIONS,
+  nbspBetweenNumberAndUnit,
   type NbspOptions,
+  nbspTransform,
+  REFERENCE_ABBREVIATIONS,
+  UNITS,
 } from "./nbsp.js"
+export { classifyApostrophes, niceQuotes, type PunctuationStyle, type QuoteOptions } from "./quotes.js"
 
 export interface TransformOptions {
   /**
@@ -171,13 +157,27 @@ export interface TransformOptions {
 
 import { niceQuotes } from "./quotes.js"
 import { hyphenReplace } from "./dashes.js"
-import { symbolTransform, fractions as fractionsTransform, degrees as degreesTransform, superscriptOrdinal as superscriptTransform, primeMarks, collapseSpaces as collapseSpacesTransform, punctuationLigatures as ligaturesTransform } from "./symbols.js"
+import { collapseSpaces as collapseSpacesTransform, degrees as degreesTransform, fractions as fractionsTransform, punctuationLigatures as ligaturesTransform, primeMarks, superscriptOrdinal as superscriptTransform, symbolTransform } from "./symbols.js"
 import { nbspTransform as nbspTransformFn } from "./nbsp.js"
 import { assertSeparatorCountPreserved, filterUndefined, formatErrorString } from "./utils.js"
 import { DEFAULT_SEPARATOR, ISSUES_URL, UNICODE_SYMBOLS } from "./constants.js"
 
+export {
+  arrows,
+  collapseSpaces,
+  degrees,
+  ellipsis,
+  fractions,
+  legalSymbols,
+  mathSymbols,
+  multiplication,
+  primeMarks,
+  punctuationLigatures,
+  superscriptOrdinal,
+  type SymbolOptions,
+  symbolTransform,
+} from "./symbols.js"
 export { assertSeparatorAbsent, assertSeparatorCountPreserved, countSeparators, transformTextNodes } from "./utils.js"
-export { DEFAULT_SEPARATOR, UNICODE_SYMBOLS } from "./constants.js"
 export const MODIFIER_LETTER_APOSTROPHE = UNICODE_SYMBOLS.MODIFIER_LETTER_APOSTROPHE
 
 const defaultOpts: Required<Omit<TransformOptions, "separator">> = {

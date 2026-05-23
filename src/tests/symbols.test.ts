@@ -1,18 +1,18 @@
 import {
-  ellipsis,
-  multiplication,
-  mathSymbols,
-  legalSymbols,
   arrows,
-  degrees,
-  primeMarks,
-  fractions,
   collapseSpaces,
-  superscriptOrdinal,
+  degrees,
+  ellipsis,
+  fractions,
+  legalSymbols,
+  mathSymbols,
+  multiplication,
+  primeMarks,
   punctuationLigatures,
+  superscriptOrdinal,
   symbolTransform,
 } from "../symbols.js"
-import { UNICODE_SYMBOLS, DEFAULT_SEPARATOR } from "../constants.js"
+import { DEFAULT_SEPARATOR, UNICODE_SYMBOLS } from "../constants.js"
 
 describe("ellipsis", () => {
   it.each([

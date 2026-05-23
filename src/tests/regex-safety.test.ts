@@ -1,6 +1,6 @@
 import { check } from "recheck"
 import { transform } from "../index.js"
-import { getCachedRegExps, clearRegexCache } from "../constants.js"
+import { clearRegexCache, getCachedRegExps } from "../constants.js"
 
 /**
  * Static (ESLint) ReDoS analyzers only see regex literals, but ~90% of

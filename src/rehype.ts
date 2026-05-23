@@ -7,14 +7,14 @@
  * @packageDocumentation
  */
 
-import type { Root, Element, Text, ElementContent, Parent, RootContent } from "hast"
+import type { Element, ElementContent, Parent, Root, RootContent, Text } from "hast"
 import type { Transformer } from "unified"
 
-import { visitParents, SKIP } from "unist-util-visit-parents"
+import { SKIP, visitParents } from "unist-util-visit-parents"
 
 import { transform, type TransformOptions } from "./index.js"
 import { DEFAULT_SEPARATOR, MAX_RECURSION_DEPTH } from "./constants.js"
-import { transformTextNodes, formatErrorString } from "./utils.js"
+import { formatErrorString, transformTextNodes } from "./utils.js"
 
 /** Predicate that decides whether an HTML element should be skipped during transformation. */
 type ElementPredicate = (node: Element) => boolean
