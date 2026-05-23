@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## [3.11.2] - 2026-05-23
+
+### Fixed
+
+- Prevent short-word cascade into multi-word atoms in non-breaking space handling.
+
 ## [3.11.1] - 2026-05-22
 
 ### Fixed
