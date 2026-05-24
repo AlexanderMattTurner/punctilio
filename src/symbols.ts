@@ -164,6 +164,7 @@ export function mathSymbols(text: string, options: SymbolOptions = {}): string {
 
 type ContextPredicate = (before: string, after: string) => boolean
 
+// 25 chars: fits "copyright " or a 4-digit year with padding, without making slicing expensive.
 const LEGAL_SYMBOL_CONTEXT_WINDOW = 25
 
 const isPathContext = (before: string): boolean => {

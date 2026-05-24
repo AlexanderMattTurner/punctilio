@@ -111,6 +111,8 @@ function inferFileType(path: string, override?: FileType): FileType {
   )
 }
 
+// Config keys must match library option names (punctuationStyle, skipTags, …),
+// not the kebab-cased CLI flag names.
 async function loadConfig(
   cwd: string,
   configPath: string | undefined,
@@ -134,6 +136,7 @@ function isGlobPattern(pattern: string): boolean {
   return /[*?[\]{}]/.test(pattern)
 }
 
+// Non-glob positionals pass through as literal paths so they error loudly if missing.
 async function discoverFiles(
   patterns: string[],
   cwd: string,
