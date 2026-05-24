@@ -31,6 +31,7 @@ const months: readonly string[] = [
 
 const monthPattern = months.join("|")
 
+/** Convert number ranges to en-dash (e.g., "1-5" → "1–5"). */
 export function enDashNumberRange(text: string, options: DashOptions = {}): string {
   const chr = getEscapedSeparator(options)
   const wb = wordBoundaryStart(chr)
@@ -104,6 +105,7 @@ export function enDashNumberRange(text: string, options: DashOptions = {}): stri
   return text
 }
 
+/** Convert month ranges to en-dash (e.g., "January-March" → "January–March"). */
 export function enDashDateRange(text: string, options: DashOptions = {}): string {
   const dashStyle = options.dashStyle ?? "american"
   if (dashStyle === "none") return text
@@ -133,6 +135,7 @@ export function enDashDateRange(text: string, options: DashOptions = {}): string
   )
 }
 
+/** Convert hyphens to minus signs in numeric contexts (e.g., "-5" → "−5"). */
 export function minusReplace(text: string, options: DashOptions = {}): string {
   const chr = getEscapedSeparator(options)
 

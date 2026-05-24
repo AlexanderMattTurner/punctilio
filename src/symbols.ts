@@ -35,6 +35,7 @@ const {
   EXCLAMATION_QUESTION,
 } = UNICODE_SYMBOLS
 
+/** Convert "..." or ". . ." to "…". */
 export function ellipsis(text: string, options: SymbolOptions = {}): string {
   const chr = getEscapedSeparator(options)
 
@@ -54,6 +55,7 @@ export function ellipsis(text: string, options: SymbolOptions = {}): string {
   return text
 }
 
+/** Convert "5x5" to "5×5". Skips hex (0x5F). */
 export function multiplication(text: string, options: SymbolOptions = {}): string {
   const chr = getEscapedSeparator(options)
 
@@ -146,6 +148,7 @@ const MATH_SYMBOL_MAP: MathSymbolRule[] = [
   ["=", "~", () => "", APPROXIMATE],
 ]
 
+/** Convert !=, <=, >=, +/-, ~= to Unicode equivalents. */
 export function mathSymbols(text: string, options: SymbolOptions = {}): string {
   const chr = getEscapedSeparator(options)
 
@@ -196,6 +199,7 @@ const LEGAL_COPYRIGHT_RE = /\(c\)/gi
 const LEGAL_REGISTERED_RE = /\(r\)/gi
 const LEGAL_TRADEMARK_RE = /\(tm\)/gi
 
+/** Convert (c), (r), (tm) to ©, ®, ™. */
 export function legalSymbols(text: string, options: SymbolOptions = {}): string {
   const separator = options.separator ?? DEFAULT_SEPARATOR
   // (c) → © only with positive copyright evidence (year or "copyright" keyword)
@@ -229,6 +233,7 @@ const ARROW_RULES: readonly [ArrowPatternBuilder, string][] = [
   [(sep) => `<${sep}?-+`, ARROW_LEFT],
 ]
 
+/** Convert -> and <-> to arrows. */
 export function arrows(text: string, options: SymbolOptions = {}): string {
   const chr = getEscapedSeparator(options)
   const sepPattern = cachedRegExp(chr, "g")
@@ -267,6 +272,13 @@ export function degrees(text: string, options: SymbolOptions = {}): string {
   )
 }
 
+/**
+ * Matches quote characters in priority order:
+ * 1. Prime candidate: digit + quote + non-letter (e.g., 5', 12")
+ * 2. Contraction: letter + quote + letter (e.g., it's, don't, O'Brien)
+ * 3. Trailing apostrophe: letter + quote + non-letter (e.g., dogs')
+ * 4. Bare quote: anything else (typically preceded by space/start)
+ */
 function buildQuoteClassificationPattern(
   escapedQuote: string,
   escapedSeparator: string
@@ -345,6 +357,7 @@ function balancedPrimeReplacer(primeChar: string, escapedSeparator: string) {
   }
 }
 
+/** Convert 5'10" to 5′10″ (prime marks). Call before smart quotes. */
 export function primeMarks(text: string, options: SymbolOptions = {}): string {
   const escapedSeparator = getEscapedSeparator(options)
 
@@ -384,6 +397,7 @@ const FRACTION_TUPLES: FractionRule[] = [
 
 const FRACTION_MAP = Object.fromEntries(FRACTION_TUPLES.map(([n, d, u]) => [`${n}/${d}`, u]))
 
+/** Convert 1/2, 1/4, etc. to ½, ¼, etc. Single-pass using alternation. */
 export function fractions(text: string, options: SymbolOptions = {}): string {
   const chr = getEscapedSeparator(options)
 
@@ -420,6 +434,7 @@ const ORDINAL_MAP: Record<string, string> = {
   th: SUPERSCRIPT_TH,
 }
 
+/** Convert 1st, 2nd, 3rd, 4th to superscript ordinals. */
 export function superscriptOrdinal(text: string, options: SymbolOptions = {}): string {
   const chr = getEscapedSeparator(options)
 
@@ -457,6 +472,7 @@ const PUNCTUATION_LIGATURE_MAP: LigatureRule[] = [
   ["!", "!", "!"],                      // !!+ → ! (normalize)
 ]
 
+/** Convert ?? to ⁇, ?! to ⁈, !? to ⁉. Disabled by default (poor font support). */
 export function punctuationLigatures(text: string, options: SymbolOptions = {}): string {
   const chr = getEscapedSeparator(options)
   const sepPattern = cachedRegExp(chr, "g")
