@@ -100,7 +100,7 @@
     "eslint-plugin-regexp": "3.1.0",
     "hastscript": "9.0.1",
     "jest": "29.7.0",
-    "lint-staged": "16.4.0",
+    "lint-staged": "17.0.5",
     "prettier": "3.8.1",
     "recheck": "4.5.0",
     "rehype-parse": "9.0.1",
