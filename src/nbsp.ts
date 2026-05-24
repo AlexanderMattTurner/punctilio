@@ -124,30 +124,12 @@ export function nbspBetweenNumberAndUnit(text: string, options: NbspOptions = {}
   return text.replace(pattern, `$<digit>$<marker1>${NBSP}$<marker2>$<unit>`)
 }
 
-/**
- * Maximum length, in characters, of the "last word" that gets an NBSP
- * glued to its preceding space. Short enough that a typical English word
- * qualifies but an entire trailing URL or long token does not. Only affects
- * widow prevention at end-of-string and paragraph breaks.
- */
 const MAX_LAST_WORD_LENGTH = 10
 
-/**
- * Maximum word length, in characters, considered for the cascade check.
- * Bounded so the lookbehind in `nbspBeforeLastWord` stays ReDoS-safe.
- */
+// Bounded so the lookbehind stays ReDoS-safe.
 const MAX_MIDDLE_WORD_LENGTH = 15
 
-/**
- * Adds non-breaking space before the last word to prevent widows.
- *
- * Only applies to final words of 1 to {@link MAX_LAST_WORD_LENGTH} characters,
- * at end of string or paragraph break (\n\n). Uses non-multiline mode so $
- * matches only the true end of string.
- *
- * Skips when the second-to-last word is already glued backwards via NBSP,
- * so the phrase doesn't become a 3-word non-breaking atom.
- */
+// Skips when the second-to-last word is already glued backwards via NBSP.
 export function nbspBeforeLastWord(text: string, options: NbspOptions = {}): string {
   const sep = getEscapedSeparator(options)
   const cascadeBlock = `(?<![${NBSP_CHARS}][${LATIN_LETTERS}]{1,${MAX_MIDDLE_WORD_LENGTH}})`
@@ -159,12 +141,6 @@ export function nbspBeforeLastWord(text: string, options: NbspOptions = {}): str
   return text.replace(pattern, `${NBSP}$<lastWord>$<ending>`)
 }
 
-/**
- * Adds non-breaking space after reference abbreviations (Fig., Vol., p., etc.)
- * when followed by a number.
- *
- * @example "Fig. 1" → "Fig.\u00A01", "p. 42" → "p.\u00A042"
- */
 export function nbspAfterReferenceAbbreviations(text: string, options: NbspOptions = {}): string {
   const sep = getEscapedSeparator(options)
   const pattern = cachedRegExp(
@@ -174,12 +150,6 @@ export function nbspAfterReferenceAbbreviations(text: string, options: NbspOptio
   return text.replace(pattern, `$<abbrev>$<marker>${NBSP}`)
 }
 
-/**
- * Adds non-breaking space after section (§) and paragraph (¶) symbols
- * when followed by a number.
- *
- * @example "§ 5" → "§\u00A05"
- */
 export function nbspAfterSectionSymbols(text: string, options: NbspOptions = {}): string {
   const sep = getEscapedSeparator(options)
   const pattern = cachedRegExp(
@@ -189,11 +159,6 @@ export function nbspAfterSectionSymbols(text: string, options: NbspOptions = {})
   return text.replace(pattern, `$<symbol>$<marker>${NBSP}`)
 }
 
-/**
- * Adds non-breaking space after honorific titles when followed by a capitalized name.
- *
- * @example "Dr. Smith" → "Dr.\u00A0Smith", "Mr. Jones" → "Mr.\u00A0Jones"
- */
 export function nbspAfterHonorifics(text: string, options: NbspOptions = {}): string {
   const sep = getEscapedSeparator(options)
   const pattern = cachedRegExp(
@@ -203,12 +168,6 @@ export function nbspAfterHonorifics(text: string, options: NbspOptions = {}): st
   return text.replace(pattern, `$<honorific>$<marker>${NBSP}`)
 }
 
-/**
- * Adds non-breaking space after copyright, registered, and trademark
- * symbols when followed by a year or capitalized name.
- *
- * @example "© 2024" → "©\u00A02024", "® Brand" → "®\u00A0Brand"
- */
 export function nbspAfterCopyrightSymbols(text: string, options: NbspOptions = {}): string {
   const sep = getEscapedSeparator(options)
   const pattern = cachedRegExp(
@@ -218,11 +177,6 @@ export function nbspAfterCopyrightSymbols(text: string, options: NbspOptions = {
   return text.replace(pattern, `$<symbol>$<marker>${NBSP}`)
 }
 
-/**
- * Adds non-breaking space between initials (e.g., "J. K. Rowling").
- *
- * @example "J. K. Rowling" → "J.\u00A0K.\u00A0Rowling"
- */
 export function nbspBetweenInitials(text: string, options: NbspOptions = {}): string {
   const sep = getEscapedSeparator(options)
   const pattern = cachedRegExp(
