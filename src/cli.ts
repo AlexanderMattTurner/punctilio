@@ -36,6 +36,7 @@ const RULE_MARKERS = ["-", "*", "_"] as const
 const MARKDOWN_EXTENSIONS = new Set([".md", ".markdown"])
 const HTML_EXTENSIONS = new Set([".html", ".htm"])
 
+// Fields match commander's camelCased flag names; .choices() guarantees literals at runtime.
 interface ParsedFlags {
   check?: boolean
   cache?: boolean
