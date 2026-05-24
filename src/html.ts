@@ -1,14 +1,3 @@
-/**
- * Convenience module for HTML-to-HTML typography transformations.
- *
- * Provides a single function that takes HTML input and returns
- * typographically improved HTML output.
- *
- * Requires `unified`, `rehype-parse`, and `rehype-stringify` to be installed.
- *
- * @packageDocumentation
- */
-
 import { unified } from "unified"
 import rehypeParse from "rehype-parse"
 import rehypeStringify from "rehype-stringify"
@@ -17,9 +6,6 @@ import QuickLRU from "quick-lru"
 import { rehypePunctilio, type RehypePunctilioOptions } from "./rehype.js"
 import { stableStringify } from "./utils.js"
 
-/**
- * Options for the HTML transform pipeline.
- */
 export interface HtmlOptions extends RehypePunctilioOptions {
   /**
    * Whether to parse the input as an HTML fragment (no implicit `<html>`,
@@ -43,29 +29,11 @@ const processorCache = new QuickLRU<string, ReturnType<typeof createProcessor>>(
   maxSize: MAX_PROCESSOR_CACHE_SIZE,
 })
 
-/**
- * Clears the processor cache. Exported for test isolation only.
- * @internal
- */
+/** @internal */
 export function clearProcessorCache(): void {
   processorCache.clear()
 }
 
-/**
- * Transforms HTML text with typographic improvements.
- *
- * Parses the input as HTML, applies punctilio typography transformations,
- * and serializes back to HTML. The unified processor pipeline is cached
- * and reused across calls with identical options.
- *
- * @example
- * ```ts
- * import { transformHtml } from 'punctilio/html'
- *
- * await transformHtml('<p>"Hello" -- world</p>')
- * // → '<p>“Hello”—world</p>'
- * ```
- */
 export async function transformHtml(
   input: string,
   options: HtmlOptions = {}

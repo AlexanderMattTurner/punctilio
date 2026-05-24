@@ -1,10 +1,4 @@
 #!/usr/bin/env node
-/**
- * Command-line entry point: format Markdown and HTML files in place,
- * or check whether they would be reformatted (for use as a pre-commit hook).
- *
- * @packageDocumentation
- */
 
 import { createHash } from "node:crypto"
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
@@ -42,11 +36,7 @@ const RULE_MARKERS = ["-", "*", "_"] as const
 const MARKDOWN_EXTENSIONS = new Set([".md", ".markdown"])
 const HTML_EXTENSIONS = new Set([".html", ".htm"])
 
-/**
- * Shape of `program.opts()` after parsing. Fields named after their CLI
- * flags (camelCased by commander). `commander.choices()` guarantees the
- * literal types at runtime; we assert them at the boundary.
- */
+// Fields match commander's camelCased flag names; .choices() guarantees literals at runtime.
 interface ParsedFlags {
   check?: boolean
   cache?: boolean
@@ -147,8 +137,7 @@ function isGlobPattern(pattern: string): boolean {
   return /[*?[\]{}]/.test(pattern)
 }
 
-// Non-glob positionals pass through as literal paths so they error loudly
-// if missing, matching the prior behavior of `punctilio file.md`.
+// Non-glob positionals pass through as literal paths so they error loudly if missing.
 async function discoverFiles(
   patterns: string[],
   cwd: string,
@@ -213,12 +202,7 @@ function saveCache(location: string, cache: Cache): void {
   writeFileSync(location, JSON.stringify(cache))
 }
 
-/**
- * Cache key for a file. Always cwd-relative so a project that moves
- * directories (or syncs the cache file across machines via the same
- * repo layout) keeps hitting the cache. Files outside cwd appear as
- * `../foo.md` and still hash consistently.
- */
+// cwd-relative so the cache survives directory moves and cross-machine syncs.
 function cacheKey(filePath: string, cwd: string): string {
   return relative(cwd, filePath)
 }
@@ -249,12 +233,7 @@ async function transformContent(input: string, type: FileType, opts: CliOptions)
   return type === "md" ? transformMarkdown(input, opts) : transformHtml(input, opts)
 }
 
-/**
- * Preserves whether the original file ends with a trailing newline.
- * The unified pipelines for Markdown and HTML both unconditionally append
- * one, so without this adjustment every file lacking a trailing newline
- * would always appear as needing a rewrite.
- */
+// Unified pipelines unconditionally append a trailing newline; undo if original lacked one.
 function matchTrailingNewline(original: string, formatted: string): string {
   const originalHas = original.endsWith("\n")
   const formattedHas = formatted.endsWith("\n")
@@ -282,12 +261,7 @@ async function readPackageVersion(): Promise<string> {
   }
 }
 
-/**
- * Runs the CLI with the given arguments and I/O streams.
- *
- * @returns Exit code: 0 if no changes (or all changes written),
- * 1 if `--check` saw a file that would change, 2 for usage errors.
- */
+/** Returns exit code: 0 success, 1 `--check` saw changes, 2 usage error. */
 export async function runCli(args: string[], io: CliIO): Promise<number> {
   const version = await readPackageVersion()
   const program = buildProgram(version, io)

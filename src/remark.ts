@@ -1,12 +1,3 @@
-/**
- * Remark plugin for applying punctilio typography transformations to Markdown.
- *
- * This plugin integrates punctilio with the unified/remark ecosystem,
- * allowing you to apply smart typography transformations to Markdown ASTs.
- *
- * @packageDocumentation
- */
-
 import type { PhrasingContent, Root, Text } from "mdast"
 import type { Transformer } from "unified"
 
@@ -18,21 +9,10 @@ import { transformTextNodes } from "./utils.js"
 
 export type RemarkPunctilioOptions = TransformOptions
 
-/**
- * MDAST node types that contain phrasing (inline) content and should
- * have their text transformed as a single unit.
- */
 const PHRASING_CONTAINERS = new Set(["paragraph", "heading", "tableCell"])
 
-/**
- * MDAST node types whose text content should not be transformed.
- */
 const SKIP_TYPES = new Set(["inlineCode", "html"])
 
-/**
- * Recursively collects text nodes from a phrasing content tree,
- * skipping code and HTML nodes.
- */
 function flattenTextNodes(
   node: PhrasingContent,
   depth: number = 0
@@ -59,28 +39,6 @@ function flattenTextNodes(
   return []
 }
 
-/**
- * Remark plugin that applies punctilio typography transformations to Markdown.
- *
- * @example
- * ```ts
- * import { unified } from 'unified'
- * import remarkParse from 'remark-parse'
- * import remarkStringify from 'remark-stringify'
- * import remarkPunctilio from 'punctilio/remark'
- *
- * const result = await unified()
- *   .use(remarkParse)
- *   .use(remarkPunctilio, {
- *     punctuationStyle: 'american',
- *     dashStyle: 'american',
- *   })
- *   .use(remarkStringify)
- *   .process('"Hello," she said -- "it\'s nice."')
- *
- * // Output Markdown will have smart quotes and em-dashes
- * ```
- */
 export function remarkPunctilio(
   options: RemarkPunctilioOptions = {}
 ): Transformer<Root, Root> {

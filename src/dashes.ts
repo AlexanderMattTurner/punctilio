@@ -1,7 +1,3 @@
-/**
- * Dash transformation: hyphens → em-dashes, en-dashes, minus signs.
- */
-
 import { cachedRegExp, DEFAULT_SEPARATOR, getEscapedSeparator, LATIN_LETTERS, UNICODE_SYMBOLS, wordBoundaryEnd, wordBoundaryStart } from "./constants.js"
 import { namedGroups } from "./utils.js"
 
@@ -17,19 +13,10 @@ export interface DashOptions {
 
 const { EN_DASH, EM_DASH, MINUS, LEFT_DOUBLE_QUOTE, RIGHT_DOUBLE_QUOTE, LEFT_SINGLE_QUOTE, RIGHT_SINGLE_QUOTE } = UNICODE_SYMBOLS
 
-/**
- * Characters that, when preceding a number, prevent it from being
- * treated as the start of a number range. This prevents false positives
- * in model names like "Llama-2-7B" where "2-7" should not become "2–7".
- */
+// Prevents false-positive ranges in model names like "Llama-2-7B".
 export const numberRangeDisallowedPrefixes = ["-", EN_DASH, EM_DASH, MINUS] as const
 
-/**
- * Regex character-class fragment built from {@link numberRangeDisallowedPrefixes}.
- * Non-ASCII dashes are escaped to `\uXXXX` form so the fragment is safe to
- * embed inside a `[...]` class regardless of the regex source encoding.
- * Computed once at module load — the inputs are `const`.
- */
+// Non-ASCII dashes escaped to \uXXXX for safe embedding in [...] classes.
 const DISALLOWED_PREFIX_CLASS_FRAGMENT = numberRangeDisallowedPrefixes
   .map((c) => (c === "-" ? c : `\\u${c.charCodeAt(0).toString(16).padStart(4, "0")}`))
   .join("")
@@ -185,10 +172,6 @@ export function minusReplace(text: string, options: DashOptions = {}): string {
   return text
 }
 
-/**
- * Convert surrounded dashes to em/en dashes.
- * Handles patterns like "word - word" → "word—word" (Chicago) or "word – word" (Oxford).
- */
 function convertParentheticalDashes(text: string, sep: string, style: DashStyle): string {
   const localizedDash = style === "british" ? EN_DASH : EM_DASH
   const maybeSpace = style === "british" ? " " : ""
@@ -239,13 +222,8 @@ function convertParentheticalDashes(text: string, sep: string, style: DashStyle)
   return text
 }
 
-/**
- * Normalize em-dash spacing for Chicago style (American).
- * Removes all spaces around em-dashes per Chicago Manual of Style.
- *
- * TODO: Handle interrupted-then-resumed speech within quotes, where Chicago
- * allows a space after the dash: "Don't inter— Hey! Who threw that?"
- */
+// TODO: Handle interrupted-then-resumed speech within quotes, where Chicago
+// allows a space after the dash: "Don't inter— Hey! Who threw that?"
 function normalizeEmDashSpacing(text: string, sep: string): string {
   const escapedSep = getEscapedSeparator({ separator: sep })
 
@@ -265,7 +243,6 @@ function normalizeEmDashSpacing(text: string, sep: string): string {
   return text
 }
 
-/** Full dash transformation. */
 export function hyphenReplace(text: string, options: DashOptions = {}): string {
   const sep = options.separator ?? DEFAULT_SEPARATOR
   const style = options.dashStyle ?? "american"

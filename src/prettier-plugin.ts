@@ -1,18 +1,3 @@
-/**
- * Prettier plugin applying punctilio's typographic transforms to Markdown.
- *
- * @example
- * ```jsonc
- * // .prettierrc
- * { "plugins": ["punctilio/prettier-plugin"] }
- *
- * // .punctiliorc.json (optional)
- * { "punctuationStyle": "british", "skipTags": ["pre", "code"] }
- * ```
- *
- * @packageDocumentation
- */
-
 import { dirname } from "node:path"
 
 import * as prettierMarkdown from "prettier/plugins/markdown"
@@ -30,11 +15,6 @@ async function loadPunctilioConfig(searchFrom: string): Promise<RemarkPunctilioO
   return !result || result.isEmpty ? {} : (result.config as RemarkPunctilioOptions)
 }
 
-/**
- * Runs `remarkPunctilio`'s transformer against an mdast tree. The plugin
- * mutates the tree in place; awaiting handles any future async variant
- * without churning callers.
- */
 async function runRemarkPunctilio(opts: RemarkPunctilioOptions, ast: Root): Promise<void> {
   // The unified `Transformer` signature requires a VFile and a callback,
   // but `remarkPunctilio` only ever reads the tree. Narrow to the actual

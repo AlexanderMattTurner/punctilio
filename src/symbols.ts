@@ -1,7 +1,3 @@
-/**
- * Symbol transformations: ellipses, multiplication, math symbols, arrows.
- */
-
 import { cachedRegExp, DEFAULT_SEPARATOR, getEscapedSeparator, LATIN_LETTERS, SPACE_CHARS, UNICODE_SYMBOLS, wordBoundaryEnd } from "./constants.js"
 import { namedGroups } from "./utils.js"
 
@@ -138,19 +134,10 @@ export function multiplication(text: string, options: SymbolOptions = {}): strin
   return text
 }
 
-/**
- * Builds a negative lookahead that must see through an optional separator
- * so e.g. `!<SEP>=` is correctly recognized as the start of `!==`.
- */
 type MathLookaheadBuilder = (escapedSeparator: string) => string
 
-/** [leftChars, rightChars, negativeLookaheadBuilder, replacement] */
 type MathSymbolRule = [string, string, MathLookaheadBuilder, string]
 
-/**
- * Math symbol replacement map.
- * The separator is inserted between left and right when building the regex.
- */
 const MATH_SYMBOL_MAP: MathSymbolRule[] = [
   ["!", "=", (chr) => `(?!${chr}?=)`, NOT_EQUAL],
   ["\\+/", "-", () => "", PLUS_MINUS],
@@ -178,18 +165,11 @@ export function mathSymbols(text: string, options: SymbolOptions = {}): string {
   return text
 }
 
-/** Predicate that decides whether a legal symbol should be converted based on surrounding text. */
 type ContextPredicate = (before: string, after: string) => boolean
 
-/**
- * Context window, in characters, examined on each side of a legal-symbol
- * candidate. Large enough to fit a 4-digit year plus surrounding whitespace
- * or the word "copyright" plus a space, but small enough that the slice
- * stays cheap on long inputs.
- */
+// 25 chars: fits "copyright " or a 4-digit year with padding, without making slicing expensive.
 const LEGAL_SYMBOL_CONTEXT_WINDOW = 25
 
-/** Returns true when the context window ends with a path-like fragment (slash + non-whitespace). */
 const isPathContext = (before: string): boolean => {
   const parts = before.split(/\s+/)
   const trailing = parts[parts.length - 1]
@@ -197,11 +177,6 @@ const isPathContext = (before: string): boolean => {
   return slashIdx >= 0 && slashIdx < trailing.length - 1
 }
 
-/**
- * Context-aware replacement for legal symbols like (c), (r), (tm).
- * Extracts surrounding text, strips separator characters from the context
- * windows, and delegates the convert/skip decision to a predicate.
- */
 function contextAwareLegalReplace(
   text: string,
   pattern: RegExp,
@@ -249,19 +224,9 @@ export function legalSymbols(text: string, options: SymbolOptions = {}): string 
   return text
 }
 
-/**
- * Builds an arrow-shape regex fragment from the escaped separator pattern.
- * The separator may appear between the halves of a bidirectional `<->`.
- */
 type ArrowPatternBuilder = (escapedSeparator: string) => string
 
-/**
- * Arrow pattern map: shape builder → Unicode symbol.
- *
- * The leading `<` on the bidi pattern anchors its repeated-dash-run group
- * so it stays linear-time; the right/left arrows can't anchor that way, so
- * they only admit one optional separator at the un-anchored end.
- */
+// Leading `<` on bidi anchors the dash-run group for linear time.
 const ARROW_RULES: readonly [ArrowPatternBuilder, string][] = [
   [(sep) => `<${sep}?-+(?:${sep}-+)*${sep}?>`, ARROW_LEFT_RIGHT],
   [(sep) => `-+${sep}?>`, ARROW_RIGHT],
@@ -292,7 +257,6 @@ export function arrows(text: string, options: SymbolOptions = {}): string {
   return text
 }
 
-/** Convert "20 C" or "20 F" to "20 °C" or "20 °F". Only matches uppercase C/F. */
 export function degrees(text: string, options: SymbolOptions = {}): string {
   const chr = getEscapedSeparator(options)
 
@@ -309,7 +273,7 @@ export function degrees(text: string, options: SymbolOptions = {}): string {
 }
 
 /**
- * Build a regex that matches all quote characters in priority order:
+ * Matches quote characters in priority order:
  * 1. Prime candidate: digit + quote + non-letter (e.g., 5', 12")
  * 2. Contraction: letter + quote + letter (e.g., it's, don't, O'Brien)
  * 3. Trailing apostrophe: letter + quote + non-letter (e.g., dogs')
@@ -329,19 +293,9 @@ function buildQuoteClassificationPattern(
   )
 }
 
-/**
- * Replace callback that converts prime candidates while respecting quote balance.
- * Contractions and trailing apostrophes are recognized so they don't poison the
- * balance tracker. A prime candidate converts only when no unmatched opening
- * quote precedes it; otherwise it acts as a closing quote.
- *
- * For double primes (″): since ' and " are processed in separate passes,
- * 5'10" becomes 5′10" after the single-quote pass. Inside balanced double
- * quotes (e.g., "He is 5′10" tall"), the balance tracker would normally treat
- * the " after 10 as a closing quote. To handle this, we check whether the "
- * is preceded by ′ + digits — if so, it's inches notation and converts
- * regardless of balance.
- */
+// Converts prime candidates while tracking quote balance. A prime after a
+// digit converts only when no unmatched opener precedes it. Inside balanced
+// quotes, a ′+digits context (feet-inches like 5′10") still converts.
 function balancedPrimeReplacer(primeChar: string, escapedSeparator: string) {
   // Pre-compile the feet-inches context pattern for the double-prime pass.
   // Matches when the text before a prime candidate ends with ′ followed by
@@ -421,13 +375,8 @@ export function primeMarks(text: string, options: SymbolOptions = {}): string {
   return text
 }
 
-/** [numerator, denominator, unicodeChar] */
 type FractionRule = [string, string, string]
 
-/**
- * Supported Unicode fractions.
- * The regex alternation and lookup map are both derived from this list.
- */
 const FRACTION_TUPLES: FractionRule[] = [
   ["1", "4", UNICODE_SYMBOLS.FRACTION_1_4],
   ["1", "2", UNICODE_SYMBOLS.FRACTION_1_2],
@@ -504,7 +453,7 @@ export function superscriptOrdinal(text: string, options: SymbolOptions = {}): s
   })
 }
 
-/** Collapse multiple spaces (including tabs) to single space. Preserves the highest-priority space type present in the run: NBSP > NNBSP > regular. Leading whitespace at the start of a line (after `\n` or start-of-string) is preserved so indented blocks (e.g. HN-style code) survive. */
+// Preserves highest-priority space type (NBSP > NNBSP > regular) and leading indentation.
 export function collapseSpaces(text: string): string {
   return text.replace(cachedRegExp(`(?<=[^\\n${SPACE_CHARS}])[${SPACE_CHARS}]{2,}`, "g"), (match) => {
     if (match.includes(NBSP)) return NBSP
@@ -513,14 +462,9 @@ export function collapseSpaces(text: string): string {
   })
 }
 
-/** [firstChar, repeatedChar, replacement] */
 type LigatureRule = [string, string, string]
 
-/**
- * Punctuation ligature map.
- * Pattern: first(sep)?repeated(?:sep?repeated)* → replacement
- * Order matters: handle mixed punctuation first, then repeated
- */
+// Order matters: mixed punctuation first, then repeated.
 const PUNCTUATION_LIGATURE_MAP: LigatureRule[] = [
   ["\\?", "!", QUESTION_EXCLAMATION],  // ?!+ → ⁈
   ["!", "\\?", EXCLAMATION_QUESTION],  // !?+ → ⁉
@@ -528,7 +472,7 @@ const PUNCTUATION_LIGATURE_MAP: LigatureRule[] = [
   ["!", "!", "!"],                      // !!+ → ! (normalize)
 ]
 
-/** Convert ?? to ⁇, ?! to ⁈, !? to ⁉. Poor font support, disabled by default. */
+/** Convert ?? to ⁇, ?! to ⁈, !? to ⁉. Disabled by default (poor font support). */
 export function punctuationLigatures(text: string, options: SymbolOptions = {}): string {
   const chr = getEscapedSeparator(options)
   const sepPattern = cachedRegExp(chr, "g")
@@ -548,7 +492,6 @@ export function punctuationLigatures(text: string, options: SymbolOptions = {}):
   return text
 }
 
-/** Apply all symbol transforms. degrees/fractions excluded (too aggressive). */
 export function symbolTransform(text: string, options: SymbolOptions = {}): string {
   text = ellipsis(text, options)
   text = multiplication(text, options)
