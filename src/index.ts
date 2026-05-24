@@ -1,13 +1,3 @@
-/**
- * punctilio - Smart typography transformations
- *
- * A library for converting plain ASCII punctuation into typographically
- * correct Unicode characters. Handles smart quotes, em-dashes, en-dashes,
- * minus signs, ellipses, multiplication signs, and more.
- *
- * @packageDocumentation
- */
-
 export { DEFAULT_SEPARATOR, UNICODE_SYMBOLS } from "./constants.js"
 import type { PunctuationStyle } from "./quotes.js"
 export {
@@ -194,36 +184,6 @@ const defaultOpts: Required<Omit<TransformOptions, "separator">> = {
   dashStyle: "american",
 }
 
-/**
- * Applies all typography transformations: smart quotes, proper dashes,
- * and symbol improvements.
- *
- * This is a convenience function that applies transformations in sequence:
- * 1. hyphenReplace (em-dashes, en-dashes, minus signs)
- * 2. primeMarks (feet/inches, arcminutes/arcseconds)
- * 3. niceQuotes (smart quotes)
- * 4. symbolTransform (ellipses, multiplication, math symbols, legal symbols, arrows)
- * 5. fractions (disabled by default)
- * 6. degrees (disabled by default)
- * 7. superscript (disabled by default)
- * 8. ligatures (disabled by default)
- * 9. collapseSpaces (collapses multiple spaces into one)
- * 10. nbsp (non-breaking spaces, enabled by default)
- *
- * @example
- * ```ts
- * import { transform } from 'punctilio'
- *
- * transform('"Hello," she said - "it\'s pages 1-5."')
- * // → '"Hello," she said—"it's pages 1–5."'
- *
- * transform('Wait... 5x5 != 25 (c) 2024')
- * // → 'Wait… 5×5 ≠ 25 © 2024'
- *
- * transform('Add 1/2 cup', { fractions: true })
- * // → 'Add ½ cup'
- * ```
- */
 export function transform(text: string, options: TransformOptions = {}): string {
   const separator = options.separator ?? DEFAULT_SEPARATOR
 

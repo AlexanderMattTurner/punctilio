@@ -1,20 +1,10 @@
-/**
- * Utility functions for text transformation validation.
- *
- * @module utils
- */
-
 import { DEFAULT_SEPARATOR, ISSUES_URL } from "./constants.js"
 
-/** Threshold above which strings are truncated in error messages. */
 const ERROR_STRING_THRESHOLD = 2000
 
 /**
- * Formats a string for error messages. If the string exceeds the threshold,
- * truncates it and shows the total length.
- *
- * In Node.js environments, also writes the full content to stderr
- * so it's available in build logs for debugging.
+ * Formats a string for error messages, truncating above the threshold.
+ * Writes full content to stderr in Node.js so build logs capture it.
  */
 export function formatErrorString(content: string, label: string): string {
   if (content.length <= ERROR_STRING_THRESHOLD) {
@@ -36,12 +26,7 @@ export function formatErrorString(content: string, label: string): string {
   return `[${label}: ${JSON.stringify(truncated)}... (${content.length} chars total)]`
 }
 
-/**
- * Throws if any text node contains the separator character, which would
- * corrupt the split/join mechanism used by the rehype and remark plugins.
- *
- * @throws Error if the separator is found in any text value
- */
+/** Throws if any text node contains the separator (would corrupt split/join). */
 export function assertSeparatorAbsent(textValues: string[], separator: string): void {
   for (const value of textValues) {
     if (!value.includes(separator)) continue
@@ -57,9 +42,6 @@ export function assertSeparatorAbsent(textValues: string[], separator: string): 
   }
 }
 
-/**
- * Counts non-overlapping occurrences of the separator string in the text.
- */
 export function countSeparators(text: string, separator: string = DEFAULT_SEPARATOR): number {
   if (separator.length === 0) return 0
   let count = 0
@@ -71,24 +53,15 @@ export function countSeparators(text: string, separator: string = DEFAULT_SEPARA
   return count
 }
 
-/** Minimal text-node interface shared by mdast.Text and hast.Text. */
 interface TextNode {
   value: string
 }
 
 /**
  * Applies a text transformation across an array of text nodes using the
- * separator-marking technique.
- *
- * 1. Validates no text node already contains the separator.
- * 2. Appends the separator to each node's value, concatenates into one string.
- * 3. Runs the transform function on the concatenated string.
- * 4. Splits the result back on the separator and writes each fragment
- *    back into the corresponding text node.
- *
- * `textNodes` is mutated in place.
- *
- * @throws Error if the transformation alters the number of text nodes
+ * separator-marking technique: appends the separator to each node's value,
+ * concatenates, transforms, then splits back on the separator and writes
+ * each fragment into the corresponding text node. Mutates `textNodes`.
  */
 export function transformTextNodes(
   textNodes: TextNode[],
@@ -115,12 +88,7 @@ export function transformTextNodes(
   })
 }
 
-/**
- * Validates that a transformation preserved the separator count.
- * Throws an error if separators were added or removed.
- *
- * @throws Error if separator count changed
- */
+/** Throws if a transformation changed the separator count. */
 export function assertSeparatorCountPreserved(
   original: string,
   transformed: string,
@@ -138,12 +106,7 @@ export function assertSeparatorCountPreserved(
   }
 }
 
-/**
- * Returns a copy of `obj` with `undefined`-valued keys removed.
- * Used so caller-supplied `{ foo: undefined }` doesn't override a default.
- *
- * @internal
- */
+/** Returns a copy of `obj` with `undefined`-valued keys removed. @internal */
 export function filterUndefined<T extends object>(obj: T): Partial<T> {
   const result: Record<string, unknown> = {}
   for (const [k, v] of Object.entries(obj)) {
@@ -152,13 +115,7 @@ export function filterUndefined<T extends object>(obj: T): Partial<T> {
   return result as Partial<T>
 }
 
-/**
- * Returns a deterministic JSON-style string for an options object: drops
- * `undefined` values and sorts keys, so equivalent option sets always
- * produce the same string (suitable as a cache or LRU key).
- *
- * @internal
- */
+/** Deterministic JSON string for an options object, suitable as cache key. @internal */
 export function stableStringify(obj: object): string {
   const entries = Object.entries(obj)
     .filter(([, v]) => v !== undefined)
@@ -166,14 +123,7 @@ export function stableStringify(obj: object): string {
   return JSON.stringify(entries)
 }
 
-/**
- * Extracts the named-groups object from a `String.prototype.replace`
- * callback's argument tuple. The last element is always the groups
- * object when the regex has named captures. Callers supply the group
- * shape via the type parameter to localise the unavoidable type cast.
- *
- * @internal
- */
+/** Extracts named groups from a `.replace()` callback's arguments. @internal */
 export function namedGroups<G>(args: unknown[]): G {
   return args[args.length - 1] as G
 }

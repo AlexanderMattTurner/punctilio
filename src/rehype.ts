@@ -1,12 +1,3 @@
-/**
- * Rehype plugin for applying punctilio typography transformations to HTML.
- *
- * This plugin integrates punctilio with the unified/rehype ecosystem,
- * allowing you to apply smart typography transformations to HTML ASTs.
- *
- * @packageDocumentation
- */
-
 import type { Element, ElementContent, Parent, Root, RootContent, Text } from "hast"
 import type { Transformer } from "unified"
 
@@ -16,29 +7,16 @@ import { transform, type TransformOptions } from "./index.js"
 import { DEFAULT_SEPARATOR, MAX_RECURSION_DEPTH } from "./constants.js"
 import { formatErrorString, transformTextNodes } from "./utils.js"
 
-/** Predicate that decides whether an HTML element should be skipped during transformation. */
 type ElementPredicate = (node: Element) => boolean
 
-/** Function that transforms a plain-text string (e.g. smart quotes, dashes). */
 type TextTransformer = (input: string) => string
 
-/**
- * Predicate that decides whether an individual text node should be excluded
- * from transformation. Called after element-level `shouldSkip`, so it is
- * never invoked for text inside elements that are already skipped.
- *
- * `ancestors` is the chain of Element parents for the text node, ordered
- * root first, nearest last.
- */
+/** Per-text-node skip predicate, called after element-level `shouldSkip`. */
 export type TextNodeSkipPredicate = (
   textNode: Text,
   ancestors: readonly Element[],
 ) => boolean
 
-/**
- * Options shared by functions that flatten and transform text nodes inside
- * an element tree.
- */
 export interface ElementTransformOptions {
   /**
    * Optional per-text-node skip predicate. When it returns `true` for a
@@ -49,9 +27,6 @@ export interface ElementTransformOptions {
   shouldSkipText?: TextNodeSkipPredicate
 }
 
-/**
- * Options for the rehype-punctilio plugin.
- */
 export interface RehypePunctilioOptions
   extends TransformOptions,
     ElementTransformOptions {
@@ -75,18 +50,6 @@ export interface RehypePunctilioOptions
 
 const DEFAULT_SKIP_TAGS = ["code", "pre", "script", "style", "kbd", "var", "samp", "template", "math", "svg"]
 
-/**
- * Flattens text nodes from an element tree into a single array.
- *
- * Pass `options.shouldSkipText` to exclude individual text nodes from the
- * result. Applied after element-level `shouldSkip`, so the hook is never
- * invoked for text inside an already-skipped element.
- *
- * @example
- * ```ts
- * const textNodes = flattenTextNodes(paragraphElement, (el) => el.tagName === 'code')
- * ```
- */
 export function flattenTextNodes(
   node: Element | ElementContent,
   shouldSkip: ElementPredicate,
@@ -136,15 +99,6 @@ function flattenTextNodesImpl(
   return []
 }
 
-/**
- * Extracts concatenated text content from an element.
- *
- * @example
- * ```ts
- * const text = getTextContent(paragraphElement)
- * // Returns "Hello, world!" for <p>Hello, <em>world!</em></p>
- * ```
- */
 export function getTextContent(
   node: Element,
   shouldSkip: ElementPredicate = () => false
@@ -154,16 +108,6 @@ export function getTextContent(
     .join("")
 }
 
-/**
- * Recursively finds the first text node in a tree of HTML elements.
- * Returns null if no text nodes exist.
- *
- * @example
- * ```ts
- * const textNode = getFirstTextNode(divElement)
- * if (textNode) console.log(textNode.value)
- * ```
- */
 export function getFirstTextNode(
   node: Parent | RootContent,
   depth: number = 0
@@ -187,21 +131,8 @@ export function getFirstTextNode(
 const QUOTE_OPENERS = new Set(["\u201C"])
 const CLOSER_TO_OPENER: Record<string, string> = { "\u201D": "\u201C" }
 
-/**
- * Validates that smart double quotes in a text string are properly matched.
- *
- * Only checks double quotes (\u201C/\u201D). Single quotes are intentionally
- * excluded because \u2019 (right single quote) doubles as an apostrophe,
- * making balance-checking unreliable.
- *
- * @throws Error if double quotes are mismatched
- *
- * @example
- * ```ts
- * assertSmartQuotesMatch('\u201CHello\u201D') // OK
- * assertSmartQuotesMatch('\u201CHello')        // throws Error
- * ```
- */
+// Only checks double quotes \u2014 single quotes are excluded because
+// U+2019 doubles as an apostrophe, making balance-checking unreliable.
 export function assertSmartQuotesMatch(input: string): void {
   if (!input) return
 
@@ -225,38 +156,9 @@ export function assertSmartQuotesMatch(input: string): void {
 }
 
 /**
- * Applies a transformation to element text content while preserving HTML structure.
- *
- * This function uses a marker technique to handle text that spans multiple
- * HTML elements. It:
- * 1. Appends a private-use Unicode character to each child's text content
- * 2. Concatenates and transforms the whole paragraph
- * 3. Splits the result back into the original text nodes
- *
- * When `checkInvariance` is true, also verifies that the transform produces
- * the same result with and without markers — i.e.,
- * `stripMarkers(transform(textWithMarkers)) === transform(stripMarkers(text))`.
- * Useful for debugging transforms that accidentally interact with markers.
- *
- * Pass `options.shouldSkipText` to opt individual text nodes out of
- * transformation without skipping their enclosing element; skipped text
- * nodes keep their original `.value`.
- *
- * @throws Error if transformation alters the number of text nodes
- * @throws Error if `checkInvariance` is true and the invariance check fails
- *
- * @example
- * ```ts
- * import { transformElement, DEFAULT_SEPARATOR } from 'punctilio/rehype'
- *
- * // Apply a custom transform to an element
- * transformElement(
- *   paragraphElement,
- *   (text) => text.replace(/eg\b/g, 'e.g.'),
- *   (el) => el.tagName === 'code',
- *   DEFAULT_SEPARATOR
- * )
- * ```
+ * Transforms element text using the separator-marking technique. When
+ * `checkInvariance` is true, verifies `stripMarkers(transform(marked)) ===
+ * transform(stripMarkers(text))` for debugging marker interactions.
  */
 export function transformElement(
   node: Element,
@@ -299,12 +201,8 @@ export function transformElement(
   }
 }
 
-/**
- * HTML block-level elements. When a transformable element has a block-level
- * child, its children are processed independently rather than as a single
- * unit. This prevents merging text across semantically independent blocks
- * (e.g., separate paragraphs inside a div).
- */
+// Block children cause per-block processing to avoid merging text across
+// semantically independent blocks (e.g., separate <p>s inside a <div>).
 const BLOCK_ELEMENTS = new Set([
   "address", "article", "aside", "blockquote", "details", "dialog",
   "dd", "div", "dl", "dt", "fieldset", "figcaption", "figure",
@@ -313,10 +211,6 @@ const BLOCK_ELEMENTS = new Set([
   "p", "pre", "section", "table", "ul",
 ])
 
-/**
- * HTML elements that can contain transformable text content.
- * We traverse into these to find text nodes to transform.
- */
 const TRANSFORMABLE_ELEMENTS = new Set([
   "p",
   "em",
@@ -374,11 +268,6 @@ const TRANSFORMABLE_ELEMENTS = new Set([
   "rp",
 ])
 
-/**
- * Checks whether an element has any text node descendants (skipping elements
- * matched by shouldSkip). Returns as soon as one is found — avoids allocating
- * an array of all text nodes just to check existence.
- */
 function hasTextDescendant(
   node: Element | ElementContent,
   shouldSkip: ElementPredicate,
@@ -403,20 +292,6 @@ function hasTextDescendant(
   return false
 }
 
-/**
- * Collects elements that should have text transformations applied.
- *
- * An element is collected as a single transformation unit when it:
- * 1. Has direct text children (original behavior), OR
- * 2. Has text descendants and NO block-level children — meaning all its
- *    content is inline (phrasing) and should share transformation context
- *    (e.g., `<p><em>"Hello</em><span>, world"</span></p>`).
- *
- * When an element has block-level children, we recurse so each block
- * is processed independently (e.g., `<div><p>A</p><p>B</p></div>`).
- *
- * @param alreadyTransformed - Elements already processed; skipped during traversal to avoid redundant work
- */
 export function collectTransformableElements(
   node: Element,
   shouldSkip: ElementPredicate,
@@ -462,11 +337,6 @@ export function collectTransformableElements(
   return results
 }
 
-/**
- * Recursively marks all element descendants as transformed.
- * Used to prevent redundant processing of nested elements whose text
- * was already processed as part of a parent element.
- */
 function markDescendants(node: Element, set: Set<Element>, depth: number = 0): void {
   /* istanbul ignore if -- defensive: prevents stack overflow from malicious HTML */
   if (depth > MAX_RECURSION_DEPTH) {
@@ -481,30 +351,6 @@ function markDescendants(node: Element, set: Set<Element>, depth: number = 0): v
   }
 }
 
-/**
- * Rehype plugin that applies punctilio typography transformations to HTML.
- *
- * @example
- * ```ts
- * import { unified } from 'unified'
- * import remarkParse from 'remark-parse'
- * import remarkRehype from 'remark-rehype'
- * import rehypeStringify from 'rehype-stringify'
- * import { rehypePunctilio } from 'punctilio/rehype'
- *
- * const result = await unified()
- *   .use(remarkParse)
- *   .use(remarkRehype)
- *   .use(rehypePunctilio, {
- *     punctuationStyle: 'american',
- *     dashStyle: 'american',
- *   })
- *   .use(rehypeStringify)
- *   .process('"Hello," she said -- "it\'s nice."')
- *
- * // Output HTML will have smart quotes and em-dashes
- * ```
- */
 export function rehypePunctilio(
   options: RehypePunctilioOptions = {}
 ): Transformer<Root, Root> {

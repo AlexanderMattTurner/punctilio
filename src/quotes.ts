@@ -1,9 +1,4 @@
-/**
- * Smart quote transformation: straight quotes → curly quotes.
- */
-
-import escapeStringRegexp from "escape-string-regexp"
-import { cachedRegExp, DEFAULT_SEPARATOR, getEscapedSeparator, LATIN_LETTERS, TERMINAL_PUNCTUATION, UNICODE_SYMBOLS } from "./constants.js"
+import { cachedRegExp, DEFAULT_SEPARATOR, escapeStringRegexp, getEscapedSeparator, LATIN_LETTERS, TERMINAL_PUNCTUATION, UNICODE_SYMBOLS } from "./constants.js"
 
 const {
   EM_DASH,
@@ -14,15 +9,9 @@ const {
   MODIFIER_LETTER_APOSTROPHE,
 } = UNICODE_SYMBOLS
 
-/** Joined string of all terminal punctuation characters for use in regex character classes. */
 const TERMINAL_PUNCTUATION_CLASS = TERMINAL_PUNCTUATION.join("")
 
-/**
- * Maximum consecutive closing quotes the punctuation-placement regexes will
- * traverse in a single match (e.g., '". for two-deep nesting). Bounded to keep
- * the regex linear on pathological inputs that contain many closing quotes
- * without any following period or comma.
- */
+// Bounded to keep punctuation-placement regexes linear on pathological inputs.
 const MAX_NESTED_QUOTES = 4
 
 export const PUNCTUATION_STYLES = ["american", "british", "german", "french", "none"] as const
@@ -35,7 +24,6 @@ export interface QuoteOptions {
   punctuationStyle?: PunctuationStyle
 }
 
-/** Convert straight single quotes to curly quotes and apostrophes */
 function convertSingleQuotes(text: string, sep: string): string {
   const escapedSep = getEscapedSeparator({ separator: sep })
 
@@ -86,11 +74,8 @@ function convertSingleQuotes(text: string, sep: string): string {
   return text
 }
 
-/**
- * Convert unmatched RSQ after s/S to MLA (plural possessives like dogs', Bayes').
- * Tracks LSQ/RSQ balance left-to-right so that paired closing quotes
- * (e.g., 'yes' where s precedes RSQ) remain RSQ.
- */
+// Converts unmatched RSQ after s/S to MLA (plural possessives).
+// Tracks LSQ/RSQ balance so paired closing quotes remain RSQ.
 function convertUnmatchedPluralPossessives(text: string, sep: string): string {
   let singleQuoteBalance = 0
   return text.replace(
@@ -116,9 +101,6 @@ function convertUnmatchedPluralPossessives(text: string, sep: string): string {
   )
 }
 
-/**
- * Build the beginning-double-quote regex pattern from named fragments.
- */
 function buildBeginningDoublePattern(escapedSep: string, rawEscSep: string): string {
   // Consuming boundary (not a lookbehind): variable-width lookbehinds
   // with alternation cause ReDoS. Re-emitted via $<boundary> in the replacement.
@@ -140,7 +122,6 @@ function buildBeginningDoublePattern(escapedSep: string, rawEscSep: string): str
   return `${boundary}${beforeCapture}["](?:${afterConditions.join("|")})`
 }
 
-/** Convert straight double quotes to curly quotes */
 function convertDoubleQuotes(text: string, sep: string): string {
   const rawEscSep = escapeStringRegexp(sep)
   const escapedSep = getEscapedSeparator({ separator: sep })
@@ -166,18 +147,8 @@ function convertDoubleQuotes(text: string, sep: string): string {
 }
 
 /**
- * Build a regex that matches a punctuation mark sitting OUTSIDE one or more
- * consecutive closing quotes, for American-style inside-the-quotes placement.
- *
- * Shape: `<non-terminal>(sepBefore)(quotes)(sepAfter)<punctuation>`
- *
- * - The lookbehind ensures the char just before the match isn't already terminal
- *   punctuation (so we don't rewrite, e.g., "Stop!".).
- * - `quotes` matches 1 to MAX_NESTED_QUOTES closing quotes (possibly separated
- *   by element-boundary markers). The bound keeps the regex linear on
- *   pathological inputs — unbounded `*` causes catastrophic backtracking when
- *   many closing quotes appear with no following punctuation.
- * - `punctuationPattern` is the trailing pattern (e.g. `,` or `(?!\.\.\.)\.`).
+ * Matches punctuation OUTSIDE consecutive closing quotes (American style).
+ * `quotes` is bounded to MAX_NESTED_QUOTES to prevent catastrophic backtracking.
  */
 function buildOutsidePunctuationRegex(escapedSep: string, punctuationPattern: string): RegExp {
   const closingQuoteClass = `[${RIGHT_SINGLE_QUOTE}${RIGHT_DOUBLE_QUOTE}]`
@@ -192,10 +163,6 @@ function buildOutsidePunctuationRegex(escapedSep: string, punctuationPattern: st
   return cachedRegExp(pattern, "g")
 }
 
-/**
- * Move a punctuation mark sitting outside one or more consecutive closing
- * quotes to the inside (American style): `Hello'".` → `Hello.'"`.
- */
 function moveOutsideToInside(
   text: string,
   escapedSep: string,
@@ -206,7 +173,6 @@ function moveOutsideToInside(
   return text.replace(regex, `$<sepBefore>${replacementChar}$<quotes>$<sepAfter>`)
 }
 
-/** Apply American or British punctuation style */
 function applyPunctuationStyle(text: string, sep: string, style: PunctuationStyle): string {
   const escapedSep = getEscapedSeparator({ separator: sep })
 
@@ -238,11 +204,8 @@ function applyPunctuationStyle(text: string, sep: string, style: PunctuationStyl
   return text
 }
 
-/**
- * Normalize German quotes back to American for idempotent re-processing.
- * Tracks „..." (U+201E/U+201C) and ‚...' (U+201A/U+2018) pairs so that
- * the ambiguous closer characters are mapped to the correct American equivalents.
- */
+// Normalize German quotes back to American for idempotent re-processing.
+// Tracks „..." and ‚...' pairs so ambiguous closers map correctly.
 function normalizeGermanQuotes(text: string): string {
   const DLQ = UNICODE_SYMBOLS.DOUBLE_LOW_9_QUOTE
   const SLQ = UNICODE_SYMBOLS.SINGLE_LOW_9_QUOTE
@@ -280,7 +243,6 @@ function normalizeGermanQuotes(text: string): string {
   return chars.join("")
 }
 
-/** Remap American curly quotes to German low-9 style. Safe because apostrophes are still MLA at this stage. */
 function applyGermanQuotes(text: string): string {
   return text
     .replaceAll(LEFT_DOUBLE_QUOTE, UNICODE_SYMBOLS.DOUBLE_LOW_9_QUOTE)
@@ -289,11 +251,8 @@ function applyGermanQuotes(text: string): string {
     .replaceAll(RIGHT_SINGLE_QUOTE, LEFT_SINGLE_QUOTE)
 }
 
-/**
- * Normalize French guillemets back to American for idempotent re-processing.
- * Strips either NBSP or NNBSP padding — older outputs used NBSP before the
- * fix to the Unicode CLDR / Imprimerie nationale prescription of NNBSP.
- */
+// Normalize French guillemets back to American for idempotent re-processing.
+// Strips either NBSP or NNBSP padding (older outputs used NBSP).
 function normalizeFrenchQuotes(text: string): string {
   const innerSpace = `[${UNICODE_SYMBOLS.NBSP}${UNICODE_SYMBOLS.NNBSP}]`
   return text
@@ -301,12 +260,7 @@ function normalizeFrenchQuotes(text: string): string {
     .replace(cachedRegExp(`${innerSpace}?${UNICODE_SYMBOLS.RIGHT_GUILLEMET}`, "g"), RIGHT_DOUBLE_QUOTE)
 }
 
-/**
- * Remap American curly double quotes to French guillemets with NNBSP padding.
- * Uses U+202F (NARROW NO-BREAK SPACE) per Unicode CLDR fr locale and
- * Imprimerie nationale's "Lexique des règles typographiques" (6th ed., 2002),
- * which prescribe a narrow non-breaking space — not U+00A0 — inside `« … »`.
- */
+// Uses U+202F (NARROW NO-BREAK SPACE) per Unicode CLDR and Imprimerie nationale.
 function applyFrenchQuotes(text: string): string {
   return text
     .replaceAll(LEFT_DOUBLE_QUOTE, `${UNICODE_SYMBOLS.LEFT_GUILLEMET}${UNICODE_SYMBOLS.NNBSP}`)
@@ -318,13 +272,11 @@ interface LocaleQuoteTransform {
   apply: (text: string) => string
 }
 
-/** Locale-specific normalize (pre-pipeline) and apply (post-pipeline) functions. */
 const localeQuoteTransforms: Partial<Record<PunctuationStyle, LocaleQuoteTransform>> = {
   german: { normalize: normalizeGermanQuotes, apply: applyGermanQuotes },
   french: { normalize: normalizeFrenchQuotes, apply: applyFrenchQuotes },
 }
 
-/** Shared quote-processing pipeline. Returns text with MLA for apostrophes. */
 function processQuotes(text: string, options: QuoteOptions): string {
   const sep = options.separator ?? DEFAULT_SEPARATOR
   const punctuationStyle = options.punctuationStyle ?? "american"

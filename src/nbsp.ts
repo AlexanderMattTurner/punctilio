@@ -1,13 +1,3 @@
-/**
- * Non-breaking space transformations for improved typography.
- *
- * Inserts non-breaking spaces (U+00A0) in positions where line breaks
- * would be typographically undesirable: after short words, between
- * numbers and units, before orphaned last words, etc.
- *
- * @module nbsp
- */
-
 import { cachedRegExp, getEscapedSeparator, LATIN_LETTERS, NBSP_CHARS, SPACE_CHARS, UNICODE_SYMBOLS, wordBoundaryEnd } from "./constants.js"
 
 const {
@@ -26,15 +16,11 @@ export interface NbspOptions {
   separator?: string
 }
 
-/** Space pattern matching regular space, tab, and nbsp. */
 const SPACE = `[${SPACE_CHARS}]`
 
 const UNICODE_UPPERCASE = "\\p{Lu}"
 
-/**
- * Common units for the number-unit nbsp pattern. Only matches these specific
- * abbreviations after a number to avoid false positives like "chapter 3 above".
- */
+/** Only specific abbreviations are matched to avoid false positives. */
 export const UNITS: readonly string[] = [
   // Length
   "km", "cm", "mm", "mi", "ft", "yd", "nm", "pm", "m",
@@ -111,17 +97,8 @@ const ABBREVIATION_PATTERN = REFERENCE_ABBREVIATIONS.map((a) => `${a}\\.`).join(
 const PUNCTUATION_OR_QUOTE = `[.,!?:;)(${LEFT_DOUBLE_QUOTE}${RIGHT_DOUBLE_QUOTE}\u00AB\u00BB${LEFT_SINGLE_QUOTE}${RIGHT_SINGLE_QUOTE}"]`
 const COPYRIGHT_SYMBOLS = `[${COPYRIGHT}${REGISTERED}${TRADEMARK}]`
 
-/**
- * Adds non-breaking space after short words (1-2 letters) to prevent them from
- * being left alone at the end of a line.
- *
- * Skips when the short word is already preceded by an NBSP from an earlier
- * transform, or when this match immediately follows the previous one
- * (back-to-back short words in the same pass). Either case would bind three
- * or more words into a single line-break atom — defeating widow protection.
- *
- * @example "a cat" → "a\u00A0cat", "I am" → "I\u00A0am"
- */
+// Skips when preceded by NBSP or back-to-back with the previous match,
+// preventing 3+ words from binding into a single line-break atom.
 export function nbspAfterShortWords(text: string, options: NbspOptions = {}): string {
   const sep = getEscapedSeparator(options)
   const pattern = cachedRegExp(
@@ -137,11 +114,6 @@ export function nbspAfterShortWords(text: string, options: NbspOptions = {}): st
   })
 }
 
-/**
- * Adds non-breaking space between numbers and common units.
- *
- * @example "100 km" → "100\u00A0km", "5 kg" → "5\u00A0kg"
- */
 export function nbspBetweenNumberAndUnit(text: string, options: NbspOptions = {}): string {
   const sep = getEscapedSeparator(options)
   const wbe = wordBoundaryEnd(sep)
@@ -262,13 +234,7 @@ export function nbspBetweenInitials(text: string, options: NbspOptions = {}): st
 
 type NbspFn = (text: string, options: NbspOptions) => string
 
-/**
- * Ordered list of nbsp transforms. Specific patterns (honorifics, abbreviations,
- * initials) come first so they claim their matches before the generic
- * `nbspAfterShortWords`. For example, "No. 5" is matched by
- * `nbspAfterReferenceAbbreviations` first, preventing `nbspAfterShortWords`
- * from also matching "No" as a 2-letter short word.
- */
+// Specific patterns first so they claim matches before generic nbspAfterShortWords.
 const NBSP_TRANSFORMS: NbspFn[] = [
   nbspAfterHonorifics,
   nbspAfterReferenceAbbreviations,
@@ -280,7 +246,6 @@ const NBSP_TRANSFORMS: NbspFn[] = [
   nbspBeforeLastWord,
 ]
 
-/** Apply all non-breaking space transformations in sequence. */
 export function nbspTransform(text: string, options: NbspOptions = {}): string {
   // All nbsp patterns require a space, tab, or existing nbsp to match.
   // Short-circuit if the text contains none of these.

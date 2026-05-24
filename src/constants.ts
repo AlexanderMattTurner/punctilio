@@ -1,13 +1,8 @@
-/**
- * Shared Unicode constants and regex utilities.
- */
-
 import escapeStringRegexp from "escape-string-regexp"
 import QuickLRU from "quick-lru"
 
-/**
- * Unicode symbols for typography transformations.
- */
+export { escapeStringRegexp }
+
 export const UNICODE_SYMBOLS = {
   ELLIPSIS: "\u2026",
   MULTIPLICATION: "\u00D7",
@@ -82,13 +77,7 @@ export const UNICODE_SYMBOLS = {
   GREEK_QUESTION_MARK: "\u037E", // ; (visually identical to ASCII semicolon)
 } as const
 
-/**
- * All terminal punctuation characters that signal a quote is "already terminated".
- * Covers ASCII, ellipsis, punctuation ligatures, interrobang, CJK fullwidth,
- * CJK ideographic, Arabic, and Greek question mark.
- *
- * Used as a regex character class fragment in quotes.ts and as a test fixture.
- */
+/** All terminal punctuation chars for regex character classes (ASCII through CJK/Arabic/Greek). */
 export const TERMINAL_PUNCTUATION = [
   "!", "?", ".", ",", ";", ":",
   UNICODE_SYMBOLS.ELLIPSIS,
@@ -128,13 +117,8 @@ export const DEFAULT_SEPARATOR = "\uE000\uE001"
 const ESCAPED_DEFAULT_SEPARATOR = escapeStringRegexp(DEFAULT_SEPARATOR)
 
 /**
- * Returns the regex-escaped separator string for the given options,
- * wrapped in a non-capturing group so that quantifiers like `?` and `*`
- * apply to the entire separator sequence (critical for multi-character
- * separators like the default U+E000 U+E001).
- *
- * @param options - Object with an optional `separator` field
- * @returns Regex-escaped separator string wrapped in `(?:...)`
+ * Regex-escaped separator wrapped in `(?:...)` so quantifiers apply to
+ * the entire multi-character sequence.
  */
 export function getEscapedSeparator(options: { separator?: string }): string {
   const escaped = options.separator
@@ -143,10 +127,7 @@ export function getEscapedSeparator(options: { separator?: string }): string {
   return `(?:${escaped})`
 }
 
-/**
- * Characters that have special meaning in regular expressions.
- * Used for testing that separator escaping works correctly.
- */
+/** Regex-special characters, used for testing separator escaping. */
 export const REGEX_SPECIAL_CHARS = [".", "*", "+", "?", "^", "$", "[", "]", "\\", "|", "(", ")"] as const
 
 /**
@@ -179,45 +160,22 @@ export function wordBoundaryEnd(escapedSeparator: string): string {
   return `\\b(?!${escapedSeparator}{0,${MAX_BOUNDARY_SEPARATORS}}\\w)`
 }
 
-/**
- * Pattern string for space characters (regular space, tab, non-breaking space,
- * and narrow no-break space). Use inside regex character classes: `[${SPACE_CHARS}]`
- */
+/** Space chars for regex `[...]`: regular space, tab, NBSP, NNBSP. */
 export const SPACE_CHARS = ` \t${UNICODE_SYMBOLS.NBSP}${UNICODE_SYMBOLS.NNBSP}`
 
-/**
- * Pattern string for the non-breaking space characters only (NBSP and NNBSP).
- * Use inside regex character classes: `[${NBSP_CHARS}]`. Used by patterns
- * that need to detect existing nbsp chains without also matching plain spaces.
- */
+/** Non-breaking space chars only (NBSP, NNBSP) for regex `[...]`. */
 export const NBSP_CHARS = `${UNICODE_SYMBOLS.NBSP}${UNICODE_SYMBOLS.NNBSP}`
 
-/**
- * Maximum recursion depth used by the rehype and remark tree walkers.
- * Guards against stack overflow from maliciously or accidentally deep
- * AST nesting. Shared so both plugins behave identically.
- */
+/** Max AST recursion depth; guards against stack overflow from deep nesting. */
 export const MAX_RECURSION_DEPTH = 1000
 
-/**
- * Canonical issue tracker URL, referenced in user-facing error messages
- * so there's exactly one source of truth if the repository ever moves.
- */
+/** Single source of truth for issue tracker URL in error messages. */
 export const ISSUES_URL = "https://github.com/alexander-turner/punctilio/issues"
 
-/**
- * LRU cache for compiled RegExp objects keyed by `pattern + '\0' + flags`.
- * Avoids recompiling identical regexes on every function call (common
- * when using the default separator). Capped to prevent unbounded growth.
- */
 export const MAX_REGEX_CACHE_SIZE = 1000
 const regexCache = new QuickLRU<string, RegExp>({ maxSize: MAX_REGEX_CACHE_SIZE })
 
-/**
- * Returns a cached RegExp for the given pattern and flags.
- * Resets `lastIndex` before returning to prevent stale state when
- * callers use `.test()` or `.exec()` on global-flag regexes.
- */
+/** Returns a cached RegExp, resetting `lastIndex` to prevent stale global-flag state. */
 export function cachedRegExp(pattern: string, flags: string): RegExp {
   const key = `${pattern}\0${flags}`
   let re = regexCache.get(key)
@@ -229,19 +187,12 @@ export function cachedRegExp(pattern: string, flags: string): RegExp {
   return re
 }
 
-/**
- * Returns all currently cached RegExp objects. Exported for test
- * introspection only (e.g. ReDoS scanning every compiled pattern).
- * @internal
- */
+/** @internal */
 export function getCachedRegExps(): RegExp[] {
   return Array.from(regexCache.values())
 }
 
-/**
- * Clears the regex cache. Exported for test isolation only.
- * @internal
- */
+/** @internal */
 export function clearRegexCache(): void {
   regexCache.clear()
 }

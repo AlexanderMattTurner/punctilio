@@ -1,14 +1,3 @@
-/**
- * Convenience module for Markdown-to-Markdown typography transformations.
- *
- * Provides a single function that takes Markdown input and returns
- * typographically improved Markdown output.
- *
- * Requires `unified`, `remark-parse`, and `remark-stringify` to be installed.
- *
- * @packageDocumentation
- */
-
 import { unified } from "unified"
 import remarkParse from "remark-parse"
 import remarkGfm from "remark-gfm"
@@ -18,9 +7,6 @@ import QuickLRU from "quick-lru"
 import { remarkPunctilio, type RemarkPunctilioOptions } from "./remark.js"
 import { stableStringify } from "./utils.js"
 
-/**
- * Options for the Markdown transform pipeline.
- */
 export interface MarkdownOptions extends RemarkPunctilioOptions {
   /**
    * Character for emphasis (`*text*` vs `_text_`) and strong (`**text**` vs `__text__`).
@@ -41,9 +27,6 @@ export interface MarkdownOptions extends RemarkPunctilioOptions {
   ruleMarker?: "-" | "*" | "_"
 }
 
-/**
- * Creates a unified processor pipeline for Markdown typography transformations.
- */
 function createProcessor(options: MarkdownOptions) {
   const {
     emphasisMarker,
@@ -78,31 +61,11 @@ const processorCache = new QuickLRU<string, ReturnType<typeof createProcessor>>(
   maxSize: MAX_PROCESSOR_CACHE_SIZE,
 })
 
-/**
- * Clears the processor cache. Exported for test isolation only.
- * @internal
- */
+/** @internal */
 export function clearProcessorCache(): void {
   processorCache.clear()
 }
 
-/**
- * Transforms Markdown text with typographic improvements.
- *
- * Parses the input as Markdown, applies punctilio typography transformations
- * (smart quotes, em-dashes, ellipses, etc.), and serializes back to Markdown.
- *
- * The unified processor pipeline is cached and reused across calls with
- * identical options, avoiding redundant pipeline construction.
- *
- * @example
- * ```ts
- * import { transformMarkdown } from 'punctilio/markdown'
- *
- * await transformMarkdown('"Hello" -- world')
- * // → '\u201CHello\u201D\u2014world'
- * ```
- */
 export async function transformMarkdown(
   input: string,
   options: MarkdownOptions = {}
