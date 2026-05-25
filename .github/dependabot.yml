@@ -11,6 +11,19 @@ updates:
         update-types:
           - "minor"
           - "patch"
+    ignore:
+      # eslint 10 drops Node 18 (requires ^20.19 || ^22.13 || >=24), but the test
+      # matrix still includes Node 18. Lift once Node 18 is dropped from CI.
+      - dependency-name: "eslint"
+        versions: [">=10"]
+      # jest 30's branch-coverage instrumentation regresses below the project's
+      # 100% global threshold (e.g. optional chaining now reports as two
+      # branches). Lift once ts-jest officially supports jest 30 and the new
+      # branches are either covered or the threshold is intentionally adjusted.
+      - dependency-name: "jest"
+        versions: [">=30"]
+      - dependency-name: "@types/jest"
+        versions: [">=30"]
 
   - package-ecosystem: "github-actions"
     directory: "/"
