@@ -154,7 +154,7 @@
     }
   },
   "dependencies": {
-    "commander": "14.0.3",
+    "commander": "15.0.0",
     "cosmiconfig": "9.0.1",
     "escape-string-regexp": "5.0.0",
     "ignore": "7.0.5",
