@@ -148,7 +148,7 @@ async function discoverFiles(
   const expanded = globs.length > 0
     ? await glob(globs, { cwd, absolute: true, onlyFiles: true })
     : []
-  const all = [...literals.map((p) => resolve(cwd, p)), ...expanded]
+  const all = [...new Set([...literals.map((p) => resolve(cwd, p)), ...expanded])]
   return all.filter((file) => {
     const rel = relative(cwd, file)
     return rel.startsWith("..") || !ig.ignores(rel)

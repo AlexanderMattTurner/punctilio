@@ -1,6 +1,8 @@
 export { DEFAULT_SEPARATOR, UNICODE_SYMBOLS } from "./constants.js"
-import type { PunctuationStyle } from "./quotes.js"
+import { DASH_STYLES, type DashStyle } from "./dashes.js"
+import { PUNCTUATION_STYLES, type PunctuationStyle } from "./quotes.js"
 export {
+  DASH_STYLES,
   type DashOptions,
   type DashStyle,
   enDashDateRange,
@@ -9,7 +11,6 @@ export {
   minusReplace,
   numberRangeDisallowedPrefixes,
 } from "./dashes.js"
-import type { DashStyle } from "./dashes.js"
 export {
   HONORIFICS,
   nbspAfterCopyrightSymbols,
@@ -25,7 +26,7 @@ export {
   REFERENCE_ABBREVIATIONS,
   UNITS,
 } from "./nbsp.js"
-export { classifyApostrophes, niceQuotes, type PunctuationStyle, type QuoteOptions } from "./quotes.js"
+export { classifyApostrophes, niceQuotes, PUNCTUATION_STYLES, type PunctuationStyle, type QuoteOptions } from "./quotes.js"
 
 export interface TransformOptions {
   /**
@@ -197,6 +198,22 @@ export function transform(text: string, options: TransformOptions = {}): string 
     throw new Error(
       `Invalid separator: must contain only BMP characters (no characters outside the Basic Multilingual Plane). ` +
       `Received "${separator}" which contains a non-BMP character.`
+    )
+  }
+
+  const punctuationStyle = options.punctuationStyle ?? "american"
+  if (!PUNCTUATION_STYLES.includes(punctuationStyle as typeof PUNCTUATION_STYLES[number])) {
+    throw new Error(
+      `Invalid punctuationStyle: "${punctuationStyle}". ` +
+      `Must be one of: ${PUNCTUATION_STYLES.join(", ")}.`
+    )
+  }
+
+  const dashStyle = options.dashStyle ?? "american"
+  if (!DASH_STYLES.includes(dashStyle as typeof DASH_STYLES[number])) {
+    throw new Error(
+      `Invalid dashStyle: "${dashStyle}". ` +
+      `Must be one of: ${DASH_STYLES.join(", ")}.`
     )
   }
 

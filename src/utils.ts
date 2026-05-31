@@ -120,6 +120,7 @@ export function stableStringify(obj: object): string {
   const entries = Object.entries(obj)
     .filter(([, v]) => v !== undefined)
     .sort(([a], [b]) => a.localeCompare(b))
+    .map(([k, v]) => [k, Array.isArray(v) ? [...v].sort() : v])
   return JSON.stringify(entries)
 }
 
