@@ -11,6 +11,21 @@ updates:
         update-types:
           - "minor"
           - "patch"
+    ignore:
+      # commander 15 requires Node.js >=22.12; we still support Node >=18.
+      # Revisit once engines.node is bumped above 22.
+      - dependency-name: "commander"
+        versions: [">=15"]
+      # @types/node majors should track the minimum supported Node engine.
+      # Pinned to 20.x to match engines.node >=18 (next-LTS types).
+      - dependency-name: "@types/node"
+        versions: [">=21"]
+      # jest 30 breaks our 100% branch-coverage threshold under ts-jest
+      # (see .github/prompts/fix-jest-30.md). Lift once that is resolved.
+      - dependency-name: "jest"
+        versions: [">=30"]
+      - dependency-name: "@types/jest"
+        versions: [">=30"]
 
   - package-ecosystem: "github-actions"
     directory: "/"
