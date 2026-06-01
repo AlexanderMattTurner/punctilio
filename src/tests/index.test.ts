@@ -1,4 +1,4 @@
-import { countSeparators, DEFAULT_SEPARATOR, transform } from "../index.js"
+import { countSeparators, DASH_STYLES, DEFAULT_SEPARATOR, PUNCTUATION_STYLES, transform } from "../index.js"
 import { ellipsis } from "../symbols.js"
 import { MAX_REGEX_CACHE_SIZE, REGEX_SPECIAL_CHARS, UNICODE_SYMBOLS } from "../constants.js"
 import { buildMixedContent } from "./test-helpers.js"
@@ -709,4 +709,82 @@ describe("transform", () => {
     })
 
   })
+
+  describe("option validation", () => {
+    it.each([
+      "American",
+      "AMERICAN",
+      "typo",
+      "",
+      "en-US",
+    ])("rejects invalid punctuationStyle: %s", (style) => {
+      expect(() => transform("hello", { punctuationStyle: style as never })).toThrow(
+        /Invalid punctuationStyle/
+      )
+    })
+
+    it("includes valid values in punctuationStyle error message", () => {
+      expect.assertions(PUNCTUATION_STYLES.length)
+      try {
+        transform("hello", { punctuationStyle: "bad" as never })
+      } catch (e) {
+        const msg = (e as Error).message
+        for (const style of PUNCTUATION_STYLES) {
+          expect(msg).toContain(style)
+        }
+      }
+    })
+
+    it.each([
+      "American",
+      "BRITISH",
+      "typo",
+      "",
+    ])("rejects invalid dashStyle: %s", (style) => {
+      expect(() => transform("hello", { dashStyle: style as never })).toThrow(
+        /Invalid dashStyle/
+      )
+    })
+
+    it("includes valid values in dashStyle error message", () => {
+      expect.assertions(DASH_STYLES.length)
+      try {
+        transform("hello", { dashStyle: "bad" as never })
+      } catch (e) {
+        const msg = (e as Error).message
+        for (const style of DASH_STYLES) {
+          expect(msg).toContain(style)
+        }
+      }
+    })
+
+    it.each([
+      "american",
+      "british",
+      "german",
+      "french",
+      "none",
+    ] as const)("accepts valid punctuationStyle: %s", (style) => {
+      expect(() => transform("hello", { punctuationStyle: style })).not.toThrow()
+    })
+
+    it.each([
+      "american",
+      "british",
+      "none",
+    ] as const)("accepts valid dashStyle: %s", (style) => {
+      expect(() => transform("hello", { dashStyle: style })).not.toThrow()
+    })
+  })
+
+  describe("style constant exports", () => {
+    it("exports PUNCTUATION_STYLES with all expected values", () => {
+      expect(PUNCTUATION_STYLES).toEqual(["american", "british", "german", "french", "none"])
+    })
+
+    it("exports DASH_STYLES with all expected values", () => {
+      expect(DASH_STYLES).toEqual(["american", "british", "none"])
+    })
+  })
+
 })

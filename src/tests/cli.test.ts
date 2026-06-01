@@ -587,6 +587,17 @@ describe("runCli", () => {
     })
   })
 
+  it("deduplicates files when a literal path also matches a glob", async () => {
+    await withTempCwd("punctilio-dedup-", async (dir) => {
+      writeFileSync(join(dir, "a.md"), '"a"\n')
+      const cap = captureIO()
+      expect(await runCli(["a.md", "*.md", "--no-nbsp"], cap.io)).toBe(0)
+      const out = cap.stdout()
+      const reformatted = out.split("\n").filter((l) => l.includes("Reformatted"))
+      expect(reformatted).toHaveLength(1)
+    })
+  })
+
   it("--ignore-path overrides the default .punctilioignore lookup", async () => {
     await withTempCwd("punctilio-ignore-", async (dir) => {
       writeFileSync(join(dir, "a.md"), '"a"\n')

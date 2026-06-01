@@ -1,5 +1,5 @@
 import { jest } from "@jest/globals"
-import { assertSeparatorAbsent, assertSeparatorCountPreserved, countSeparators, formatErrorString } from "../utils.js"
+import { assertSeparatorAbsent, assertSeparatorCountPreserved, countSeparators, formatErrorString, stableStringify } from "../utils.js"
 import { cachedRegExp, clearRegexCache, DEFAULT_SEPARATOR } from "../constants.js"
 
 describe("assertSeparatorAbsent", () => {
@@ -148,5 +148,25 @@ describe("formatErrorString", () => {
     const result = formatErrorString(exactText, "exact")
     expect(result).toBe(JSON.stringify(exactText))
     expect(stderrOutput).toHaveLength(0)
+  })
+})
+
+describe("stableStringify", () => {
+  it("sorts object keys alphabetically", () => {
+    expect(stableStringify({ b: 1, a: 2 })).toBe(stableStringify({ a: 2, b: 1 }))
+  })
+
+  it("filters out undefined values", () => {
+    expect(stableStringify({ a: 1, b: undefined })).toBe(stableStringify({ a: 1 }))
+  })
+
+  it("sorts array values for order-independent cache keys", () => {
+    expect(stableStringify({ tags: ["pre", "code"] })).toBe(stableStringify({ tags: ["code", "pre"] }))
+  })
+
+  it("does not mutate the original array", () => {
+    const opts = { tags: ["pre", "code", "a"] }
+    stableStringify(opts)
+    expect(opts.tags).toEqual(["pre", "code", "a"])
   })
 })
