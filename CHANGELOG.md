@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## [3.12.0] - 2026-06-01
+
+### Added
+- Export style constants for public use.
+
+### Fixed
+- Validate style options to prevent invalid configurations.
+- Deduplicate CLI file arguments.
+- Stabilize cache keys for consistent performance.
+
 ## [3.11.2] - 2026-05-23
 
 ### Fixed
