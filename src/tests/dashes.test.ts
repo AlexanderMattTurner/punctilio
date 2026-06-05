@@ -759,12 +759,11 @@ describe("emDashWordJoiner", () => {
     [`plan${WORD_JOINER}${EM_DASH}result`, `plan${WORD_JOINER}${EM_DASH}result`, "already glued"],
     // Newline before dash: untouched
     [`intro\n${EM_DASH}continuation`, `intro\n${EM_DASH}continuation`, "newline before"],
+    // Separator chars are non-whitespace, so a dash after a separator is protected
+    [`x${sep}${EM_DASH}y`, `x${sep}${WORD_JOINER}${EM_DASH}y`, "separator before dash"],
+    // Consecutive em dashes: second dash is preceded by the first (non-whitespace), so also protected
+    [`${EM_DASH}${EM_DASH}`, `${EM_DASH}${WORD_JOINER}${EM_DASH}`, "consecutive em dashes"],
   ])("%s → %s (%s)", (input, expected) => {
     expect(emDashWordJoiner(input)).toBe(expected)
-  })
-
-  it("separator counts as preceding content", () => {
-    const input = `x${sep}${EM_DASH}y`
-    expect(emDashWordJoiner(input, { separator: sep })).toBe(`x${sep}${WORD_JOINER}${EM_DASH}y`)
   })
 })

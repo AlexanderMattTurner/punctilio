@@ -262,18 +262,8 @@ const { WORD_JOINER } = UNICODE_SYMBOLS
  * preceding content, preventing the dash from appearing as the first glyph
  * on a wrapped line. Does not insert before line-leading dashes (preceded by
  * whitespace or start-of-string) or dashes already glued with a word joiner.
- *
- * The element-boundary separator counts as preceding content, so an em dash
- * glued to a preceding inline element across a marker is still protected.
- *
- * This is a rendered-HTML concern. Do not apply it to Markdown source.
- * British dash style uses spaced en dashes ("word – word"), which carry real
- * spaces and are not affected by this transform.
  */
-export function emDashWordJoiner(text: string, options: DashOptions = {}): string {
-  const escapedSep = getEscapedSeparator(options)
-  // Match an em dash preceded by a non-whitespace, non-word-joiner character
-  // (or a separator marker, which counts as preceding content).
-  const re = cachedRegExp(`(?<=[^\\s${WORD_JOINER}]|${escapedSep})${EM_DASH}`, "gu")
+export function emDashWordJoiner(text: string): string {
+  const re = cachedRegExp(`(?<=[^\\s${WORD_JOINER}])${EM_DASH}`, "gu")
   return text.replace(re, `${WORD_JOINER}${EM_DASH}`)
 }
