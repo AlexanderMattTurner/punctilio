@@ -1,4 +1,4 @@
-import { enDashDateRange, enDashNumberRange, hyphenReplace, minusReplace, numberRangeDisallowedPrefixes } from "../dashes.js"
+import { emDashWordJoiner, enDashDateRange, enDashNumberRange, hyphenReplace, minusReplace, numberRangeDisallowedPrefixes } from "../dashes.js"
 import { DEFAULT_SEPARATOR, UNICODE_SYMBOLS } from "../constants.js"
 
 const {
@@ -738,5 +738,33 @@ describe("hyphenReplace preserves multi-segment numbers across separators", () =
     ["model name across elements", `${sep}GPT${sep}-3`],
   ])("%s", (_desc, input) => {
     expect(hyphenReplace(input, { separator: sep })).toBe(input)
+  })
+})
+
+const { WORD_JOINER } = UNICODE_SYMBOLS
+
+describe("emDashWordJoiner", () => {
+  it.each([
+    // Preceded by a letter: word joiner inserted
+    [`plan${EM_DASH}result`, `plan${WORD_JOINER}${EM_DASH}result`, "preceded by letter"],
+    // Multiple dashes: each protected
+    [`a${EM_DASH}b${EM_DASH}c`, `a${WORD_JOINER}${EM_DASH}b${WORD_JOINER}${EM_DASH}c`, "multiple dashes"],
+    // Preceded by digit: protected
+    [`cost${EM_DASH}10`, `cost${WORD_JOINER}${EM_DASH}10`, "preceded by digit"],
+    // Start of string: untouched
+    [`${EM_DASH}Author`, `${EM_DASH}Author`, "start of string"],
+    // Preceded by whitespace: untouched
+    [`foo ${EM_DASH} bar`, `foo ${EM_DASH} bar`, "preceded by whitespace"],
+    // Already glued (idempotent): no double insertion
+    [`plan${WORD_JOINER}${EM_DASH}result`, `plan${WORD_JOINER}${EM_DASH}result`, "already glued"],
+    // Newline before dash: untouched
+    [`intro\n${EM_DASH}continuation`, `intro\n${EM_DASH}continuation`, "newline before"],
+  ])("%s → %s (%s)", (input, expected) => {
+    expect(emDashWordJoiner(input)).toBe(expected)
+  })
+
+  it("separator counts as preceding content", () => {
+    const input = `x${sep}${EM_DASH}y`
+    expect(emDashWordJoiner(input, { separator: sep })).toBe(`x${sep}${WORD_JOINER}${EM_DASH}y`)
   })
 })

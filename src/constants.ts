@@ -45,6 +45,7 @@ export const UNICODE_SYMBOLS = {
   MODIFIER_LETTER_APOSTROPHE: "\u02BC",
   NBSP: "\u00A0",
   NNBSP: "\u202F",                   // Narrow no-break space (French typography, Unicode CLDR)
+  WORD_JOINER: "\u2060",             // Prevents line-break before (does not add visible space)
   DOUBLE_LOW_9_QUOTE: "\u201E",      // „
   SINGLE_LOW_9_QUOTE: "\u201A",     // ‚
   LEFT_GUILLEMET: "\u00AB",         // «
