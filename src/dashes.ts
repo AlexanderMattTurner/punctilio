@@ -254,3 +254,25 @@ export function hyphenReplace(text: string, options: DashOptions = {}): string {
   if (style === "american") text = normalizeEmDashSpacing(text, sep)
   return text
 }
+
+const { WORD_JOINER } = UNICODE_SYMBOLS
+
+/**
+ * Insert a word joiner (U+2060) immediately before each unspaced em or en
+ * dash that has preceding content, preventing the dash from appearing as the
+ * first glyph on a wrapped line. Both dashes share Unicode line-break class
+ * B2, which permits a break before them. Does not insert before line-leading
+ * dashes (preceded by whitespace or start-of-string) or dashes already glued
+ * with a word joiner — including British-style spaced en dashes ("word – word"),
+ * which are already protected by the surrounding spaces.
+ *
+ * **Trade-off:** the inserted U+2060 is invisible but present in the DOM, so
+ * browser Ctrl+F / find-in-page will not match a query like `plan—result`
+ * against the rendered `plan⁠—result`. This is the same trade-off made by
+ * `nbspTransform` (U+00A0 breaks `Fig. 1` searches). Apply only in rendered
+ * HTML; do not write into Markdown source.
+ */
+export function dashWordJoiner(text: string): string {
+  const re = cachedRegExp(`(?<=[^\\s${WORD_JOINER}])[${EM_DASH}${EN_DASH}]`, "gu")
+  return text.replace(re, `${WORD_JOINER}$&`)
+}

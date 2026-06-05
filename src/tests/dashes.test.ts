@@ -1,4 +1,4 @@
-import { enDashDateRange, enDashNumberRange, hyphenReplace, minusReplace, numberRangeDisallowedPrefixes } from "../dashes.js"
+import { dashWordJoiner, enDashDateRange, enDashNumberRange, hyphenReplace, minusReplace, numberRangeDisallowedPrefixes } from "../dashes.js"
 import { DEFAULT_SEPARATOR, UNICODE_SYMBOLS } from "../constants.js"
 
 const {
@@ -738,5 +738,44 @@ describe("hyphenReplace preserves multi-segment numbers across separators", () =
     ["model name across elements", `${sep}GPT${sep}-3`],
   ])("%s", (_desc, input) => {
     expect(hyphenReplace(input, { separator: sep })).toBe(input)
+  })
+})
+
+const { WORD_JOINER } = UNICODE_SYMBOLS
+
+describe("dashWordJoiner", () => {
+  it.each([
+    // Em dash: preceded by a letter
+    [`plan${EM_DASH}result`, `plan${WORD_JOINER}${EM_DASH}result`, "em dash preceded by letter"],
+    // Em dash: multiple
+    [`a${EM_DASH}b${EM_DASH}c`, `a${WORD_JOINER}${EM_DASH}b${WORD_JOINER}${EM_DASH}c`, "multiple em dashes"],
+    // Em dash: preceded by digit
+    [`cost${EM_DASH}10`, `cost${WORD_JOINER}${EM_DASH}10`, "em dash preceded by digit"],
+    // Em dash: start of string — untouched
+    [`${EM_DASH}Author`, `${EM_DASH}Author`, "em dash at start of string"],
+    // Em dash: preceded by whitespace — untouched
+    [`foo ${EM_DASH} bar`, `foo ${EM_DASH} bar`, "em dash preceded by whitespace"],
+    // Em dash: already glued (idempotent)
+    [`plan${WORD_JOINER}${EM_DASH}result`, `plan${WORD_JOINER}${EM_DASH}result`, "em dash already glued"],
+    // Em dash: newline before — untouched
+    [`intro\n${EM_DASH}continuation`, `intro\n${EM_DASH}continuation`, "em dash after newline"],
+    // Em dash: separator chars are non-whitespace, so protected
+    [`x${sep}${EM_DASH}y`, `x${sep}${WORD_JOINER}${EM_DASH}y`, "em dash after separator"],
+    // Em dash: consecutive — second is preceded by first (non-whitespace)
+    [`${EM_DASH}${EM_DASH}`, `${EM_DASH}${WORD_JOINER}${EM_DASH}`, "consecutive em dashes"],
+    // En dash: number range — protected
+    [`1${EN_DASH}5`, `1${WORD_JOINER}${EN_DASH}5`, "en dash number range"],
+    // En dash: date range — protected
+    [`Jan${EN_DASH}Mar`, `Jan${WORD_JOINER}${EN_DASH}Mar`, "en dash date range"],
+    // En dash: already glued (idempotent)
+    [`1${WORD_JOINER}${EN_DASH}5`, `1${WORD_JOINER}${EN_DASH}5`, "en dash already glued"],
+    // En dash: British spaced — untouched (space before is whitespace)
+    [`word ${EN_DASH} word`, `word ${EN_DASH} word`, "en dash British spaced"],
+    // En dash: start of string — untouched
+    [`${EN_DASH}5`, `${EN_DASH}5`, "en dash at start of string"],
+    // Mixed: em and en dashes in same string
+    [`a${EM_DASH}b${EN_DASH}c`, `a${WORD_JOINER}${EM_DASH}b${WORD_JOINER}${EN_DASH}c`, "mixed em and en dash"],
+  ])("%s → %s (%s)", (input, expected) => {
+    expect(dashWordJoiner(input)).toBe(expected)
   })
 })
