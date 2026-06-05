@@ -265,6 +265,12 @@ const { WORD_JOINER } = UNICODE_SYMBOLS
  * dashes (preceded by whitespace or start-of-string) or dashes already glued
  * with a word joiner — including British-style spaced en dashes ("word – word"),
  * which are already protected by the surrounding spaces.
+ *
+ * **Trade-off:** the inserted U+2060 is invisible but present in the DOM, so
+ * browser Ctrl+F / find-in-page will not match a query like `plan—result`
+ * against the rendered `plan⁠—result`. This is the same trade-off made by
+ * `nbspTransform` (U+00A0 breaks `Fig. 1` searches). Apply only in rendered
+ * HTML; do not write into Markdown source.
  */
 export function dashWordJoiner(text: string): string {
   const re = cachedRegExp(`(?<=[^\\s${WORD_JOINER}])[${EM_DASH}${EN_DASH}]`, "gu")
