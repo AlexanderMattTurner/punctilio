@@ -3,7 +3,7 @@
 ## Unreleased
 
 ### Added
-- `emDashWordJoiner(text, options?)`: inserts a word joiner (U+2060) before em dashes that have preceding content, preventing the dash from appearing as the first glyph on a wrapped line. Separator-aware; opt-in and composable like `nbspTransform`.
+- `dashWordJoiner(text)`: inserts a word joiner (U+2060) before unspaced em and en dashes that have preceding content, preventing either dash from appearing as the first glyph on a wrapped line. Both dashes share Unicode line-break class B2; spaced British-style en dashes are unaffected. Opt-in and composable like `nbspTransform`.
 - `UNICODE_SYMBOLS.WORD_JOINER` (U+2060).
 
 ## [3.12.0] - 2026-06-01

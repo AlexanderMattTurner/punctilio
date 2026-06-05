@@ -258,12 +258,15 @@ export function hyphenReplace(text: string, options: DashOptions = {}): string {
 const { WORD_JOINER } = UNICODE_SYMBOLS
 
 /**
- * Insert a word joiner (U+2060) immediately before each em dash that has
- * preceding content, preventing the dash from appearing as the first glyph
- * on a wrapped line. Does not insert before line-leading dashes (preceded by
- * whitespace or start-of-string) or dashes already glued with a word joiner.
+ * Insert a word joiner (U+2060) immediately before each unspaced em or en
+ * dash that has preceding content, preventing the dash from appearing as the
+ * first glyph on a wrapped line. Both dashes share Unicode line-break class
+ * B2, which permits a break before them. Does not insert before line-leading
+ * dashes (preceded by whitespace or start-of-string) or dashes already glued
+ * with a word joiner — including British-style spaced en dashes ("word – word"),
+ * which are already protected by the surrounding spaces.
  */
-export function emDashWordJoiner(text: string): string {
-  const re = cachedRegExp(`(?<=[^\\s${WORD_JOINER}])${EM_DASH}`, "gu")
-  return text.replace(re, `${WORD_JOINER}${EM_DASH}`)
+export function dashWordJoiner(text: string): string {
+  const re = cachedRegExp(`(?<=[^\\s${WORD_JOINER}])[${EM_DASH}${EN_DASH}]`, "gu")
+  return text.replace(re, `${WORD_JOINER}$&`)
 }

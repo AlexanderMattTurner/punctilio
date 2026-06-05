@@ -5,7 +5,7 @@ export {
   DASH_STYLES,
   type DashOptions,
   type DashStyle,
-  emDashWordJoiner,
+  dashWordJoiner,
   enDashDateRange,
   enDashNumberRange,
   hyphenReplace,
