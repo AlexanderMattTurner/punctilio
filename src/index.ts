@@ -151,7 +151,7 @@ export interface TransformOptions {
 
 import { niceQuotes } from "./quotes.js"
 import { hyphenReplace } from "./dashes.js"
-import { collapseSpaces as collapseSpacesTransform, degrees as degreesTransform, fractions as fractionsTransform, punctuationLigatures as ligaturesTransform, primeMarks, superscriptOrdinal as superscriptTransform, symbolTransform } from "./symbols.js"
+import { collapseSpaces as collapseSpacesTransform, degrees as degreesTransform, ellipsis as ellipsisTransform, fractions as fractionsTransform, punctuationLigatures as ligaturesTransform, primeMarks, superscriptOrdinal as superscriptTransform, symbolTransform } from "./symbols.js"
 import { nbspTransform as nbspTransformFn } from "./nbsp.js"
 import { assertKnownOptionKeys, assertSeparatorCountPreserved, filterUndefined, formatErrorString } from "./utils.js"
 import { DEFAULT_SEPARATOR, ISSUES_URL, UNICODE_SYMBOLS } from "./constants.js"
@@ -242,18 +242,31 @@ export function transform(text: string, options: TransformOptions = {}): string 
     text = collapseSpacesTransform(text)
   }
 
+  // Fold ellipses before range detection so that "...1-5" gains its post-ellipsis
+  // space ("… 1-5") before enDashNumberRange runs. Otherwise the first pass sees a
+  // range blocked by the leading dot and the second pass sees it preceded by a
+  // space and en-dashes it, breaking idempotency. ellipsis is idempotent, so the
+  // later symbolTransform call repeats it harmlessly.
+  if (symbols) {
+    text = ellipsisTransform(text, pipelineOpts)
+  }
+
   text = hyphenReplace(text, pipelineOpts)
   if (pipelineOpts.punctuationStyle !== "none") {
     text = primeMarks(text, pipelineOpts)
   }
   text = niceQuotes(text, pipelineOpts)
 
-  if (symbols) {
-    text = symbolTransform(text, pipelineOpts)
-  }
-
+  // Fractions run before symbolTransform so that "1/2(tm)" → "½(tm)" before
+  // legalSymbols inspects it. Otherwise the unconverted "/" looks like a path
+  // segment and suppresses the (tm) → ™ conversion on the first pass, while the
+  // second pass (no "/") converts it, breaking idempotency.
   if (fractions) {
     text = fractionsTransform(text, pipelineOpts)
+  }
+
+  if (symbols) {
+    text = symbolTransform(text, pipelineOpts)
   }
 
   if (degrees) {
