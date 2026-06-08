@@ -454,6 +454,12 @@ describe("transform", () => {
       'Product(tm) 5x5 at 72 F (c) 2024',
       "Add 1/2 cup - that's about 3/4 done",
       '1st place winner said "congrats!!"',
+      // The symbol pass rewrites x→× and +/-→±; a range start preceded by the
+      // resulting symbol must not en-dash on a second pass (regression: these
+      // threw "Transform is not idempotent").
+      "the 5x10-20 pack",
+      "buy 3x5-10 cards",
+      "give or take +/-1-5 units",
     ])('is idempotent: "%s"', (input) => {
       const first = transform(input, { fractions: true, degrees: true, superscript: true, ligatures: true })
       const second = transform(first, { fractions: true, degrees: true, superscript: true, ligatures: true })

@@ -218,15 +218,31 @@ function normalizeGermanQuotes(text: string): string {
     if (ch === DLQ) {
       chars.push(LEFT_DOUBLE_QUOTE)
       doubleDepth++
-    } else if (ch === LEFT_DOUBLE_QUOTE && doubleDepth > 0) {
-      chars.push(RIGHT_DOUBLE_QUOTE)
-      doubleDepth--
+    } else if (ch === LEFT_DOUBLE_QUOTE) {
+      // U+201C is both the American opening double quote and the German closing
+      // double quote. A balanced closer (depth > 0) maps to RDQ; an orphan
+      // (depth 0) maps to a straight quote so convertDoubleQuotes re-derives it
+      // by position. Without the orphan branch, re-processing German output like
+      // "word“" turns the lone closer back into an opener („) and breaks
+      // idempotency.
+      if (doubleDepth > 0) {
+        chars.push(RIGHT_DOUBLE_QUOTE)
+        doubleDepth--
+      } else {
+        chars.push('"')
+      }
     } else if (ch === SLQ) {
       chars.push(LEFT_SINGLE_QUOTE)
       singleDepth++
-    } else if (ch === LEFT_SINGLE_QUOTE && singleDepth > 0) {
-      chars.push(RIGHT_SINGLE_QUOTE)
-      singleDepth--
+    } else if (ch === LEFT_SINGLE_QUOTE) {
+      // Mirror of the U+201C case: U+2018 is both the American opening single
+      // quote and the German closing single quote.
+      if (singleDepth > 0) {
+        chars.push(RIGHT_SINGLE_QUOTE)
+        singleDepth--
+      } else {
+        chars.push("'")
+      }
     } else if (ch === RIGHT_DOUBLE_QUOTE) {
       // RDQ is not used in German typography — normalize to straight quote
       // so the pipeline can re-classify it (e.g., from a previous American pass)
