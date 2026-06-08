@@ -64,7 +64,7 @@ My [`benchmark.mjs`](https://github.com/alexander-turner/punctilio/blob/main/ben
 |         Superscripts |     <span class="no-formatting">2nd → 2ⁿᵈ</span>      |      ✓      |       ✗       |      ✗      |       ✗       |     ✗      |
 | English localization | <span class="no-formatting">American / British</span> |      ✓      |       ✗       |      ✗      |       ✗       |     ✗      |
 |            Ligatures |       <span class="no-formatting">?? → ⁇</span>       |      ✓      |       ✗       |      ✓      |       ✗       |     ✗      |
-|   Non-English quotes |      <span class=”no-formatting”>„Hallo”</span>       |      ✓      |       ✗       |      ✓      |       ✗       |     ◐      |
+|   Non-English quotes |      <span class="no-formatting">„Hallo“</span>       |      ✓      |       ✗       |      ✓      |       ✗       |     ◐      |
 |  Non-breaking spaces |     <span class="no-formatting">Chapter 1</span>      |      ✓      |       ✗       |      ✗      |       ✗       |     ✓      |
 
 ### Known limitations of `punctilio`
@@ -223,7 +223,7 @@ repos:
 - The `british` style follows [Oxford style](https://www.ox.ac.uk/sites/files/oxford/Style%20Guide%20quick%20reference%20A-Z.pdf):
   - Periods and commas go outside quotation marks (“Hello”, she said.)
   - Spaced en-dashes between words (word – word)
-- The `german` style uses low-9 quotes: „double” (U+201E/U+201C) and ‚single' (U+201A/U+2018).
+- The `german` style uses low-9 quotes: „double“ (U+201E/U+201C) and ‚single‘ (U+201A/U+2018).
   - Punctuation outside quotes
 - The `french` style uses guillemets padded with a narrow no-break space (U+202F), per Unicode CLDR's `fr` locale and the Imprimerie nationale's *Lexique des règles typographiques*: « Bonjour ».
   - Single quotes remain as curly quotes
