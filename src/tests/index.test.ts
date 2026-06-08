@@ -454,6 +454,10 @@ describe("transform", () => {
       'Product(tm) 5x5 at 72 F (c) 2024',
       "Add 1/2 cup - that's about 3/4 done",
       '1st place winner said "congrats!!"',
+      // multiplication rewrites x→×; the trailing range must not en-dash on a
+      // second pass (regression: this threw "Transform is not idempotent").
+      "the 5x10-20 pack",
+      "buy 3x5-10 cards",
     ])('is idempotent: "%s"', (input) => {
       const first = transform(input, { fractions: true, degrees: true, superscript: true, ligatures: true })
       const second = transform(first, { fractions: true, degrees: true, superscript: true, ligatures: true })

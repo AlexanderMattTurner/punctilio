@@ -11,7 +11,7 @@ export interface DashOptions {
   dashStyle?: DashStyle
 }
 
-const { EN_DASH, EM_DASH, MINUS, LEFT_DOUBLE_QUOTE, RIGHT_DOUBLE_QUOTE, LEFT_SINGLE_QUOTE, RIGHT_SINGLE_QUOTE } = UNICODE_SYMBOLS
+const { EN_DASH, EM_DASH, MINUS, MULTIPLICATION, LEFT_DOUBLE_QUOTE, RIGHT_DOUBLE_QUOTE, LEFT_SINGLE_QUOTE, RIGHT_SINGLE_QUOTE } = UNICODE_SYMBOLS
 
 // Prevents false-positive ranges in model names like "Llama-2-7B".
 export const numberRangeDisallowedPrefixes = ["-", EN_DASH, EM_DASH, MINUS] as const
@@ -43,7 +43,11 @@ export function enDashNumberRange(text: string, options: DashOptions = {}): stri
   // Build positive range pattern from readable components
   const phoneAreaCode = `(?<precedingAreaCode>\\d{3}-|\\(\\d{3}\\) ?)?`  // 555- or (555)
   // Lookbehind prevents matching after dashes, so Llama-2-7B and +44-20 don't en-dash.
-  const notAfterDash = `(?<![${DISALLOWED_PREFIX_CLASS_FRAGMENT}${LATIN_LETTERS}.+])`
+  // `${MULTIPLICATION}` keeps ranges stable across the multiplication pass, which runs
+  // after this one: a range start preceded by `x` (a Latin letter) is already rejected
+  // here, and `multiplication` later rewrites that `x` to `×`. Rejecting `×` too means a
+  // second pass over "5x10-20" → "5×10-20" doesn't suddenly en-dash the "10-20" tail.
+  const notAfterDash = `(?<![${DISALLOWED_PREFIX_CLASS_FRAGMENT}${LATIN_LETTERS}${MULTIPLICATION}.+])`
   const rangeStart = `(?<start>(?:p\\.?|[${currencies}])?\\d[\\d.,]*${chr}?)`  // p.10, $100, 1,000
   const rangeEnd = `(?<end>${chr}?[${currencies}]?\\d[\\d.,]*)`          // 20, $200, 2,000
   const moreSegments = `(?<following>(?:${chr}?[-${MINUS}]${chr}?\\d+)*)` // -4567 in phone numbers

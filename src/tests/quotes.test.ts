@@ -675,6 +675,11 @@ describe("niceQuotes", () => {
       [`${LEFT_GUILLEMET}${NNBSP}Bonjour${NNBSP}${RIGHT_GUILLEMET}`, { punctuationStyle: "french" as const }],
       // German apostrophe idempotency — RSQ must not flip to LSQ on re-processing
       [`${RIGHT_SINGLE_QUOTE}Twas the night`, { punctuationStyle: "german" as const }],
+      // German orphan closers — U+201C and U+2018 double as American openers, so a
+      // lone German closing quote must not be re-read as an opener on the next pass.
+      [`word${LEFT_DOUBLE_QUOTE}`, { punctuationStyle: "german" as const }],
+      [`x${LEFT_SINGLE_QUOTE}`, { punctuationStyle: "german" as const }],
+      [LEFT_DOUBLE_QUOTE, { punctuationStyle: "german" as const }],
     ])("locale output is idempotent: %s", (input, options) => {
       expect(niceQuotes(input, options)).toBe(input)
     })
