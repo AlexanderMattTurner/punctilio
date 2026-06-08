@@ -3,7 +3,7 @@
 ## Unreleased
 
 ### Fixed
-- Idempotency for ranges adjacent to a multiplication sign: `transform("5x10-20")` no longer throws. `multiplication` rewrites the range-blocking `x` to `×`, which is now also excluded from number-range detection.
+- Idempotency for ranges preceded by a symbol-pass operator: `transform("5x10-20")` and `transform("+/-1-5")` no longer throw. The symbol pass rewrites the range-blocking `x` to `×` and `+/-` to `±`, which are now also excluded from number-range detection.
 - Idempotency for orphan German quotes: `transform('word"', { punctuationStyle: "german" })` no longer throws. A lone German closing quote (U+201C/U+2018, which double as American openers) is no longer re-read as an opener on re-processing.
 
 ## [3.13.0] - 2026-06-06

@@ -357,7 +357,8 @@ describe("enDashNumberRange preserves", () => {
     "978-3-16-148410-0", "0-13-468599-1", // ISBNs
     "2024-01-15", "2024-01", "1999-12", // ISO dates
     "192-168-1-1", "12-34-5678", // IPs
-    `5${UNICODE_SYMBOLS.MULTIPLICATION}10-20`, `2${UNICODE_SYMBOLS.MULTIPLICATION}5-10`, // after ×: a multiplication operand, not a range
+    `5${UNICODE_SYMBOLS.MULTIPLICATION}10-20`, `2${UNICODE_SYMBOLS.MULTIPLICATION}5-10`, // × (from "x") before a range start: a multiplication operand, not a range
+    `${UNICODE_SYMBOLS.PLUS_MINUS}1-5`, // ± (from "+/-") before a range start: not a range
   ])('"%s"', (input) => {
     expect(enDashNumberRange(input)).toBe(input)
   })
