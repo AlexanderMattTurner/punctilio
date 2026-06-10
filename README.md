@@ -2,7 +2,7 @@
 
 [![Test](https://github.com/alexander-turner/punctilio/actions/workflows/test.yml/badge.svg)](https://github.com/alexander-turner/punctilio/actions/workflows/test.yml)
 [![Lint](https://github.com/alexander-turner/punctilio/actions/workflows/lint.yml/badge.svg)](https://github.com/alexander-turner/punctilio/actions/workflows/lint.yml)
-[![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen)](https://github.com/alexander-turner/punctilio)
+[![Coverage](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Falexander-turner%2Fpunctilio%2Fbadges%2Fcoverage.json)](https://github.com/alexander-turner/punctilio/actions/workflows/coverage-badge.yml)
 
 Pretty good at making your text pretty. The most feature-complete and reliable English typography package. `punctilio` transforms plain ASCII into typographically correct Unicode, even across HTML element boundaries. Try it live at [`turntrout.com/punctilio`](https://turntrout.com/punctilio).
 
@@ -81,7 +81,7 @@ My [`benchmark.mjs`](https://github.com/alexander-turner/punctilio/blob/main/ben
 
 ## Test suite
 
-Setting aside the benchmark, `punctilio`’s test suite runs at 100% branch coverage with well over a thousand tests, including edge cases derived from competitor libraries ([`smartquotes`](https://github.com/kellym/smartquotes.js), [`retext-smartypants`](https://github.com/retextjs/retext-smartypants), [`typograf`](https://github.com/typograf/typograf)) and the [Standard Ebooks typography manual](https://standardebooks.org/manual/). The 100% figure isn’t hand-maintained: Jest’s `coverageThreshold` requires 100% branches, functions, lines, and statements, and CI fails below that. I also verify that all transformations are stable when applied multiple times. Uses [`recheck`](https://makenowjust-labs.github.io/recheck/) to statically verify the absence of inefficient RegEx patterns.
+Setting aside the benchmark, `punctilio`’s test suite runs at 100% branch coverage with well over a thousand tests, including edge cases derived from competitor libraries ([`smartquotes`](https://github.com/kellym/smartquotes.js), [`retext-smartypants`](https://github.com/retextjs/retext-smartypants), [`typograf`](https://github.com/typograf/typograf)) and the [Standard Ebooks typography manual](https://standardebooks.org/manual/). The 100% figure isn’t hand-maintained: Jest’s `coverageThreshold` requires 100% branches, functions, lines, and statements, CI fails below that, and the coverage badge above is regenerated from the actual coverage report on every push to `main`. I also verify that all transformations are stable when applied multiple times. Uses [`recheck`](https://makenowjust-labs.github.io/recheck/) to statically verify the absence of inefficient RegEx patterns.
 
 ## Works with HTML DOMs via separation boundaries
 

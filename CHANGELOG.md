@@ -7,7 +7,7 @@
 - `transform()` and the CLI now reject unknown option/config keys instead of silently ignoring them.
 - `formatErrorString` no longer writes full document content to stderr unless `PUNCTILIO_DEBUG` is set.
 - Docs: expanded the known-limitations table (lookahead bounds, nested-quote depth, toll-free range heuristic, `(c)` evidence requirement, rehype element allowlist), documented CLI Markdown re-serialization and NBSP caveats, and added CONTRIBUTING.md and SECURITY.md.
-- CI: benchmark score is now asserted in CI.
+- CI: benchmark score is now asserted in CI, and the README coverage badge is generated live from the coverage report on each push to `main`.
 
 ## [3.13.1] - 2026-06-08
 

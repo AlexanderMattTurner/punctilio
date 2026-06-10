@@ -16,6 +16,9 @@ export default {
   },
   testMatch: ["**/*.test.ts"],
   collectCoverage: true,
+  // Jest defaults plus json-summary, which .github/scripts/coverage-badge.mjs
+  // reads to publish the live coverage badge.
+  coverageReporters: ["clover", "json", "json-summary", "lcov", "text"],
   coverageThreshold: {
     global: {
       branches: 100,
