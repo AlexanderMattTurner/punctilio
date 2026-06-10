@@ -35,7 +35,7 @@ I tested `punctilio` against [`smartypants`](https://www.npmjs.com/package/smart
 | :------------------------------------: | :----------------------------------------: | :---------: |
 | <span class="no-formatting">5x5</span> | <span class="no-formatting">5x5</span> (✗) |   5×5 (✓)   |
 
-My [`benchmark.mjs`](https://github.com/alexander-turner/punctilio/blob/main/benchmark.mjs) measures how well libraries handle a [wide range of scenarios](https://github.com/alexander-turner/punctilio/blob/main/benchmark_cases.json). The benchmark normalizes stylistic differences (e.g. non-breaking vs regular space, British vs American dash spacing) for fair comparison.
+My [`benchmark.mjs`](https://github.com/alexander-turner/punctilio/blob/main/benchmark.mjs) measures how well libraries handle a [wide range of scenarios](https://github.com/alexander-turner/punctilio/blob/main/benchmark_cases.json). The benchmark normalizes stylistic differences (e.g. non-breaking vs regular space, British vs American dash spacing) for fair comparison. Fair warning: I wrote the benchmark cases myself while developing `punctilio`, so the comparison naturally favors the scenarios `punctilio` was designed to handle—weigh the table accordingly.
 
 |              Package | Passed (of 151) |
 | -------------------: | :-------------- |
@@ -72,10 +72,16 @@ My [`benchmark.mjs`](https://github.com/alexander-turner/punctilio/blob/main/ben
 | Pattern                | Behavior                   | Notes                                                                                        |
 | :--------------------- | :------------------------- | :------------------------------------------------------------------------------------------- |
 | `'99 but 5' clearance` | `5'` not converted to `5′` | Leading apostrophe is indistinguishable from an opening quote without semantic understanding |
+| `'…1,000+ chars…'` | Opener becomes apostrophe | Apostrophe-vs-opening-quote classification scans at most 1,000 characters ahead for a closing quote (`apostropheRegex` in `src/quotes.ts`), so a single-quoted passage longer than that misclassifies its opener |
+| `"?"` | Recognized only within 50 characters | Quoted punctuation relies on a 50-character lookahead for the closing quote (`buildBeginningDoublePattern` in `src/quotes.ts`) |
+| `word’”’”’.` | 5th nested closing quote unhandled | Punctuation placement handles at most 4 consecutive nested closing quotes (`MAX_NESTED_QUOTES` in `src/quotes.ts`) |
+| `1-850` | Hyphen preserved, not en-dashed | Ranges starting `1-8XX` are skipped as likely US toll-free phone prefixes (`src/dashes.ts`)—`1-800` correctly survives, but so does a legitimate range like `1-850` |
+| `(c) MegaCorp` | `(c)` not converted to `©` | `(c)` converts only with positive evidence: a following year (19xx/20xx) or a preceding “copyright” (`legalSymbols` in `src/symbols.ts`) |
+| `<title>"Hi"</title>` | Left untouched by the rehype plugin | The plugin transforms text only inside a fixed allowlist of elements (`TRANSFORMABLE_ELEMENTS` in `src/rehype.ts`); text in `<title>`, `<button>`, `<option>`, custom elements like `<my-card>`, etc. is skipped |
 
 ## Test suite
 
-Setting aside the benchmark, `punctilio`’s test suite runs at 100% branch coverage with well over a thousand tests, including edge cases derived from competitor libraries ([`smartquotes`](https://github.com/kellym/smartquotes.js), [`retext-smartypants`](https://github.com/retextjs/retext-smartypants), [`typograf`](https://github.com/typograf/typograf)) and the [Standard Ebooks typography manual](https://standardebooks.org/manual/). I also verify that all transformations are stable when applied multiple times. Uses [`recheck`](https://makenowjust-labs.github.io/recheck/) to statically verify the absence of inefficient RegEx patterns.
+Setting aside the benchmark, `punctilio`’s test suite runs at 100% branch coverage with well over a thousand tests, including edge cases derived from competitor libraries ([`smartquotes`](https://github.com/kellym/smartquotes.js), [`retext-smartypants`](https://github.com/retextjs/retext-smartypants), [`typograf`](https://github.com/typograf/typograf)) and the [Standard Ebooks typography manual](https://standardebooks.org/manual/). The 100% figure isn’t hand-maintained: Jest’s `coverageThreshold` requires 100% branches, functions, lines, and statements, and CI fails below that. I also verify that all transformations are stable when applied multiple times. Uses [`recheck`](https://makenowjust-labs.github.io/recheck/) to statically verify the absence of inefficient RegEx patterns.
 
 ## Works with HTML DOMs via separation boundaries
 
@@ -199,6 +205,10 @@ echo '"Hi" -- there' | punctilio - --type md
 
 Subsequent runs skip files unchanged since the previous invocation via an incremental cache at `node_modules/.cache/punctilio/cache.json` (use `--no-cache` to disable, `--cache-location <path>` to override). Config is loaded from `.punctiliorc[.json|.yaml|.js]`, `punctilio.config.js`, or a `"punctilio"` key in `package.json` (via [`cosmiconfig`](https://github.com/cosmiconfig/cosmiconfig)); CLI flags override. A `.punctilioignore` (gitignore syntax) in cwd excludes matching files.
 
+Two caveats before pointing the CLI (or the [pre-commit hook](#pre-commit) below) at an existing repo. First, the Markdown path re-serializes the whole document through `remark-stringify`, so the first run may produce formatting diffs beyond typography—escaping, list markers, and link syntax get normalized. Like Prettier, the output then stays stable on subsequent runs. If you already use Prettier, the [Prettier plugin](#prettier-plugin) avoids this double-formatting entirely, since Prettier keeps owning the printing.
+
+Second, with the default `nbsp: true`, the CLI writes invisible non-breaking spaces (U+00A0) into your Markdown/HTML source files. They render fine, but they aren’t regular spaces, so Ctrl+F and `grep` matches against the source can miss. Pass `--no-nbsp` to keep source files ASCII-spaced.
+
 ### pre-commit
 
 A `.pre-commit-hooks.yaml` ships in the package, so [pre-commit](https://pre-commit.com) users can wire `punctilio` in directly:
@@ -231,3 +241,7 @@ repos:
 - Setting either style to `none` skips the entire transform category: `punctuationStyle: 'none'` preserves straight quotes, apostrophes, and prime marks; `dashStyle: 'none'` preserves all hyphens, number ranges, date ranges, and minus signs.
 - `punctilio` is idempotent by design: `transform(transform(text))` always equals `transform(text)`. This is verified automatically by default (`checkIdempotency: true`). Set `checkIdempotency: false` to disable the check.
 - Use `classifyApostrophes(text)` to distinguish apostrophes from closing single quotes. It returns text with apostrophes as U+02BC (MODIFIER LETTER APOSTROPHE) and closing quotes as U+2019 (RIGHT SINGLE QUOTATION MARK). Per the [Unicode Standard](https://www.unicode.org/versions/Unicode16.0.0/core-spec/chapter-6/#G30602), `transform()` and `niceQuotes()` use U+2019 for both in their output.
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for release history.
