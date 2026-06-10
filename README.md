@@ -71,15 +71,17 @@ _Note on benchmark construction: I assembled the initial cases myself. I then so
 
 ### Known limitations of `punctilio`
 
-| Pattern                | Behavior                   | Notes                                                                                        |
-| :--------------------- | :------------------------- | :------------------------------------------------------------------------------------------- |
-| `'99 but 5' clearance` | `5'` not converted to `5′` | Leading apostrophe is indistinguishable from an opening quote without semantic understanding |
-| `'…1,000+ chars…'` | Opener becomes apostrophe | Apostrophe-vs-opening-quote classification scans at most 1,000 characters ahead for a closing quote (`apostropheRegex` in `src/quotes.ts`), so a single-quoted passage longer than that misclassifies its opener |
-| `"?"` | Recognized only within 50 characters | Quoted punctuation relies on a 50-character lookahead for the closing quote (`buildBeginningDoublePattern` in `src/quotes.ts`) |
-| `word’”’”’.` | 5th nested closing quote unhandled | Punctuation placement handles at most 4 consecutive nested closing quotes (`MAX_NESTED_QUOTES` in `src/quotes.ts`) |
-| `1-850` | Hyphen preserved, not en-dashed | Ranges starting `1-8XX` are skipped as likely US toll-free phone prefixes (`src/dashes.ts`)—`1-800` correctly survives, but so does a legitimate range like `1-850` |
-| `(c) MegaCorp` | `(c)` not converted to `©` | `(c)` converts only with positive evidence: a following year (19xx/20xx) or a preceding “copyright” (`legalSymbols` in `src/symbols.ts`) |
-| `<textarea>"Hi"</textarea>` | Left untouched by the rehype plugin | The plugin transforms text only inside an allowlist of elements plus custom elements—tag names containing `-`—(`TRANSFORMABLE_ELEMENTS` in `src/rehype.ts`); text in form-value elements like `<textarea>` is skipped |
+| Input | Behavior | Why |
+| :--- | :--- | :--- |
+| `'99 but 5' clearance` | `5'` stays straight | A leading apostrophe and an opening quote are indistinguishable without semantics |
+| Single-quoted passage over 1,000 chars | Opener becomes an apostrophe | The opener-vs-apostrophe test scans only 1,000 characters ahead for the closing quote |
+| `"?"` with a distant closer | Quote stays straight | Quoted-punctuation detection looks only 50 characters ahead for the closing quote |
+| `word’”’”’.` (5+ nested closers) | 5th-level punctuation not moved | Punctuation placement handles at most 4 consecutive closing quotes |
+| `1-850` | Hyphen kept, not en-dashed | Ranges of the form `1-8XX` are assumed to be US toll-free numbers |
+| `(c) MegaCorp` | `(c)` stays literal | `(c) → ©` requires a nearby year or the word “copyright” |
+| `<textarea>`, other non-allowlisted tags | Left untouched | The rehype plugin transforms only an allowlist of elements (plus custom elements) |
+
+Several of these bounds (the 1,000- and 50-character lookaheads, the 4-quote nesting cap) exist to keep the quote regexes provably linear-time; they could be lifted by a single-pass quote scanner.
 
 ## Test suite
 
