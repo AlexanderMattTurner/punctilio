@@ -27,3 +27,13 @@ jobs:
             echo "$UNPINNED"
             exit 1
           fi
+
+  all-checks-passed:
+    name: All checks passed
+    needs: [lint]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Fail if lint did not succeed
+        if: needs.lint.result != 'success'
+        run: exit 1

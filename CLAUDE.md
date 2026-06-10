@@ -31,6 +31,10 @@
 
 - Only include a "Lessons learned" section when the lessons generalize to other repositories using this template. Project-specific takeaways belong in commit messages or inline comments, not in the PR body.
 
+### GitHub Actions
+
+- Every workflow whose jobs you may want to mark as Required status checks must include an `if: always()` summary job that `needs:` all those jobs and exits non-zero on failure or cancellation. Without it, a skipped or cancelled job never reports a status and permanently blocks a protected branch.
+
 ### Testing
 
 - Parametrize tests for maximum compactness while achieving high coverage
