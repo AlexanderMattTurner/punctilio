@@ -770,14 +770,52 @@ describe("niceQuotes", () => {
     })
 
     it("resolves an opening single quote across a passage longer than 1000 chars", () => {
-      const result = classifyApostrophes(`'${"word ".repeat(400)}stuff'`)
-      expect(result.startsWith(LEFT_SINGLE_QUOTE)).toBe(true)
-      expect(result.endsWith(RIGHT_SINGLE_QUOTE)).toBe(true)
+      const body = "word ".repeat(400)
+      const result = classifyApostrophes(`'${body}stuff'`)
+      expect(result).toBe(`${LEFT_SINGLE_QUOTE}${body}stuff${RIGHT_SINGLE_QUOTE}`)
     })
 
     it("detects quoted punctuation farther than 50 chars from the opener", () => {
+      // The ending char (`?`) sits right after the opener, so only the
+      // quoted-punctuation path can classify it; the closer is >50 chars away.
       const body = "x".repeat(80)
-      expect(niceQuotes(`"${body}?"`)).toBe(`${LEFT_DOUBLE_QUOTE}${body}?${RIGHT_DOUBLE_QUOTE}`)
+      expect(niceQuotes(`"?${body}"`)).toBe(`${LEFT_DOUBLE_QUOTE}?${body}${RIGHT_DOUBLE_QUOTE}`)
+    })
+
+    // The quoted-punctuation opener is now a separate pass after the arm-1/arm-2
+    // opener regex. These pin that the combined opener decision is unchanged
+    // across every boundary, and through separators, regardless of distance.
+    it.each([
+      ['("?")', `(${LEFT_DOUBLE_QUOTE}?${RIGHT_DOUBLE_QUOTE})`, "paren boundary"],
+      ['[note] "?"', `[note] ${LEFT_DOUBLE_QUOTE}?${RIGHT_DOUBLE_QUOTE}`, "bracket-then-space boundary"],
+      [`${EM_DASH}"?"`, `${EM_DASH}${LEFT_DOUBLE_QUOTE}?${RIGHT_DOUBLE_QUOTE}`, "em-dash boundary"],
+      ['/"?"', `/${LEFT_DOUBLE_QUOTE}?${RIGHT_DOUBLE_QUOTE}`, "slash boundary"],
+    ])('quoted-punctuation opener across boundary: %s', (input, expected) => {
+      expect(niceQuotes(input)).toBe(expected)
+    })
+
+    it("quoted-punctuation opener works across a separator and a distant closer", () => {
+      const sep = DEFAULT_SEPARATOR
+      const body = "y".repeat(120)
+      const input = `${sep}"?${body}"`
+      expect(niceQuotes(input, { separator: sep })).toBe(
+        `${sep}${LEFT_DOUBLE_QUOTE}?${body}${RIGHT_DOUBLE_QUOTE}`
+      )
+    })
+
+    // Pins sub-quadratic scaling: an O(n^2) scan over these inputs would blow
+    // past Jest's timeout, so completing at all proves the scanners stay linear.
+    it("stays linear on large pathological inputs", () => {
+      const apostrophes = `'${"a ".repeat(100_000)}b`
+      expect(classifyApostrophes(apostrophes)).toBe(`${MODIFIER_LETTER_APOSTROPHE}${"a ".repeat(100_000)}b`)
+
+      const deepNest = LEFT_DOUBLE_QUOTE + "x" + RIGHT_DOUBLE_QUOTE.repeat(100_000) + "."
+      const movedNest = niceQuotes(deepNest, { punctuationStyle: "american" })
+      expect(movedNest).toBe(LEFT_DOUBLE_QUOTE + "x." + RIGHT_DOUBLE_QUOTE.repeat(100_000))
+
+      const farPunct = `"?${"z".repeat(100_000)}"`
+      const openedPunct = niceQuotes(farPunct)
+      expect(openedPunct).toBe(`${LEFT_DOUBLE_QUOTE}?${"z".repeat(100_000)}${RIGHT_DOUBLE_QUOTE}`)
     })
   })
 

@@ -165,11 +165,17 @@ function buildBeginningDoublePattern(escapedSep: string, rawEscSep: string): str
 // least one non-quote character between them.
 function convertQuotedPunctuationOpeners(text: string, escapedSep: string): string {
   const candidate = cachedRegExp(doubleOpenerPrefix(escapedSep), "gm")
-  return text.replace(candidate, (match, boundary, beforeChr, offset) => {
-    const quoteIndex = (offset as number) + match.length - 1
-    if (!hasClosingDoubleAhead(text, quoteIndex + 1)) return match
-    return `${boundary}${beforeChr}${LEFT_DOUBLE_QUOTE}`
-  })
+  let result = ""
+  let copiedUpTo = 0
+  for (const match of text.matchAll(candidate)) {
+    // The boundary and optional separator are left in place; only the straight
+    // quote (the final character of the match) is rewritten to an opener.
+    const quoteIndex = match.index + match[0].length - 1
+    if (!hasClosingDoubleAhead(text, quoteIndex + 1)) continue
+    result += text.slice(copiedUpTo, quoteIndex) + LEFT_DOUBLE_QUOTE
+    copiedUpTo = quoteIndex + 1
+  }
+  return result + text.slice(copiedUpTo)
 }
 
 // Scans forward for a closing straight double quote, requiring at least one
