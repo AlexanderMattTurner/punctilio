@@ -36,6 +36,16 @@ describe("prettier-plugin-punctilio", () => {
     expect(out).toContain(`${LDQ}Hello${RDQ}${EM_DASH}world.`)
   })
 
+  it("ignores markdown-only and HTML-only keys from a config shared with the CLI", async () => {
+    const out = await formatWithConfig('"Hello" -- world.\n', {
+      emphasisMarker: "_",
+      skipTags: ["aside"],
+      fragment: true,
+      nbsp: false,
+    })
+    expect(out).toContain(`${LDQ}Hello${RDQ}${EM_DASH}world.`)
+  })
+
   it("respects punctuationStyle=british from .punctiliorc", async () => {
     const out = await formatWithConfig('"Hello."\n', { punctuationStyle: "british", nbsp: false })
     expect(out).toContain(`${LDQ}Hello${RDQ}.`)

@@ -3,9 +3,9 @@ import type { Transformer } from "unified"
 
 import { SKIP, visitParents } from "unist-util-visit-parents"
 
-import { transform, type TransformOptions } from "./index.js"
+import { transform, TRANSFORM_OPTION_KEYS, type TransformOptions } from "./index.js"
 import { DEFAULT_SEPARATOR, MAX_RECURSION_DEPTH } from "./constants.js"
-import { formatErrorString, transformTextNodes } from "./utils.js"
+import { assertKnownOptionKeys, formatErrorString, transformTextNodes } from "./utils.js"
 
 type ElementPredicate = (node: Element) => boolean
 
@@ -49,6 +49,12 @@ export interface RehypePunctilioOptions
 }
 
 const DEFAULT_SKIP_TAGS = ["code", "pre", "script", "style", "kbd", "var", "samp", "template", "math", "svg"]
+
+/** Option keys handled by `rehypePunctilio` itself rather than `transform()`. */
+export const REHYPE_ONLY_OPTION_KEYS: readonly string[] = ["skipTags", "skipClasses", "shouldSkipText"]
+
+/** Runtime list of valid `rehypePunctilio` option keys. */
+export const REHYPE_OPTION_KEYS: readonly string[] = [...TRANSFORM_OPTION_KEYS, ...REHYPE_ONLY_OPTION_KEYS]
 
 export function flattenTextNodes(
   node: Element | ElementContent,
@@ -354,6 +360,8 @@ function markDescendants(node: Element, set: Set<Element>, depth: number = 0): v
 export function rehypePunctilio(
   options: RehypePunctilioOptions = {}
 ): Transformer<Root, Root> {
+  assertKnownOptionKeys(options, REHYPE_OPTION_KEYS, "rehypePunctilio")
+
   const {
     skipTags = DEFAULT_SKIP_TAGS,
     skipClasses = [],

@@ -612,6 +612,40 @@ describe("runCli", () => {
     })
   })
 
+  it("rejects a config file containing an unknown option key", async () => {
+    const configPath = tmpFile(
+      JSON.stringify({ fraction: true }), // typo of "fractions"
+      ".punctiliorc.json",
+    )
+    const cap = captureIO('"Hello."')
+    const code = await runCli(["-", "--type", "md", "--config", configPath], cap.io)
+    expect(code).toBe(2)
+    expect(cap.stderr()).toContain('Unknown option "fraction"')
+    expect(cap.stderr()).toContain(configPath)
+    expect(cap.stderr()).toContain("Valid options:")
+  })
+
+  it("a config mixing markdown-only and html-only keys formats both file types", async () => {
+    const configPath = tmpFile(
+      JSON.stringify({
+        emphasisMarker: "_", // markdown-only
+        skipTags: ["aside"], // html-only
+        fragment: true, // html-only
+        nbsp: false,
+      }),
+      ".punctiliorc.json",
+    )
+    const md = tmpFile('*hi* and "quote"\n', "doc.md")
+    const html = tmpFile('<p>"a"</p><aside>"b"</aside>\n', "page.html")
+    const cap = captureIO()
+    const code = await runCli(["--config", configPath, md, html], cap.io)
+    expect(code).toBe(0)
+    expect(readFileSync(md, "utf8")).toContain(`_hi_ and ${LDQ}quote${RDQ}`)
+    const htmlOut = readFileSync(html, "utf8")
+    expect(htmlOut).toContain(`${LDQ}a${RDQ}`)
+    expect(htmlOut).toContain('"b"')
+  })
+
   it("--no-config skips config-file loading", async () => {
     const configPath = tmpFile(
       JSON.stringify({ punctuationStyle: "british", nbsp: false }),

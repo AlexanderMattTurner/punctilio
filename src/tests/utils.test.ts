@@ -1,5 +1,5 @@
 import { jest } from "@jest/globals"
-import { assertSeparatorAbsent, assertSeparatorCountPreserved, countSeparators, formatErrorString, stableStringify } from "../utils.js"
+import { assertKnownOptionKeys, assertSeparatorAbsent, assertSeparatorCountPreserved, countSeparators, formatErrorString, omitKeys, replaceCallbackContext, stableStringify } from "../utils.js"
 import { cachedRegExp, clearRegexCache, DEFAULT_SEPARATOR } from "../constants.js"
 
 describe("assertSeparatorAbsent", () => {
@@ -96,18 +96,27 @@ describe("cachedRegExp", () => {
 
 describe("formatErrorString", () => {
   let stderrOutput: string[]
-  let stderrSpy: jest.SpiedFunction<typeof process.stderr.write>
+
+  // Replaces process.env so PUNCTILIO_DEBUG has exactly the given value
+  // (removed when undefined); jest.restoreAllMocks undoes the replacement.
+  function setDebugEnv(value: string | undefined): void {
+    const env = { ...process.env }
+    delete env.PUNCTILIO_DEBUG
+    if (value !== undefined) env.PUNCTILIO_DEBUG = value
+    jest.replaceProperty(process, "env", env)
+  }
 
   beforeEach(() => {
     stderrOutput = []
-    stderrSpy = jest.spyOn(process.stderr, "write").mockImplementation((chunk: string | Uint8Array) => {
+    setDebugEnv(undefined)
+    jest.spyOn(process.stderr, "write").mockImplementation((chunk: string | Uint8Array) => {
       stderrOutput.push(String(chunk))
       return true
     })
   })
 
   afterEach(() => {
-    stderrSpy.mockRestore()
+    jest.restoreAllMocks()
   })
 
   it("returns JSON-stringified content for short strings", () => {
@@ -134,13 +143,26 @@ describe("formatErrorString", () => {
     expect(result).toContain("2500 chars total")
   })
 
-  it("writes full content to stderr in Node.js for long strings", () => {
+  it("writes full content to stderr for long strings when PUNCTILIO_DEBUG is set", () => {
+    setDebugEnv("1")
     const longText = "z".repeat(2001)
     formatErrorString(longText, "stderr-test")
 
     expect(stderrOutput).toHaveLength(1)
     expect(stderrOutput[0]).toContain("punctilio stderr-test full content")
     expect(stderrOutput[0]).toContain(longText)
+  })
+
+  it.each([
+    ["unset", undefined],
+    ["set to an empty string", ""],
+  ])("skips the stderr dump for long strings when PUNCTILIO_DEBUG is %s", (_desc, value) => {
+    setDebugEnv(value)
+    const longText = "z".repeat(2001)
+    const result = formatErrorString(longText, "quiet-test")
+
+    expect(result).toContain("2001 chars total")
+    expect(stderrOutput).toHaveLength(0)
   })
 
   it("handles strings at exactly the threshold", () => {
@@ -168,5 +190,51 @@ describe("stableStringify", () => {
     const opts = { tags: ["pre", "code", "a"] }
     stableStringify(opts)
     expect(opts.tags).toEqual(["pre", "code", "a"])
+  })
+})
+
+describe("assertKnownOptionKeys", () => {
+  it.each([
+    ["empty options", {}],
+    ["all valid keys", { alpha: 1, beta: 2 }],
+  ])("does not throw: %s", (_desc, options) => {
+    expect(() => assertKnownOptionKeys(options, ["alpha", "beta"], "testFn")).not.toThrow()
+  })
+
+  it("throws naming the unknown key, context, and sorted valid keys", () => {
+    expect(() => assertKnownOptionKeys({ alpha: 1, gamma: 2 }, ["beta", "alpha"], "testFn"))
+      .toThrow('Unknown option "gamma" for testFn. Valid options: alpha, beta.')
+  })
+})
+
+describe("omitKeys", () => {
+  it("removes listed keys and keeps the rest", () => {
+    expect(omitKeys({ a: 1, b: 2, c: 3 }, ["b"])).toEqual({ a: 1, c: 3 })
+  })
+
+  it("returns an equal copy when no keys match", () => {
+    const original = { a: 1 }
+    const result = omitKeys(original, ["z"])
+    expect(result).toEqual(original)
+    expect(result).not.toBe(original)
+  })
+})
+
+describe("replaceCallbackContext", () => {
+  it.each([
+    ["with a trailing named-groups object", ["match", "capture", 5, "the input", { name: "x" }], 5, "the input"],
+    ["without named groups", ["match", 0, "input"], 0, "input"],
+    ["with undefined captures", ["match", undefined, 7, "abc", {}], 7, "abc"],
+  ])("extracts offset and input %s", (_desc, args, offset, input) => {
+    expect(replaceCallbackContext(args as unknown[])).toEqual({ offset, input })
+  })
+
+  it.each([
+    ["no string argument", [42, {}]],
+    ["string without a preceding argument", ["only"]],
+    ["non-number before the input string", ["a", "b"]],
+  ])("throws on malformed arguments: %s", (_desc, args) => {
+    expect(() => replaceCallbackContext(args as unknown[]))
+      .toThrow("Could not locate offset and input in replace-callback arguments.")
   })
 })

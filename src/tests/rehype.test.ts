@@ -38,6 +38,16 @@ async function processHtml(html: string, options?: RehypePunctilioOptions): Prom
 }
 
 describe("rehypePunctilio", () => {
+  describe("option key validation", () => {
+    it.each(["fragment", "emphasisMarker", "fraction"])(
+      'rejects unknown option key "%s" at plugin construction',
+      (key) => {
+        expect(() => rehypePunctilio({ [key]: true } as never))
+          .toThrow(`Unknown option "${key}" for rehypePunctilio`)
+      },
+    )
+  })
+
   describe("basic transformations", () => {
     it.each([
       ["quotes", '<p>"Hello," she said.</p>', `<p>${LDQ}Hello,${RDQ} she said.</p>`],

@@ -4,16 +4,18 @@ const ERROR_STRING_THRESHOLD = 2000
 
 /**
  * Formats a string for error messages, truncating above the threshold.
- * Writes full content to stderr in Node.js so build logs capture it.
+ * When the PUNCTILIO_DEBUG environment variable is set to a non-empty
+ * value, also writes the full content to stderr in Node.js so build logs
+ * capture it.
  */
 export function formatErrorString(content: string, label: string): string {
   if (content.length <= ERROR_STRING_THRESHOLD) {
     return JSON.stringify(content)
   }
 
-  // In Node.js, write full content to stderr for debugging
+  // In Node.js, write full content to stderr for debugging when opted in
   try {
-    if (typeof globalThis.process?.stderr?.write === "function") {
+    if (globalThis.process?.env?.PUNCTILIO_DEBUG && typeof globalThis.process?.stderr?.write === "function") {
       globalThis.process.stderr.write(
         `\n[punctilio ${label} full content (${content.length} chars)]:\n${content}\n\n`
       )
@@ -106,6 +108,30 @@ export function assertSeparatorCountPreserved(
   }
 }
 
+/** Throws if `options` contains a key not present in `validKeys`. @internal */
+export function assertKnownOptionKeys(
+  options: object,
+  validKeys: readonly string[],
+  context: string,
+): void {
+  for (const key of Object.keys(options)) {
+    if (!validKeys.includes(key)) {
+      throw new Error(
+        `Unknown option "${key}" for ${context}. Valid options: ${[...validKeys].sort().join(", ")}.`
+      )
+    }
+  }
+}
+
+/** Returns a copy of `obj` without the listed keys. @internal */
+export function omitKeys<T extends object>(obj: T, keys: readonly string[]): Partial<T> {
+  const result: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(obj)) {
+    if (!keys.includes(k)) result[k] = v
+  }
+  return result as Partial<T>
+}
+
 /** Returns a copy of `obj` with `undefined`-valued keys removed. @internal */
 export function filterUndefined<T extends object>(obj: T): Partial<T> {
   const result: Record<string, unknown> = {}
@@ -127,4 +153,23 @@ export function stableStringify(obj: object): string {
 /** Extracts named groups from a `.replace()` callback's arguments. @internal */
 export function namedGroups<G>(args: unknown[]): G {
   return args[args.length - 1] as G
+}
+
+/**
+ * Extracts the match offset and input string from a `.replace()` callback's
+ * arguments, independent of capture-group count. The trailing arguments are
+ * `..., offset, input[, namedGroups]`: the input is the last string (the
+ * named-groups object, when present, follows it) and the offset is the
+ * number immediately before the input. @internal
+ */
+export function replaceCallbackContext(args: unknown[]): { offset: number; input: string } {
+  let inputIndex = args.length - 1
+  while (inputIndex >= 0 && typeof args[inputIndex] !== "string") {
+    inputIndex--
+  }
+  const offset = args[inputIndex - 1]
+  if (inputIndex < 1 || typeof offset !== "number") {
+    throw new Error("Could not locate offset and input in replace-callback arguments.")
+  }
+  return { offset, input: args[inputIndex] as string }
 }

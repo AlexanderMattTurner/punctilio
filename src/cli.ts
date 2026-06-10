@@ -11,11 +11,11 @@ import { cosmiconfig } from "cosmiconfig"
 import ignore, { type Ignore } from "ignore"
 import { glob } from "tinyglobby"
 
-import { type MarkdownOptions, transformMarkdown } from "./markdown.js"
-import { type HtmlOptions, transformHtml } from "./html.js"
+import { MARKDOWN_ONLY_OPTION_KEYS, MARKDOWN_OPTION_KEYS, type MarkdownOptions, transformMarkdown } from "./markdown.js"
+import { HTML_ONLY_OPTION_KEYS, HTML_OPTION_KEYS, type HtmlOptions, transformHtml } from "./html.js"
 import { PUNCTUATION_STYLES, type PunctuationStyle } from "./quotes.js"
 import { DASH_STYLES, type DashStyle } from "./dashes.js"
-import { stableStringify } from "./utils.js"
+import { assertKnownOptionKeys, omitKeys, stableStringify } from "./utils.js"
 
 type CliOptions = MarkdownOptions & HtmlOptions
 type FileType = "md" | "html"
@@ -112,6 +112,12 @@ function inferFileType(path: string, override?: FileType): FileType {
   )
 }
 
+// A config file may legitimately mix markdown-only and HTML-only keys for use
+// across file types; transformContent strips the keys the sink doesn't accept.
+const CLI_CONFIG_KEYS: readonly string[] = [
+  ...new Set([...MARKDOWN_OPTION_KEYS, ...HTML_OPTION_KEYS]),
+]
+
 // Config keys must match library option names (punctuationStyle, skipTags, …),
 // not the kebab-cased CLI flag names.
 async function loadConfig(
@@ -123,6 +129,11 @@ async function loadConfig(
   const explorer = cosmiconfig("punctilio")
   const result = configPath ? await explorer.load(configPath) : await explorer.search(cwd)
   if (!result || result.isEmpty) return {}
+  try {
+    assertKnownOptionKeys(result.config as object, CLI_CONFIG_KEYS, `config file ${result.filepath}`)
+  } catch (err) {
+    throw new UsageError((err as Error).message)
+  }
   return result.config as CliOptions
 }
 
@@ -229,8 +240,13 @@ function buildOptions(flags: ParsedFlags): CliOptions {
   return opts
 }
 
+// The merged options may carry keys for the other sink (e.g. emphasisMarker
+// alongside skipTags from one shared config); strip the inapplicable ones so
+// each sink's strict key validation only sees keys it understands.
 async function transformContent(input: string, type: FileType, opts: CliOptions): Promise<string> {
-  return type === "md" ? transformMarkdown(input, opts) : transformHtml(input, opts)
+  return type === "md"
+    ? transformMarkdown(input, omitKeys(opts, HTML_ONLY_OPTION_KEYS) as MarkdownOptions)
+    : transformHtml(input, omitKeys(opts, MARKDOWN_ONLY_OPTION_KEYS) as HtmlOptions)
 }
 
 // Unified pipelines unconditionally append a trailing newline; undo if original lacked one.

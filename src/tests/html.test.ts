@@ -19,6 +19,14 @@ describe("transformHtml", () => {
     expect(result).toContain(`<p>${LDQ}Hello,${RDQ} she said.</p>`)
   })
 
+  it.each(["emphasisMarker", "bulletMarker", "fraction"])(
+    'rejects unknown option key "%s"',
+    async (key) => {
+      await expect(transformHtml("<p>hi</p>", { [key]: true } as never))
+        .rejects.toThrow(`Unknown option "${key}" for transformHtml`)
+    },
+  )
+
   it("works without options argument", async () => {
     const result = await transformHtml('<p>"Hello."</p>')
     expect(result).toContain(`${LDQ}Hello.${RDQ}`)

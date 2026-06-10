@@ -1,5 +1,5 @@
 import { cachedRegExp, DEFAULT_SEPARATOR, getEscapedSeparator, LATIN_LETTERS, SPACE_CHARS, UNICODE_SYMBOLS, wordBoundaryEnd } from "./constants.js"
-import { namedGroups } from "./utils.js"
+import { namedGroups, replaceCallbackContext } from "./utils.js"
 
 export interface SymbolOptions {
   /** Boundary marker for HTML element boundaries. Default: "\uE000\uE001" */
@@ -337,8 +337,7 @@ function balancedPrimeReplacer(primeChar: string, escapedSeparator: string) {
       // Inside balanced quotes: check if this is feet-inches notation
       // (e.g., 5′10" where ″ is inches, not a closing quote)
       if (feetInchesContext) {
-        const matchOffset = args.at(-3) as number
-        const fullString = args.at(-2) as string
+        const { offset: matchOffset, input: fullString } = replaceCallbackContext(args)
         if (feetInchesContext.test(fullString.substring(0, matchOffset))) {
           return `${digit}${sep}${primeChar}${afterSep}`
         }

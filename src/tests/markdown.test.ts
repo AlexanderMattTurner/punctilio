@@ -25,6 +25,14 @@ describe("transformMarkdown", () => {
     expect(result.trimEnd()).toEqual(`${LDQ}Hello,${RDQ} she said.`)
   })
 
+  it.each(["skipTags", "fragment", "fraction"])(
+    'rejects unknown option key "%s"',
+    async (key) => {
+      await expect(transformMarkdown("hi", { [key]: true } as never))
+        .rejects.toThrow(`Unknown option "${key}" for transformMarkdown`)
+    },
+  )
+
   it("preserves code blocks", async () => {
     const input = '```\n"untouched"\n```'
     const result = await transformMarkdown(input, { nbsp: false })

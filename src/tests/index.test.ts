@@ -1,4 +1,4 @@
-import { countSeparators, DASH_STYLES, DEFAULT_SEPARATOR, PUNCTUATION_STYLES, transform } from "../index.js"
+import { countSeparators, DASH_STYLES, DEFAULT_SEPARATOR, PUNCTUATION_STYLES, transform, TRANSFORM_OPTION_KEYS } from "../index.js"
 import { ellipsis } from "../symbols.js"
 import { MAX_REGEX_CACHE_SIZE, REGEX_SPECIAL_CHARS, UNICODE_SYMBOLS } from "../constants.js"
 import { buildMixedContent } from "./test-helpers.js"
@@ -790,6 +790,46 @@ describe("transform", () => {
 
     it("exports DASH_STYLES with all expected values", () => {
       expect(DASH_STYLES).toEqual(["american", "british", "none"])
+    })
+  })
+
+  describe("option key validation", () => {
+    it.each([
+      "fraction", // typo of "fractions"
+      "emphasisMarker", // markdown-only key
+      "skipTags", // HTML-only key
+    ])('rejects unknown option key "%s" listing the valid keys', (key) => {
+      const callTransform = () => transform("hello", { [key]: true } as never)
+      expect(callTransform).toThrow(`Unknown option "${key}" for transform`)
+      expect(callTransform).toThrow("Valid options:")
+      expect(callTransform).toThrow("separator")
+    })
+
+    it.each(TRANSFORM_OPTION_KEYS.map((key) => [key]))(
+      'accepts valid option key "%s"',
+      (key) => {
+        const value = key === "separator" ? "|"
+          : key === "punctuationStyle" || key === "dashStyle" ? "american"
+          : false
+        expect(() => transform("hello", { [key]: value } as never)).not.toThrow()
+      },
+    )
+
+    it("TRANSFORM_OPTION_KEYS matches the documented TransformOptions keys", () => {
+      expect([...TRANSFORM_OPTION_KEYS].sort()).toEqual([
+        "checkIdempotency",
+        "collapseSpaces",
+        "dashStyle",
+        "degrees",
+        "fractions",
+        "includeArrows",
+        "ligatures",
+        "nbsp",
+        "punctuationStyle",
+        "separator",
+        "superscript",
+        "symbols",
+      ])
     })
   })
 

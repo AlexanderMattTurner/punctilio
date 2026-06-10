@@ -3,9 +3,9 @@ import type { Transformer } from "unified"
 
 import { visitParents } from "unist-util-visit-parents"
 
-import { transform, type TransformOptions } from "./index.js"
+import { transform, TRANSFORM_OPTION_KEYS, type TransformOptions } from "./index.js"
 import { DEFAULT_SEPARATOR, MAX_RECURSION_DEPTH } from "./constants.js"
-import { transformTextNodes } from "./utils.js"
+import { assertKnownOptionKeys, transformTextNodes } from "./utils.js"
 
 export type RemarkPunctilioOptions = TransformOptions
 
@@ -42,6 +42,8 @@ function flattenTextNodes(
 export function remarkPunctilio(
   options: RemarkPunctilioOptions = {}
 ): Transformer<Root, Root> {
+  assertKnownOptionKeys(options, TRANSFORM_OPTION_KEYS, "remarkPunctilio")
+
   const separator = options.separator ?? DEFAULT_SEPARATOR
 
   // Default idempotency check to false in plugin context — the separator

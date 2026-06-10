@@ -152,6 +152,16 @@ describe("remarkPunctilio", () => {
     })
   })
 
+  describe("option key validation", () => {
+    it.each(["emphasisMarker", "skipTags", "fraction"])(
+      'rejects unknown option key "%s" at plugin construction',
+      (key) => {
+        expect(() => remarkPunctilio({ [key]: true } as never))
+          .toThrow(`Unknown option "${key}" for remarkPunctilio`)
+      },
+    )
+  })
+
   describe("complex documents", () => {
     it("transforms a multi-paragraph document", async () => {
       const input = '"Hello," she said.\n\nIt\'s a nice day -- isn\'t it?\n\nWait...'
