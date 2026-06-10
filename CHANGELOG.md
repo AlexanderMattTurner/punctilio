@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## [4.1.0] - 2026-06-10
+
 ### Added
 - New `transformAllElements` option on the rehype plugin. When `true`, it inverts the element model and transforms text inside every element except `skipTags`/`skipClasses` and the form-value elements `<textarea>`/`<input>`; `<select>` is skipped as a container while its `<option>` labels still transform. Defaults to `false`, preserving the curated allowlist.
 
