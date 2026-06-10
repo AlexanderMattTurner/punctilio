@@ -9,11 +9,6 @@ const {
   MODIFIER_LETTER_APOSTROPHE,
 } = UNICODE_SYMBOLS
 
-const TERMINAL_PUNCTUATION_CLASS = TERMINAL_PUNCTUATION.join("")
-
-// Bounded to keep punctuation-placement regexes linear on pathological inputs.
-const MAX_NESTED_QUOTES = 4
-
 export const PUNCTUATION_STYLES = ["american", "british", "german", "french", "none"] as const
 export type PunctuationStyle = (typeof PUNCTUATION_STYLES)[number]
 
@@ -213,31 +208,70 @@ function convertDoubleQuotes(text: string, sep: string): string {
   return text
 }
 
-/**
- * Matches punctuation OUTSIDE consecutive closing quotes (American style).
- * `quotes` is bounded to MAX_NESTED_QUOTES to prevent catastrophic backtracking.
- */
-function buildOutsidePunctuationRegex(escapedSep: string, punctuationPattern: string): RegExp {
-  const closingQuoteClass = `[${RIGHT_SINGLE_QUOTE}${RIGHT_DOUBLE_QUOTE}]`
-  const additionalQuotes = `(?:${escapedSep}?${closingQuoteClass}){0,${MAX_NESTED_QUOTES - 1}}`
-  const nonTerminalLookbehind = `(?<![${TERMINAL_PUNCTUATION_CLASS}])`
-  const pattern =
-    `${nonTerminalLookbehind}` +
-    `(?<sepBefore>${escapedSep}?)` +
-    `(?<quotes>${closingQuoteClass}${additionalQuotes})` +
-    `(?<sepAfter>${escapedSep}?)` +
-    punctuationPattern
-  return cachedRegExp(pattern, "g")
+const CLOSING_QUOTES = new Set<string>([RIGHT_SINGLE_QUOTE, RIGHT_DOUBLE_QUOTE])
+const TERMINAL_PUNCTUATION_SET = new Set<string>(TERMINAL_PUNCTUATION)
+
+// Consumes a run of consecutive closing quotes (RSQ/RDQ) of arbitrary depth,
+// each optionally preceded by a separator, starting at `start`. Returns the
+// index just past the last closing quote, or -1 if there is no run.
+function scanClosingQuoteRun(text: string, start: number, sep: string): number {
+  if (!CLOSING_QUOTES.has(text[start])) return -1
+  let runEnd = start + 1
+  for (;;) {
+    let next = runEnd
+    if (sep.length > 0 && text.startsWith(sep, next)) next += sep.length
+    if (!CLOSING_QUOTES.has(text[next])) break
+    runEnd = next + 1
+  }
+  return runEnd
 }
 
-function moveOutsideToInside(
+function separatorLengthAt(text: string, index: number, sep: string): number {
+  return sep.length > 0 && text.startsWith(sep, index) ? sep.length : 0
+}
+
+// Moves a period or comma from just after a run of closing quotes to just
+// before it (American style: punctuation inside the quotes). A single
+// left-to-right pass collects each closing-quote run of arbitrary depth — no
+// nesting cap — then relocates an adjacent period/comma, treating separators as
+// transparent (re-emitted in place). The move is skipped when the character
+// before the run is terminal punctuation (`"Stop!".` keeps its period outside).
+function movePunctuationInside(
   text: string,
-  escapedSep: string,
-  replacementChar: string,
-  punctuationPattern: string,
+  sep: string,
+  isMovablePunctuation: (text: string, index: number) => boolean,
 ): string {
-  const regex = buildOutsidePunctuationRegex(escapedSep, punctuationPattern)
-  return text.replace(regex, `$<sepBefore>${replacementChar}$<quotes>$<sepAfter>`)
+  let result = ""
+  let position = 0
+  while (position < text.length) {
+    const sepBeforeLength = separatorLengthAt(text, position, sep)
+    const runStart = position + sepBeforeLength
+    const runEnd = scanClosingQuoteRun(text, runStart, sep)
+    const sepAfterLength = runEnd === -1 ? 0 : separatorLengthAt(text, runEnd, sep)
+    const punctuationIndex = runEnd + sepAfterLength
+
+    const precededByTerminal = position > 0 && TERMINAL_PUNCTUATION_SET.has(text[position - 1])
+    if (runEnd === -1 || precededByTerminal || !isMovablePunctuation(text, punctuationIndex)) {
+      result += text[position]
+      position++
+      continue
+    }
+
+    const sepBefore = text.slice(position, runStart)
+    const run = text.slice(runStart, runEnd)
+    const sepAfter = text.slice(runEnd, punctuationIndex)
+    result += sepBefore + text[punctuationIndex] + run + sepAfter
+    position = punctuationIndex + 1
+  }
+  return result
+}
+
+function isMovablePeriod(text: string, index: number): boolean {
+  return text[index] === "." && !text.startsWith("...", index)
+}
+
+function isMovableComma(text: string, index: number): boolean {
+  return text[index] === ","
 }
 
 function applyPunctuationStyle(text: string, sep: string, style: PunctuationStyle): string {
@@ -245,9 +279,9 @@ function applyPunctuationStyle(text: string, sep: string, style: PunctuationStyl
 
   if (style === "american") {
     // Period outside → inside: Hello". → Hello."  (and Hello'". → Hello.'")
-    text = moveOutsideToInside(text, escapedSep, ".", `(?!\\.\\.\\.)\\.`)
+    text = movePunctuationInside(text, sep, isMovablePeriod)
     // Comma outside → inside: Hello", → Hello,"
-    text = moveOutsideToInside(text, escapedSep, ",", `,`)
+    text = movePunctuationInside(text, sep, isMovableComma)
   } else {
     // Every non-"american" non-"none" style (british/german/french) places
     // punctuation outside the quotes.
