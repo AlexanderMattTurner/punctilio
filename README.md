@@ -74,11 +74,7 @@ _Note on benchmark construction: I assembled the initial cases myself. I then so
 | Input | Behavior | Why |
 | :--- | :--- | :--- |
 | `'99 but 5' clearance` | `5'` stays straight | A leading apostrophe and an opening quote are indistinguishable without semantics |
-| Single-quoted passage over 1,000 chars | Opener becomes an apostrophe | The opener-vs-apostrophe test scans only 1,000 characters ahead for the closing quote |
-| `"?"` with a distant closer | Quote stays straight | Quoted-punctuation detection looks only 50 characters ahead for the closing quote |
-| `word’”’”’.` (5+ nested closers) | 5th-level punctuation not moved | Punctuation placement handles at most 4 consecutive closing quotes |
 
-Several of these bounds (the 1,000- and 50-character lookaheads, the 4-quote nesting cap) exist to keep the quote regexes provably linear-time; they could be lifted by a single-pass quote scanner.
 
 ## Test suite
 

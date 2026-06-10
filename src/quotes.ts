@@ -9,11 +9,6 @@ const {
   MODIFIER_LETTER_APOSTROPHE,
 } = UNICODE_SYMBOLS
 
-const TERMINAL_PUNCTUATION_CLASS = TERMINAL_PUNCTUATION.join("")
-
-// Bounded to keep punctuation-placement regexes linear on pathological inputs.
-const MAX_NESTED_QUOTES = 4
-
 export const PUNCTUATION_STYLES = ["american", "british", "german", "french", "none"] as const
 export type PunctuationStyle = (typeof PUNCTUATION_STYLES)[number]
 
@@ -35,7 +30,7 @@ function convertSingleQuotes(text: string, sep: string): string {
   text = text.replace(cachedRegExp(`(?<!${singleQuoteOrWord})'(?<ws>\\s+)'(?!${singleQuoteOrWord})`, "g"), `${LEFT_SINGLE_QUOTE}$<ws>${RIGHT_SINGLE_QUOTE}`)
 
   const afterEndingSinglePatterns = `\\s\\.!?;,\\)${EM_DASH}\\-\\]"`
-  // Full pattern with optional 's' for lookahead detection in apostropheRegex
+  // Ending context with optional 's', for the leading-apostrophe closer scan.
   const afterEndingSingle = `(?=${escapedSep}?(?:s${escapedSep}?)?(?:[${afterEndingSinglePatterns}]|$))`
 
   // Handle 'n' abbreviation (Rock 'n' Roll). Before MLA this wasn't needed —
@@ -57,14 +52,8 @@ function convertSingleQuotes(text: string, sep: string): string {
   const contraction = `(?<=[${LATIN_LETTERS}])['${RIGHT_SINGLE_QUOTE}${MODIFIER_LETTER_APOSTROPHE}](?=${escapedSep}?[${LATIN_LETTERS}])`
   text = text.replace(cachedRegExp(contraction, "gm"), MODIFIER_LETTER_APOSTROPHE)
 
-  const apostropheWhitelist = `(?=n${MODIFIER_LETTER_APOSTROPHE} )`
   const endQuoteNotContraction = `(?!${contraction})[${RIGHT_SINGLE_QUOTE}${MODIFIER_LETTER_APOSTROPHE}]${afterEndingSingle}`
-  // Limit lookahead scan to 1000 chars to prevent catastrophic backtracking on pathological inputs
-  const apostropheRegex = cachedRegExp(
-    `(?<=^|[^\\w])['](?:${apostropheWhitelist}|(?![^${LEFT_SINGLE_QUOTE}'\\n]{0,1000}${endQuoteNotContraction}))`,
-    "gm"
-  )
-  text = text.replace(apostropheRegex, MODIFIER_LETTER_APOSTROPHE)
+  text = convertLeadingApostrophes(text, endQuoteNotContraction)
 
   const beginningSingle = `(?<beforeContext>(?:^|[\\s${LEFT_DOUBLE_QUOTE}${RIGHT_DOUBLE_QUOTE}${EM_DASH}\\-\\(])${escapedSep}?)['](?=${escapedSep}?\\S)`
   text = text.replace(cachedRegExp(beginningSingle, "gm"), `$<beforeContext>${LEFT_SINGLE_QUOTE}`)
@@ -101,25 +90,102 @@ function convertUnmatchedPluralPossessives(text: string, sep: string): string {
   )
 }
 
-function buildBeginningDoublePattern(escapedSep: string, rawEscSep: string): string {
-  // Consuming boundary (not a lookbehind): variable-width lookbehinds
-  // with alternation cause ReDoS. Re-emitted via $<boundary> in the replacement.
+// Classifies a leading straight quote (start of line, or after a non-word char)
+// as either an apostrophe/elision (U+02BC) or an opening single quote (left as a
+// straight quote for `beginningSingle` to convert). A left-to-right scan replaces
+// the former distance-bounded lookahead: a leading quote is an apostrophe unless
+// an unbounded forward scan finds a closing single quote (RSQ/MLA in ending
+// context) before reaching a line break or another single-quote opener.
+function convertLeadingApostrophes(text: string, endQuoteNotContraction: string): string {
+  const closerAhead = cachedRegExp(endQuoteNotContraction, "y")
+  // `Rock 'n' Roll` already produced `n${MLA} `; a leading quote before it is an
+  // apostrophe even though a closing single quote may follow later in the line.
+  const nAbbreviationAhead = cachedRegExp(`n${MODIFIER_LETTER_APOSTROPHE} `, "y")
+  // High-precision decade elision: a leading quote before two digits (optionally
+  // followed by `s`), as in `'90s` or `'99`, is always an apostrophe.
+  const decadeElision = cachedRegExp(`\\d\\ds?(?![${LATIN_LETTERS}\\d])`, "y")
+
+  let result = ""
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i]
+    if (char !== "'" || (i > 0 && /\w/.test(text[i - 1]))) {
+      result += char
+      continue
+    }
+    decadeElision.lastIndex = i + 1
+    nAbbreviationAhead.lastIndex = i + 1
+    const isApostrophe =
+      decadeElision.test(text) ||
+      nAbbreviationAhead.test(text) ||
+      !hasClosingSingleAhead(text, i + 1, closerAhead)
+    result += isApostrophe ? MODIFIER_LETTER_APOSTROPHE : char
+  }
+  return result
+}
+
+// Scans forward from `start` for a closing single quote, stopping (no closer) at
+// a line break or another single-quote opener. Separators and other characters
+// are transparent. O(n) amortized: each scan halts at the next single-quote char.
+function hasClosingSingleAhead(text: string, start: number, closerAhead: RegExp): boolean {
+  for (let position = start; position < text.length; position++) {
+    const char = text[position]
+    if (char === "\n" || char === LEFT_SINGLE_QUOTE || char === "'") return false
+    closerAhead.lastIndex = position
+    if (closerAhead.test(text)) return true
+  }
+  return false
+}
+
+// Matches an opening-position straight double quote: a boundary (start of line,
+// whitespace, bracket, dash, or separator — consumed and re-emitted, since a
+// variable-width alternation lookbehind would be ReDoS-prone) and an optional
+// separator before the quote.
+function doubleOpenerPrefix(escapedSep: string): string {
   const boundary = `(?<boundary>^|[\\s\\(\\/\\[\\{\\-${EM_DASH}]|${escapedSep})`
   const beforeCapture = `(?<beforeChr>${escapedSep}?)`
+  return `${boundary}${beforeCapture}["]`
+}
 
+function buildBeginningDoublePattern(escapedSep: string, rawEscSep: string): string {
   // Characters that signal an ending-quote position (not valid openers)
   const endingChars = `\\s\\)${EM_DASH},!?;:.\\}${rawEscSep}`
 
   const afterConditions = [
     `(?=${escapedSep}[ .,])`,
     `(?=${escapedSep}?\\.{3}|${escapedSep}?[^${endingChars}])`,
-    // Lookahead for a closing straight quote within 50 chars — handles
-    // quoted punctuation like "?" and "!" where the first char after the
-    // opening quote would otherwise look like an ending-quote context
-    `(?=[^"]{1,50}")`,
   ]
 
-  return `${boundary}${beforeCapture}["](?:${afterConditions.join("|")})`
+  return `${doubleOpenerPrefix(escapedSep)}(?:${afterConditions.join("|")})`
+}
+
+// Quoted-punctuation openers like "?" or "!", where the character right after the
+// opening quote looks like an ending-quote context. A left-to-right scan replaces
+// the former 50-char lookahead: a boundary-position straight double quote is an
+// opener when a closing straight double quote appears anywhere ahead, with at
+// least one non-quote character between them.
+function convertQuotedPunctuationOpeners(text: string, escapedSep: string): string {
+  const candidate = cachedRegExp(doubleOpenerPrefix(escapedSep), "gm")
+  let result = ""
+  let copiedUpTo = 0
+  for (const match of text.matchAll(candidate)) {
+    // The boundary and optional separator are left in place; only the straight
+    // quote (the final character of the match) is rewritten to an opener.
+    const quoteIndex = match.index + match[0].length - 1
+    if (!hasClosingDoubleAhead(text, quoteIndex + 1)) continue
+    result += text.slice(copiedUpTo, quoteIndex) + LEFT_DOUBLE_QUOTE
+    copiedUpTo = quoteIndex + 1
+  }
+  return result + text.slice(copiedUpTo)
+}
+
+// Scans forward for a closing straight double quote, requiring at least one
+// non-quote character between `start` and it. O(n) amortized: the scan halts at
+// the next double-quote character.
+function hasClosingDoubleAhead(text: string, start: number): boolean {
+  for (let position = start; position < text.length; position++) {
+    if (text[position] === '"') return position > start
+  }
+  return false
 }
 
 function convertDoubleQuotes(text: string, sep: string): string {
@@ -135,6 +201,8 @@ function convertDoubleQuotes(text: string, sep: string): string {
   const beginningDouble = cachedRegExp(buildBeginningDoublePattern(escapedSep, rawEscSep), "gm")
   text = text.replace(beginningDouble, `$<boundary>$<beforeChr>${LEFT_DOUBLE_QUOTE}`)
 
+  text = convertQuotedPunctuationOpeners(text, escapedSep)
+
   text = text.replace(cachedRegExp(`(?<=\\{)(?<sepSpace>${escapedSep}? )?["]`, "g"), `$<sepSpace>${LEFT_DOUBLE_QUOTE}`)
 
   const endingDouble = `(?<beforeQuote>[^\\s\\(])["](?<sepAfter>${escapedSep})?(?=${escapedSep}|[\\s/\\).,;${EM_DASH}:\\-\\}!?s]|$)`
@@ -146,31 +214,70 @@ function convertDoubleQuotes(text: string, sep: string): string {
   return text
 }
 
-/**
- * Matches punctuation OUTSIDE consecutive closing quotes (American style).
- * `quotes` is bounded to MAX_NESTED_QUOTES to prevent catastrophic backtracking.
- */
-function buildOutsidePunctuationRegex(escapedSep: string, punctuationPattern: string): RegExp {
-  const closingQuoteClass = `[${RIGHT_SINGLE_QUOTE}${RIGHT_DOUBLE_QUOTE}]`
-  const additionalQuotes = `(?:${escapedSep}?${closingQuoteClass}){0,${MAX_NESTED_QUOTES - 1}}`
-  const nonTerminalLookbehind = `(?<![${TERMINAL_PUNCTUATION_CLASS}])`
-  const pattern =
-    `${nonTerminalLookbehind}` +
-    `(?<sepBefore>${escapedSep}?)` +
-    `(?<quotes>${closingQuoteClass}${additionalQuotes})` +
-    `(?<sepAfter>${escapedSep}?)` +
-    punctuationPattern
-  return cachedRegExp(pattern, "g")
+const CLOSING_QUOTES = new Set<string>([RIGHT_SINGLE_QUOTE, RIGHT_DOUBLE_QUOTE])
+const TERMINAL_PUNCTUATION_SET = new Set<string>(TERMINAL_PUNCTUATION)
+
+// Consumes a run of consecutive closing quotes (RSQ/RDQ) of arbitrary depth,
+// each optionally preceded by a separator, starting at `start`. Returns the
+// index just past the last closing quote, or -1 if there is no run.
+function scanClosingQuoteRun(text: string, start: number, sep: string): number {
+  if (!CLOSING_QUOTES.has(text[start])) return -1
+  let runEnd = start + 1
+  for (;;) {
+    let next = runEnd
+    if (sep.length > 0 && text.startsWith(sep, next)) next += sep.length
+    if (!CLOSING_QUOTES.has(text[next])) break
+    runEnd = next + 1
+  }
+  return runEnd
 }
 
-function moveOutsideToInside(
+function separatorLengthAt(text: string, index: number, sep: string): number {
+  return sep.length > 0 && text.startsWith(sep, index) ? sep.length : 0
+}
+
+// Moves a period or comma from just after a run of closing quotes to just
+// before it (American style: punctuation inside the quotes). A single
+// left-to-right pass collects each closing-quote run of arbitrary depth — no
+// nesting cap — then relocates an adjacent period/comma, treating separators as
+// transparent (re-emitted in place). The move is skipped when the character
+// before the run is terminal punctuation (`"Stop!".` keeps its period outside).
+function movePunctuationInside(
   text: string,
-  escapedSep: string,
-  replacementChar: string,
-  punctuationPattern: string,
+  sep: string,
+  isMovablePunctuation: (text: string, index: number) => boolean,
 ): string {
-  const regex = buildOutsidePunctuationRegex(escapedSep, punctuationPattern)
-  return text.replace(regex, `$<sepBefore>${replacementChar}$<quotes>$<sepAfter>`)
+  let result = ""
+  let position = 0
+  while (position < text.length) {
+    const sepBeforeLength = separatorLengthAt(text, position, sep)
+    const runStart = position + sepBeforeLength
+    const runEnd = scanClosingQuoteRun(text, runStart, sep)
+    const sepAfterLength = runEnd === -1 ? 0 : separatorLengthAt(text, runEnd, sep)
+    const punctuationIndex = runEnd + sepAfterLength
+
+    const precededByTerminal = position > 0 && TERMINAL_PUNCTUATION_SET.has(text[position - 1])
+    if (runEnd === -1 || precededByTerminal || !isMovablePunctuation(text, punctuationIndex)) {
+      result += text[position]
+      position++
+      continue
+    }
+
+    const sepBefore = text.slice(position, runStart)
+    const run = text.slice(runStart, runEnd)
+    const sepAfter = text.slice(runEnd, punctuationIndex)
+    result += sepBefore + text[punctuationIndex] + run + sepAfter
+    position = punctuationIndex + 1
+  }
+  return result
+}
+
+function isMovablePeriod(text: string, index: number): boolean {
+  return text[index] === "." && !text.startsWith("...", index)
+}
+
+function isMovableComma(text: string, index: number): boolean {
+  return text[index] === ","
 }
 
 function applyPunctuationStyle(text: string, sep: string, style: PunctuationStyle): string {
@@ -178,9 +285,9 @@ function applyPunctuationStyle(text: string, sep: string, style: PunctuationStyl
 
   if (style === "american") {
     // Period outside → inside: Hello". → Hello."  (and Hello'". → Hello.'")
-    text = moveOutsideToInside(text, escapedSep, ".", `(?!\\.\\.\\.)\\.`)
+    text = movePunctuationInside(text, sep, isMovablePeriod)
     // Comma outside → inside: Hello", → Hello,"
-    text = moveOutsideToInside(text, escapedSep, ",", `,`)
+    text = movePunctuationInside(text, sep, isMovableComma)
   } else {
     // Every non-"american" non-"none" style (british/german/french) places
     // punctuation outside the quotes.
