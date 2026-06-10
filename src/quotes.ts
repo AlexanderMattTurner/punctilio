@@ -141,25 +141,50 @@ function hasClosingSingleAhead(text: string, start: number, closerAhead: RegExp)
   return false
 }
 
-function buildBeginningDoublePattern(escapedSep: string, rawEscSep: string): string {
-  // Consuming boundary (not a lookbehind): variable-width lookbehinds
-  // with alternation cause ReDoS. Re-emitted via $<boundary> in the replacement.
+// Matches an opening-position straight double quote: a boundary (start of line,
+// whitespace, bracket, dash, or separator — consumed and re-emitted, since a
+// variable-width alternation lookbehind would be ReDoS-prone) and an optional
+// separator before the quote.
+function doubleOpenerPrefix(escapedSep: string): string {
   const boundary = `(?<boundary>^|[\\s\\(\\/\\[\\{\\-${EM_DASH}]|${escapedSep})`
   const beforeCapture = `(?<beforeChr>${escapedSep}?)`
+  return `${boundary}${beforeCapture}["]`
+}
 
+function buildBeginningDoublePattern(escapedSep: string, rawEscSep: string): string {
   // Characters that signal an ending-quote position (not valid openers)
   const endingChars = `\\s\\)${EM_DASH},!?;:.\\}${rawEscSep}`
 
   const afterConditions = [
     `(?=${escapedSep}[ .,])`,
     `(?=${escapedSep}?\\.{3}|${escapedSep}?[^${endingChars}])`,
-    // Lookahead for a closing straight quote within 50 chars — handles
-    // quoted punctuation like "?" and "!" where the first char after the
-    // opening quote would otherwise look like an ending-quote context
-    `(?=[^"]{1,50}")`,
   ]
 
-  return `${boundary}${beforeCapture}["](?:${afterConditions.join("|")})`
+  return `${doubleOpenerPrefix(escapedSep)}(?:${afterConditions.join("|")})`
+}
+
+// Quoted-punctuation openers like "?" or "!", where the character right after the
+// opening quote looks like an ending-quote context. A left-to-right scan replaces
+// the former 50-char lookahead: a boundary-position straight double quote is an
+// opener when a closing straight double quote appears anywhere ahead, with at
+// least one non-quote character between them.
+function convertQuotedPunctuationOpeners(text: string, escapedSep: string): string {
+  const candidate = cachedRegExp(doubleOpenerPrefix(escapedSep), "gm")
+  return text.replace(candidate, (match, boundary, beforeChr, offset) => {
+    const quoteIndex = (offset as number) + match.length - 1
+    if (!hasClosingDoubleAhead(text, quoteIndex + 1)) return match
+    return `${boundary}${beforeChr}${LEFT_DOUBLE_QUOTE}`
+  })
+}
+
+// Scans forward for a closing straight double quote, requiring at least one
+// non-quote character between `start` and it. O(n) amortized: the scan halts at
+// the next double-quote character.
+function hasClosingDoubleAhead(text: string, start: number): boolean {
+  for (let position = start; position < text.length; position++) {
+    if (text[position] === '"') return position > start
+  }
+  return false
 }
 
 function convertDoubleQuotes(text: string, sep: string): string {
@@ -174,6 +199,8 @@ function convertDoubleQuotes(text: string, sep: string): string {
 
   const beginningDouble = cachedRegExp(buildBeginningDoublePattern(escapedSep, rawEscSep), "gm")
   text = text.replace(beginningDouble, `$<boundary>$<beforeChr>${LEFT_DOUBLE_QUOTE}`)
+
+  text = convertQuotedPunctuationOpeners(text, escapedSep)
 
   text = text.replace(cachedRegExp(`(?<=\\{)(?<sepSpace>${escapedSep}? )?["]`, "g"), `$<sepSpace>${LEFT_DOUBLE_QUOTE}`)
 
