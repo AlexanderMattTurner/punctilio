@@ -77,7 +77,7 @@ My [`benchmark.mjs`](https://github.com/alexander-turner/punctilio/blob/main/ben
 | `word’”’”’.` | 5th nested closing quote unhandled | Punctuation placement handles at most 4 consecutive nested closing quotes (`MAX_NESTED_QUOTES` in `src/quotes.ts`) |
 | `1-850` | Hyphen preserved, not en-dashed | Ranges starting `1-8XX` are skipped as likely US toll-free phone prefixes (`src/dashes.ts`)—`1-800` correctly survives, but so does a legitimate range like `1-850` |
 | `(c) MegaCorp` | `(c)` not converted to `©` | `(c)` converts only with positive evidence: a following year (19xx/20xx) or a preceding “copyright” (`legalSymbols` in `src/symbols.ts`) |
-| `<title>"Hi"</title>` | Left untouched by the rehype plugin | The plugin transforms text only inside a fixed allowlist of elements (`TRANSFORMABLE_ELEMENTS` in `src/rehype.ts`); text in `<title>`, `<button>`, `<option>`, custom elements like `<my-card>`, etc. is skipped |
+| `<textarea>"Hi"</textarea>` | Left untouched by the rehype plugin | The plugin transforms text only inside an allowlist of elements plus custom elements—tag names containing `-`—(`TRANSFORMABLE_ELEMENTS` in `src/rehype.ts`); text in form-value elements like `<textarea>` is skipped |
 
 ## Test suite
 
@@ -139,9 +139,11 @@ transform(text, {
   superscript: false, // 1st → 1ˢᵗ
   ligatures: false, // ??? → ⁇, ?! → ⁈, !? → ⁉, !!! → !
   nbsp: true, // non-breaking spaces (after honorifics, between numbers and units, etc.)
-  checkIdempotency: true, // verify transform(transform(x)) === transform(x)
+  checkIdempotency: false, // verify transform(transform(x)) === transform(x); doubles the work
 });
 ```
+
+Markdown sinks (`remarkPunctilio`, `transformMarkdown`, the Prettier plugin, and the CLI for Markdown files) default `nbsp` to `false` instead, because invisible U+00A0 characters in Markdown source files break `grep` and Ctrl+F. Pass `nbsp: true` (or the `--nbsp` CLI flag) to opt in.
 
 The `rehype` plugin accepts additional options. Elements matching any `skipTags` tag name or carrying any `skipClasses` class are left untransformed (values shown are the defaults for `skipTags`):
 
@@ -198,16 +200,19 @@ Code spans, fenced code blocks, and inline HTML are left untouched. The plugin c
 ### CLI
 
 ```bash
-punctilio README.md 'docs/**/*.md'   # format in place; globs expand internally
-punctilio --check README.md          # exit 1 if it would change anything
+punctilio README.md                          # print formatted output to stdout
+punctilio --write README.md 'docs/**/*.md'   # format in place; globs expand internally
+punctilio --check README.md                  # exit 1 if it would change anything
 echo '"Hi" -- there' | punctilio - --type md
 ```
 
-Subsequent runs skip files unchanged since the previous invocation via an incremental cache at `node_modules/.cache/punctilio/cache.json` (use `--no-cache` to disable, `--cache-location <path>` to override). Config is loaded from `.punctiliorc[.json|.yaml|.js]`, `punctilio.config.js`, or a `"punctilio"` key in `package.json` (via [`cosmiconfig`](https://github.com/cosmiconfig/cosmiconfig)); CLI flags override. A `.punctilioignore` (gitignore syntax) in cwd excludes matching files.
+Like Prettier, the CLI prints formatted output to stdout by default (multiple files are concatenated in argument order). Pass `--write` to rewrite files in place; `--write` and `--check` are mutually exclusive.
+
+In `--write` and `--check` modes, subsequent runs skip files unchanged since the previous invocation via an incremental cache at `node_modules/.cache/punctilio/cache.json` (use `--no-cache` to disable, `--cache-location <path>` to override); stdout mode always produces output, so it bypasses the cache. Config is loaded from `.punctiliorc[.json|.yaml|.js]`, `punctilio.config.js`, or a `"punctilio"` key in `package.json` (via [`cosmiconfig`](https://github.com/cosmiconfig/cosmiconfig)); CLI flags override. A `.punctilioignore` (gitignore syntax) in cwd excludes matching files.
 
 Two caveats before pointing the CLI (or the [pre-commit hook](#pre-commit) below) at an existing repo. First, the Markdown path re-serializes the whole document through `remark-stringify`, so the first run may produce formatting diffs beyond typography—escaping, list markers, and link syntax get normalized. Like Prettier, the output then stays stable on subsequent runs. If you already use Prettier, the [Prettier plugin](#prettier-plugin) avoids this double-formatting entirely, since Prettier keeps owning the printing.
 
-Second, with the default `nbsp: true`, the CLI writes invisible non-breaking spaces (U+00A0) into your Markdown/HTML source files. They render fine, but they aren’t regular spaces, so Ctrl+F and `grep` matches against the source can miss. Pass `--no-nbsp` to keep source files ASCII-spaced.
+Second, non-breaking spaces (U+00A0) are invisible in source files: they render fine, but they aren’t regular spaces, so Ctrl+F and `grep` matches against the source can miss. Markdown files therefore default to `nbsp` off; pass `--nbsp` (or set `nbsp: true` in config) to opt in. HTML files keep the default of `nbsp` on; pass `--no-nbsp` to keep them ASCII-spaced.
 
 ### pre-commit
 
@@ -239,7 +244,7 @@ repos:
   - Single quotes remain as curly quotes
   - Punctuation outside quotes
 - Setting either style to `none` skips the entire transform category: `punctuationStyle: 'none'` preserves straight quotes, apostrophes, and prime marks; `dashStyle: 'none'` preserves all hyphens, number ranges, date ranges, and minus signs.
-- `punctilio` is idempotent by design: `transform(transform(text))` always equals `transform(text)`. This is verified automatically by default (`checkIdempotency: true`). Set `checkIdempotency: false` to disable the check.
+- `punctilio` is idempotent by design: `transform(transform(text))` always equals `transform(text)`. Set `checkIdempotency: true` to verify this on every call (off by default, since the check doubles the work); `punctilio`’s own test suite runs with it enabled.
 - Use `classifyApostrophes(text)` to distinguish apostrophes from closing single quotes. It returns text with apostrophes as U+02BC (MODIFIER LETTER APOSTROPHE) and closing quotes as U+2019 (RIGHT SINGLE QUOTATION MARK). Per the [Unicode Standard](https://www.unicode.org/versions/Unicode16.0.0/core-spec/chapter-6/#G30602), `transform()` and `niceQuotes()` use U+2019 for both in their output.
 
 ## Changelog

@@ -272,7 +272,17 @@ const TRANSFORMABLE_ELEMENTS = new Set([
   "ruby",
   "rt",
   "rp",
+  "title",
+  "button",
+  "option",
+  "output",
 ])
+
+// A tag name containing "-" is a custom element per the HTML custom-element
+// naming rule; assume those hold transformable prose like built-in elements.
+function isTransformableElement(tagName: string): boolean {
+  return TRANSFORMABLE_ELEMENTS.has(tagName) || tagName.includes("-")
+}
 
 function hasTextDescendant(
   node: Element | ElementContent,
@@ -325,7 +335,7 @@ export function collectTransformableElements(
     hasTextDescendant(node, shouldSkip)
 
   if (
-    TRANSFORMABLE_ELEMENTS.has(node.tagName) &&
+    isTransformableElement(node.tagName) &&
     (hasDirectText || hasTextDescendants)
   ) {
     results.push(node)
@@ -385,11 +395,7 @@ export function rehypePunctilio(
   const shouldSkip = (node: Element): boolean =>
     skipTagSet.has(node.tagName) || hasSkipClass(node)
 
-  // Default idempotency check to false in plugin context — the separator
-  // count check already guards against corruption, and the double-pass
-  // penalty compounds across every block-level element.
   const pluginOptions = {
-    checkIdempotency: false,
     ...transformOptions,
     separator,
   }

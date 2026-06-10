@@ -63,6 +63,23 @@ describe("rehypePunctilio", () => {
     })
   })
 
+  describe("expanded transformable elements", () => {
+    it.each([
+      ["custom element", '<my-card>"hi" -- there</my-card>', `<my-card>${LDQ}hi${RDQ}${EM_DASH}there</my-card>`],
+      ["title", '<title>"Hi"</title>', `<title>${LDQ}Hi${RDQ}</title>`],
+      ["button", '<button>"Hi"</button>', `<button>${LDQ}Hi${RDQ}</button>`],
+      ["option", '<select><option>"Hi"</option></select>', `<select><option>${LDQ}Hi${RDQ}</option></select>`],
+      ["output", '<output>"Hi"</output>', `<output>${LDQ}Hi${RDQ}</output>`],
+    ])("transforms %s text", async (_name, html, expected) => {
+      expect(await processHtml(html, { nbsp: false })).toEqual(expected)
+    })
+
+    it("skipTags wins over the custom-element predicate", async () => {
+      expect(await processHtml('<my-card>"hi" -- there</my-card>', { skipTags: ["my-card"] }))
+        .toEqual('<my-card>"hi" -- there</my-card>')
+    })
+  })
+
   describe("HTML structure preservation", () => {
     it.each([
       ["nested elements", '<p><em>"Hello,"</em> she said.</p>', `<p><em>${LDQ}Hello,${RDQ}</em> she said.</p>`],
@@ -171,6 +188,7 @@ describe("rehypePunctilio", () => {
       ["fractions enabled", "<p>1/2 cup</p>", { fractions: true, nbsp: false as const }, `<p>${FRACTION_1_2} cup</p>`],
       ["fractions disabled", "<p>1/2 cup</p>", { fractions: false, nbsp: false as const }, "<p>1/2 cup</p>"],
       ["custom separator", '<p>"Hello"</p>', { separator: "\uE001", nbsp: false as const }, `<p>${LDQ}Hello${RDQ}</p>`],
+      ["explicit checkIdempotency: true", '<p>"Hello"</p>', { checkIdempotency: true, nbsp: false as const }, `<p>${LDQ}Hello${RDQ}</p>`],
     ])("respects %s", async (_name, html, options, expected) => {
       expect(await processHtml(html, options)).toEqual(expected)
     })

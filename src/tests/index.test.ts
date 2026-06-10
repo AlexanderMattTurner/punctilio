@@ -1,4 +1,4 @@
-import { countSeparators, DASH_STYLES, DEFAULT_SEPARATOR, PUNCTUATION_STYLES, transform, TRANSFORM_OPTION_KEYS } from "../index.js"
+import { countSeparators, DASH_STYLES, DEFAULT_SEPARATOR, PUNCTUATION_STYLES, TRANSFORM_OPTION_KEYS, type TransformOptions, transform as transformWithoutChecks } from "../index.js"
 import { ellipsis } from "../symbols.js"
 import { MAX_REGEX_CACHE_SIZE, REGEX_SPECIAL_CHARS, UNICODE_SYMBOLS } from "../constants.js"
 import { buildMixedContent } from "./test-helpers.js"
@@ -27,6 +27,13 @@ const {
   FRACTION_1_2,
   SUPERSCRIPT_ST,
 } = UNICODE_SYMBOLS
+
+// `checkIdempotency` defaults to false in production, so the test suite opts
+// back in: every transform call below also verifies the idempotency
+// guarantee. Tests that need the check off pass an explicit false.
+function transform(text: string, options: TransformOptions = {}): string {
+  return transformWithoutChecks(text, { checkIdempotency: true, ...options })
+}
 
 describe("transform", () => {
   it("applies both quote and dash transformations", () => {
@@ -706,6 +713,10 @@ describe("transform", () => {
     it("handles empty string input", () => {
       expect(transform("")).toBe("")
       expect(transform("", { nbsp: false })).toBe("")
+    })
+
+    it("applies production defaults when called without an options argument", () => {
+      expect(transformWithoutChecks('"Dr. Smith"')).toBe(`${LEFT_DOUBLE_QUOTE}Dr.${NBSP}Smith${RIGHT_DOUBLE_QUOTE}`)
     })
 
     it("treats undefined option values as absent (uses defaults)", () => {

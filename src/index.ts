@@ -139,9 +139,11 @@ export interface TransformOptions {
   /**
    * Whether to verify that the transformation is idempotent (running twice
    * produces the same result). When enabled, throws an error if the second
-   * pass produces a different result than the first.
+   * pass produces a different result than the first. The check doubles the
+   * cost of every transform and only detects punctilio's own bugs, so it is
+   * off by default; enable it in test suites or when debugging.
    *
-   * Default: true
+   * Default: false
    */
   checkIdempotency?: boolean
 
@@ -181,7 +183,7 @@ const defaultOpts: Required<Omit<TransformOptions, "separator">> = {
   ligatures: false,
   nbsp: true,
   collapseSpaces: true,
-  checkIdempotency: true,
+  checkIdempotency: false,
   punctuationStyle: "american",
   dashStyle: "american",
 }

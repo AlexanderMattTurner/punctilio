@@ -140,8 +140,17 @@ describe("transformMarkdown", () => {
   it("treats undefined options the same as absent options", async () => {
     const withDefault = await transformMarkdown("Dr. Smith")
     const withUndefined = await transformMarkdown("Dr. Smith", { nbsp: undefined })
-    expect(withDefault).toContain("\u00A0")
-    expect(withUndefined).toContain("\u00A0")
+    expect(withDefault).not.toContain("\u00A0")
+    expect(withUndefined).not.toContain("\u00A0")
+  })
+
+  it.each([
+    ["unspecified (markdown default: off)", {}, false],
+    ["explicit true", { nbsp: true }, true],
+    ["explicit false", { nbsp: false }, false],
+  ])("nbsp %s", async (_name, options, expectNbsp) => {
+    const result = await transformMarkdown("Dr. Smith arrived.", options)
+    expect(result.includes("\u00A0")).toBe(expectNbsp)
   })
 
   it("README.md prose is already typographically correct", () => {

@@ -38,6 +38,7 @@ const HTML_EXTENSIONS = new Set([".html", ".htm"])
 
 // Fields match commander's camelCased flag names; .choices() guarantees literals at runtime.
 interface ParsedFlags {
+  write?: boolean
   check?: boolean
   cache?: boolean
   cacheLocation?: string
@@ -70,6 +71,7 @@ function buildProgram(version: string, io: CliIO): Command {
     .description("Apply typographic improvements to Markdown and HTML files.")
     .version(version, "-V, --version", "show version")
     .argument("[files...]", "files to format (pass '-' to read from stdin)")
+    .option("--write", "rewrite files in place (default prints formatted output to stdout)")
     .option("--check", "exit 1 if any file would change; write nothing")
     .option("--config <path>", "path to a punctilio config file (otherwise auto-discovered)")
     .option("--no-config", "ignore any auto-discovered config file")
@@ -81,6 +83,9 @@ function buildProgram(version: string, io: CliIO): Command {
     .addOption(new Option("--punctuation-style <style>", "quote and punctuation style").choices(PUNCTUATION_STYLES))
     .addOption(new Option("--dash-style <style>", "dash style").choices(DASH_STYLES))
     .option("--no-symbols", "disable symbol transforms (ellipsis, ×, ©, etc.)")
+    // Defining the positive flag first keeps the default `undefined` (so the
+    // sink default applies) instead of letting `--no-nbsp` default it to true.
+    .option("--nbsp", "enable non-breaking space insertion (default: on for HTML, off for Markdown)")
     .option("--no-nbsp", "disable non-breaking space insertion")
     .option("--no-collapse-spaces", "preserve runs of consecutive spaces")
     .option("--no-arrows", "disable -> → arrow transforms")
@@ -223,7 +228,7 @@ function buildOptions(flags: ParsedFlags): CliOptions {
   if (flags.punctuationStyle) opts.punctuationStyle = flags.punctuationStyle
   if (flags.dashStyle) opts.dashStyle = flags.dashStyle
   if (flags.symbols === false) opts.symbols = false
-  if (flags.nbsp === false) opts.nbsp = false
+  if (flags.nbsp !== undefined) opts.nbsp = flags.nbsp
   if (flags.collapseSpaces === false) opts.collapseSpaces = false
   if (flags.arrows === false) opts.includeArrows = false
   if (flags.fractions) opts.fractions = true
@@ -325,8 +330,15 @@ async function runValidated(
   )
   const opts: CliOptions = { ...config, ...buildOptions(flags) }
   const check = flags.check ?? false
+  const write = flags.write ?? false
+  if (check && write) {
+    throw new UsageError("--write and --check are mutually exclusive.")
+  }
 
   if (readsStdin(positionals, flags)) {
+    if (write) {
+      throw new UsageError("--write cannot be used when reading from stdin.")
+    }
     const fileArgs = positionals.filter((p) => p !== "-")
     if (fileArgs.length > 0) {
       throw new UsageError("'-' cannot be combined with file arguments.")
@@ -351,7 +363,9 @@ async function runValidated(
   const ig = loadIgnore(cwd, flags.ignorePath)
   const files = await discoverFiles(positionals, cwd, ig)
 
-  const cacheLocation = flags.cache === false
+  // In stdout mode every file's content must be produced, so a cache hit
+  // could never skip work; only --write and --check use the cache.
+  const cacheLocation = flags.cache === false || (!write && !check)
     ? undefined
     : resolve(cwd, flags.cacheLocation ?? DEFAULT_CACHE_LOCATION)
   const cache = cacheLocation ? loadCache(cacheLocation, io.stderr) : undefined
@@ -373,6 +387,10 @@ async function runValidated(
     }
 
     const formatted = matchTrailingNewline(original, await transformContent(original, type, opts))
+    if (!write && !check) {
+      io.stdout.write(formatted)
+      continue
+    }
     const unchanged = original === formatted
     if (!unchanged) {
       anyChanged = true

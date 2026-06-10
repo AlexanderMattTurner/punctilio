@@ -94,7 +94,13 @@ describe("prettier-plugin-punctilio", () => {
     // No .punctiliorc anywhere reachable; prettier passes no filepath, so cosmiconfig
     // searches from cwd and finds nothing under the project root (or returns whatever
     // the project root happens to have). Either way the transform applies with defaults.
-    const out = await format("Mr. Smith met Dr. Jones.\n")
-    expect(out).toContain(" ") // NBSP after honorifics is the default
+    const out = await format('"Hello" -- Mr. Smith met Dr. Jones.\n')
+    expect(out).toContain(`${LDQ}Hello${RDQ}`)
+    expect(out).not.toContain("\u00A0") // Markdown sinks default nbsp off
+  })
+
+  it("explicit nbsp: true in config inserts non-breaking spaces", async () => {
+    const out = await formatWithConfig("Mr. Smith met Dr. Jones.\n", { nbsp: true })
+    expect(out).toContain("\u00A0")
   })
 })

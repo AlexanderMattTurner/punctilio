@@ -8,6 +8,11 @@ import { TRANSFORM_OPTION_KEYS } from "./index.js"
 import { remarkPunctilio, type RemarkPunctilioOptions } from "./remark.js"
 import { assertKnownOptionKeys, stableStringify } from "./utils.js"
 
+/**
+ * Options for `transformMarkdown`. Inherits the Markdown-sink default of
+ * `nbsp: false` from {@link RemarkPunctilioOptions}; pass `nbsp: true` to
+ * opt in to non-breaking space insertion.
+ */
 export interface MarkdownOptions extends RemarkPunctilioOptions {
   /**
    * Character for emphasis (`*text*` vs `_text_`) and strong (`**text**` vs `__text__`).

@@ -1,7 +1,7 @@
 - id: punctilio
   name: punctilio
   description: Apply punctilio typography transformations to Markdown and HTML files.
-  entry: punctilio
+  entry: punctilio --write
   language: node
   types_or: [markdown, html]
   additional_dependencies:

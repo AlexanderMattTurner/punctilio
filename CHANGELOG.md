@@ -2,7 +2,14 @@
 
 ## Unreleased
 
+### Added
+- The rehype plugin now transforms text inside `<title>`, `<button>`, `<option>`, `<output>`, and custom elements (any tag name containing `-`, per the HTML custom-element naming rule). `skipTags` still takes precedence.
+- New `--nbsp` CLI flag to force non-breaking space insertion regardless of file type; when neither `--nbsp` nor `--no-nbsp` is passed, the sink default applies (on for HTML, off for Markdown).
+
 ### Changed
+- **BREAKING**: The CLI no longer rewrites files in place by default. Pass `--write` to rewrite files (Prettier semantics); without `--write` or `--check`, formatted output is printed to stdout, concatenated in file order. `--write` and `--check` are mutually exclusive, and the incremental cache only applies in `--write`/`--check` modes. The bundled `punctilio` pre-commit hook now runs `punctilio --write`.
+- **BREAKING**: Markdown sinks (`remarkPunctilio`, `transformMarkdown`, the Prettier plugin, and the CLI for Markdown files) now default `nbsp` to `false`, since invisible U+00A0 characters written into Markdown source files break `grep`/Ctrl+F. Pass `nbsp: true` (or `--nbsp`) to opt back in. `transform()` and the HTML/rehype path keep `nbsp: true` as the default.
+- **BREAKING**: `checkIdempotency` now defaults to `false` everywhere, so production users no longer pay the 2x transform cost to detect punctilio's own bugs. Pass `checkIdempotency: true` to re-enable the check (punctilio's test suite runs with it enabled).
 - **BREAKING**: Node.js >= 20 is now required (the `commander` 14 dependency already required it; Node 18 is end-of-life).
 - `transform()` and the CLI now reject unknown option/config keys instead of silently ignoring them.
 - `formatErrorString` no longer writes full document content to stderr unless `PUNCTILIO_DEBUG` is set.
