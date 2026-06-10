@@ -8,10 +8,13 @@
  *
  * This prevents penalizing packages for valid typographic choices.
  *
- * Run: node benchmark.mjs
+ * Run: node benchmark.mjs [--min-passes <n>]
+ *
+ * With --min-passes, exits with code 1 if punctilio passes fewer than n cases.
  */
 
 import { readFileSync } from 'fs';
+import process from 'process';
 import { smartypantsu } from 'smartypants';
 import tipograph from 'tipograph';
 import smartquotes from 'smartquotes';
@@ -21,6 +24,12 @@ import { retext } from 'retext';
 import { transform } from './dist/index.js';
 
 const testCases = JSON.parse(readFileSync('./benchmark_cases.json', 'utf-8'));
+
+const minPassesIndex = process.argv.indexOf('--min-passes');
+const minPasses = minPassesIndex === -1 ? null : Number(process.argv[minPassesIndex + 1]);
+if (minPasses !== null && !Number.isInteger(minPasses)) {
+  throw new Error(`--min-passes requires an integer, got: ${process.argv[minPassesIndex + 1]}`);
+}
 
 // Configure tipograph
 const tipographEnglish = tipograph({ language: 'english' });
@@ -253,6 +262,14 @@ async function runBenchmark() {
       console.log();
     }
   }
+
+  if (minPasses !== null && results.punctilio.passed < minPasses) {
+    console.error(`\nERROR: punctilio passed ${results.punctilio.passed} cases, below the required minimum of ${minPasses}.`);
+    process.exitCode = 1;
+  }
 }
 
-runBenchmark().catch(console.error);
+runBenchmark().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});
