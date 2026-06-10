@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## [4.0.0] - 2026-06-10
+
 ### Added
 - The rehype plugin now transforms text inside `<title>`, `<button>`, `<option>`, `<output>`, and custom elements (any tag name containing `-`, per the HTML custom-element naming rule). `skipTags` still takes precedence.
 - New `--nbsp` CLI flag to force non-breaking space insertion regardless of file type; when neither `--nbsp` nor `--no-nbsp` is passed, the sink default applies (on for HTML, off for Markdown).
@@ -16,6 +18,10 @@
 - `formatErrorString` no longer writes full document content to stderr unless `PUNCTILIO_DEBUG` is set.
 - Docs: expanded the known-limitations table (lookahead bounds, nested-quote depth, toll-free range heuristic, `(c)` evidence requirement, rehype element allowlist), documented CLI Markdown re-serialization and NBSP caveats, and added CONTRIBUTING.md and SECURITY.md.
 - CI: benchmark score is now asserted in CI, and the README coverage badge is generated live from the coverage report on each push to `main`.
+
+### Fixed
+- fix(ci): match conventional-commit type prefixes against subjects only
+- fix(deps): resolve all audit findings via lockfile re-resolution
 
 ## [3.13.1] - 2026-06-08
 
