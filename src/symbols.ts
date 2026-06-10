@@ -1,5 +1,6 @@
 import { cachedRegExp, DEFAULT_SEPARATOR, getEscapedSeparator, LATIN_LETTERS, SPACE_CHARS, UNICODE_SYMBOLS, wordBoundaryEnd } from "./constants.js"
-import { namedGroups, replaceCallbackContext } from "./utils.js"
+import { convertPrimeMarks } from "./quote-classifier.js"
+import { namedGroups } from "./utils.js"
 
 export interface SymbolOptions {
   /** Boundary marker for HTML element boundaries. Default: "\uE000\uE001" */
@@ -272,106 +273,9 @@ export function degrees(text: string, options: SymbolOptions = {}): string {
   )
 }
 
-/**
- * Matches quote characters in priority order:
- * 1. Prime candidate: digit + quote + non-letter (e.g., 5', 12")
- * 2. Contraction: letter + quote + letter (e.g., it's, don't, O'Brien)
- * 3. Trailing apostrophe: letter + quote + non-letter (e.g., dogs')
- * 4. Bare quote: anything else (typically preceded by space/start)
- */
-function buildQuoteClassificationPattern(
-  escapedQuote: string,
-  escapedSeparator: string
-): RegExp {
-  const primeCandidate = `(?<digit>\\d)(?<sep>${escapedSeparator}?)${escapedQuote}(?<afterSep>${escapedSeparator}?)(?![${LATIN_LETTERS}])`
-  const contraction = `(?<=[${LATIN_LETTERS}]${escapedSeparator}?)(?<contraction>${escapedQuote})(?=${escapedSeparator}?[${LATIN_LETTERS}])`
-  const trailingApostrophe = `(?<=[${LATIN_LETTERS}]${escapedSeparator}?)(?<trailing>${escapedQuote})`
-  const bareQuote = escapedQuote
-  return cachedRegExp(
-    `${primeCandidate}|${contraction}|${trailingApostrophe}|${bareQuote}`,
-    "g"
-  )
-}
-
-// Converts prime candidates while tracking quote balance. A prime after a
-// digit converts only when no unmatched opener precedes it. Inside balanced
-// quotes, a ′+digits context (feet-inches like 5′10") still converts.
-function balancedPrimeReplacer(primeChar: string, escapedSeparator: string) {
-  // Pre-compile the feet-inches context pattern for the double-prime pass.
-  // Matches when the text before a prime candidate ends with ′ followed by
-  // any mix of digits and separators (e.g., "5′1" before the "0" in 5′10").
-  const feetInchesContext = primeChar === DOUBLE_PRIME
-    ? cachedRegExp(`${PRIME}(?:${escapedSeparator}|\\d)*$`, "")
-    : null
-
-  let balance = 0
-
-  // Replace callback: (match, ...captures, offset, fullString, namedGroups)
-  return (...args: unknown[]): string => {
-    const fullMatch = args[0] as string
-    const groups = namedGroups<{
-      digit?: string
-      sep?: string
-      afterSep?: string
-      contraction?: string
-      trailing?: string
-    }>(args)
-
-    // Contraction (letter + quote + letter): skip entirely
-    if (groups.contraction !== undefined) {
-      return fullMatch
-    }
-
-    // Trailing apostrophe (letter + quote + non-letter): close if opener exists, else skip
-    if (groups.trailing !== undefined) {
-      if (balance > 0) balance--
-      return fullMatch
-    }
-
-    const { digit, sep, afterSep } = groups
-    if (digit !== undefined) {
-      // Prime candidate: convert only if no unmatched opening quote
-      if (balance <= 0) {
-        return `${digit}${sep}${primeChar}${afterSep}`
-      }
-      // Inside balanced quotes: check if this is feet-inches notation
-      // (e.g., 5′10" where ″ is inches, not a closing quote)
-      if (feetInchesContext) {
-        const { offset: matchOffset, input: fullString } = replaceCallbackContext(args)
-        if (feetInchesContext.test(fullString.substring(0, matchOffset))) {
-          return `${digit}${sep}${primeChar}${afterSep}`
-        }
-      }
-      balance--
-      return fullMatch
-    }
-
-    // Bare quote (preceded by space/start): opener or closer
-    if (balance <= 0) {
-      balance = 1
-    } else {
-      balance--
-    }
-    return fullMatch
-  }
-}
-
 /** Convert 5'10" to 5′10″ (prime marks). Call before smart quotes. */
 export function primeMarks(text: string, options: SymbolOptions = {}): string {
-  const escapedSeparator = getEscapedSeparator(options)
-
-  const quotePrimePairs: [string, string][] = [
-    ["'", PRIME],
-    ['"', DOUBLE_PRIME],
-  ]
-
-  for (const [quote, primeChar] of quotePrimePairs) {
-    // ' and " are not regex-special, so they can be used directly as patterns
-    const pattern = buildQuoteClassificationPattern(quote, escapedSeparator)
-    text = text.replace(pattern, balancedPrimeReplacer(primeChar, escapedSeparator))
-  }
-
-  return text
+  return convertPrimeMarks(text, options.separator ?? DEFAULT_SEPARATOR)
 }
 
 type FractionRule = [string, string, string]
