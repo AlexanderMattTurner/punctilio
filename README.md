@@ -77,9 +77,6 @@ _Note on benchmark construction: I assembled the initial cases myself. I then so
 | Single-quoted passage over 1,000 chars | Opener becomes an apostrophe | The opener-vs-apostrophe test scans only 1,000 characters ahead for the closing quote |
 | `"?"` with a distant closer | Quote stays straight | Quoted-punctuation detection looks only 50 characters ahead for the closing quote |
 | `word’”’”’.` (5+ nested closers) | 5th-level punctuation not moved | Punctuation placement handles at most 4 consecutive closing quotes |
-| `1-850` | Hyphen kept, not en-dashed | Ranges of the form `1-8XX` are assumed to be US toll-free numbers |
-| `(c) MegaCorp` | `(c)` stays literal | `(c) → ©` requires a nearby year or the word “copyright” |
-| `<textarea>`, other non-allowlisted tags | Left untouched | The rehype plugin transforms only an allowlist of elements (plus custom elements) |
 
 Several of these bounds (the 1,000- and 50-character lookaheads, the 4-quote nesting cap) exist to keep the quote regexes provably linear-time; they could be lifted by a single-pass quote scanner.
 
@@ -155,8 +152,11 @@ The `rehype` plugin accepts additional options. Elements matching any `skipTags`
 rehypePunctilio({
   skipTags: ["code", "pre", "script", "style", "kbd", "var", "samp", "template", "math", "svg"],
   skipClasses: ["no-formatting"],
+  transformAllElements: false, // see below
 });
 ```
+
+By default the plugin transforms text only inside a curated allowlist of prose-bearing elements (plus custom elements). Set `transformAllElements: true` to invert the model and transform text inside *every* element except those in `skipTags`/`skipClasses` and the form-value elements `<textarea>` and `<input>` (whose text is a literal control value, not prose). `<select>` is skipped as a container, but its `<option>` labels are still transformed. `skipTags` and `skipClasses` continue to take precedence in this mode.
 
 For finer-grained control, `shouldSkipText` opts specific text nodes out of transformation without skipping their enclosing element. The predicate receives the text node and its ancestor chain (root first, nearest last); returning `true` leaves the node’s value untouched. `shouldSkipText` runs after element-level skipping—it is never called for text inside an already-skipped element.
 

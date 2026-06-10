@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Added
+- New `transformAllElements` option on the rehype plugin. When `true`, it inverts the element model and transforms text inside every element except `skipTags`/`skipClasses` and the form-value elements `<textarea>`/`<input>`; `<select>` is skipped as a container while its `<option>` labels still transform. Defaults to `false`, preserving the curated allowlist.
+
+### Fixed
+- The toll-free range heuristic no longer over-matches. Only the seven real US toll-free prefixes (`1-800`, `1-888`, `1-877`, `1-866`, `1-855`, `1-844`, `1-833`) keep their hyphen; genuine ranges like `1-850` or `1-810` now en-dash as `1–850` / `1–810`.
+
 ## [4.0.0] - 2026-06-10
 
 ### Added
@@ -16,7 +22,7 @@
 - The `commander` runtime dependency is gone; CLI argument parsing now uses Node's built-in `util.parseArgs`. Two user-visible differences: `--skip-tag`/`--skip-class` no longer accept space-separated multi-values (`--skip-tag code pre`)—repeat the flag instead (`--skip-tag code --skip-tag pre`)—and help/usage-error wording is formatted slightly differently. Flags, exit codes, and semantics are otherwise unchanged.
 - `transform()` and the CLI now reject unknown option/config keys instead of silently ignoring them.
 - `formatErrorString` no longer writes full document content to stderr unless `PUNCTILIO_DEBUG` is set.
-- Docs: expanded the known-limitations table (lookahead bounds, nested-quote depth, toll-free range heuristic, `(c)` evidence requirement, rehype element allowlist), documented CLI Markdown re-serialization and NBSP caveats, and added CONTRIBUTING.md and SECURITY.md.
+- Docs: expanded the known-limitations table (lookahead bounds, nested-quote depth), documented CLI Markdown re-serialization and NBSP caveats, and added CONTRIBUTING.md and SECURITY.md.
 - CI: benchmark score is now asserted in CI, and the README coverage badge is generated live from the coverage report on each push to `main`.
 
 ### Fixed
