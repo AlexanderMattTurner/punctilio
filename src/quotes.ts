@@ -57,14 +57,8 @@ function convertSingleQuotes(text: string, sep: string): string {
   const contraction = `(?<=[${LATIN_LETTERS}])['${RIGHT_SINGLE_QUOTE}${MODIFIER_LETTER_APOSTROPHE}](?=${escapedSep}?[${LATIN_LETTERS}])`
   text = text.replace(cachedRegExp(contraction, "gm"), MODIFIER_LETTER_APOSTROPHE)
 
-  const apostropheWhitelist = `(?=n${MODIFIER_LETTER_APOSTROPHE} )`
   const endQuoteNotContraction = `(?!${contraction})[${RIGHT_SINGLE_QUOTE}${MODIFIER_LETTER_APOSTROPHE}]${afterEndingSingle}`
-  // Limit lookahead scan to 1000 chars to prevent catastrophic backtracking on pathological inputs
-  const apostropheRegex = cachedRegExp(
-    `(?<=^|[^\\w])['](?:${apostropheWhitelist}|(?![^${LEFT_SINGLE_QUOTE}'\\n]{0,1000}${endQuoteNotContraction}))`,
-    "gm"
-  )
-  text = text.replace(apostropheRegex, MODIFIER_LETTER_APOSTROPHE)
+  text = convertLeadingApostrophes(text, endQuoteNotContraction)
 
   const beginningSingle = `(?<beforeContext>(?:^|[\\s${LEFT_DOUBLE_QUOTE}${RIGHT_DOUBLE_QUOTE}${EM_DASH}\\-\\(])${escapedSep}?)['](?=${escapedSep}?\\S)`
   text = text.replace(cachedRegExp(beginningSingle, "gm"), `$<beforeContext>${LEFT_SINGLE_QUOTE}`)
@@ -99,6 +93,52 @@ function convertUnmatchedPluralPossessives(text: string, sep: string): string {
       return match
     }
   )
+}
+
+// Classifies a leading straight quote (start of line, or after a non-word char)
+// as either an apostrophe/elision (U+02BC) or an opening single quote (left as a
+// straight quote for `beginningSingle` to convert). A left-to-right scan replaces
+// the former distance-bounded lookahead: a leading quote is an apostrophe unless
+// an unbounded forward scan finds a closing single quote (RSQ/MLA in ending
+// context) before reaching a line break or another single-quote opener.
+function convertLeadingApostrophes(text: string, endQuoteNotContraction: string): string {
+  const closerAhead = cachedRegExp(endQuoteNotContraction, "y")
+  // `Rock 'n' Roll` already produced `n${MLA} `; a leading quote before it is an
+  // apostrophe even though a closing single quote may follow later in the line.
+  const nAbbreviationAhead = cachedRegExp(`n${MODIFIER_LETTER_APOSTROPHE} `, "y")
+  // High-precision decade elision: a leading quote before two digits (optionally
+  // followed by `s`), as in `'90s` or `'99`, is always an apostrophe.
+  const decadeElision = cachedRegExp(`\\d\\ds?(?![${LATIN_LETTERS}\\d])`, "y")
+
+  let result = ""
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i]
+    if (char !== "'" || (i > 0 && /\w/.test(text[i - 1]))) {
+      result += char
+      continue
+    }
+    decadeElision.lastIndex = i + 1
+    nAbbreviationAhead.lastIndex = i + 1
+    const isApostrophe =
+      decadeElision.test(text) ||
+      nAbbreviationAhead.test(text) ||
+      !hasClosingSingleAhead(text, i + 1, closerAhead)
+    result += isApostrophe ? MODIFIER_LETTER_APOSTROPHE : char
+  }
+  return result
+}
+
+// Scans forward from `start` for a closing single quote, stopping (no closer) at
+// a line break or another single-quote opener. Separators and other characters
+// are transparent. O(n) amortized: each scan halts at the next single-quote char.
+function hasClosingSingleAhead(text: string, start: number, closerAhead: RegExp): boolean {
+  for (let position = start; position < text.length; position++) {
+    const char = text[position]
+    if (char === "\n" || char === LEFT_SINGLE_QUOTE || char === "'") return false
+    closerAhead.lastIndex = position
+    if (closerAhead.test(text)) return true
+  }
+  return false
 }
 
 function buildBeginningDoublePattern(escapedSep: string, rawEscSep: string): string {
