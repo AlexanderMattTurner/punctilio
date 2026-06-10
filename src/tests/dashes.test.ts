@@ -701,6 +701,11 @@ describe("phone number preservation", () => {
     ["1-200", `1${EN_DASH}200`, "range to 200 (not a toll-free prefix)"],
     ["1-500", `1${EN_DASH}500`, "range to 500 (not a toll-free prefix)"],
     ["1-999", `1${EN_DASH}999`, "range to 999 (not a toll-free prefix)"],
+    // 1-8XX sequences that aren't real toll-free codes now convert as ranges
+    ["1-850", `1${EN_DASH}850`, "1-850 is not a toll-free code"],
+    ["1-810", `1${EN_DASH}810`, "1-810 is not a toll-free code"],
+    ["1-820", `1${EN_DASH}820`, "1-820 is not a toll-free code"],
+    ["1-899", `1${EN_DASH}899`, "1-899 is not a toll-free code"],
     ["2-800", `2${EN_DASH}800`, "non-US country code pattern"],
   ])("%s → %s (%s)", (input, expected) => {
     expect(hyphenReplace(input)).toBe(expected)

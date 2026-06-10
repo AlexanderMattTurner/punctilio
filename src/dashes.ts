@@ -79,10 +79,10 @@ export function enDashNumberRange(text: string, options: DashOptions = {}): stri
       // as ranges. Space/NNBSP/thin-space grouping isn't captured by the outer
       // range regex, so those variants currently aren't affected here.
       if (/^\d{3}$/.test(startNum) && /^\d{4}$/.test(endNum)) return args[0] as string
-      // Skip US toll-free prefix pattern: 1-800, 1-888, 1-877, etc.
-      // All US toll-free area codes start with 8 (800, 888, 877, 866, 855, 844, 833).
-      // We only block 1-8XX to avoid false negatives on legitimate ranges like 1-100.
-      if (/^1$/.test(startNum) && /^8\d{2}$/.test(endNum)) return args[0] as string
+      // Skip US toll-free prefixes: 1-800, 1-888, 1-877, 1-866, 1-855, 1-844, 1-833.
+      // Only the seven real toll-free codes are blocked; other 1-8XX sequences
+      // (1-850, 1-810, …) are legitimate ranges and still en-dash.
+      if (/^1$/.test(startNum) && /^8(?:00|88|77|66|55|44|33)$/.test(endNum)) return args[0] as string
       return `${groups.precedingAreaCode ?? ""}${groups.start}${EN_DASH}${groups.end}${groups.suffix ?? ""}`
     }
   )
