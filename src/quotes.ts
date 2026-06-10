@@ -30,7 +30,7 @@ function convertSingleQuotes(text: string, sep: string): string {
   text = text.replace(cachedRegExp(`(?<!${singleQuoteOrWord})'(?<ws>\\s+)'(?!${singleQuoteOrWord})`, "g"), `${LEFT_SINGLE_QUOTE}$<ws>${RIGHT_SINGLE_QUOTE}`)
 
   const afterEndingSinglePatterns = `\\s\\.!?;,\\)${EM_DASH}\\-\\]"`
-  // Full pattern with optional 's' for lookahead detection in apostropheRegex
+  // Ending context with optional 's', for the leading-apostrophe closer scan.
   const afterEndingSingle = `(?=${escapedSep}?(?:s${escapedSep}?)?(?:[${afterEndingSinglePatterns}]|$))`
 
   // Handle 'n' abbreviation (Rock 'n' Roll). Before MLA this wasn't needed —

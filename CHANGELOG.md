@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Changed
+- Quote opener/closer/apostrophe classification and American punctuation
+  placement now use single-pass, O(n) left-to-right scans with explicit quote
+  balance instead of distance-bounded regexes. As a result, long quoted
+  passages (previously capped at a 1,000-character opener lookahead), distant
+  quoted punctuation such as `"…?"` (previously capped at 50 characters), and
+  deeply nested quotes (previously capped at four levels) are all handled
+  regardless of length or depth. Leading decade elisions (`'90s`, `'99`) now
+  classify confidently as apostrophes.
+
 ## [4.1.0] - 2026-06-10
 
 ### Added

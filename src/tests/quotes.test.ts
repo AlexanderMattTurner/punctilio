@@ -757,4 +757,28 @@ describe("niceQuotes", () => {
     })
   })
 
+  // The single-pass scanner removed the former distance/nesting bounds:
+  // a 1,000-char opener lookahead, a 50-char quoted-punctuation lookahead,
+  // and a four-deep nested-quote cap.
+  describe("single-pass scanner lifts former bounds", () => {
+    it("nests deeper than the old four-quote cap (American period moves inside)", () => {
+      const closers = `${RIGHT_DOUBLE_QUOTE}${RIGHT_SINGLE_QUOTE}${RIGHT_DOUBLE_QUOTE}${RIGHT_SINGLE_QUOTE}${RIGHT_DOUBLE_QUOTE}`
+      const opened = `${LEFT_DOUBLE_QUOTE}a ${LEFT_SINGLE_QUOTE}b ${LEFT_DOUBLE_QUOTE}c ${LEFT_SINGLE_QUOTE}d ${LEFT_DOUBLE_QUOTE}e`
+      const result = niceQuotes(`${opened}${closers}.`, { punctuationStyle: "american" })
+      expect(result).toBe(`${opened}.${closers}`)
+      expect(niceQuotes(result, { punctuationStyle: "american" })).toBe(result)
+    })
+
+    it("resolves an opening single quote across a passage longer than 1000 chars", () => {
+      const result = classifyApostrophes(`'${"word ".repeat(400)}stuff'`)
+      expect(result.startsWith(LEFT_SINGLE_QUOTE)).toBe(true)
+      expect(result.endsWith(RIGHT_SINGLE_QUOTE)).toBe(true)
+    })
+
+    it("detects quoted punctuation farther than 50 chars from the opener", () => {
+      const body = "x".repeat(80)
+      expect(niceQuotes(`"${body}?"`)).toBe(`${LEFT_DOUBLE_QUOTE}${body}?${RIGHT_DOUBLE_QUOTE}`)
+    })
+  })
+
 })
