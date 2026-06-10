@@ -46,7 +46,22 @@ export interface RehypePunctilioOptions
    * Default: []
    */
   skipClasses?: string[]
+
+  /**
+   * Invert the element model. When `false` (default), only elements in the
+   * built-in allowlist are transformed. When `true`, every element is
+   * transformed except those matching `skipTags`/`skipClasses` and the
+   * form-control elements `textarea`, `input`, and `select` (whose text is a
+   * literal value, never prose).
+   *
+   * Default: false
+   */
+  transformAllElements?: boolean
 }
+
+// Form controls whose text content is a literal value, not prose. Skipped even
+// under `transformAllElements`, where they join the user's `skipTags`.
+const NEVER_TRANSFORM_ELEMENTS = ["textarea", "input", "select"]
 
 const DEFAULT_SKIP_TAGS = ["code", "pre", "script", "style", "kbd", "var", "samp", "template", "math", "svg"]
 
@@ -292,11 +307,15 @@ function hasTextDescendant(
   return false
 }
 
+const isDefaultTransformable = (tagName: string): boolean =>
+  TRANSFORMABLE_ELEMENTS.has(tagName)
+
 export function collectTransformableElements(
   node: Element,
   shouldSkip: ElementPredicate,
   depth: number = 0,
-  alreadyTransformed?: ReadonlySet<Element>
+  alreadyTransformed?: ReadonlySet<Element>,
+  isTransformable: (tagName: string) => boolean = isDefaultTransformable
 ): Element[] {
   /* istanbul ignore if -- defensive: prevents stack overflow from malicious HTML */
   if (depth > MAX_RECURSION_DEPTH) {
@@ -319,7 +338,7 @@ export function collectTransformableElements(
     hasTextDescendant(node, shouldSkip)
 
   if (
-    TRANSFORMABLE_ELEMENTS.has(node.tagName) &&
+    isTransformable(node.tagName) &&
     (hasDirectText || hasTextDescendants)
   ) {
     results.push(node)
@@ -328,7 +347,7 @@ export function collectTransformableElements(
     // children that should be independent, or has no text to transform.
     for (const child of node.children) {
       if (child.type === "element") {
-        const childResults = collectTransformableElements(child, shouldSkip, depth + 1, alreadyTransformed)
+        const childResults = collectTransformableElements(child, shouldSkip, depth + 1, alreadyTransformed, isTransformable)
         for (const r of childResults) results.push(r)
       }
     }
@@ -359,11 +378,15 @@ export function rehypePunctilio(
     skipClasses = [],
     separator = DEFAULT_SEPARATOR,
     shouldSkipText,
+    transformAllElements = false,
     ...transformOptions
   } = options
 
-  const skipTagSet = new Set(skipTags)
+  // Under the inverted model, form controls join the skip set so their literal
+  // values are never rewritten as prose.
+  const skipTagSet = new Set(transformAllElements ? [...skipTags, ...NEVER_TRANSFORM_ELEMENTS] : skipTags)
   const skipClassSet = new Set(skipClasses)
+  const isTransformable = transformAllElements ? () => true : isDefaultTransformable
 
   const hasSkipClass = (node: Element): boolean => {
     if (skipClassSet.size === 0) return false
@@ -412,7 +435,7 @@ export function rehypePunctilio(
       }
 
       // Collect and transform elements with text content
-      const elementsToTransform = collectTransformableElements(node, shouldSkip, 0, transformed)
+      const elementsToTransform = collectTransformableElements(node, shouldSkip, 0, transformed, isTransformable)
       for (const elt of elementsToTransform) {
         if (!transformed.has(elt)) {
           transformElement(elt, transformFn, shouldSkip, separator, false, elementOptions)

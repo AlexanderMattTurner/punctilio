@@ -143,8 +143,11 @@ The `rehype` plugin accepts additional options. Elements matching any `skipTags`
 rehypePunctilio({
   skipTags: ["code", "pre", "script", "style", "kbd", "var", "samp", "template", "math", "svg"],
   skipClasses: ["no-formatting"],
+  transformAllElements: false, // transform every element except the skip-list
 });
 ```
+
+By default only elements in a built-in allowlist (`p`, `em`, `span`, headings, list items, …) are transformed. Set `transformAllElements: true` to invert that model: every element is transformed _except_ those matching `skipTags`/`skipClasses` and the form-control elements `textarea`, `input`, and `select` (whose text content is a literal value, never prose). Use this when your markup contains custom or non-standard tags that the allowlist would otherwise leave untouched.
 
 For finer-grained control, `shouldSkipText` opts specific text nodes out of transformation without skipping their enclosing element. The predicate receives the text node and its ancestor chain (root first, nearest last); returning `true` leaves the node’s value untouched. `shouldSkipText` runs after element-level skipping—it is never called for text inside an already-skipped element.
 

@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Added
+- `rehypePunctilio` option `transformAllElements`: inverts the element model so every element is transformed except `skipTags`/`skipClasses` matches and the form-control elements `textarea`, `input`, and `select` (whose text is a literal value, never prose). Defaults to `false`, preserving the existing allowlist. Lets custom or non-standard tags receive typography fixes.
+
+### Fixed
+- Number ranges `1-8XX` where `8XX` is not one of the seven real US toll-free codes (`800`, `888`, `877`, `866`, `855`, `844`, `833`) now en-dash: `1-850` → `1–850`, `1-810` → `1–810`, and so on. The seven genuine toll-free prefixes (e.g. `1-800`) are still preserved.
+
 ## [3.13.1] - 2026-06-08
 
 ### Fixed

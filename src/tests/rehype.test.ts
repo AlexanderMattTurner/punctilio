@@ -150,6 +150,42 @@ describe("rehypePunctilio", () => {
     })
   })
 
+  describe("transformAllElements", () => {
+    it("leaves non-allowlist elements untouched by default", async () => {
+      expect(await processHtml('<custom-tag>"Hello"</custom-tag>', { nbsp: false })).toEqual(
+        '<custom-tag>"Hello"</custom-tag>'
+      )
+    })
+
+    it("transforms non-allowlist elements when inverted", async () => {
+      expect(await processHtml('<custom-tag>"Hello"</custom-tag>', { transformAllElements: true, nbsp: false })).toEqual(
+        `<custom-tag>${LDQ}Hello${RDQ}</custom-tag>`
+      )
+    })
+
+    it.each([
+      ["default skip-list", '<custom-tag><code>"x"</code></custom-tag>', undefined, '<custom-tag><code>"x"</code></custom-tag>'],
+      ["custom skipTags", '<custom-tag><raw>"x"</raw></custom-tag>', ["raw"], '<custom-tag><raw>"x"</raw></custom-tag>'],
+    ])("keeps %s skipped under inversion", async (_name, html, skipTags, expected) => {
+      const options: RehypePunctilioOptions = { transformAllElements: true, nbsp: false }
+      if (skipTags) options.skipTags = skipTags
+      expect(await processHtml(html, options)).toEqual(expected)
+    })
+
+    it.each([
+      ["textarea", '<textarea>"raw"</textarea>'],
+      ["select", '<select><option>"raw"</option></select>'],
+    ])("never transforms %s under inversion", async (_name, html) => {
+      expect(await processHtml(html, { transformAllElements: true, nbsp: false })).toEqual(html)
+    })
+
+    it("transforms a sibling of a skipped form control under inversion", async () => {
+      expect(
+        await processHtml('<div>"Hi" <textarea>"raw"</textarea></div>', { transformAllElements: true, nbsp: false })
+      ).toEqual(`<div>${LDQ}Hi${RDQ} <textarea>"raw"</textarea></div>`)
+    })
+  })
+
   describe("transform options passthrough", () => {
     it.each([
       ["punctuationStyle american", '<p>"Hello."</p>', { punctuationStyle: "american" as const, nbsp: false as const }, `<p>${LDQ}Hello.${RDQ}</p>`],
