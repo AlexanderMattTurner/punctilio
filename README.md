@@ -208,8 +208,6 @@ punctilio --check README.md                  # exit 1 if it would change anythin
 echo '"Hi" -- there' | punctilio - --type md
 ```
 
-Like Prettier, the CLI prints formatted output to stdout by default (multiple files are concatenated in argument order). Pass `--write` to rewrite files in place; `--write` and `--check` are mutually exclusive.
-
 Two caveats before pointing the CLI (or the [pre-commit hook](#pre-commit) below) at an existing repo. First, the Markdown path re-serializes the whole document through `remark-stringify`, so the first run may produce formatting diffs beyond typography—escaping, list markers, and link syntax get normalized. Like Prettier, the output then stays stable on subsequent runs. If you already use Prettier, the [Prettier plugin](#prettier-plugin) avoids this double-formatting entirely, since Prettier keeps owning the printing.
 
 Second, non-breaking spaces (U+00A0) are invisible in source files: they render fine, but they aren’t regular spaces, so Ctrl+F and `grep` matches against the source can miss. Markdown files therefore default to `nbsp` off; pass `--nbsp` (or set `nbsp: true` in config) to opt in. HTML files keep the default of `nbsp` on; pass `--no-nbsp` to keep them ASCII-spaced.
