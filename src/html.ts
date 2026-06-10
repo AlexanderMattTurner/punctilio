@@ -3,8 +3,8 @@ import rehypeParse from "rehype-parse"
 import rehypeStringify from "rehype-stringify"
 import QuickLRU from "quick-lru"
 
-import { rehypePunctilio, type RehypePunctilioOptions } from "./rehype.js"
-import { stableStringify } from "./utils.js"
+import { REHYPE_ONLY_OPTION_KEYS, REHYPE_OPTION_KEYS, rehypePunctilio, type RehypePunctilioOptions } from "./rehype.js"
+import { assertKnownOptionKeys, stableStringify } from "./utils.js"
 
 export interface HtmlOptions extends RehypePunctilioOptions {
   /**
@@ -14,6 +14,13 @@ export interface HtmlOptions extends RehypePunctilioOptions {
    */
   fragment?: boolean
 }
+
+/** Option keys handled by the HTML pipeline (parser plus rehype plugin)
+ * rather than `transform()`. */
+export const HTML_ONLY_OPTION_KEYS: readonly string[] = ["fragment", ...REHYPE_ONLY_OPTION_KEYS]
+
+/** Runtime list of valid `transformHtml` option keys. */
+export const HTML_OPTION_KEYS: readonly string[] = [...REHYPE_OPTION_KEYS, "fragment"]
 
 function createProcessor(options: HtmlOptions) {
   const { fragment, ...punctilioOptions } = options
@@ -38,6 +45,8 @@ export async function transformHtml(
   input: string,
   options: HtmlOptions = {}
 ): Promise<string> {
+  assertKnownOptionKeys(options, HTML_OPTION_KEYS, "transformHtml")
+
   // Function-valued options aren't JSON-serializable, so the cache key
   // can't distinguish them. Bypass the cache to avoid returning a
   // processor wired to a different shouldSkipText.

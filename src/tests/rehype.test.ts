@@ -38,6 +38,16 @@ async function processHtml(html: string, options?: RehypePunctilioOptions): Prom
 }
 
 describe("rehypePunctilio", () => {
+  describe("option key validation", () => {
+    it.each(["fragment", "emphasisMarker", "fraction"])(
+      'rejects unknown option key "%s" at plugin construction',
+      (key) => {
+        expect(() => rehypePunctilio({ [key]: true } as never))
+          .toThrow(`Unknown option "${key}" for rehypePunctilio`)
+      },
+    )
+  })
+
   describe("basic transformations", () => {
     it.each([
       ["quotes", '<p>"Hello," she said.</p>', `<p>${LDQ}Hello,${RDQ} she said.</p>`],
@@ -50,6 +60,23 @@ describe("rehypePunctilio", () => {
       ["legal symbols", "<p>(c) 2024</p>", `<p>${COPYRIGHT} 2024</p>`],
     ])("transforms %s", async (_name, html, expected) => {
       expect(await processHtml(html, { nbsp: false })).toEqual(expected)
+    })
+  })
+
+  describe("expanded transformable elements", () => {
+    it.each([
+      ["custom element", '<my-card>"hi" -- there</my-card>', `<my-card>${LDQ}hi${RDQ}${EM_DASH}there</my-card>`],
+      ["title", '<title>"Hi"</title>', `<title>${LDQ}Hi${RDQ}</title>`],
+      ["button", '<button>"Hi"</button>', `<button>${LDQ}Hi${RDQ}</button>`],
+      ["option", '<select><option>"Hi"</option></select>', `<select><option>${LDQ}Hi${RDQ}</option></select>`],
+      ["output", '<output>"Hi"</output>', `<output>${LDQ}Hi${RDQ}</output>`],
+    ])("transforms %s text", async (_name, html, expected) => {
+      expect(await processHtml(html, { nbsp: false })).toEqual(expected)
+    })
+
+    it("skipTags wins over the custom-element predicate", async () => {
+      expect(await processHtml('<my-card>"hi" -- there</my-card>', { skipTags: ["my-card"] }))
+        .toEqual('<my-card>"hi" -- there</my-card>')
     })
   })
 
@@ -161,6 +188,7 @@ describe("rehypePunctilio", () => {
       ["fractions enabled", "<p>1/2 cup</p>", { fractions: true, nbsp: false as const }, `<p>${FRACTION_1_2} cup</p>`],
       ["fractions disabled", "<p>1/2 cup</p>", { fractions: false, nbsp: false as const }, "<p>1/2 cup</p>"],
       ["custom separator", '<p>"Hello"</p>', { separator: "\uE001", nbsp: false as const }, `<p>${LDQ}Hello${RDQ}</p>`],
+      ["explicit checkIdempotency: true", '<p>"Hello"</p>', { checkIdempotency: true, nbsp: false as const }, `<p>${LDQ}Hello${RDQ}</p>`],
     ])("respects %s", async (_name, html, options, expected) => {
       expect(await processHtml(html, options)).toEqual(expected)
     })

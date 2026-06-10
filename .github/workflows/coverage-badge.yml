@@ -1,0 +1,49 @@
+name: Coverage Badge
+
+# Publishes a shields.io endpoint JSON to the orphan `badges` branch after
+# each push to main. The README's coverage badge reads from that branch, so
+# the displayed number always comes from a real coverage run.
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: coverage-badge
+  cancel-in-progress: true
+
+jobs:
+  coverage-badge:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      - name: Run tests with coverage
+        run: pnpm test
+
+      - name: Generate badge JSON
+        run: node .github/scripts/coverage-badge.mjs
+
+      - name: Publish to badges branch
+        # Force-push a fresh single-commit orphan branch each time so the
+        # badge branch never accumulates history.
+        run: |
+          mkdir /tmp/badges
+          cp coverage-badge.json /tmp/badges/coverage.json
+          cd /tmp/badges
+          git init -b badges
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add coverage.json
+          git commit -m "chore: update coverage badge"
+          git push --force "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" badges
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

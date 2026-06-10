@@ -139,9 +139,11 @@ export interface TransformOptions {
   /**
    * Whether to verify that the transformation is idempotent (running twice
    * produces the same result). When enabled, throws an error if the second
-   * pass produces a different result than the first.
+   * pass produces a different result than the first. The check doubles the
+   * cost of every transform and only detects punctilio's own bugs, so it is
+   * off by default; enable it in test suites or when debugging.
    *
-   * Default: true
+   * Default: false
    */
   checkIdempotency?: boolean
 
@@ -151,7 +153,7 @@ import { niceQuotes } from "./quotes.js"
 import { hyphenReplace } from "./dashes.js"
 import { collapseSpaces as collapseSpacesTransform, degrees as degreesTransform, fractions as fractionsTransform, punctuationLigatures as ligaturesTransform, primeMarks, superscriptOrdinal as superscriptTransform, symbolTransform } from "./symbols.js"
 import { nbspTransform as nbspTransformFn } from "./nbsp.js"
-import { assertSeparatorCountPreserved, filterUndefined, formatErrorString } from "./utils.js"
+import { assertKnownOptionKeys, assertSeparatorCountPreserved, filterUndefined, formatErrorString } from "./utils.js"
 import { DEFAULT_SEPARATOR, ISSUES_URL, UNICODE_SYMBOLS } from "./constants.js"
 
 export {
@@ -181,12 +183,21 @@ const defaultOpts: Required<Omit<TransformOptions, "separator">> = {
   ligatures: false,
   nbsp: true,
   collapseSpaces: true,
-  checkIdempotency: true,
+  checkIdempotency: false,
   punctuationStyle: "american",
   dashStyle: "american",
 }
 
+/** Runtime list of valid `transform()` option keys, derived from the option
+ * defaults so it cannot drift from {@link TransformOptions}. */
+export const TRANSFORM_OPTION_KEYS: readonly string[] = [
+  ...Object.keys(defaultOpts),
+  "separator",
+]
+
 export function transform(text: string, options: TransformOptions = {}): string {
+  assertKnownOptionKeys(options, TRANSFORM_OPTION_KEYS, "transform")
+
   const separator = options.separator ?? DEFAULT_SEPARATOR
 
   if (separator.length === 0) {

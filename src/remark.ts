@@ -3,10 +3,15 @@ import type { Transformer } from "unified"
 
 import { visitParents } from "unist-util-visit-parents"
 
-import { transform, type TransformOptions } from "./index.js"
+import { transform, TRANSFORM_OPTION_KEYS, type TransformOptions } from "./index.js"
 import { DEFAULT_SEPARATOR, MAX_RECURSION_DEPTH } from "./constants.js"
-import { transformTextNodes } from "./utils.js"
+import { assertKnownOptionKeys, transformTextNodes } from "./utils.js"
 
+/**
+ * Same options as `transform()`, except `nbsp` defaults to `false`:
+ * invisible U+00A0 characters written into Markdown source files break
+ * grep/Ctrl+F matching. Pass `nbsp: true` explicitly to opt in.
+ */
 export type RemarkPunctilioOptions = TransformOptions
 
 const PHRASING_CONTAINERS = new Set(["paragraph", "heading", "tableCell"])
@@ -42,14 +47,16 @@ function flattenTextNodes(
 export function remarkPunctilio(
   options: RemarkPunctilioOptions = {}
 ): Transformer<Root, Root> {
+  assertKnownOptionKeys(options, TRANSFORM_OPTION_KEYS, "remarkPunctilio")
+
   const separator = options.separator ?? DEFAULT_SEPARATOR
 
-  // Default idempotency check to false in plugin context — the separator
-  // count check already guards against corruption, and the double-pass
-  // penalty compounds across every block-level element.
+  // Markdown is a source format, so default `nbsp` to false (`?? false`
+  // rather than spread defaults so an explicit `nbsp: undefined` also gets
+  // the Markdown default instead of falling through to transform's).
   const pluginOptions = {
-    checkIdempotency: false,
     ...options,
+    nbsp: options.nbsp ?? false,
     separator,
   }
 

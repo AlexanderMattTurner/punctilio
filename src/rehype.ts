@@ -3,9 +3,9 @@ import type { Transformer } from "unified"
 
 import { SKIP, visitParents } from "unist-util-visit-parents"
 
-import { transform, type TransformOptions } from "./index.js"
+import { transform, TRANSFORM_OPTION_KEYS, type TransformOptions } from "./index.js"
 import { DEFAULT_SEPARATOR, MAX_RECURSION_DEPTH } from "./constants.js"
-import { formatErrorString, transformTextNodes } from "./utils.js"
+import { assertKnownOptionKeys, formatErrorString, transformTextNodes } from "./utils.js"
 
 type ElementPredicate = (node: Element) => boolean
 
@@ -49,6 +49,12 @@ export interface RehypePunctilioOptions
 }
 
 const DEFAULT_SKIP_TAGS = ["code", "pre", "script", "style", "kbd", "var", "samp", "template", "math", "svg"]
+
+/** Option keys handled by `rehypePunctilio` itself rather than `transform()`. */
+export const REHYPE_ONLY_OPTION_KEYS: readonly string[] = ["skipTags", "skipClasses", "shouldSkipText"]
+
+/** Runtime list of valid `rehypePunctilio` option keys. */
+export const REHYPE_OPTION_KEYS: readonly string[] = [...TRANSFORM_OPTION_KEYS, ...REHYPE_ONLY_OPTION_KEYS]
 
 export function flattenTextNodes(
   node: Element | ElementContent,
@@ -266,7 +272,17 @@ const TRANSFORMABLE_ELEMENTS = new Set([
   "ruby",
   "rt",
   "rp",
+  "title",
+  "button",
+  "option",
+  "output",
 ])
+
+// A tag name containing "-" is a custom element per the HTML custom-element
+// naming rule; assume those hold transformable prose like built-in elements.
+function isTransformableElement(tagName: string): boolean {
+  return TRANSFORMABLE_ELEMENTS.has(tagName) || tagName.includes("-")
+}
 
 function hasTextDescendant(
   node: Element | ElementContent,
@@ -319,7 +335,7 @@ export function collectTransformableElements(
     hasTextDescendant(node, shouldSkip)
 
   if (
-    TRANSFORMABLE_ELEMENTS.has(node.tagName) &&
+    isTransformableElement(node.tagName) &&
     (hasDirectText || hasTextDescendants)
   ) {
     results.push(node)
@@ -354,6 +370,8 @@ function markDescendants(node: Element, set: Set<Element>, depth: number = 0): v
 export function rehypePunctilio(
   options: RehypePunctilioOptions = {}
 ): Transformer<Root, Root> {
+  assertKnownOptionKeys(options, REHYPE_OPTION_KEYS, "rehypePunctilio")
+
   const {
     skipTags = DEFAULT_SKIP_TAGS,
     skipClasses = [],
@@ -377,11 +395,7 @@ export function rehypePunctilio(
   const shouldSkip = (node: Element): boolean =>
     skipTagSet.has(node.tagName) || hasSkipClass(node)
 
-  // Default idempotency check to false in plugin context — the separator
-  // count check already guards against corruption, and the double-pass
-  // penalty compounds across every block-level element.
   const pluginOptions = {
-    checkIdempotency: false,
     ...transformOptions,
     separator,
   }

@@ -25,6 +25,14 @@ describe("transformMarkdown", () => {
     expect(result.trimEnd()).toEqual(`${LDQ}Hello,${RDQ} she said.`)
   })
 
+  it.each(["skipTags", "fragment", "fraction"])(
+    'rejects unknown option key "%s"',
+    async (key) => {
+      await expect(transformMarkdown("hi", { [key]: true } as never))
+        .rejects.toThrow(`Unknown option "${key}" for transformMarkdown`)
+    },
+  )
+
   it("preserves code blocks", async () => {
     const input = '```\n"untouched"\n```'
     const result = await transformMarkdown(input, { nbsp: false })
@@ -132,8 +140,17 @@ describe("transformMarkdown", () => {
   it("treats undefined options the same as absent options", async () => {
     const withDefault = await transformMarkdown("Dr. Smith")
     const withUndefined = await transformMarkdown("Dr. Smith", { nbsp: undefined })
-    expect(withDefault).toContain("\u00A0")
-    expect(withUndefined).toContain("\u00A0")
+    expect(withDefault).not.toContain("\u00A0")
+    expect(withUndefined).not.toContain("\u00A0")
+  })
+
+  it.each([
+    ["unspecified (markdown default: off)", {}, false],
+    ["explicit true", { nbsp: true }, true],
+    ["explicit false", { nbsp: false }, false],
+  ])("nbsp %s", async (_name, options, expectNbsp) => {
+    const result = await transformMarkdown("Dr. Smith arrived.", options)
+    expect(result.includes("\u00A0")).toBe(expectNbsp)
   })
 
   it("README.md prose is already typographically correct", () => {

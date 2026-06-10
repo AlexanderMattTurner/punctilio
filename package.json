@@ -84,7 +84,7 @@
   },
   "homepage": "https://github.com/alexander-turner/punctilio#readme",
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.0.0"
   },
   "packageManager": "pnpm@10.28.1",
   "devDependencies": {
@@ -154,7 +154,6 @@
     }
   },
   "dependencies": {
-    "commander": "14.0.3",
     "cosmiconfig": "9.0.1",
     "escape-string-regexp": "5.0.0",
     "ignore": "7.0.5",

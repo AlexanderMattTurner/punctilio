@@ -82,20 +82,62 @@ async function withTempCwd<T>(prefix: string, fn: (dir: string) => Promise<T>): 
 }
 
 describe("runCli", () => {
-  it("formats a markdown file in place", async () => {
+  it("--write formats a markdown file in place", async () => {
     const path = tmpFile('"Hello" -- world.\n', "doc.md")
     const cap = captureIO()
-    const code = await runCli([path, "--no-nbsp"], cap.io)
+    const code = await runCli(["--write", path, "--no-nbsp"], cap.io)
     expect(code).toBe(0)
     expect(readFileSync(path, "utf8")).toBe(`${LDQ}Hello${RDQ}${EM_DASH}world.\n`)
     expect(cap.stdout()).toContain(`Reformatted: ${path}`)
   })
 
-  it("preserves the file's missing trailing newline", async () => {
+  it("without --write prints formatted output to stdout and leaves the file untouched", async () => {
+    const original = '"Hello" -- world.\n'
+    const path = tmpFile(original, "doc.md")
+    const cap = captureIO()
+    const code = await runCli([path, "--no-nbsp"], cap.io)
+    expect(code).toBe(0)
+    expect(readFileSync(path, "utf8")).toBe(original)
+    expect(cap.stdout()).toBe(`${LDQ}Hello${RDQ}${EM_DASH}world.\n`)
+  })
+
+  it("stdout mode concatenates multiple files in argument order", async () => {
+    const a = tmpFile('"a"\n', "a.md")
+    const b = tmpFile('"b"\n', "b.md")
+    const cap = captureIO()
+    const code = await runCli([a, b, "--no-nbsp"], cap.io)
+    expect(code).toBe(0)
+    expect(cap.stdout()).toBe(`${LDQ}a${RDQ}\n${LDQ}b${RDQ}\n`)
+  })
+
+  it("stdout mode prints already-formatted files verbatim", async () => {
+    const path = tmpFile(`${LDQ}done${RDQ}\n`, "doc.md")
+    const cap = captureIO()
+    const code = await runCli([path, "--no-nbsp"], cap.io)
+    expect(code).toBe(0)
+    expect(cap.stdout()).toBe(`${LDQ}done${RDQ}\n`)
+  })
+
+  it("--write and --check are mutually exclusive", async () => {
+    const path = tmpFile('"x"\n', "doc.md")
+    const cap = captureIO()
+    const code = await runCli(["--write", "--check", path], cap.io)
+    expect(code).toBe(2)
+    expect(cap.stderr()).toContain("mutually exclusive")
+  })
+
+  it("'-' rejects --write", async () => {
+    const cap = captureIO('"x"')
+    const code = await runCli(["-", "--type", "md", "--write"], cap.io)
+    expect(code).toBe(2)
+    expect(cap.stderr()).toContain("--write cannot be used when reading from stdin")
+  })
+
+  it("--write preserves the file's missing trailing newline", async () => {
     const original = '"Already done."'
     const path = tmpFile(`${LDQ}Already done.${RDQ}`, "doc.md")
     const cap = captureIO()
-    const code = await runCli([path, "--no-nbsp"], cap.io)
+    const code = await runCli(["--write", path, "--no-nbsp"], cap.io)
     expect(code).toBe(0)
     expect(readFileSync(path, "utf8")).toBe(`${LDQ}Already done.${RDQ}`)
     expect(original).toBe('"Already done."') // sanity
@@ -121,7 +163,7 @@ describe("runCli", () => {
   it("handles HTML files via .html extension", async () => {
     const path = tmpFile('<p>"Hello"</p>\n', "page.html")
     const cap = captureIO()
-    const code = await runCli([path, "--no-nbsp"], cap.io)
+    const code = await runCli(["--write", path, "--no-nbsp"], cap.io)
     expect(code).toBe(0)
     expect(readFileSync(path, "utf8")).toContain(`${LDQ}Hello${RDQ}`)
   })
@@ -131,11 +173,25 @@ describe("runCli", () => {
     async (ext) => {
       const path = tmpFile(ext.startsWith(".m") ? '"x"\n' : '<p>"x"</p>\n', `file${ext}`)
       const cap = captureIO()
-      const code = await runCli([path, "--no-nbsp"], cap.io)
+      const code = await runCli(["--write", path, "--no-nbsp"], cap.io)
       expect(code).toBe(0)
       expect(readFileSync(path, "utf8")).toContain(`${LDQ}x${RDQ}`)
     },
   )
+
+  it.each([
+    ["md", "Dr. Smith arrived.", [] as string[], false],
+    ["md", "Dr. Smith arrived.", ["--nbsp"], true],
+    ["md", "Dr. Smith arrived.", ["--no-nbsp"], false],
+    ["html", "<p>Dr. Smith arrived.</p>", [] as string[], true],
+    ["html", "<p>Dr. Smith arrived.</p>", ["--nbsp"], true],
+    ["html", "<p>Dr. Smith arrived.</p>", ["--no-nbsp"], false],
+  ])("nbsp tri-state: type %s with flags %p → nbsp %p", async (type, input, flags, expectNbsp) => {
+    const cap = captureIO(input)
+    const code = await runCli(["-", "--type", type, ...flags], cap.io)
+    expect(code).toBe(0)
+    expect(cap.stdout().includes("\u00A0")).toBe(expectNbsp)
+  })
 
   it("reads stdin when positional is '-'", async () => {
     const cap = captureIO('"Hello."')
@@ -230,7 +286,7 @@ describe("runCli", () => {
   it("respects --type override for unknown extensions", async () => {
     const path = tmpFile('"Hello."\n', "file.txt")
     const cap = captureIO()
-    const code = await runCli(["--type", "md", "--no-nbsp", path], cap.io)
+    const code = await runCli(["--write", "--type", "md", "--no-nbsp", path], cap.io)
     expect(code).toBe(0)
     expect(readFileSync(path, "utf8")).toContain(`${LDQ}Hello.${RDQ}`)
   })
@@ -358,7 +414,7 @@ describe("runCli", () => {
     const path = tmpFile('<p>"a"</p><aside>"b"</aside>\n', "page.html")
     const cap = captureIO()
     const code = await runCli(
-      ["--skip-tag", "aside", "--no-nbsp", path],
+      ["--write", "--skip-tag", "aside", "--no-nbsp", path],
       cap.io,
     )
     expect(code).toBe(0)
@@ -371,7 +427,7 @@ describe("runCli", () => {
     const path = tmpFile('<p>"a"</p><div class="raw">"b"</div>\n', "page.html")
     const cap = captureIO()
     const code = await runCli(
-      ["--skip-class", "raw", "--no-nbsp", path],
+      ["--write", "--skip-class", "raw", "--no-nbsp", path],
       cap.io,
     )
     expect(code).toBe(0)
@@ -386,7 +442,7 @@ describe("runCli", () => {
       "page.html",
     )
     const cap = captureIO()
-    const code = await runCli(["--no-fragment", "--no-nbsp", path], cap.io)
+    const code = await runCli(["--write", "--no-fragment", "--no-nbsp", path], cap.io)
     expect(code).toBe(0)
     expect(readFileSync(path, "utf8")).toContain(`${LDQ}Hi${RDQ}`)
   })
@@ -395,7 +451,7 @@ describe("runCli", () => {
     const a = tmpFile('"a"\n', "a.md")
     const b = tmpFile(`${LDQ}b${RDQ}\n`, "b.md")
     const cap = captureIO()
-    const code = await runCli(["--no-nbsp", a, b], cap.io)
+    const code = await runCli(["--write", "--no-nbsp", a, b], cap.io)
     expect(code).toBe(0)
     expect(cap.stdout()).toContain(`Reformatted: ${a}`)
     expect(cap.stdout()).not.toContain(`Reformatted: ${b}`)
@@ -412,7 +468,7 @@ describe("runCli", () => {
     await withTempCwd("punctilio-cache-", async (dir) => {
       writeFileSync(join(dir, "doc.md"), '"Hello."\n')
       const cacheLocation = join(dir, "cache.json")
-      const args = ["doc.md", "--cache-location", cacheLocation, "--no-nbsp"]
+      const args = ["--write", "doc.md", "--cache-location", cacheLocation, "--no-nbsp"]
 
       const first = captureIO()
       expect(await runCli(args, first.io)).toBe(0)
@@ -429,7 +485,7 @@ describe("runCli", () => {
     await withTempCwd("punctilio-cache-default-", async (dir) => {
       writeFileSync(join(dir, "doc.md"), '"Hello."\n')
       const cap = captureIO()
-      expect(await runCli(["doc.md", "--no-nbsp"], cap.io)).toBe(0)
+      expect(await runCli(["--write", "doc.md", "--no-nbsp"], cap.io)).toBe(0)
       expect(existsSync(join(dir, "node_modules", ".cache", "punctilio", "cache.json"))).toBe(true)
     })
   })
@@ -438,7 +494,7 @@ describe("runCli", () => {
     await withTempCwd("punctilio-cache-opts-", async (dir) => {
       writeFileSync(join(dir, "doc.md"), `${LDQ}Hello.${RDQ}\n`)
       const cacheLocation = join(dir, "cache.json")
-      const baseArgs = ["doc.md", "--cache-location", cacheLocation, "--no-nbsp"]
+      const baseArgs = ["--write", "doc.md", "--cache-location", cacheLocation, "--no-nbsp"]
 
       const first = captureIO()
       await runCli(baseArgs, first.io)
@@ -459,7 +515,7 @@ describe("runCli", () => {
       writeFileSync(cacheLocation, seedContent)
 
       const cap = captureIO()
-      expect(await runCli(["doc.md", "--cache-location", cacheLocation, "--no-nbsp"], cap.io)).toBe(0)
+      expect(await runCli(["--write", "doc.md", "--cache-location", cacheLocation, "--no-nbsp"], cap.io)).toBe(0)
       expect(cap.stdout()).toContain("Reformatted")
       expect(cap.stderr()).toMatch(expectedWarning)
     })
@@ -485,7 +541,7 @@ describe("runCli", () => {
       )
 
       const cap = captureIO()
-      expect(await runCli(["doc.md", "--cache-location", cacheLocation, "--no-nbsp"], cap.io)).toBe(0)
+      expect(await runCli(["--write", "doc.md", "--cache-location", cacheLocation, "--no-nbsp"], cap.io)).toBe(0)
       expect(cap.stderr()).toBe("") // silent migration
 
       const parsed = JSON.parse(readFileSync(cacheLocation, "utf8")) as {
@@ -505,7 +561,7 @@ describe("runCli", () => {
     await withTempCwd("punctilio-cache-portable-src-", async (srcDir) => {
       writeFileSync(join(srcDir, "doc.md"), '"Hello."\n')
       const cacheLocation = join(srcDir, "cache.json")
-      const args = ["doc.md", "--cache-location", cacheLocation, "--no-nbsp"]
+      const args = ["--write", "doc.md", "--cache-location", cacheLocation, "--no-nbsp"]
 
       expect(await runCli(args, captureIO().io)).toBe(0)
       const parsed = JSON.parse(readFileSync(cacheLocation, "utf8")) as {
@@ -523,7 +579,22 @@ describe("runCli", () => {
     await withTempCwd("punctilio-no-cache-", async (dir) => {
       writeFileSync(join(dir, "doc.md"), '"Hello."\n')
       const cap = captureIO()
-      expect(await runCli(["doc.md", "--no-cache", "--no-nbsp"], cap.io)).toBe(0)
+      expect(await runCli(["--write", "doc.md", "--no-cache", "--no-nbsp"], cap.io)).toBe(0)
+      expect(existsSync(join(dir, "node_modules", ".cache", "punctilio", "cache.json"))).toBe(false)
+    })
+  })
+
+  it("stdout mode skips the cache entirely (no cache file, warm cache still prints)", async () => {
+    await withTempCwd("punctilio-stdout-cache-", async (dir) => {
+      writeFileSync(join(dir, "doc.md"), '"Hello."\n')
+      const cacheLocation = join(dir, "cache.json")
+      // Warm the cache via --write, then confirm stdout mode still prints
+      // full content (a cache hit would otherwise skip the file).
+      expect(await runCli(["--write", "doc.md", "--cache-location", cacheLocation, "--no-nbsp"], captureIO().io)).toBe(0)
+      const cap = captureIO()
+      expect(await runCli(["doc.md", "--cache-location", cacheLocation, "--no-nbsp"], cap.io)).toBe(0)
+      expect(cap.stdout()).toBe(`${LDQ}Hello.${RDQ}\n`)
+      // And a fresh stdout-mode run never creates the default cache file.
       expect(existsSync(join(dir, "node_modules", ".cache", "punctilio", "cache.json"))).toBe(false)
     })
   })
@@ -532,7 +603,7 @@ describe("runCli", () => {
     await withTempCwd("punctilio-cache-noop-", async (dir) => {
       writeFileSync(join(dir, "doc.md"), `${LDQ}Hello.${RDQ}\n`)
       const cacheLocation = join(dir, "cache.json")
-      const args = ["doc.md", "--cache-location", cacheLocation, "--no-nbsp"]
+      const args = ["--write", "doc.md", "--cache-location", cacheLocation, "--no-nbsp"]
 
       const first = captureIO()
       await runCli(args, first.io)
@@ -581,7 +652,7 @@ describe("runCli", () => {
       writeFileSync(join(dir, ".punctilioignore"), "b.md\n")
 
       const cap = captureIO()
-      expect(await runCli(["*.md", "--no-nbsp"], cap.io)).toBe(0)
+      expect(await runCli(["--write", "*.md", "--no-nbsp"], cap.io)).toBe(0)
       expect(readFileSync(join(dir, "a.md"), "utf8")).toContain(`${LDQ}a${RDQ}`)
       expect(readFileSync(join(dir, "b.md"), "utf8")).toBe('"b"\n')
     })
@@ -591,7 +662,7 @@ describe("runCli", () => {
     await withTempCwd("punctilio-dedup-", async (dir) => {
       writeFileSync(join(dir, "a.md"), '"a"\n')
       const cap = captureIO()
-      expect(await runCli(["a.md", "*.md", "--no-nbsp"], cap.io)).toBe(0)
+      expect(await runCli(["--write", "a.md", "*.md", "--no-nbsp"], cap.io)).toBe(0)
       const out = cap.stdout()
       const reformatted = out.split("\n").filter((l) => l.includes("Reformatted"))
       expect(reformatted).toHaveLength(1)
@@ -606,10 +677,44 @@ describe("runCli", () => {
       writeFileSync(customIgnore, "a.md\n")
 
       const cap = captureIO()
-      expect(await runCli(["*.md", "--ignore-path", customIgnore, "--no-nbsp"], cap.io)).toBe(0)
+      expect(await runCli(["--write", "*.md", "--ignore-path", customIgnore, "--no-nbsp"], cap.io)).toBe(0)
       expect(readFileSync(join(dir, "a.md"), "utf8")).toBe('"a"\n')
       expect(readFileSync(join(dir, "b.md"), "utf8")).toContain(`${LDQ}b${RDQ}`)
     })
+  })
+
+  it("rejects a config file containing an unknown option key", async () => {
+    const configPath = tmpFile(
+      JSON.stringify({ fraction: true }), // typo of "fractions"
+      ".punctiliorc.json",
+    )
+    const cap = captureIO('"Hello."')
+    const code = await runCli(["-", "--type", "md", "--config", configPath], cap.io)
+    expect(code).toBe(2)
+    expect(cap.stderr()).toContain('Unknown option "fraction"')
+    expect(cap.stderr()).toContain(configPath)
+    expect(cap.stderr()).toContain("Valid options:")
+  })
+
+  it("a config mixing markdown-only and html-only keys formats both file types", async () => {
+    const configPath = tmpFile(
+      JSON.stringify({
+        emphasisMarker: "_", // markdown-only
+        skipTags: ["aside"], // html-only
+        fragment: true, // html-only
+        nbsp: false,
+      }),
+      ".punctiliorc.json",
+    )
+    const md = tmpFile('*hi* and "quote"\n', "doc.md")
+    const html = tmpFile('<p>"a"</p><aside>"b"</aside>\n', "page.html")
+    const cap = captureIO()
+    const code = await runCli(["--write", "--config", configPath, md, html], cap.io)
+    expect(code).toBe(0)
+    expect(readFileSync(md, "utf8")).toContain(`_hi_ and ${LDQ}quote${RDQ}`)
+    const htmlOut = readFileSync(html, "utf8")
+    expect(htmlOut).toContain(`${LDQ}a${RDQ}`)
+    expect(htmlOut).toContain('"b"')
   })
 
   it("--no-config skips config-file loading", async () => {

@@ -1,4 +1,4 @@
-import { countSeparators, DASH_STYLES, DEFAULT_SEPARATOR, PUNCTUATION_STYLES, transform } from "../index.js"
+import { countSeparators, DASH_STYLES, DEFAULT_SEPARATOR, PUNCTUATION_STYLES, TRANSFORM_OPTION_KEYS, type TransformOptions, transform as transformWithoutChecks } from "../index.js"
 import { ellipsis } from "../symbols.js"
 import { MAX_REGEX_CACHE_SIZE, REGEX_SPECIAL_CHARS, UNICODE_SYMBOLS } from "../constants.js"
 import { buildMixedContent } from "./test-helpers.js"
@@ -27,6 +27,13 @@ const {
   FRACTION_1_2,
   SUPERSCRIPT_ST,
 } = UNICODE_SYMBOLS
+
+// `checkIdempotency` defaults to false in production, so the test suite opts
+// back in: every transform call below also verifies the idempotency
+// guarantee. Tests that need the check off pass an explicit false.
+function transform(text: string, options: TransformOptions = {}): string {
+  return transformWithoutChecks(text, { checkIdempotency: true, ...options })
+}
 
 describe("transform", () => {
   it("applies both quote and dash transformations", () => {
@@ -708,6 +715,10 @@ describe("transform", () => {
       expect(transform("", { nbsp: false })).toBe("")
     })
 
+    it("applies production defaults when called without an options argument", () => {
+      expect(transformWithoutChecks('"Dr. Smith"')).toBe(`${LEFT_DOUBLE_QUOTE}Dr.${NBSP}Smith${RIGHT_DOUBLE_QUOTE}`)
+    })
+
     it("treats undefined option values as absent (uses defaults)", () => {
       const input = '"Hello," she said.'
       const withDefault = transform(input)
@@ -790,6 +801,46 @@ describe("transform", () => {
 
     it("exports DASH_STYLES with all expected values", () => {
       expect(DASH_STYLES).toEqual(["american", "british", "none"])
+    })
+  })
+
+  describe("option key validation", () => {
+    it.each([
+      "fraction", // typo of "fractions"
+      "emphasisMarker", // markdown-only key
+      "skipTags", // HTML-only key
+    ])('rejects unknown option key "%s" listing the valid keys', (key) => {
+      const callTransform = () => transform("hello", { [key]: true } as never)
+      expect(callTransform).toThrow(`Unknown option "${key}" for transform`)
+      expect(callTransform).toThrow("Valid options:")
+      expect(callTransform).toThrow("separator")
+    })
+
+    it.each(TRANSFORM_OPTION_KEYS.map((key) => [key]))(
+      'accepts valid option key "%s"',
+      (key) => {
+        const value = key === "separator" ? "|"
+          : key === "punctuationStyle" || key === "dashStyle" ? "american"
+          : false
+        expect(() => transform("hello", { [key]: value } as never)).not.toThrow()
+      },
+    )
+
+    it("TRANSFORM_OPTION_KEYS matches the documented TransformOptions keys", () => {
+      expect([...TRANSFORM_OPTION_KEYS].sort()).toEqual([
+        "checkIdempotency",
+        "collapseSpaces",
+        "dashStyle",
+        "degrees",
+        "fractions",
+        "includeArrows",
+        "ligatures",
+        "nbsp",
+        "punctuationStyle",
+        "separator",
+        "superscript",
+        "symbols",
+      ])
     })
   })
 

@@ -56,7 +56,18 @@ describe("remarkPunctilio", () => {
       ["math symbols", "x != y", `x${NBSP}${NOT_EQUAL} y`],
       ["legal symbols", "(c) 2024", `${COPYRIGHT}${NBSP}2024`],
     ])("transforms %s", async (_name, input, expected) => {
-      expect(await processMarkdown(input)).toEqual(expected)
+      expect(await processMarkdown(input, { nbsp: true })).toEqual(expected)
+    })
+  })
+
+  describe("nbsp default", () => {
+    it.each([
+      ["unspecified (markdown default: off)", undefined, `Dr. Smith arrived.`],
+      ["explicit nbsp: undefined (markdown default: off)", { nbsp: undefined }, `Dr. Smith arrived.`],
+      ["explicit true", { nbsp: true }, `Dr.${NBSP}Smith arrived.`],
+      ["explicit false", { nbsp: false }, `Dr. Smith arrived.`],
+    ])("%s", async (_name, options, expected) => {
+      expect(await processMarkdown("Dr. Smith arrived.", options)).toEqual(expected)
     })
   })
 
@@ -146,10 +157,21 @@ describe("remarkPunctilio", () => {
       ["symbols disabled", "5x5", { symbols: false, nbsp: false as const }, "5x5"],
       ["fractions enabled", "1/2 cup", { fractions: true, nbsp: false as const }, `${FRACTION_1_2} cup`],
       ["fractions disabled", "1/2 cup", { fractions: false, nbsp: false as const }, "1/2 cup"],
+      ["explicit checkIdempotency: true", '"Hello"', { checkIdempotency: true, nbsp: false as const }, `${LDQ}Hello${RDQ}`],
       ["custom separator", '"Hello"', { separator: "\uE001", nbsp: false as const }, `${LDQ}Hello${RDQ}`],
     ])("respects %s", async (_name, input, options, expected) => {
       expect(await processMarkdown(input, options)).toEqual(expected)
     })
+  })
+
+  describe("option key validation", () => {
+    it.each(["emphasisMarker", "skipTags", "fraction"])(
+      'rejects unknown option key "%s" at plugin construction',
+      (key) => {
+        expect(() => remarkPunctilio({ [key]: true } as never))
+          .toThrow(`Unknown option "${key}" for remarkPunctilio`)
+      },
+    )
   })
 
   describe("complex documents", () => {
