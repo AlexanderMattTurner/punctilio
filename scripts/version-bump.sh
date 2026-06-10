@@ -20,22 +20,23 @@ if [ -z "$ANTHROPIC_API_KEY" ]; then
   log "Note: ANTHROPIC_API_KEY is not set. Changelog prose will fall back to a plain commit list."
 fi
 
-# Print the semver bump level for the commit messages on stdin. Expects the
-# shape produced by `git log --pretty=format:%B`: each commit's subject line
-# followed by its body/footer lines. Rules, per Conventional Commits:
+# Print the semver bump level. $1: commit subject lines (`%s`, one per
+# line) — only these are checked for type prefixes, so prose in a commit
+# body that happens to start with `feat:` can't inflate the bump. $2: full
+# messages (`%B`), scanned only for BREAKING CHANGE footers. Rules, per
+# Conventional Commits:
 # - any `type!:` / `type(scope)!:` subject or `BREAKING CHANGE:` footer -> major
 # - else any `feat:` / `feat(scope):` subject -> minor
 # - else (including commits with no conventional prefix at all) -> patch
 determine_bump() {
-  local messages
-  messages=$(cat)
-  if grep -Eq '^[a-zA-Z]+(\([^)]*\))?!:' <<< "$messages" \
-    || grep -Eq '^BREAKING[- ]CHANGE:' <<< "$messages"; then
+  local subjects="$1" full_messages="$2"
+  if grep -Eq '^[a-zA-Z]+(\([^)]*\))?!:' <<< "$subjects" \
+    || grep -Eq '^BREAKING[- ]CHANGE:' <<< "$full_messages"; then
     echo "major"
-  elif grep -Eq '^feat(\([^)]*\))?:' <<< "$messages"; then
+  elif grep -Eq '^feat(\([^)]*\))?:' <<< "$subjects"; then
     echo "minor"
   else
-    if ! grep -Eq '^[a-zA-Z]+(\([^)]*\))?:' <<< "$messages"; then
+    if ! grep -Eq '^[a-zA-Z]+(\([^)]*\))?:' <<< "$subjects"; then
       log "No Conventional Commits prefixes found; defaulting to patch."
     fi
     echo "patch"
@@ -60,11 +61,13 @@ if [ -n "$LAST_TAG" ]; then
   fi
 
   COMMITS_RAW=$(git log "$LAST_TAG"..HEAD --pretty=format:"- %s" --no-merges)
+  COMMIT_SUBJECTS=$(git log "$LAST_TAG"..HEAD --pretty=format:%s --no-merges)
   COMMIT_MESSAGES=$(git log "$LAST_TAG"..HEAD --pretty=format:%B --no-merges)
   DIFF_STAT=$(git diff --stat "$LAST_TAG"..HEAD 2>/dev/null || echo "Unable to get diff")
 else
   # No version tags found — analyze recent commits
   COMMITS_RAW=$(git log --pretty=format:"- %s" --no-merges -20)
+  COMMIT_SUBJECTS=$(git log --pretty=format:%s --no-merges -20)
   COMMIT_MESSAGES=$(git log --pretty=format:%B --no-merges -20)
   DIFF_STAT=$(git show --stat HEAD 2>/dev/null || echo "Unable to get diff")
 fi
@@ -82,7 +85,7 @@ fi
 log "Commits to analyze:"
 log "$COMMITS"
 
-BUMP=$(determine_bump <<< "$COMMIT_MESSAGES")
+BUMP=$(determine_bump "$COMMIT_SUBJECTS" "$COMMIT_MESSAGES")
 log "Conventional Commits bump level: $BUMP"
 
 # Extract the current "## Unreleased" block from CHANGELOG.md, if present.
