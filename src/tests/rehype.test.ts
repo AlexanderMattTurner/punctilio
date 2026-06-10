@@ -80,6 +80,47 @@ describe("rehypePunctilio", () => {
     })
   })
 
+  describe("transformAllElements (inverted mode)", () => {
+    it("default allowlist leaves non-allowlisted elements untouched", async () => {
+      expect(await processHtml('<form>"hi" -- there</form>', { nbsp: false }))
+        .toEqual('<form>"hi" -- there</form>')
+    })
+
+    it.each([
+      ["non-allowlisted element", '<form>"hi" -- there</form>', `<form>${LDQ}hi${RDQ}${EM_DASH}there</form>`],
+      ["still transforms allowlisted prose", '<p>"hi"</p>', `<p>${LDQ}hi${RDQ}</p>`],
+    ])("transforms %s", async (_name, html, expected) => {
+      expect(await processHtml(html, { nbsp: false, transformAllElements: true })).toEqual(expected)
+    })
+
+    it.each([
+      ["textarea value", '<textarea>"hi" -- there</textarea>'],
+      ["input is void with no text", '<input>'],
+    ])("skips %s in inverted mode", async (_name, html) => {
+      expect(await processHtml(html, { nbsp: false, transformAllElements: true })).toEqual(html)
+    })
+
+    it("keeps textarea literal even inside a transformable parent", async () => {
+      expect(await processHtml('<div>"hi"<textarea>"x"</textarea></div>', { nbsp: false, transformAllElements: true }))
+        .toEqual(`<div>${LDQ}hi${RDQ}<textarea>"x"</textarea></div>`)
+    })
+
+    it("skips select but still transforms its option children", async () => {
+      expect(await processHtml('<select><option>"Hi"</option></select>', { nbsp: false, transformAllElements: true }))
+        .toEqual(`<select><option>${LDQ}Hi${RDQ}</option></select>`)
+    })
+
+    it("skipTags still wins in inverted mode", async () => {
+      expect(await processHtml('<form>"hi" -- there</form>', { nbsp: false, transformAllElements: true, skipTags: ["form"] }))
+        .toEqual('<form>"hi" -- there</form>')
+    })
+
+    it("skipClasses still wins in inverted mode", async () => {
+      expect(await processHtml('<form class="no-formatting">"hi"</form>', { nbsp: false, transformAllElements: true, skipClasses: ["no-formatting"] }))
+        .toEqual('<form class="no-formatting">"hi"</form>')
+    })
+  })
+
   describe("HTML structure preservation", () => {
     it.each([
       ["nested elements", '<p><em>"Hello,"</em> she said.</p>', `<p><em>${LDQ}Hello,${RDQ}</em> she said.</p>`],
