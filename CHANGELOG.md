@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## [4.1.1] - 2026-06-10
+
 ### Changed
 - Quote opener/closer/apostrophe classification and American punctuation
   placement now use single-pass, O(n) left-to-right scans with explicit quote
