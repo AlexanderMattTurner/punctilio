@@ -35,7 +35,7 @@ I tested `punctilio` against [`smartypants`](https://www.npmjs.com/package/smart
 | :------------------------------------: | :----------------------------------------: | :---------: |
 | <span class="no-formatting">5x5</span> | <span class="no-formatting">5x5</span> (✗) |   5×5 (✓)   |
 
-My [`benchmark.mjs`](https://github.com/alexander-turner/punctilio/blob/main/benchmark.mjs) measures how well libraries handle a [wide range of scenarios](https://github.com/alexander-turner/punctilio/blob/main/benchmark_cases.json). The benchmark normalizes stylistic differences (e.g. non-breaking vs regular space, British vs American dash spacing) for fair comparison. Fair warning: I wrote the benchmark cases myself while developing `punctilio`, so the comparison naturally favors the scenarios `punctilio` was designed to handle—weigh the table accordingly.
+My [`benchmark.mjs`](https://github.com/alexander-turner/punctilio/blob/main/benchmark.mjs) measures how well libraries handle a [wide range of scenarios](https://github.com/alexander-turner/punctilio/blob/main/benchmark_cases.json). The benchmark normalizes stylistic differences (e.g. non-breaking vs regular space, British vs American dash spacing) for fair comparison. 
 
 |              Package | Passed (of 151) |
 | -------------------: | :-------------- |
@@ -45,6 +45,8 @@ My [`benchmark.mjs`](https://github.com/alexander-turner/punctilio/blob/main/ben
 |        `smartypants` | 72 (48%)        |
 | `retext-smartypants` | 69 (46%)        |
 |           `typograf` | 64 (42%)        |
+
+_Note on benchmark construction: I assembled the initial cases myself. I then sought out cases where `punctilio` failed and competitors succeeded, and improved `punctilio` to succeed there as well. The benchmark may nonetheless remain biased towards `punctilio`._
 
 |              Feature |                        Example                        | `punctilio` | `smartypants` | `tipograph` | `smartquotes` | `typograf` |
 | -------------------: | :---------------------------------------------------: | :---------: | :-----------: | :---------: | :-----------: | :--------: |
