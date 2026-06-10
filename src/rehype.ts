@@ -5,7 +5,8 @@ import { SKIP, visitParents } from "unist-util-visit-parents"
 
 import { transform, TRANSFORM_OPTION_KEYS, type TransformOptions } from "./index.js"
 import { DEFAULT_SEPARATOR, MAX_RECURSION_DEPTH } from "./constants.js"
-import { assertKnownOptionKeys, formatErrorString, transformTextNodes } from "./utils.js"
+import { assertKnownOptionKeys, formatErrorString } from "./utils.js"
+import { buildProseView, runLegacyPass } from "./prose-view.js"
 
 type ElementPredicate = (node: Element) => boolean
 
@@ -213,7 +214,8 @@ export function transformElement(
     ? textNodes.map((n) => n.value + separator).join("")
     : ""
 
-  transformTextNodes(textNodes, transformFn, separator)
+  const view = buildProseView(textNodes)
+  runLegacyPass(view, transformFn, separator)
 
   if (checkInvariance) {
     const transformedContent = textNodes.map((n) => n.value + separator).join("")
