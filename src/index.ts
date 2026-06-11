@@ -1,4 +1,4 @@
-export { DEFAULT_SEPARATOR, UNICODE_SYMBOLS } from "./constants.js"
+export { UNICODE_SYMBOLS } from "./constants.js"
 import { DASH_STYLES, type DashStyle } from "./dashes.js"
 import { PUNCTUATION_STYLES, type PunctuationStyle } from "./quotes.js"
 export {
@@ -22,7 +22,6 @@ export {
   nbspBeforeLastWord,
   nbspBetweenInitials,
   nbspBetweenNumberAndUnit,
-  type NbspOptions,
   nbspTransform,
   REFERENCE_ABBREVIATIONS,
   UNITS,
@@ -33,22 +32,11 @@ export {
   type ProseView,
   replaceAllInView,
   type ReplaceAllOptions,
-  runLegacyPass,
   withProseView,
 } from "./prose-view.js"
 export { classifyApostrophes, niceQuotes, PUNCTUATION_STYLES, type PunctuationStyle, type QuoteOptions } from "./quotes.js"
 
 export interface TransformOptions {
-  /**
-   * A boundary marker character used when transforming text that spans
-   * multiple HTML elements. This character is treated as "transparent"
-   * in the regex patterns.
-   *
-   * Should be a character that doesn't appear in your text.
-   * Default: "\uE000\uE001" (Unicode Private Use Area)
-   */
-  separator?: string
-
   /**
    * Whether to include symbol transforms (ellipsis, multiplication, etc.)
    * Default: true
@@ -144,26 +132,15 @@ export interface TransformOptions {
    * Default: true
    */
   nbsp?: boolean
-
-  /**
-   * Whether to verify that the transformation is idempotent (running twice
-   * produces the same result). When enabled, throws an error if the second
-   * pass produces a different result than the first. The check doubles the
-   * cost of every transform and only detects punctilio's own bugs, so it is
-   * off by default; enable it in test suites or when debugging.
-   *
-   * Default: false
-   */
-  checkIdempotency?: boolean
-
 }
 
 import { niceQuotes } from "./quotes.js"
 import { hyphenReplace } from "./dashes.js"
-import { collapseSpaces as collapseSpacesTransform, degrees as degreesTransform, fractions as fractionsTransform, punctuationLigatures as ligaturesTransform, primeMarks, superscriptOrdinal as superscriptTransform, symbolTransform } from "./symbols.js"
+import { collapseSpaces as collapseSpacesTransform, degrees as degreesTransform, fractions as fractionsTransform, punctuationLigatures as ligaturesTransform, superscriptOrdinal as superscriptTransform, symbolTransform } from "./symbols.js"
 import { nbspTransform as nbspTransformFn } from "./nbsp.js"
-import { assertKnownOptionKeys, assertSeparatorCountPreserved, filterUndefined, formatErrorString } from "./utils.js"
-import { DEFAULT_SEPARATOR, ISSUES_URL, UNICODE_SYMBOLS } from "./constants.js"
+import { type ProseView, withProseView } from "./prose-view.js"
+import { assertKnownOptionKeys, filterUndefined } from "./utils.js"
+import { UNICODE_SYMBOLS } from "./constants.js"
 
 export {
   arrows,
@@ -180,10 +157,9 @@ export {
   type SymbolOptions,
   symbolTransform,
 } from "./symbols.js"
-export { assertSeparatorAbsent, assertSeparatorCountPreserved, countSeparators, transformTextNodes } from "./utils.js"
 export const MODIFIER_LETTER_APOSTROPHE = UNICODE_SYMBOLS.MODIFIER_LETTER_APOSTROPHE
 
-const defaultOpts: Required<Omit<TransformOptions, "separator">> = {
+const defaultOpts: Required<TransformOptions> = {
   symbols: true,
   includeArrows: true,
   fractions: false,
@@ -192,35 +168,19 @@ const defaultOpts: Required<Omit<TransformOptions, "separator">> = {
   ligatures: false,
   nbsp: true,
   collapseSpaces: true,
-  checkIdempotency: false,
   punctuationStyle: "american",
   dashStyle: "american",
 }
 
 /** Runtime list of valid `transform()` option keys, derived from the option
  * defaults so it cannot drift from {@link TransformOptions}. */
-export const TRANSFORM_OPTION_KEYS: readonly string[] = [
-  ...Object.keys(defaultOpts),
-  "separator",
-]
+export const TRANSFORM_OPTION_KEYS: readonly string[] = Object.keys(defaultOpts)
 
-export function transform(text: string, options: TransformOptions = {}): string {
+type ResolvedTransformOptions = Required<TransformOptions>
+
+/** Validates `options` and fills in the defaults. */
+function resolveTransformOptions(options: TransformOptions): ResolvedTransformOptions {
   assertKnownOptionKeys(options, TRANSFORM_OPTION_KEYS, "transform")
-
-  const separator = options.separator ?? DEFAULT_SEPARATOR
-
-  if (separator.length === 0) {
-    throw new Error("Invalid separator: must not be empty.")
-  }
-  // Non-BMP characters are encoded in UTF-16 as surrogate pairs in the range
-  // U+D800–U+DFFF. A surrogate code unit (paired or lone) means the separator
-  // would survive some regexes as a single char and split others as two units.
-  if (/[\uD800-\uDFFF]/.test(separator)) {
-    throw new Error(
-      `Invalid separator: must contain only BMP characters (no characters outside the Basic Multilingual Plane). ` +
-      `Received "${separator}" which contains a non-BMP character.`
-    )
-  }
 
   const punctuationStyle = options.punctuationStyle ?? "american"
   if (!PUNCTUATION_STYLES.includes(punctuationStyle as typeof PUNCTUATION_STYLES[number])) {
@@ -238,59 +198,67 @@ export function transform(text: string, options: TransformOptions = {}): string 
     )
   }
 
-  const original = text
-  const { symbols, fractions, degrees, superscript, ligatures, nbsp, collapseSpaces, checkIdempotency, ...pipelineOpts } = { ...defaultOpts, ...filterUndefined(options) }
+  return { ...defaultOpts, ...filterUndefined(options) }
+}
 
-  text = hyphenReplace(text, pipelineOpts)
-  if (pipelineOpts.punctuationStyle !== "none") {
-    text = primeMarks(text, pipelineOpts)
-  }
-  text = niceQuotes(text, pipelineOpts)
+/** One transform pass: an options gate plus the view runner. */
+interface PipelinePass {
+  enabled(options: ResolvedTransformOptions): boolean
+  run(view: ProseView, options: ResolvedTransformOptions): void
+}
 
-  if (symbols) {
-    text = symbolTransform(text, pipelineOpts)
-  }
+/**
+ * The transform pipeline, in execution order. The order is load-bearing
+ * (#214); each entry's comment records the constraint it satisfies.
+ */
+const PIPELINE: readonly PipelinePass[] = [
+  // Dashes first: quote classification keys off the converted glyphs (an
+  // opening quote after an em dash, the minus sign in ‘−5’), so hyphens must
+  // become em/en dashes and minus signs before the quote rules run.
+  {
+    enabled: () => true,
+    run: (view, options) => hyphenReplace(view, { dashStyle: options.dashStyle }),
+  },
+  // Quotes next, folding prime marks first (niceQuotes' `primes` default):
+  // primes must convert while quotes are still straight, and before
+  // symbolTransform, whose multiplication pass recognizes prime-suffixed
+  // dimensions (5′ x 4′).
+  {
+    enabled: () => true,
+    run: (view, options) => niceQuotes(view, { punctuationStyle: options.punctuationStyle }),
+  },
+  // Core symbols (ellipsis, multiplication, math, legal, arrows). Ellipsis
+  // folding runs first inside symbolTransform so later passes see `…`, not a
+  // dot run they could misread.
+  {
+    enabled: (options) => options.symbols,
+    run: (view, options) => symbolTransform(view, { includeArrows: options.includeArrows }),
+  },
+  // Opt-in passes, after the core set so they operate on settled glyphs.
+  { enabled: (options) => options.fractions, run: (view) => fractionsTransform(view) },
+  { enabled: (options) => options.degrees, run: (view) => degreesTransform(view) },
+  { enabled: (options) => options.superscript, run: (view) => superscriptTransform(view) },
+  { enabled: (options) => options.ligatures, run: (view) => ligaturesTransform(view) },
+  // collapseSpaces before nbsp: the nbsp rules bind through single spaces, so
+  // runs must be collapsed before non-breaking spaces are inserted.
+  { enabled: (options) => options.collapseSpaces, run: (view) => collapseSpacesTransform(view) },
+  { enabled: (options) => options.nbsp, run: (view) => nbspTransformFn(view) },
+]
 
-  if (fractions) {
-    text = fractionsTransform(text, pipelineOpts)
-  }
-
-  if (degrees) {
-    text = degreesTransform(text, pipelineOpts)
-  }
-
-  if (superscript) {
-    text = superscriptTransform(text, pipelineOpts)
-  }
-
-  if (ligatures) {
-    text = ligaturesTransform(text, pipelineOpts)
-  }
-
-  if (collapseSpaces) {
-    text = collapseSpacesTransform(text)
-  }
-
-  if (nbsp) {
-    text = nbspTransformFn(text, pipelineOpts)
-  }
-
-  assertSeparatorCountPreserved(original, text, separator, "transform")
-
-  if (checkIdempotency) {
-    const secondPass = transform(text, { ...options, checkIdempotency: false })
-    /* istanbul ignore if -- defensive check that should never trigger */
-    if (text !== secondPass) {
-      throw new Error(
-        `Transform is not idempotent.\n` +
-        `First pass:  ${formatErrorString(text, "first-pass")}\n` +
-        `Second pass: ${formatErrorString(secondPass, "second-pass")}\n` +
-        `This is a bug in punctilio. Please file an issue at ${ISSUES_URL}\n` +
-        `Include the input text that caused this error.\n` +
-        `To suppress this check, pass { checkIdempotency: false }.`
-      )
+/**
+ * Runs the full transform pipeline over a ProseView in place, committing
+ * after every pass. Used by the rehype/remark plugins to transform text that
+ * spans multiple source nodes; for plain strings use {@link transform}.
+ */
+export function transformView(view: ProseView, options: TransformOptions = {}): void {
+  const resolved = resolveTransformOptions(options)
+  for (const pass of PIPELINE) {
+    if (pass.enabled(resolved)) {
+      pass.run(view, resolved)
     }
   }
+}
 
-  return text
+export function transform(text: string, options: TransformOptions = {}): string {
+  return withProseView(text, (view) => transformView(view, options))
 }

@@ -1,5 +1,5 @@
 import { LATIN_LETTERS, TERMINAL_PUNCTUATION, UNICODE_SYMBOLS } from "./constants.js"
-import { type ProseView, withProseView } from "./prose-view.js"
+import type { ProseView } from "./prose-view.js"
 
 const {
   EM_DASH,
@@ -862,22 +862,20 @@ function queueRenderEdits(view: ProseView, items: Item[], table: Record<QuoteRol
 
 /**
  * The quote/apostrophe role classifier: one boundary-aware scan over the
- * clean text replaces the v4 ordered regex pipeline.
+ * view's text replaces the v4 ordered regex pipeline. Commits its edits.
  */
 export function classifyAndRenderQuotes(
-  markedText: string,
-  separator: string,
+  view: ProseView,
   style: ActiveQuoteStyle,
   apostrophe: string,
-): string {
-  if (!QUOTE_CANDIDATE_RE.test(markedText)) return markedText
-  return withProseView(markedText, separator, (view) => {
-    const items = buildItems(view, style)
-    classifySingles(items)
-    classifyDoubles(items)
-    const placed = applyPunctuationPlacement(items, style)
-    queueRenderEdits(view, placed, renderTable(style, apostrophe))
-  })
+): void {
+  if (!QUOTE_CANDIDATE_RE.test(view.text)) return
+  const items = buildItems(view, style)
+  classifySingles(items)
+  classifyDoubles(items)
+  const placed = applyPunctuationPlacement(items, style)
+  queueRenderEdits(view, placed, renderTable(style, apostrophe))
+  view.commit()
 }
 
 // ---------------------------------------------------------------------------
@@ -932,17 +930,16 @@ function convertPrimes(items: Item[]): void {
   }
 }
 
-/** primeMarks engine: converts `5'10"` to `5′10″` with quote-balance guards. */
-export function convertPrimeMarks(markedText: string, separator: string): string {
-  if (!markedText.includes("'") && !markedText.includes('"')) return markedText
-  return withProseView(markedText, separator, (view) => {
-    const text = view.text
-    const items = buildItems(view, "american")
-    convertPrimes(items)
-    for (const item of items) {
-      if (!item.boundary && item.ch !== text[item.start]) {
-        view.replace(item.start, item.end, item.ch)
-      }
+/** primeMarks engine: converts `5'10"` to `5′10″` with quote-balance guards. Commits its edits. */
+export function convertPrimeMarks(view: ProseView): void {
+  const text = view.text
+  if (!text.includes("'") && !text.includes('"')) return
+  const items = buildItems(view, "american")
+  convertPrimes(items)
+  for (const item of items) {
+    if (!item.boundary && item.ch !== text[item.start]) {
+      view.replace(item.start, item.end, item.ch)
     }
-  })
+  }
+  view.commit()
 }

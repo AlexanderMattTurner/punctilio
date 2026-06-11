@@ -1,10 +1,8 @@
-import { cachedRegExp, DEFAULT_SEPARATOR, LATIN_LETTERS, SPACE_CHARS, UNICODE_SYMBOLS } from "./constants.js"
-import { boundaryCountAt, type ProseView, replaceAllInView, withProseView } from "./prose-view.js"
+import { cachedRegExp, LATIN_LETTERS, SPACE_CHARS, UNICODE_SYMBOLS } from "./constants.js"
+import { boundaryCountAt, overInput, type ProseView, replaceAllInView } from "./prose-view.js"
 import { convertPrimeMarks } from "./quote-classifier.js"
 
 export interface SymbolOptions {
-  /** Boundary marker for HTML element boundaries. Default: "" */
-  separator?: string
   /** Include arrow transforms (-> → →). Default: true */
   includeArrows?: boolean
 }
@@ -40,8 +38,10 @@ const LATIN_LETTER_RE = new RegExp(`[${LATIN_LETTERS}]`)
 const WORD_RE = /\w/
 
 /** Convert "..." or ". . ." to "…". */
-export function ellipsis(text: string, options: SymbolOptions = {}): string {
-  return withProseView(text, options.separator ?? DEFAULT_SEPARATOR, ellipsisOverView)
+export function ellipsis(input: string): string
+export function ellipsis(input: ProseView): void
+export function ellipsis(input: string | ProseView): string | void {
+  return overInput(input, ellipsisOverView)
 }
 
 const SPACE_CHAR_RE = new RegExp(`[${SPACE_CHARS}]`)
@@ -106,8 +106,10 @@ function ellipsisFoldDots(view: ProseView): void {
 
 
 /** Convert "5x5" to "5×5". Skips hex (0x5F). */
-export function multiplication(text: string, options: SymbolOptions = {}): string {
-  return withProseView(text, options.separator ?? DEFAULT_SEPARATOR, multiplicationOverView)
+export function multiplication(input: string): string
+export function multiplication(input: ProseView): void
+export function multiplication(input: string | ProseView): string | void {
+  return overInput(input, multiplicationOverView)
 }
 
 // After a digit run, either a prime mark (10′) or a length/size unit may
@@ -400,8 +402,10 @@ const MATH_SYMBOL_MAP: MathSymbolRule[] = [
 ]
 
 /** Convert !=, <=, >=, +/-, ~= to Unicode equivalents. */
-export function mathSymbols(text: string, options: SymbolOptions = {}): string {
-  return withProseView(text, options.separator ?? DEFAULT_SEPARATOR, mathSymbolsOverView)
+export function mathSymbols(input: string): string
+export function mathSymbols(input: ProseView): void
+export function mathSymbols(input: string | ProseView): string | void {
+  return overInput(input, mathSymbolsOverView)
 }
 
 function mathSymbolsOverView(view: ProseView): void {
@@ -457,6 +461,10 @@ type ContextPredicate = (before: string, after: string) => boolean
 // 25 chars: fits "copyright " or a 4-digit year with padding, without making slicing expensive.
 const LEGAL_SYMBOL_CONTEXT_WINDOW = 25
 
+// Window cost charged per node boundary: an element edge stands in for two
+// characters of context, so boundary-dense markup exposes less of it.
+const BOUNDARY_CONTEXT_COST = 2
+
 const isPathContext = (before: string): boolean => {
   const parts = before.split(/\s+/)
   const trailing = parts[parts.length - 1]
@@ -469,13 +477,12 @@ function contextAwareLegalReplace(
   pattern: RegExp,
   replacement: string,
   shouldConvert: ContextPredicate,
-  separatorLength: number,
 ): void {
   const text = view.text
   replaceAllInView(view, pattern, (match, v) => {
     const offset = match.index
-    const before = legalContextBefore(text, v, offset, separatorLength)
-    const after = legalContextAfter(text, v, offset + match[0].length, separatorLength)
+    const before = legalContextBefore(text, v, offset)
+    const after = legalContextAfter(text, v, offset + match[0].length)
     return shouldConvert(before, after) ? replacement : null
   }, {
     // The `(c)`/`(r)`/`(tm)` token itself never spans a boundary in v4 (the
@@ -486,18 +493,16 @@ function contextAwareLegalReplace(
 }
 
 /**
- * Clean-text context preceding `offset`, spanning v4's 25-character window
- * measured in MARKED coordinates: each node boundary cost `separatorLength`
- * marked characters there, so a region dense with boundaries exposes fewer
- * clean characters of context (v4 sliced the marked string, then stripped the
- * separators).
+ * Context preceding `offset`, spanning the 25-character window. Each node
+ * boundary costs {@link BOUNDARY_CONTEXT_COST} characters of the window, so a
+ * region dense with boundaries exposes fewer characters of context.
  */
-function legalContextBefore(text: string, view: ProseView, offset: number, separatorLength: number): string {
+function legalContextBefore(text: string, view: ProseView, offset: number): string {
   let cost = 0
   let i = offset
   while (i > 0) {
     // Cost of stepping back over this clean char plus the boundaries hugging it.
-    cost += boundaryCountAt(view, i) * separatorLength + 1
+    cost += boundaryCountAt(view, i) * BOUNDARY_CONTEXT_COST + 1
     if (cost > LEGAL_SYMBOL_CONTEXT_WINDOW) break
     i--
   }
@@ -505,11 +510,11 @@ function legalContextBefore(text: string, view: ProseView, offset: number, separ
 }
 
 /** Mirror of {@link legalContextBefore} for the text following `end`. */
-function legalContextAfter(text: string, view: ProseView, end: number, separatorLength: number): string {
+function legalContextAfter(text: string, view: ProseView, end: number): string {
   let cost = 0
   let i = end
   while (i < text.length) {
-    cost += boundaryCountAt(view, i) * separatorLength + 1
+    cost += boundaryCountAt(view, i) * BOUNDARY_CONTEXT_COST + 1
     if (cost > LEGAL_SYMBOL_CONTEXT_WINDOW) break
     i++
   }
@@ -521,33 +526,29 @@ const LEGAL_REGISTERED_RE = "\\(r\\)"
 const LEGAL_TRADEMARK_RE = "\\(tm\\)"
 
 /** Convert (c), (r), (tm) to ©, ®, ™. */
-export function legalSymbols(text: string, options: SymbolOptions = {}): string {
-  // legalSymbols sizes its context window in MARKED coordinates, so the pass
-  // needs the separator's length; close over the separator we resolve here.
-  const separator = options.separator ?? DEFAULT_SEPARATOR
-  return withProseView(text, separator, (view) => legalSymbolsOverView(view, separator.length))
+export function legalSymbols(input: string): string
+export function legalSymbols(input: ProseView): void
+export function legalSymbols(input: string | ProseView): string | void {
+  return overInput(input, legalSymbolsOverView)
 }
 
-function legalSymbolsOverView(view: ProseView, separatorLength: number): void {
+function legalSymbolsOverView(view: ProseView): void {
   // (c) → © only with positive copyright evidence (year or "copyright"
   // keyword) and not in a path context (e.g. example.com/path(c)).
   contextAwareLegalReplace(view, cachedRegExp(LEGAL_COPYRIGHT_RE, "gi"), COPYRIGHT, (before, after) =>
     !isPathContext(before) && (/^\s*(?:19|20)\d{2}\b/.test(after) || /\bcopyright\s*$/i.test(before)),
-    separatorLength
   )
   view.commit()
 
   // (r) → ® unless in enumeration "(q), (r)", legal citation "(r)(1)", or path context.
   contextAwareLegalReplace(view, cachedRegExp(LEGAL_REGISTERED_RE, "gi"), REGISTERED, (before, after) =>
     !/\([a-z]\)[,;]\s*$/i.test(before) && !/^\(\d/.test(after) && !isPathContext(before),
-    separatorLength
   )
   view.commit()
 
   // (tm) → ™ unless in a path context.
   contextAwareLegalReplace(view, cachedRegExp(LEGAL_TRADEMARK_RE, "gi"), TRADEMARK, (before) =>
     !isPathContext(before),
-    separatorLength
   )
   view.commit()
 }
@@ -631,8 +632,10 @@ function arrowRightContextOk(view: ProseView, text: string, end: number): boolea
 }
 
 /** Convert -> and <-> to arrows. */
-export function arrows(text: string, options: SymbolOptions = {}): string {
-  return withProseView(text, options.separator ?? DEFAULT_SEPARATOR, arrowsOverView)
+export function arrows(input: string): string
+export function arrows(input: ProseView): void
+export function arrows(input: string | ProseView): string | void {
+  return overInput(input, arrowsOverView)
 }
 
 function arrowsOverView(view: ProseView): void {
@@ -654,8 +657,10 @@ function arrowsOverView(view: ProseView): void {
   }
 }
 
-export function degrees(text: string, options: SymbolOptions = {}): string {
-  return withProseView(text, options.separator ?? DEFAULT_SEPARATOR, degreesOverView)
+export function degrees(input: string): string
+export function degrees(input: ProseView): void
+export function degrees(input: string | ProseView): string | void {
+  return overInput(input, degreesOverView)
 }
 
 function degreesOverView(view: ProseView): void {
@@ -727,8 +732,10 @@ function digitSuffixBoundaryOk(match: RegExpExecArray, view: ProseView): boolean
 }
 
 /** Convert 5'10" to 5′10″ (prime marks). Call before smart quotes. */
-export function primeMarks(text: string, options: SymbolOptions = {}): string {
-  return convertPrimeMarks(text, options.separator ?? DEFAULT_SEPARATOR)
+export function primeMarks(input: string): string
+export function primeMarks(input: ProseView): void
+export function primeMarks(input: string | ProseView): string | void {
+  return overInput(input, convertPrimeMarks)
 }
 
 type FractionRule = [string, string, string]
@@ -754,8 +761,10 @@ const FRACTION_TUPLES: FractionRule[] = [
 const FRACTION_MAP = Object.fromEntries(FRACTION_TUPLES.map(([n, d, u]) => [`${n}/${d}`, u]))
 
 /** Convert 1/2, 1/4, etc. to ½, ¼, etc. Single-pass using alternation. */
-export function fractions(text: string, options: SymbolOptions = {}): string {
-  return withProseView(text, options.separator ?? DEFAULT_SEPARATOR, fractionsOverView)
+export function fractions(input: string): string
+export function fractions(input: ProseView): void
+export function fractions(input: string | ProseView): string | void {
+  return overInput(input, fractionsOverView)
 }
 
 function fractionsOverView(view: ProseView): void {
@@ -834,8 +843,10 @@ const ORDINAL_MAP: Record<string, string> = {
 }
 
 /** Convert 1st, 2nd, 3rd, 4th to superscript ordinals. */
-export function superscriptOrdinal(text: string, options: SymbolOptions = {}): string {
-  return withProseView(text, options.separator ?? DEFAULT_SEPARATOR, superscriptOrdinalOverView)
+export function superscriptOrdinal(input: string): string
+export function superscriptOrdinal(input: ProseView): void
+export function superscriptOrdinal(input: string | ProseView): string | void {
+  return overInput(input, superscriptOrdinalOverView)
 }
 
 function superscriptOrdinalOverView(view: ProseView): void {
@@ -857,12 +868,38 @@ function superscriptOrdinalOverView(view: ProseView): void {
 }
 
 // Preserves highest-priority space type (NBSP > NNBSP > regular) and leading indentation.
-export function collapseSpaces(text: string): string {
-  return text.replace(cachedRegExp(`(?<=[^\\n${SPACE_CHARS}])[${SPACE_CHARS}]{2,}`, "g"), (match) => {
-    if (match.includes(NBSP)) return NBSP
-    if (match.includes(UNICODE_SYMBOLS.NNBSP)) return UNICODE_SYMBOLS.NNBSP
-    return " "
-  })
+export function collapseSpaces(input: string): string
+export function collapseSpaces(input: ProseView): void
+export function collapseSpaces(input: string | ProseView): string | void {
+  return overInput(input, collapseSpacesOverView)
+}
+
+/**
+ * Collapses each run of two or more space characters to its highest-priority
+ * space. A run never crosses a node boundary, and the anchor requiring a
+ * non-newline, non-space character before the run is satisfied by a boundary
+ * (so a run opening a node still collapses); runs at line or text start are
+ * preserved so indented blocks survive.
+ */
+function collapseSpacesOverView(view: ProseView): void {
+  const text = view.text
+  let i = 0
+  while (i < text.length) {
+    if (!SPACE_CHAR_RE.test(text[i])) {
+      i++
+      continue
+    }
+    let end = i + 1
+    while (end < text.length && SPACE_CHAR_RE.test(text[end]) && !view.hasBoundary(end)) end++
+    const anchored = view.hasBoundary(i) || (i > 0 && text[i - 1] !== "\n" && !SPACE_CHAR_RE.test(text[i - 1]))
+    if (anchored && end - i >= 2) {
+      const run = text.slice(i, end)
+      const kept = run.includes(NBSP) ? NBSP : run.includes(UNICODE_SYMBOLS.NNBSP) ? UNICODE_SYMBOLS.NNBSP : " "
+      view.replace(i, end, kept)
+    }
+    i = end
+  }
+  view.commit()
 }
 
 /** `[first, repeated, replacement]` with literal punctuation characters. */
@@ -877,8 +914,10 @@ const PUNCTUATION_LIGATURE_MAP: LigatureRule[] = [
 ]
 
 /** Convert ?? to ⁇, ?! to ⁈, !? to ⁉. Disabled by default (poor font support). */
-export function punctuationLigatures(text: string, options: SymbolOptions = {}): string {
-  return withProseView(text, options.separator ?? DEFAULT_SEPARATOR, punctuationLigaturesOverView)
+export function punctuationLigatures(input: string): string
+export function punctuationLigatures(input: ProseView): void
+export function punctuationLigatures(input: string | ProseView): string | void {
+  return overInput(input, punctuationLigaturesOverView)
 }
 
 function punctuationLigaturesOverView(view: ProseView): void {
@@ -908,13 +947,16 @@ function punctuationLigaturesOverView(view: ProseView): void {
   }
 }
 
-export function symbolTransform(text: string, options: SymbolOptions = {}): string {
-  text = ellipsis(text, options)
-  text = multiplication(text, options)
-  text = mathSymbols(text, options)
-  text = legalSymbols(text, options)
-  if (options.includeArrows !== false) {
-    text = arrows(text, options)
-  }
-  return text
+export function symbolTransform(input: string, options?: SymbolOptions): string
+export function symbolTransform(input: ProseView, options?: SymbolOptions): void
+export function symbolTransform(input: string | ProseView, options: SymbolOptions = {}): string | void {
+  return overInput(input, (view) => {
+    ellipsisOverView(view)
+    multiplicationOverView(view)
+    mathSymbolsOverView(view)
+    legalSymbolsOverView(view)
+    if (options.includeArrows !== false) {
+      arrowsOverView(view)
+    }
+  })
 }

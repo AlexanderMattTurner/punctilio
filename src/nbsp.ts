@@ -1,5 +1,5 @@
-import { cachedRegExp, DEFAULT_SEPARATOR, LATIN_LETTERS, NBSP_CHARS, SPACE_CHARS, UNICODE_SYMBOLS } from "./constants.js"
-import { boundaryCountAt, type ProseView, replaceAllInView, withProseView } from "./prose-view.js"
+import { cachedRegExp, LATIN_LETTERS, NBSP_CHARS, SPACE_CHARS, UNICODE_SYMBOLS } from "./constants.js"
+import { boundaryCountAt, overInput, type ProseView, replaceAllInView } from "./prose-view.js"
 
 const {
   NBSP,
@@ -11,11 +11,6 @@ const {
   REGISTERED,
   TRADEMARK,
 } = UNICODE_SYMBOLS
-
-export interface NbspOptions {
-  /** Boundary marker for HTML element boundaries. Default: "\uE000\uE001" */
-  separator?: string
-}
 
 const SPACE = `[${SPACE_CHARS}]`
 
@@ -99,10 +94,6 @@ const PUNCTUATION_OR_QUOTE = `[.,!?:;)(${LEFT_DOUBLE_QUOTE}${RIGHT_DOUBLE_QUOTE}
 const COPYRIGHT_SYMBOLS = `[${COPYRIGHT}${REGISTERED}${TRADEMARK}]`
 
 
-function resolveSeparator(options: NbspOptions): string {
-  return options.separator ?? DEFAULT_SEPARATOR
-}
-
 /**
  * A v4 `${sep}?` slot tolerates exactly ONE node boundary at that position;
  * two adjacent boundaries blocked the match (the lookbehind/lookahead saw a
@@ -123,13 +114,18 @@ function boundariesOnlyAtSlots(view: ProseView, start: number, end: number, slot
 
 // Skips when preceded by NBSP or back-to-back with the previous match,
 // preventing 3+ words from binding into a single line-break atom.
-export function nbspAfterShortWords(text: string, options: NbspOptions = {}): string {
-  const separator = resolveSeparator(options)
+export function nbspAfterShortWords(input: string): string
+export function nbspAfterShortWords(input: ProseView): void
+export function nbspAfterShortWords(input: string | ProseView): string | void {
+  return overInput(input, nbspAfterShortWordsOverView)
+}
+
+function nbspAfterShortWordsOverView(view: ProseView): void {
   const pattern = cachedRegExp(
     `(?<=^|${SPACE}|${PUNCTUATION_OR_QUOTE}|>)(?<shortWord>[${LATIN_LETTERS}]{1,2})${SPACE}`,
     "gmu"
   )
-  return withProseView(text, separator, (view) => {
+  {
     const clean = view.text
     let previousMatchEnd = -1
     replaceAllInView(
@@ -154,16 +150,22 @@ export function nbspAfterShortWords(text: string, options: NbspOptions = {}): st
           ]),
       }
     )
-  })
+  }
+  view.commit()
 }
 
-export function nbspBetweenNumberAndUnit(text: string, options: NbspOptions = {}): string {
-  const separator = resolveSeparator(options)
+export function nbspBetweenNumberAndUnit(input: string): string
+export function nbspBetweenNumberAndUnit(input: ProseView): void
+export function nbspBetweenNumberAndUnit(input: string | ProseView): string | void {
+  return overInput(input, nbspBetweenNumberAndUnitOverView)
+}
+
+function nbspBetweenNumberAndUnitOverView(view: ProseView): void {
   const pattern = cachedRegExp(
     `(?<digit>\\d)${SPACE}(?<unit>${UNIT_PATTERN})\\b`,
     "gm"
   )
-  return withProseView(text, separator, (view) => {
+  {
     replaceAllInView(
       view,
       pattern,
@@ -184,7 +186,8 @@ export function nbspBetweenNumberAndUnit(text: string, options: NbspOptions = {}
           ]),
       }
     )
-  })
+  }
+  view.commit()
 }
 
 const MAX_LAST_WORD_LENGTH = 10
@@ -213,15 +216,20 @@ function cascadeBlocksLastWord(view: ProseView, spaceOffset: number): boolean {
 }
 
 // Skips when the second-to-last word is already glued backwards via NBSP.
-export function nbspBeforeLastWord(text: string, options: NbspOptions = {}): string {
-  const separator = resolveSeparator(options)
+export function nbspBeforeLastWord(input: string): string
+export function nbspBeforeLastWord(input: ProseView): void
+export function nbspBeforeLastWord(input: string | ProseView): string | void {
+  return overInput(input, nbspBeforeLastWordOverView)
+}
+
+function nbspBeforeLastWordOverView(view: ProseView): void {
   // The v4 `(?<=\w|sep)` lookbehind and the `[NBSP][LATIN]{1,15}` cascade
   // lookbehind are enforced in the replacer, where boundaries are visible.
   const pattern = cachedRegExp(
     `${SPACE}(?<lastWord>(?:(?!\\s).){1,${MAX_LAST_WORD_LENGTH}})(?<ending>\\n\\n|$)`,
     "g"
   )
-  return withProseView(text, separator, (view) => {
+  {
     const clean = view.text
     replaceAllInView(
       view,
@@ -255,7 +263,8 @@ export function nbspBeforeLastWord(text: string, options: NbspOptions = {}): str
         },
       }
     )
-  })
+  }
+  view.commit()
 }
 
 /**
@@ -264,18 +273,17 @@ export function nbspBeforeLastWord(text: string, options: NbspOptions = {}): str
  * (between space and context) each tolerate one boundary.
  */
 function nbspBeforeContext(
-  text: string,
-  separator: string,
+  view: ProseView,
   thingPattern: string,
   contextPattern: string,
   flags: string,
   thingGroup: string,
-): string {
+): void {
   const pattern = cachedRegExp(
     `(?<${thingGroup}>${thingPattern})${SPACE}(?=${contextPattern})`,
     flags
   )
-  return withProseView(text, separator, (view) => {
+  {
     const clean = view.text
     pattern.lastIndex = 0
     let match: RegExpExecArray | null
@@ -298,50 +306,82 @@ function nbspBeforeContext(
       // their v4 sides.
       view.replace(end - 1, end, NBSP)
     }
-  })
+  }
+  view.commit()
 }
 
-export function nbspAfterReferenceAbbreviations(text: string, options: NbspOptions = {}): string {
-  return nbspBeforeContext(text, resolveSeparator(options), ABBREVIATION_PATTERN, "\\d", "g", "abbrev")
+function nbspAfterReferenceAbbreviationsOverView(view: ProseView): void {
+  nbspBeforeContext(view, ABBREVIATION_PATTERN, "\\d", "g", "abbrev")
 }
 
-export function nbspAfterSectionSymbols(text: string, options: NbspOptions = {}): string {
-  return nbspBeforeContext(text, resolveSeparator(options), "[\u00A7\u00B6]", "\\d", "g", "symbol")
+function nbspAfterSectionSymbolsOverView(view: ProseView): void {
+  nbspBeforeContext(view, "[\u00A7\u00B6]", "\\d", "g", "symbol")
 }
 
-export function nbspAfterHonorifics(text: string, options: NbspOptions = {}): string {
-  return nbspBeforeContext(text, resolveSeparator(options), HONORIFIC_PATTERN, UNICODE_UPPERCASE, "gu", "honorific")
+function nbspAfterHonorificsOverView(view: ProseView): void {
+  nbspBeforeContext(view, HONORIFIC_PATTERN, UNICODE_UPPERCASE, "gu", "honorific")
 }
 
-export function nbspAfterCopyrightSymbols(text: string, options: NbspOptions = {}): string {
-  return nbspBeforeContext(text, resolveSeparator(options), COPYRIGHT_SYMBOLS, `[\\d${UNICODE_UPPERCASE}]`, "gu", "symbol")
+function nbspAfterCopyrightSymbolsOverView(view: ProseView): void {
+  nbspBeforeContext(view, COPYRIGHT_SYMBOLS, `[\\d${UNICODE_UPPERCASE}]`, "gu", "symbol")
 }
 
-export function nbspBetweenInitials(text: string, options: NbspOptions = {}): string {
-  return nbspBeforeContext(text, resolveSeparator(options), `${UNICODE_UPPERCASE}\\.`, UNICODE_UPPERCASE, "gu", "initial")
+function nbspBetweenInitialsOverView(view: ProseView): void {
+  nbspBeforeContext(view, `${UNICODE_UPPERCASE}\\.`, UNICODE_UPPERCASE, "gu", "initial")
 }
 
-type NbspFn = (text: string, options: NbspOptions) => string
+export function nbspAfterReferenceAbbreviations(input: string): string
+export function nbspAfterReferenceAbbreviations(input: ProseView): void
+export function nbspAfterReferenceAbbreviations(input: string | ProseView): string | void {
+  return overInput(input, nbspAfterReferenceAbbreviationsOverView)
+}
+
+export function nbspAfterSectionSymbols(input: string): string
+export function nbspAfterSectionSymbols(input: ProseView): void
+export function nbspAfterSectionSymbols(input: string | ProseView): string | void {
+  return overInput(input, nbspAfterSectionSymbolsOverView)
+}
+
+export function nbspAfterHonorifics(input: string): string
+export function nbspAfterHonorifics(input: ProseView): void
+export function nbspAfterHonorifics(input: string | ProseView): string | void {
+  return overInput(input, nbspAfterHonorificsOverView)
+}
+
+export function nbspAfterCopyrightSymbols(input: string): string
+export function nbspAfterCopyrightSymbols(input: ProseView): void
+export function nbspAfterCopyrightSymbols(input: string | ProseView): string | void {
+  return overInput(input, nbspAfterCopyrightSymbolsOverView)
+}
+
+export function nbspBetweenInitials(input: string): string
+export function nbspBetweenInitials(input: ProseView): void
+export function nbspBetweenInitials(input: string | ProseView): string | void {
+  return overInput(input, nbspBetweenInitialsOverView)
+}
 
 // Specific patterns first so they claim matches before generic nbspAfterShortWords.
-const NBSP_TRANSFORMS: NbspFn[] = [
-  nbspAfterHonorifics,
-  nbspAfterReferenceAbbreviations,
-  nbspAfterSectionSymbols,
-  nbspAfterCopyrightSymbols,
-  nbspBetweenInitials,
-  nbspBetweenNumberAndUnit,
-  nbspAfterShortWords,
-  nbspBeforeLastWord,
+const NBSP_TRANSFORMS: ((view: ProseView) => void)[] = [
+  nbspAfterHonorificsOverView,
+  nbspAfterReferenceAbbreviationsOverView,
+  nbspAfterSectionSymbolsOverView,
+  nbspAfterCopyrightSymbolsOverView,
+  nbspBetweenInitialsOverView,
+  nbspBetweenNumberAndUnitOverView,
+  nbspAfterShortWordsOverView,
+  nbspBeforeLastWordOverView,
 ]
 
-export function nbspTransform(text: string, options: NbspOptions = {}): string {
-  // All nbsp patterns require a space, tab, or existing nbsp to match.
-  // Short-circuit if the text contains none of these.
-  if (!cachedRegExp(`[${SPACE_CHARS}]`, "").test(text)) return text
+export function nbspTransform(input: string): string
+export function nbspTransform(input: ProseView): void
+export function nbspTransform(input: string | ProseView): string | void {
+  return overInput(input, (view) => {
+    // All nbsp patterns require a space, tab, or existing nbsp to match.
+    // Short-circuit if the text contains none of these.
+    if (!cachedRegExp(`[${SPACE_CHARS}]`, "").test(view.text)) return
 
-  for (const fn of NBSP_TRANSFORMS) {
-    text = fn(text, options)
-  }
-  return text
+    for (const fn of NBSP_TRANSFORMS) {
+      fn(view)
+    }
+  })
 }
