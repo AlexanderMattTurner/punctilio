@@ -1,12 +1,12 @@
 import {
   boundaryCountAt,
   buildProseView,
+  overInput,
   type ProseNode,
   type ProseView,
   replaceAllInView,
-  runLegacyPass,
+  withProseView,
 } from "../prose-view.js"
-import { DEFAULT_SEPARATOR } from "../constants.js"
 
 function nodes(...values: string[]): ProseNode[] {
   return values.map((value) => ({ value }))
@@ -330,40 +330,39 @@ describe("replaceAllInView", () => {
   })
 })
 
-describe("runLegacyPass", () => {
-  it("round-trips a marked transform across nodes", () => {
-    const ns = nodes("hello ", "world")
-    const view = buildProseView(ns)
-    runLegacyPass(view, (marked) => marked.toUpperCase())
-    expect(ns.map((n) => n.value)).toEqual(["HELLO ", "WORLD"])
-    expect(view.text).toBe("HELLO WORLD")
+describe("withProseView", () => {
+  it("runs the pass over a single-node view and returns the result", () => {
+    expect(withProseView("hello", (view) => view.replace(0, 1, "H"))).toBe("Hello")
   })
 
-  it("uses a custom separator", () => {
-    const ns = nodes("a", "b")
-    const view = buildProseView(ns)
-    runLegacyPass(view, (marked) => marked.replace(/a/, "X"), "|")
-    expect(ns.map((n) => n.value)).toEqual(["X", "b"])
+  it("commits edits the pass left queued", () => {
+    const result = withProseView("abc", (view) => {
+      view.replace(3, 3, "!")
+    })
+    expect(result).toBe("abc!")
+  })
+})
+
+describe("overInput", () => {
+  it("string input: transforms through a single-node view and returns a string", () => {
+    expect(overInput("abc", (view) => view.replace(0, 3, "xyz"))).toBe("xyz")
   })
 
-  it("throws when the separator is present in input", () => {
-    const ns = nodes(`has${DEFAULT_SEPARATOR}sep`)
+  it("view input: applies and commits edits in place, returns undefined", () => {
+    const ns = nodes("ab", "cd")
     const view = buildProseView(ns)
-    expect(() => runLegacyPass(view, (m) => m)).toThrow(/separator sequence/)
+    const result = overInput(view, (v) => v.replace(1, 3, "--"))
+    expect(result).toBeUndefined()
+    expect(ns.map((n) => n.value)).toEqual(["a--", "d"])
   })
 
-  it("throws when the pass changes the fragment count", () => {
-    const ns = nodes("a", "b")
+  it("view input: commits edits the run left queued", () => {
+    const ns = nodes("ab")
     const view = buildProseView(ns)
-    expect(() =>
-      runLegacyPass(view, (marked) => marked.replaceAll(DEFAULT_SEPARATOR, "")),
-    ).toThrow(/altered the number of text nodes/)
-  })
-
-  it("throws when the view has uncommitted queued edits", () => {
-    const view = buildProseView(nodes("a", "b"))
-    view.replace(0, 1, "X")
-    expect(() => runLegacyPass(view, (m) => m)).toThrow(/uncommitted/)
+    overInput(view, (v) => {
+      v.replace(0, 0, ">")
+    })
+    expect(ns[0].value).toBe(">ab")
   })
 })
 

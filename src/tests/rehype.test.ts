@@ -5,15 +5,15 @@ import rehypeParse from "rehype-parse"
 import rehypeStringify from "rehype-stringify"
 import {
   assertSmartQuotesMatch,
-  collectTransformableElements,
+  collectProseBlocks,
   flattenTextNodes,
   getFirstTextNode,
   getTextContent,
+  proseViewOf,
   rehypePunctilio,
   type RehypePunctilioOptions,
-  transformElement,
 } from "../rehype.js"
-import { DEFAULT_SEPARATOR, UNICODE_SYMBOLS } from "../constants.js"
+import { UNICODE_SYMBOLS } from "../constants.js"
 
 const {
   LEFT_DOUBLE_QUOTE: LDQ,
@@ -228,8 +228,6 @@ describe("rehypePunctilio", () => {
       ["symbols disabled", "<p>5x5</p>", { symbols: false, nbsp: false as const }, "<p>5x5</p>"],
       ["fractions enabled", "<p>1/2 cup</p>", { fractions: true, nbsp: false as const }, `<p>${FRACTION_1_2} cup</p>`],
       ["fractions disabled", "<p>1/2 cup</p>", { fractions: false, nbsp: false as const }, "<p>1/2 cup</p>"],
-      ["custom separator", '<p>"Hello"</p>', { separator: "\uE001", nbsp: false as const }, `<p>${LDQ}Hello${RDQ}</p>`],
-      ["explicit checkIdempotency: true", '<p>"Hello"</p>', { checkIdempotency: true, nbsp: false as const }, `<p>${LDQ}Hello${RDQ}</p>`],
     ])("respects %s", async (_name, html, options, expected) => {
       expect(await processHtml(html, options)).toEqual(expected)
     })
@@ -344,77 +342,50 @@ describe("rehypePunctilio", () => {
       })
     })
 
-    describe("transformElement", () => {
-      const toUpper = (s: string) => s.toUpperCase()
-
-      it.each([
-        ["simple element", h("p", "hello"), "HELLO"],
-        ["custom separator", h("p", "hello"), "HELLO", "\uE001"],
-      ])("transforms %s", (_name, element, expected, sep = DEFAULT_SEPARATOR) => {
-        transformElement(element as Element, toUpper, ignoreNone, sep)
-        expect((element.children[0] as Text).value).toBe(expected)
-      })
-
-      it("transforms across multiple nodes", () => {
+    describe("proseViewOf", () => {
+      it("builds a view over the element's text nodes", () => {
         const element = h("p", ["hello ", h("em", "world")]) as Element
-        transformElement(element, toUpper, ignoreNone, DEFAULT_SEPARATOR)
-        expect((element.children[0] as Text).value).toBe("HELLO ")
-        expect(((element.children[1] as Element).children[0] as Text).value).toBe("WORLD")
+        const view = proseViewOf(element)!
+        expect(view.text).toBe("hello world")
+        expect(view.boundaries).toEqual([6])
       })
 
-      it("skips matching elements", () => {
+      it("commits edits back onto the source text nodes", () => {
+        const element = h("p", ["pages 1", h("em", "-5")]) as Element
+        const view = proseViewOf(element)!
+        view.replace(7, 8, EN_DASH)
+        view.commit()
+        expect((element.children[0] as Text).value).toBe("pages 1")
+        expect(((element.children[1] as Element).children[0] as Text).value).toBe(`${EN_DASH}5`)
+      })
+
+      it("excludes text inside elements matching shouldSkip", () => {
         const element = h("p", ["before ", h("code", "unchanged"), " after"]) as Element
-        transformElement(element, toUpper, ignoreCode, DEFAULT_SEPARATOR)
+        const view = proseViewOf(element, { shouldSkip: ignoreCode })!
+        expect(view.text).toBe("before  after")
+        view.replace(0, 6, "BEFORE")
+        view.commit()
         expect((element.children[0] as Text).value).toBe("BEFORE ")
         expect(((element.children[1] as Element).children[0] as Text).value).toBe("unchanged")
-        expect((element.children[2] as Text).value).toBe(" AFTER")
       })
 
-      it("applies custom transforms", () => {
-        const element = h("p", "pages 1-5") as Element
-        transformElement(element, (s) => s.replace(/-/g, EN_DASH), ignoreNone, DEFAULT_SEPARATOR)
-        expect((element.children[0] as Text).value).toBe(`pages 1${EN_DASH}5`)
+      it("returns null for an element with no text nodes", () => {
+        expect(proseViewOf(h("div", []) as Element)).toBeNull()
       })
 
-      it("handles missing children gracefully", () => {
+      it("returns null for missing children", () => {
         const node = h("div") as Element
         node.children = undefined as unknown as Element["children"]
-        expect(() => transformElement(node, toUpper, ignoreNone, DEFAULT_SEPARATOR)).not.toThrow()
-      })
-
-      it.each([
-        ["injecting separators", h("p", "hello"), (s: string) => s.replace("hello", `hello${DEFAULT_SEPARATOR}injected`)],
-        ["removing separators", h("p", ["hello ", h("em", "world")]), (s: string) => s.replace(DEFAULT_SEPARATOR, "")],
-      ])("throws on %s", (_name, element, transform) => {
-        expect(() => transformElement(element as Element, transform, () => false, DEFAULT_SEPARATOR)).toThrow(
-          "Transformation altered the number of text nodes"
-        )
-      })
-
-      it("passes invariance check for marker-transparent transforms", () => {
-        const element = h("p", ["hello ", h("em", "world")]) as Element
-        expect(() =>
-          transformElement(element, toUpper, ignoreNone, DEFAULT_SEPARATOR, true)
-        ).not.toThrow()
-      })
-
-      it("throws on invariance check failure", () => {
-        const element = h("p", ["hello ", h("em", "world")]) as Element
-        // This transform interacts with the separator: it replaces char before separator
-        const badTransform = (s: string) => s.replace(new RegExp(` ${DEFAULT_SEPARATOR}`, "g"), `X${DEFAULT_SEPARATOR}`)
-        expect(() =>
-          transformElement(element, badTransform, ignoreNone, DEFAULT_SEPARATOR, true)
-        ).toThrow("Transform invariance check failed")
+        expect(proseViewOf(node)).toBeNull()
       })
     })
 
     describe("shouldSkipText", () => {
-      const toUpper = (s: string) => s.toUpperCase()
-
       it("is not called for text inside elements excluded by shouldSkip", () => {
         const element = h("p", ["before ", h("code", "unchanged"), " after"]) as Element
         const visitedValues: string[] = []
-        transformElement(element, toUpper, ignoreCode, DEFAULT_SEPARATOR, false, {
+        proseViewOf(element, {
+          shouldSkip: ignoreCode,
           shouldSkipText: (textNode) => {
             visitedValues.push(textNode.value)
             return false
@@ -424,12 +395,9 @@ describe("rehypePunctilio", () => {
         expect(visitedValues).toEqual(["before ", " after"])
       })
 
-      it("leaves a skipped text node's value untouched", () => {
+      it("returns null when every text node is skipped, leaving values untouched", () => {
         const element = h("p", "hello") as Element
-        transformElement(
-          element, toUpper, ignoreNone, DEFAULT_SEPARATOR, false,
-          { shouldSkipText: () => true },
-        )
+        expect(proseViewOf(element, { shouldSkipText: () => true })).toBeNull()
         expect((element.children[0] as Text).value).toBe("hello")
       })
 
@@ -482,24 +450,12 @@ describe("rehypePunctilio", () => {
         })
       })
 
-      it("transforms accepted text while leaving rejected text literal", () => {
+      it("excludes rejected text from the view while accepted text edits land", () => {
         const element = h("p", ["hello ", h("em", "world")]) as Element
-        transformElement(
-          element, toUpper, ignoreNone, DEFAULT_SEPARATOR, false,
-          { shouldSkipText: (textNode) => textNode.value === "hello " },
-        )
-        expect((element.children[0] as Text).value).toBe("hello ")
-        expect(((element.children[1] as Element).children[0] as Text).value).toBe("WORLD")
-      })
-
-      it("invariance check passes when some text nodes are skipped", () => {
-        const element = h("p", ["hello ", h("em", "world")]) as Element
-        expect(() =>
-          transformElement(
-            element, toUpper, ignoreNone, DEFAULT_SEPARATOR, true,
-            { shouldSkipText: (textNode) => textNode.value === "hello " },
-          )
-        ).not.toThrow()
+        const view = proseViewOf(element, { shouldSkipText: (textNode) => textNode.value === "hello " })!
+        expect(view.text).toBe("world")
+        view.replace(0, 5, "WORLD")
+        view.commit()
         expect((element.children[0] as Text).value).toBe("hello ")
         expect(((element.children[1] as Element).children[0] as Text).value).toBe("WORLD")
       })
@@ -595,13 +551,13 @@ describe("rehypePunctilio", () => {
       })
     })
 
-    describe("collectTransformableElements", () => {
+    describe("collectProseBlocks", () => {
       it("collects elements with direct text children", () => {
         const tree = h("div", [
           h("p", "First paragraph"),
           h("div", [h("p", "Nested paragraph")]),
         ]) as Element
-        const result = collectTransformableElements(tree, ignoreNone)
+        const result = collectProseBlocks(tree)
         expect(result).toHaveLength(2)
         expect(result[0].tagName).toBe("p")
         expect(result[1].tagName).toBe("p")
@@ -612,19 +568,19 @@ describe("rehypePunctilio", () => {
           h("p", "Normal"),
           h("code", "Skipped"),
         ]) as Element
-        const result = collectTransformableElements(tree, ignoreCode)
+        const result = collectProseBlocks(tree, { shouldSkip: ignoreCode })
         expect(result).toHaveLength(1)
         expect(result[0].tagName).toBe("p")
       })
 
       it("returns empty for skipped root", () => {
         const tree = h("code", "Skipped") as Element
-        expect(collectTransformableElements(tree, ignoreCode)).toHaveLength(0)
+        expect(collectProseBlocks(tree, { shouldSkip: ignoreCode })).toHaveLength(0)
       })
 
       it("returns empty for elements without text children", () => {
         const tree = h("div", [h("img")]) as Element
-        expect(collectTransformableElements(tree, ignoreNone)).toHaveLength(0)
+        expect(collectProseBlocks(tree)).toHaveLength(0)
       })
 
       it("collects phrasing container with only inline element children", () => {
@@ -635,7 +591,7 @@ describe("rehypePunctilio", () => {
           h("em", '"Hello'),
           h("span", ', world"'),
         ]) as Element
-        const result = collectTransformableElements(tree, ignoreNone)
+        const result = collectProseBlocks(tree)
         expect(result).toHaveLength(1)
         expect(result[0].tagName).toBe("p")
       })
@@ -647,7 +603,7 @@ describe("rehypePunctilio", () => {
           h("p", "Hello"),
           h("p", "World"),
         ]) as Element
-        const result = collectTransformableElements(tree, ignoreNone)
+        const result = collectProseBlocks(tree)
         expect(result).toHaveLength(2)
         expect(result[0].tagName).toBe("p")
         expect(result[1].tagName).toBe("p")
@@ -659,14 +615,14 @@ describe("rehypePunctilio", () => {
           h("span", "Hello"),
           h("em", "World"),
         ]) as Element
-        const result = collectTransformableElements(tree, ignoreNone)
+        const result = collectProseBlocks(tree)
         expect(result).toHaveLength(1)
         expect(result[0].tagName).toBe("div")
       })
 
       it("skips inline-only container when children are skip-tagged", () => {
         const tree = h("p", [h("code", "skip me")]) as Element
-        expect(collectTransformableElements(tree, ignoreCode)).toHaveLength(0)
+        expect(collectProseBlocks(tree, { shouldSkip: ignoreCode })).toHaveLength(0)
       })
 
       it("returns empty when only non-text, non-element children exist", () => {
@@ -676,13 +632,13 @@ describe("rehypePunctilio", () => {
           properties: {},
           children: [{ type: "comment", value: "a comment" } as unknown as ElementContent],
         }
-        expect(collectTransformableElements(tree, ignoreNone)).toHaveLength(0)
+        expect(collectProseBlocks(tree)).toHaveLength(0)
       })
 
       it("stops at max recursion depth", () => {
         let deep: Element = h("p", "deep") as Element
         for (let i = 0; i < 1100; i++) deep = h("div", [deep]) as Element
-        expect(collectTransformableElements(deep, ignoreNone)).toHaveLength(0)
+        expect(collectProseBlocks(deep)).toHaveLength(0)
       })
     })
   })

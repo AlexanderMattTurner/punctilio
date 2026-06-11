@@ -3,14 +3,12 @@ import type { Transformer } from "unified"
 
 import { SKIP, visitParents } from "unist-util-visit-parents"
 
-import { transform, TRANSFORM_OPTION_KEYS, type TransformOptions } from "./index.js"
-import { DEFAULT_SEPARATOR, MAX_RECURSION_DEPTH } from "./constants.js"
+import { TRANSFORM_OPTION_KEYS, type TransformOptions, transformView } from "./index.js"
+import { MAX_RECURSION_DEPTH } from "./constants.js"
 import { assertKnownOptionKeys, formatErrorString } from "./utils.js"
-import { buildProseView, runLegacyPass } from "./prose-view.js"
+import { buildProseView, type ProseView } from "./prose-view.js"
 
-type ElementPredicate = (node: Element) => boolean
-
-type TextTransformer = (input: string) => string
+export type ElementPredicate = (node: Element) => boolean
 
 /** Per-text-node skip predicate, called after element-level `shouldSkip`. */
 export type TextNodeSkipPredicate = (
@@ -186,51 +184,29 @@ export function assertSmartQuotesMatch(input: string): void {
   }
 }
 
+export interface ProseViewOfOptions extends ElementTransformOptions {
+  /** Element-level skip predicate; skipped subtrees contribute no text nodes. */
+  shouldSkip?: ElementPredicate
+}
+
 /**
- * Transforms element text using the separator-marking technique. When
- * `checkInvariance` is true, verifies `stripMarkers(transform(marked)) ===
- * transform(stripMarkers(text))` for debugging marker interactions.
+ * Builds a ProseView over the element's transformable text nodes, honoring
+ * the element-level `shouldSkip` and per-text-node `shouldSkipText`
+ * predicates. Returns null when the element holds no transformable text.
  */
-export function transformElement(
-  node: Element,
-  transformFn: TextTransformer,
-  shouldSkip: ElementPredicate,
-  separator: string,
-  checkInvariance: boolean = false,
-  options?: ElementTransformOptions
-): void {
+export function proseViewOf(element: Element, options: ProseViewOfOptions = {}): ProseView | null {
   /* istanbul ignore if -- defensive: elements should always have children array */
-  if (!node?.children) {
-    return
+  if (!element?.children) {
+    return null
   }
 
-  const textNodes = flattenTextNodes(node, shouldSkip, options)
+  const shouldSkip = options.shouldSkip ?? (() => false)
+  const textNodes = flattenTextNodes(element, shouldSkip, options)
   if (textNodes.length === 0) {
-    return
+    return null
   }
 
-  // Capture marked content before transformation for invariance check
-  const markedContent = checkInvariance
-    ? textNodes.map((n) => n.value + separator).join("")
-    : ""
-
-  const view = buildProseView(textNodes)
-  runLegacyPass(view, transformFn, separator)
-
-  if (checkInvariance) {
-    const transformedContent = textNodes.map((n) => n.value + separator).join("")
-    const stripSep = (s: string) => s.replaceAll(separator, "")
-    const strippedTransformed = stripSep(transformedContent)
-    const expected = transformFn(stripSep(markedContent))
-
-    if (expected !== strippedTransformed) {
-      throw new Error(
-        `Transform invariance check failed: ` +
-          `expected ${formatErrorString(expected, "expected")} ` +
-          `but got ${formatErrorString(strippedTransformed, "actual")}`
-      )
-    }
-  }
+  return buildProseView(textNodes)
 }
 
 // Block children cause per-block processing to avoid merging text across
@@ -334,12 +310,72 @@ function hasTextDescendant(
   return false
 }
 
-export function collectTransformableElements(
+export interface CollectProseBlocksOptions {
+  /**
+   * HTML tag names to skip. Default: the plugin's default skip list
+   * ("code", "pre", "script", ...).
+   */
+  skipTags?: string[]
+  /** CSS class names whose elements (and their subtrees) are skipped. Default: [] */
+  skipClasses?: string[]
+  /** Additional element-level skip predicate, OR-ed with the tag/class skips. */
+  shouldSkip?: ElementPredicate
+  /** Invert the element model as in {@link RehypePunctilioOptions.transformAllElements}. Default: false */
+  transformAllElements?: boolean
+}
+
+/** Skip predicate and transformable-tag test resolved from the options. */
+interface ResolvedCollectOptions {
+  shouldSkip: ElementPredicate
+  isTransformable: (tagName: string) => boolean
+}
+
+function resolveCollectOptions(options: CollectProseBlocksOptions): ResolvedCollectOptions {
+  const { skipTags = DEFAULT_SKIP_TAGS, skipClasses = [], shouldSkip, transformAllElements = false } = options
+
+  // In inverted mode, form-value elements join the skip-list so their literal
+  // values are neither transformed nor flattened into a transformable ancestor.
+  const skipTagSet = new Set(transformAllElements ? [...skipTags, ...FORM_VALUE_TAGS] : skipTags)
+  const skipClassSet = new Set(skipClasses)
+
+  const hasSkipClass = (node: Element): boolean => {
+    if (skipClassSet.size === 0) return false
+    const classNames = node.properties?.className
+    const classes = Array.isArray(classNames)
+      ? classNames.filter((c): c is string => typeof c === "string")
+      : typeof classNames === "string" ? classNames.split(/\s+/) : []
+    return classes.some((cls) => skipClassSet.has(cls))
+  }
+
+  return {
+    shouldSkip: (node) =>
+      skipTagSet.has(node.tagName) || hasSkipClass(node) || (shouldSkip?.(node) ?? false),
+    // Inverted mode transforms every non-skipped element except non-prose
+    // containers; the default keeps the `TRANSFORMABLE_ELEMENTS` allowlist
+    // (plus custom elements).
+    isTransformable: transformAllElements
+      ? (tagName) => !NON_PROSE_CONTAINER_TAGS.has(tagName)
+      : isTransformableElement,
+  }
+}
+
+/**
+ * Collects the elements under `root` (inclusive) whose text should be
+ * transformed as one prose block: transformable elements with direct text or
+ * inline-only text descendants. Elements with block-level children recurse so
+ * each block transforms independently.
+ */
+export function collectProseBlocks(root: Element, options: CollectProseBlocksOptions = {}): Element[] {
+  const { shouldSkip, isTransformable } = resolveCollectOptions(options)
+  return collectProseBlocksImpl(root, shouldSkip, 0, undefined, isTransformable)
+}
+
+function collectProseBlocksImpl(
   node: Element,
   shouldSkip: ElementPredicate,
-  depth: number = 0,
-  alreadyTransformed?: ReadonlySet<Element>,
-  isTransformable: (tagName: string) => boolean = isTransformableElement
+  depth: number,
+  alreadyTransformed: ReadonlySet<Element> | undefined,
+  isTransformable: (tagName: string) => boolean
 ): Element[] {
   /* istanbul ignore if -- defensive: prevents stack overflow from malicious HTML */
   if (depth > MAX_RECURSION_DEPTH) {
@@ -371,7 +407,7 @@ export function collectTransformableElements(
     // children that should be independent, or has no text to transform.
     for (const child of node.children) {
       if (child.type === "element") {
-        const childResults = collectTransformableElements(child, shouldSkip, depth + 1, alreadyTransformed, isTransformable)
+        const childResults = collectProseBlocksImpl(child, shouldSkip, depth + 1, alreadyTransformed, isTransformable)
         for (const r of childResults) results.push(r)
       }
     }
@@ -400,53 +436,21 @@ export function rehypePunctilio(
   assertKnownOptionKeys(options, REHYPE_OPTION_KEYS, "rehypePunctilio")
 
   const {
-    skipTags = DEFAULT_SKIP_TAGS,
-    skipClasses = [],
-    separator = DEFAULT_SEPARATOR,
+    skipTags,
+    skipClasses,
     shouldSkipText,
-    transformAllElements = false,
+    transformAllElements,
     ...transformOptions
   } = options
 
-  // In inverted mode, form-value elements join the skip-list so their literal
-  // values are neither transformed nor flattened into a transformable ancestor.
-  const skipTagSet = new Set(transformAllElements ? [...skipTags, ...FORM_VALUE_TAGS] : skipTags)
-  const skipClassSet = new Set(skipClasses)
-
-  // Inverted mode transforms every non-skipped element except non-prose
-  // containers; the default keeps the `TRANSFORMABLE_ELEMENTS` allowlist (plus
-  // custom elements).
-  const isTransformable = transformAllElements
-    ? (tagName: string) => !NON_PROSE_CONTAINER_TAGS.has(tagName)
-    : isTransformableElement
-
-  const hasSkipClass = (node: Element): boolean => {
-    if (skipClassSet.size === 0) return false
-    const classNames = node.properties?.className
-    const classes = Array.isArray(classNames)
-      ? classNames.filter((c): c is string => typeof c === "string")
-      : typeof classNames === "string" ? classNames.split(/\s+/) : []
-    return classes.some((cls) => skipClassSet.has(cls))
-  }
-
-  const shouldSkip = (node: Element): boolean =>
-    skipTagSet.has(node.tagName) || hasSkipClass(node)
-
-  const pluginOptions = {
-    ...transformOptions,
-    separator,
-  }
-
-  const transformFn = (text: string): string => {
-    return transform(text, pluginOptions)
-  }
+  const { shouldSkip, isTransformable } = resolveCollectOptions({ skipTags, skipClasses, transformAllElements })
 
   // Allocate the per-element options object once; it's read-only inside
-  // transformElement, so sharing across calls is safe and avoids a fresh
+  // proseViewOf, so sharing across calls is safe and avoids a fresh
   // allocation per transformable element.
-  const elementOptions: ElementTransformOptions | undefined = shouldSkipText
-    ? { shouldSkipText }
-    : undefined
+  const viewOptions: ProseViewOfOptions = shouldSkipText
+    ? { shouldSkip, shouldSkipText }
+    : { shouldSkip }
 
   return (tree: Root) => {
     // Track transformed elements to avoid double-processing
@@ -463,10 +467,13 @@ export function rehypePunctilio(
       }
 
       // Collect and transform elements with text content
-      const elementsToTransform = collectTransformableElements(node, shouldSkip, 0, transformed, isTransformable)
+      const elementsToTransform = collectProseBlocksImpl(node, shouldSkip, 0, transformed, isTransformable)
       for (const elt of elementsToTransform) {
         if (!transformed.has(elt)) {
-          transformElement(elt, transformFn, shouldSkip, separator, false, elementOptions)
+          const view = proseViewOf(elt, viewOptions)
+          if (view !== null) {
+            transformView(view, transformOptions)
+          }
           transformed.add(elt)
           // Mark all descendants as processed since their text was included
           markDescendants(elt, transformed)

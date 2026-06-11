@@ -1,13 +1,11 @@
-import { cachedRegExp, DEFAULT_SEPARATOR, LATIN_LETTERS, UNICODE_SYMBOLS } from "./constants.js"
-import { boundaryCountAt, type ProseView, replaceAllInView, type ReplaceAllOptions, withProseView } from "./prose-view.js"
+import { cachedRegExp, LATIN_LETTERS, UNICODE_SYMBOLS } from "./constants.js"
+import { boundaryCountAt, overInput, type ProseView, replaceAllInView, type ReplaceAllOptions } from "./prose-view.js"
 import { namedGroups } from "./utils.js"
 
 export const DASH_STYLES = ["american", "british", "none"] as const
 export type DashStyle = (typeof DASH_STYLES)[number]
 
 export interface DashOptions {
-  /** Boundary marker for HTML element boundaries. Default: "" */
-  separator?: string
   /** "american" (unspaced em), "british" (spaced en), "none". Default: "american" */
   dashStyle?: DashStyle
 }
@@ -145,9 +143,10 @@ function wordBoundaryEndOk(view: ProseView, pos: number): boolean {
 const CURRENCY_RE = /[$€£¥₹]/
 
 /** Convert number ranges to en-dash (e.g., "1-5" → "1–5"). */
-export function enDashNumberRange(text: string, options: DashOptions = {}): string {
-  const separator = options.separator ?? DEFAULT_SEPARATOR
-  return withProseView(text, separator, (view) => {
+export function enDashNumberRange(input: string): string
+export function enDashNumberRange(input: ProseView): void
+export function enDashNumberRange(input: string | ProseView): string | void {
+  return overInput(input, (view) => {
     convertPositiveRanges(view)
     convertNegativeRanges(view)
   })
@@ -509,23 +508,44 @@ function rangeNumbersConvert(startNum: string, endNum: string): boolean {
 // ---------------------------------------------------------------------------
 
 /** Convert month ranges to en-dash (e.g., "January-March" → "January–March"). */
-export function enDashDateRange(text: string, options: DashOptions = {}): string {
-  const dashStyle = options.dashStyle ?? "american"
-  if (dashStyle === "none") return text
-  const separator = options.separator ?? DEFAULT_SEPARATOR
+export function enDashDateRange(input: string, options?: DashOptions): string
+export function enDashDateRange(input: ProseView, options?: DashOptions): void
+export function enDashDateRange(input: string | ProseView, options: DashOptions = {}): string | void {
+  return overInput(input, (view) => enDashDateRangeOverView(view, options.dashStyle ?? "american"))
+}
+
+function enDashDateRangeOverView(view: ProseView, dashStyle: DashStyle): void {
+  if (dashStyle === "none") return
   const [pre, post] = dashStyle === "british" ? [" ", " "] : ["", ""]
 
-  return withProseView(text, separator, (view) => {
-    // Atomic-optional year groups (lookahead + backref). The capture inside the
-    // lookahead is locked in once matched, so the year group commits without
-    // backtracking.
-    const startYear = `(?=(?<startYear> \\d{4})?)\\k<startYear>`
-    const endYear = `(?=(?<endYear> \\d{4})?)\\k<endYear>`
-    const pattern = `\\b(?<startMonth>${monthPattern})${startYear}(?<preSpace> ?)-(?<postSpace> ?)(?<endMonth>${monthPattern})${endYear}\\b`
-    pass(
-      view,
-      cachedRegExp(pattern, "g"),
-      (match, v) => {
+  // Atomic-optional year groups (lookahead + backref). The capture inside the
+  // lookahead is locked in once matched, so the year group commits without
+  // backtracking.
+  const startYear = `(?=(?<startYear> \\d{4})?)\\k<startYear>`
+  const endYear = `(?=(?<endYear> \\d{4})?)\\k<endYear>`
+  const pattern = `\\b(?<startMonth>${monthPattern})${startYear}(?<preSpace> ?)-(?<postSpace> ?)(?<endMonth>${monthPattern})${endYear}\\b`
+  pass(
+    view,
+    cachedRegExp(pattern, "g"),
+    (match, v) => {
+      const groups = namedGroups<{
+        startMonth: string
+        startYear?: string
+        preSpace: string
+        postSpace: string
+        endMonth: string
+        endYear?: string
+      }>(matchArgs(match))
+      // Replace `[preSpace]-[postSpace]` (the dash and its spaces) with the
+      // styled en-dash, leaving the months and any boundaries around them.
+      const startLen = groups.startMonth.length + (groups.startYear?.length ?? 0)
+      const dashSpan = groups.preSpace.length + 1 + groups.postSpace.length
+      const dashStart = match.index + startLen
+      v.replace(dashStart, dashStart + dashSpan, `${pre}${EN_DASH}${post}`)
+      return null
+    },
+    {
+      allowBoundaries: (match, v) => {
         const groups = namedGroups<{
           startMonth: string
           startYear?: string
@@ -534,38 +554,19 @@ export function enDashDateRange(text: string, options: DashOptions = {}): string
           endMonth: string
           endYear?: string
         }>(matchArgs(match))
-        // Replace `[preSpace]-[postSpace]` (the dash and its spaces) with the
-        // styled en-dash, leaving the months and any boundaries around them.
         const startLen = groups.startMonth.length + (groups.startYear?.length ?? 0)
-        const dashSpan = groups.preSpace.length + 1 + groups.postSpace.length
+        // v4 tolerated one separator after the start year (`preSep`) and one
+        // before the end month (`postSep`), bracketing the dash and spaces.
         const dashStart = match.index + startLen
-        v.replace(dashStart, dashStart + dashSpan, `${pre}${EN_DASH}${post}`)
-        return null
+        const dashEnd = dashStart + groups.preSpace.length + 1 + groups.postSpace.length
+        const tolerated = new Map<number, number>()
+        tolerated.set(dashStart, 1)
+        tolerated.set(dashEnd, 1)
+        if (!interiorBoundariesAllowed(match, v, tolerated)) return false
+        return wordBoundaryStartOk(v, match.index) && wordBoundaryEndOk(v, match.index + match[0].length)
       },
-      {
-        allowBoundaries: (match, v) => {
-          const groups = namedGroups<{
-            startMonth: string
-            startYear?: string
-            preSpace: string
-            postSpace: string
-            endMonth: string
-            endYear?: string
-          }>(matchArgs(match))
-          const startLen = groups.startMonth.length + (groups.startYear?.length ?? 0)
-          // v4 tolerated one separator after the start year (`preSep`) and one
-          // before the end month (`postSep`), bracketing the dash and spaces.
-          const dashStart = match.index + startLen
-          const dashEnd = dashStart + groups.preSpace.length + 1 + groups.postSpace.length
-          const tolerated = new Map<number, number>()
-          tolerated.set(dashStart, 1)
-          tolerated.set(dashEnd, 1)
-          if (!interiorBoundariesAllowed(match, v, tolerated)) return false
-          return wordBoundaryStartOk(v, match.index) && wordBoundaryEndOk(v, match.index + match[0].length)
-        },
-      },
-    )
-  })
+    },
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -573,9 +574,10 @@ export function enDashDateRange(text: string, options: DashOptions = {}): string
 // ---------------------------------------------------------------------------
 
 /** Convert hyphens to minus signs in numeric contexts (e.g., "-5" → "−5"). */
-export function minusReplace(text: string, options: DashOptions = {}): string {
-  const separator = options.separator ?? DEFAULT_SEPARATOR
-  return withProseView(text, separator, (view) => {
+export function minusReplace(input: string): string
+export function minusReplace(input: ProseView): void
+export function minusReplace(input: string | ProseView): string | void {
+  return overInput(input, (view) => {
     minusSubtractionOfNegative(view)
     minusSpacedSubtraction(view)
     minusDirectNegative(view)
@@ -1068,18 +1070,18 @@ function preserveLineLeadingEmDashSpace(view: ProseView): void {
 // Public dash pipeline
 // ---------------------------------------------------------------------------
 
-export function hyphenReplace(text: string, options: DashOptions = {}): string {
-  const separator = options.separator ?? DEFAULT_SEPARATOR
+export function hyphenReplace(input: string, options?: DashOptions): string
+export function hyphenReplace(input: ProseView, options?: DashOptions): void
+export function hyphenReplace(input: string | ProseView, options: DashOptions = {}): string | void {
   const style = options.dashStyle ?? "american"
-  if (style === "none") return text
-  text = minusReplace(text, options)
-  text = enDashDateRange(text, options)
-  text = enDashNumberRange(text, options)
-  text = withProseView(text, separator, (view) => {
+  return overInput(input, (view) => {
+    if (style === "none") return
+    minusReplace(view)
+    enDashDateRangeOverView(view, style)
+    enDashNumberRange(view)
     convertParentheticalDashes(view, style)
     if (style === "american") normalizeEmDashSpacing(view)
   })
-  return text
 }
 
 const { WORD_JOINER } = UNICODE_SYMBOLS
@@ -1099,9 +1101,13 @@ const { WORD_JOINER } = UNICODE_SYMBOLS
  * `nbspTransform` (U+00A0 breaks `Fig. 1` searches). Apply only in rendered
  * HTML; do not write into Markdown source.
  */
-export function dashWordJoiner(text: string): string {
-  const re = cachedRegExp(`(?<=[^\\s${WORD_JOINER}])[${EM_DASH}${EN_DASH}]`, "gu")
-  return text.replace(re, `${WORD_JOINER}$&`)
+export function dashWordJoiner(input: string): string
+export function dashWordJoiner(input: ProseView): void
+export function dashWordJoiner(input: string | ProseView): string | void {
+  return overInput(input, (view) => {
+    const re = cachedRegExp(`(?<=[^\\s${WORD_JOINER}])[${EM_DASH}${EN_DASH}]`, "gu")
+    replaceAllInView(view, re, (match) => `${WORD_JOINER}${match[0]}`)
+  })
 }
 
 /** Reconstructs `.replace()`-style callback args from a RegExpExecArray. */

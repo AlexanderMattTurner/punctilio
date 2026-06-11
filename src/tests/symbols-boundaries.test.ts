@@ -9,7 +9,8 @@ import {
   superscriptOrdinal,
 } from "../symbols.js"
 import { legalSymbols } from "../symbols.js"
-import { DEFAULT_SEPARATOR as S, UNICODE_SYMBOLS } from "../constants.js"
+import { UNICODE_SYMBOLS } from "../constants.js"
+import { SEP as S, viewTransform } from "./test-helpers.js"
 
 const {
   MULTIPLICATION: X,
@@ -27,8 +28,6 @@ const {
   SUPERSCRIPT_ND,
   COPYRIGHT,
 } = UNICODE_SYMBOLS
-
-const opts = { separator: S }
 
 // These exercise the boundary-tolerance paths added when the passes moved onto
 // the ProseView layer: a single node boundary at a v4 weave position is
@@ -72,11 +71,11 @@ describe("multiplication boundary tolerance", () => {
     // A `0` operand with a unit before the operator is not hex.
     [`0mm x 5`, `0mm ${X} 5`],
   ])("converts %j to %j", (input, expected) => {
-    expect(multiplication(input, opts)).toBe(expected)
+    expect(viewTransform(multiplication, input)).toBe(expected)
   })
 
-  it("accepts an empty separator (no boundaries)", () => {
-    expect(multiplication("5x5", { separator: "" })).toBe(`5${X}5`)
+  it("a single-node view matches the string path", () => {
+    expect(viewTransform(multiplication, "5x5")).toBe(`5${X}5`)
   })
 })
 
@@ -93,7 +92,7 @@ describe("mathSymbols boundary tolerance", () => {
     // A boundary before the match (outside its span) does not block conversion.
     [`x${S}!=`, `x${S}${NOT_EQUAL}`],
   ])("converts %j to %j", (input, expected) => {
-    expect(mathSymbols(input, opts)).toBe(expected)
+    expect(viewTransform(mathSymbols, input)).toBe(expected)
   })
 })
 
@@ -111,7 +110,7 @@ describe("degrees boundary tolerance", () => {
     // `C` before a hyphen-digit is still a temperature (not a compound word).
     [`20C-5`, `20 ${DEGREE}C-5`],
   ])("converts %j to %j", (input, expected) => {
-    expect(degrees(input, opts)).toBe(expected)
+    expect(viewTransform(degrees, input)).toBe(expected)
   })
 })
 
@@ -128,7 +127,7 @@ describe("fractions boundary tolerance", () => {
     // (Multi-digit numerators never match, but a leading boundary is allowed.)
     [`x${S}1/2`, `x${S}${FRACTION_1_2}`],
   ])("converts %j to %j", (input, expected) => {
-    expect(fractions(input, opts)).toBe(expected)
+    expect(viewTransform(fractions, input)).toBe(expected)
   })
 })
 
@@ -142,7 +141,7 @@ describe("ellipsis boundary tolerance", () => {
     // A boundary after the ellipsis blocks the trailing space.
     [`...${S}a`, `${ELLIPSIS}${S}a`],
   ])("converts %j to %j", (input, expected) => {
-    expect(ellipsis(input, opts)).toBe(expected)
+    expect(viewTransform(ellipsis, input)).toBe(expected)
   })
 })
 
@@ -163,7 +162,7 @@ describe("arrows boundary tolerance", () => {
     [`a < b`, `a < b`],
     [`a <> b`, `a <> b`],
   ])("converts %j to %j", (input, expected) => {
-    expect(arrows(input, opts)).toBe(expected)
+    expect(viewTransform(arrows, input)).toBe(expected)
   })
 })
 
@@ -176,7 +175,7 @@ describe("legalSymbols boundary-measured context window", () => {
     // the year evidence converts it.
     [`a/${S}${"x".repeat(23)}(c) 2024`, `a/${S}${"x".repeat(23)}${COPYRIGHT} 2024`],
   ])("converts %j to %j", (input, expected) => {
-    expect(legalSymbols(input, opts)).toBe(expected)
+    expect(viewTransform(legalSymbols, input)).toBe(expected)
   })
 })
 
@@ -187,7 +186,7 @@ describe("punctuationLigatures boundary tolerance", () => {
     [`?${S}${S}?`, `?${S}${S}?`],
     [`?${S}?${S}?`, `${DOUBLE_QUESTION}${S}${S}`],
   ])("converts %j to %j", (input, expected) => {
-    expect(punctuationLigatures(input, opts)).toBe(expected)
+    expect(viewTransform(punctuationLigatures, input)).toBe(expected)
   })
 })
 
@@ -202,7 +201,7 @@ describe("superscriptOrdinal boundary tolerance", () => {
     // A boundary inside the suffix (not the digit slot) blocks the match.
     [`2n${S}d`, `2n${S}d`],
   ])("converts %j to %j", (input, expected) => {
-    expect(superscriptOrdinal(input, opts)).toBe(expected)
+    expect(viewTransform(superscriptOrdinal, input)).toBe(expected)
   })
 })
 
@@ -216,7 +215,7 @@ describe("plain-text arms of boundary-aware helpers", () => {
     // the leading `<--` still matches as a left arrow.
     [`a <--${S}${S}> b`, `a ${ARROW_LEFT}${S}${S}> b`],
   ])("arrows %j to %j", (input, expected) => {
-    expect(arrows(input, opts)).toBe(expected)
+    expect(viewTransform(arrows, input)).toBe(expected)
   })
 
   it.each([

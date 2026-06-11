@@ -157,8 +157,6 @@ describe("remarkPunctilio", () => {
       ["symbols disabled", "5x5", { symbols: false, nbsp: false as const }, "5x5"],
       ["fractions enabled", "1/2 cup", { fractions: true, nbsp: false as const }, `${FRACTION_1_2} cup`],
       ["fractions disabled", "1/2 cup", { fractions: false, nbsp: false as const }, "1/2 cup"],
-      ["explicit checkIdempotency: true", '"Hello"', { checkIdempotency: true, nbsp: false as const }, `${LDQ}Hello${RDQ}`],
-      ["custom separator", '"Hello"', { separator: "\uE001", nbsp: false as const }, `${LDQ}Hello${RDQ}`],
     ])("respects %s", async (_name, input, options, expected) => {
       expect(await processMarkdown(input, options)).toEqual(expected)
     })
@@ -236,20 +234,19 @@ describe("remarkPunctilio", () => {
     })
   })
 
-  describe("separator integrity across inline elements", () => {
-    it("preserves cross-element quote pairing with custom separator", async () => {
+  describe("cross-element integrity", () => {
+    it("preserves cross-element quote pairing", async () => {
       const input = '*"Hello,* world"'
-      const result = await processMarkdown(input, { separator: "", nbsp: false })
+      const result = await processMarkdown(input, { nbsp: false })
       expect(result).toContain(LDQ)
       expect(result).toContain(RDQ)
     })
 
-    it("handles many inline elements without separator corruption", async () => {
+    it("handles many inline elements without corruption", async () => {
       const input = '*a* **b** *c* **d** *e* **f** *g* "hello"'
       const result = await processMarkdown(input, { nbsp: false })
       expect(result).toContain(LDQ)
       expect(result).toContain(RDQ)
-      expect(result).not.toContain("")
     })
   })
 

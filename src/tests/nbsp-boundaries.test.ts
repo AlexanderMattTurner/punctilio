@@ -7,14 +7,14 @@ import {
   nbspBeforeLastWord,
   nbspBetweenInitials,
   nbspBetweenNumberAndUnit,
-  type NbspOptions,
 } from "../nbsp.js"
-import { DEFAULT_SEPARATOR, UNICODE_SYMBOLS } from "../constants.js"
+import { UNICODE_SYMBOLS } from "../constants.js"
+import type { ProseView } from "../prose-view.js"
+import { SEP as S, viewTransform } from "./test-helpers.js"
 
 const { NBSP, COPYRIGHT } = UNICODE_SYMBOLS
-const S = DEFAULT_SEPARATOR
 
-type Fn = (text: string, options?: NbspOptions) => string
+type Fn = (view: ProseView) => void
 
 /**
  * Boundary-tolerance fidelity: each v4 `${sep}?` slot tolerates exactly one
@@ -40,7 +40,7 @@ describe("nbsp boundary tolerance", () => {
     // the preceding clean char is not a word char.
     ["lastWord sep-lookbehind", nbspBeforeLastWord, `ab.${S} cd`, `ab.${S}${NBSP}cd`],
   ])("tolerates one boundary: %s", (_label, fn, input, expected) => {
-    expect(fn(input, { separator: S })).toBe(expected)
+    expect(viewTransform(fn, input)).toBe(expected)
   })
 
   it.each<[string, Fn, string]>([
@@ -57,31 +57,29 @@ describe("nbsp boundary tolerance", () => {
     ["boundary inside shortWord", nbspAfterShortWords, `a${S}n cat`],
     ["boundary inside lastWord", nbspBeforeLastWord, `hello wor${S}ld`],
   ])("blocks two-boundary / split-literal: %s", (_label, fn, input) => {
-    expect(fn(input, { separator: S })).toBe(input)
+    expect(viewTransform(fn, input)).toBe(input)
   })
 
   it("re-anchors to a shorter abbreviation when a boundary splits the longer one", () => {
     // `Ca` + boundary + `p.` cannot match `Cap.`, but `p.` (a known abbreviation)
     // still matches after the boundary — reproducing the v4 sentinel-aware scan.
-    expect(nbspAfterReferenceAbbreviations(`Ca${S}p. 1`, { separator: S })).toBe(`Ca${S}p.${NBSP}1`)
+    expect(viewTransform(nbspAfterReferenceAbbreviations, `Ca${S}p. 1`)).toBe(`Ca${S}p.${NBSP}1`)
   })
 
   it("a boundary directly before a short word fails the lookbehind", () => {
     // The sentinel before the short word is not `^|space|punct|>`.
-    expect(nbspAfterShortWords(`.${S}a cat`, { separator: S })).toBe(`.${S}a cat`)
+    expect(viewTransform(nbspAfterShortWords, `.${S}a cat`)).toBe(`.${S}a cat`)
   })
 
-  it("treats an empty separator as a single boundary-free node", () => {
-    // With `separator: ""` there are no node boundaries; the whole text is one
-    // fragment and every rule runs over it unchanged from plain-text behavior.
-    expect(nbspBetweenInitials("J. K. R", { separator: "" })).toBe(`J.${NBSP}K.${NBSP}R`)
-    expect(nbspAfterShortWords("a cat", { separator: "" })).toBe(`a${NBSP}cat`)
+  it("a single-node view behaves like the plain-string path", () => {
+    expect(viewTransform(nbspBetweenInitials, "J. K. R")).toBe(`J.${NBSP}K.${NBSP}R`)
+    expect(viewTransform(nbspAfterShortWords, "a cat")).toBe(`a${NBSP}cat`)
   })
 
   it("a boundary breaks the NBSP cascade run, re-enabling the last-word match", () => {
     // `x` + NBSP + `word` would normally block (cascade), but a boundary between
     // the run and the space breaks `[NBSP][LATIN]{1,15}`.
-    expect(nbspBeforeLastWord(`x${NBSP}word${S} end`, { separator: S }))
+    expect(viewTransform(nbspBeforeLastWord, `x${NBSP}word${S} end`))
       .toBe(`x${NBSP}word${S}${NBSP}end`)
     // Without the boundary, the cascade blocks the widow protection.
     expect(nbspBeforeLastWord(`x${NBSP}word end`)).toBe(`x${NBSP}word end`)
