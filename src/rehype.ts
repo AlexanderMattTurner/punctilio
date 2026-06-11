@@ -3,10 +3,11 @@ import type { Transformer } from "unified"
 
 import { SKIP, visitParents } from "unist-util-visit-parents"
 
-import { TRANSFORM_OPTION_KEYS, type TransformOptions, transformView } from "./index.js"
+import { transformView } from "./index.js"
+import { TRANSFORM_OPTION_KEYS, type TransformOptions } from "./transform-options.js"
 import { MAX_RECURSION_DEPTH } from "./constants.js"
 import { assertKnownOptionKeys, formatErrorString } from "./utils.js"
-import { buildProseView, type ProseView } from "./prose-view.js"
+import { buildProseView, type ProsePass, type ProseView } from "./prose-view.js"
 
 export type ElementPredicate = (node: Element) => boolean
 
@@ -207,6 +208,79 @@ export function proseViewOf(element: Element, options: ProseViewOfOptions = {}):
   }
 
   return buildProseView(textNodes)
+}
+
+/**
+ * One entry in an `applyPasses` sequence: a bare pass, or a pass with its own
+ * skip predicates layered on top of the base options (the per-transform
+ * skip-set case, e.g. a fractions pass that additionally skips `<a>`).
+ */
+export type PassEntry =
+  | ProsePass
+  | { pass: ProsePass; shouldSkip?: ElementPredicate; shouldSkipText?: TextNodeSkipPredicate }
+
+interface ResolvedPassEntry {
+  pass: ProsePass
+  shouldSkip?: ElementPredicate
+  shouldSkipText?: TextNodeSkipPredicate
+}
+
+function resolvePassEntry(entry: PassEntry): ResolvedPassEntry {
+  return typeof entry === "function" ? { pass: entry } : entry
+}
+
+/** OR-combines an optional entry predicate onto an optional base predicate. */
+function mergePredicates<Args extends unknown[]>(
+  base: ((...args: Args) => boolean) | undefined,
+  extra: ((...args: Args) => boolean) | undefined,
+): ((...args: Args) => boolean) | undefined {
+  if (!base) return extra
+  if (!extra) return base
+  return (...args) => base(...args) || extra(...args)
+}
+
+/**
+ * Runs `passes` in order over `element`'s transformable text, owning the
+ * ProseView lifecycle so callers never touch a view directly. Each pass
+ * commits its edits before the next runs, so passes see each other's
+ * committed output — the same sequencing `transform()`'s pipeline uses.
+ *
+ * Entries whose predicates match the previous entry's share one view;
+ * an entry with different `shouldSkip`/`shouldSkipText` predicates gets a
+ * fresh view (built after the previous pass committed) over the text nodes
+ * that survive both the base `options` predicates and its own.
+ */
+export function applyPasses(
+  element: Element,
+  passes: readonly PassEntry[],
+  options: ProseViewOfOptions = {},
+): void {
+  let currentView: ProseView | null = null
+  let currentPredicates: Pick<ResolvedPassEntry, "shouldSkip" | "shouldSkipText"> | null = null
+
+  for (const entry of passes) {
+    const { pass, shouldSkip, shouldSkipText } = resolvePassEntry(entry)
+
+    const samePredicates =
+      currentPredicates !== null &&
+      currentPredicates.shouldSkip === shouldSkip &&
+      currentPredicates.shouldSkipText === shouldSkipText
+    if (!samePredicates) {
+      currentView = proseViewOf(element, {
+        shouldSkip: mergePredicates(options.shouldSkip, shouldSkip),
+        shouldSkipText: mergePredicates(options.shouldSkipText, shouldSkipText),
+      })
+      currentPredicates = { shouldSkip, shouldSkipText }
+    }
+
+    // No transformable text under this entry's predicates; later entries may
+    // still see text (their skip sets differ), so keep going.
+    if (currentView === null) {
+      continue
+    }
+
+    pass(currentView)
+  }
 }
 
 // Block children cause per-block processing to avoid merging text across
