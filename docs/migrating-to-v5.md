@@ -12,8 +12,12 @@ onto the source nodes. For most consumers the visible changes are:
 5. [Several symbols and helpers were removed](#5-removed-symbols-and-replacements).
 6. [Per-rule sub-passes left the root export](#6-sub-passes-left-the-root-contract).
 
-Default-option `transform()` output is byte-identical to v4; no golden output
-changed.
+Default-option `transform()` output is byte-identical to v4, with two
+deliberate classifier fixes: a straight double quote that merely starts a
+node (e.g. directly after `</a>`) now closes instead of opening when a later
+quote pair follows in the same block, and a quoted multi-digit number like
+`'37'` is a quote pair again rather than a decade elision (restoring the
+pre-4.1.1 output).
 
 ## 1. Sentinel / marker-character removal
 

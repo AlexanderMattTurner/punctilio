@@ -42,8 +42,8 @@ describe("quote classifier role-stream regressions", () => {
     ["'37'", `${LEFT_SINGLE_QUOTE}37${RIGHT_SINGLE_QUOTE}`],
     ["'37' x", `${LEFT_SINGLE_QUOTE}37${RIGHT_SINGLE_QUOTE} x`],
     ["'90s' tape", `${LEFT_SINGLE_QUOTE}90s${RIGHT_SINGLE_QUOTE} tape`],
-    // A still-straight quote after the digits also disqualifies it; the
-    // closer scan then halts there and the leading quote elides.
+    // A still-straight quote after the digits halts the closer scan, so the
+    // leading quote elides whether or not the shortcut fires.
     ["'37'x", `${RIGHT_SINGLE_QUOTE}37'x`],
     // Without its own closer the elision fires as before.
     ["'37 x", `${RIGHT_SINGLE_QUOTE}37 x`],

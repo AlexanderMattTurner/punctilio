@@ -376,8 +376,10 @@ function isDecadeElision(items: Item[], index: number): boolean {
   let after = index + 3
   if (isCharItem(items, after, "s")) after++
   // A closing single quote directly after the digits means the number is
-  // quoted (`'37'`), not elided — the leading quote is its opener.
-  if (isCharItem(items, after, "'") || isCharItem(items, after, RIGHT_SINGLE_QUOTE)) return false
+  // quoted (`'37'`), not elided — the leading quote is its opener. Only the
+  // already-classified closer needs checking: a still-straight quote there
+  // halts the closer scan, which elides the leading quote anyway.
+  if (isCharItem(items, after, RIGHT_SINGLE_QUOTE)) return false
   return !isLetterOrDigitItem(items, after)
 }
 
