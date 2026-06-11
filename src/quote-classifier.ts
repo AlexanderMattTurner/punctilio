@@ -1,5 +1,5 @@
 import { LATIN_LETTERS, TERMINAL_PUNCTUATION, UNICODE_SYMBOLS } from "./constants.js"
-import { buildProseView, type ProseNode, type ProseView } from "./prose-view.js"
+import { type ProseView, withProseView } from "./prose-view.js"
 
 const {
   EM_DASH,
@@ -859,15 +859,6 @@ function queueRenderEdits(view: ProseView, items: Item[], table: Record<QuoteRol
 // ---------------------------------------------------------------------------
 // Public engine entry points
 // ---------------------------------------------------------------------------
-
-function withProseView(markedText: string, separator: string, run: (view: ProseView) => void): string {
-  const fragments = separator.length > 0 ? markedText.split(separator) : [markedText]
-  const nodes: ProseNode[] = fragments.map((value) => ({ value }))
-  const view = buildProseView(nodes)
-  run(view)
-  view.commit()
-  return nodes.map((node) => node.value).join(separator)
-}
 
 /**
  * The quote/apostrophe role classifier: one boundary-aware scan over the

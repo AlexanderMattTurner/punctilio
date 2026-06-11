@@ -1,4 +1,5 @@
 import {
+  boundaryCountAt,
   buildProseView,
   type ProseNode,
   type ProseView,
@@ -363,5 +364,21 @@ describe("runLegacyPass", () => {
     const view = buildProseView(nodes("a", "b"))
     view.replace(0, 1, "X")
     expect(() => runLegacyPass(view, (m) => m)).toThrow(/uncommitted/)
+  })
+})
+
+describe("boundaryCountAt", () => {
+  // "ab" | "" | "cd" | "e": boundaries at 2 (doubled by the empty node) and 4.
+  const view = buildProseView([{ value: "ab" }, { value: "" }, { value: "cd" }, { value: "e" }])
+
+  it.each([
+    [0, 0],
+    [1, 0],
+    [2, 2],
+    [3, 0],
+    [4, 1],
+    [5, 0],
+  ])("offset %d has %d boundaries", (offset, expected) => {
+    expect(boundaryCountAt(view, offset)).toBe(expected)
   })
 })

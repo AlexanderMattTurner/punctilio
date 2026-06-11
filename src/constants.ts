@@ -140,22 +140,12 @@ export const REGEX_SPECIAL_CHARS = [".", "*", "+", "?", "^", "$", "[", "]", "\\"
 const MAX_BOUNDARY_SEPARATORS = 3
 
 /**
- * Marker-aware word boundary pattern for the START of a match.
- *
- * Standard `\b` can create false boundaries when separator markers appear
- * between word characters (e.g., `x\uE000ReLU` has a false `\b` before `R`).
- * This pattern uses a negative lookbehind to reject matches preceded by a
- * word character followed by up to `MAX_BOUNDARY_SEPARATORS` markers.
- */
-export function wordBoundaryStart(escapedSeparator: string): string {
-  return `(?<!\\w${escapedSeparator}{0,${MAX_BOUNDARY_SEPARATORS}})\\b`
-}
-
-/**
  * Marker-aware word boundary pattern for the END of a match.
  *
- * Mirror of `wordBoundaryStart` \u2014 rejects matches followed by up to
- * `MAX_BOUNDARY_SEPARATORS` markers and then a word character.
+ * Standard `\b` can create false boundaries when separator markers appear
+ * between word characters (e.g., `ReLU\uE000x` has a false `\b` after `U`).
+ * This pattern rejects matches followed by up to `MAX_BOUNDARY_SEPARATORS`
+ * markers and then a word character.
  */
 export function wordBoundaryEnd(escapedSeparator: string): string {
   return `\\b(?!${escapedSeparator}{0,${MAX_BOUNDARY_SEPARATORS}}\\w)`

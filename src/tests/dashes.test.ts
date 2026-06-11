@@ -694,6 +694,11 @@ describe("phone number preservation", () => {
     ["555-1234", "555-1234", "standalone 3+4 looks phone, preserve"],
     ["555-1,234", `555${EN_DASH}1,234`, "3+4 with thousands comma converts"],
     ["555-1.234", `555${EN_DASH}1.234`, "3+4 with thousands period converts"],
+    // A currency symbol is not part of the range start (v4's `\b` anchors the
+    // start at the digit), so "$100-2000" is the phone-shaped 3+4 and is kept.
+    ["$100-2000", "$100-2000", "currency 3+4 stays phone-shaped"],
+    ["$100--2000", "$100--2000", "currency 3+4 double dash stays"],
+    ["$100-200", `$100${EN_DASH}200`, "currency 3+3 converts"],
     ["1-5", `1${EN_DASH}5`, "simple range"],
     ["1-50", `1${EN_DASH}50`, "range to two digits"],
     ["1-99", `1${EN_DASH}99`, "range to 99"],
@@ -745,6 +750,482 @@ describe("hyphenReplace preserves multi-segment numbers across separators", () =
     ["model name across elements", `${sep}GPT${sep}-3`],
   ])("%s", (_desc, input) => {
     expect(hyphenReplace(input, { separator: sep })).toBe(input)
+  })
+})
+
+describe("ProseView boundary-tolerance edges", () => {
+  // Each v4 `${chr}?` slot tolerates exactly one boundary; two stacked
+  // boundaries (an empty fragment) or a boundary at a non-tolerated position
+  // blocks the match, matching the sentinel-weave behavior byte-for-byte.
+  describe("number range", () => {
+    it.each([
+      // One boundary at the tolerated `${chr}?` slot (start↔dash) converts.
+      ["one boundary before dash", `1${sep}-5`, `1${sep}${EN_DASH}5`],
+      ["one boundary after dash", `1-${sep}5`, `1${EN_DASH}${sep}5`],
+      // Two stacked boundaries at that slot exceed the one-separator budget.
+      ["two stacked boundaries before dash", `1${sep}${sep}-5`, `1${sep}${sep}-5`],
+      // A boundary inside the start digits (no slot there) blocks.
+      ["boundary inside start digits", `1${sep}0-5`, `1${sep}0-5`],
+      // 4+ stacked boundaries push the preceding digit past the word-boundary
+      // reach, so the run after the gap becomes the start and converts.
+      ["four boundaries split the start", `20${sep}${sep}${sep}${sep}00-2020`, `20${sep}${sep}${sep}${sep}00${EN_DASH}2020`],
+      // A boundary inside the end digits truncates it; the trailing word boundary
+      // then blocks the (now phone-shaped-free) range.
+      ["boundary inside end digits", `2000-202${sep}0`, `2000-202${sep}0`],
+      // A separator between a currency symbol and its digit severs the end.
+      ["currency severed from end digit", `€${sep}5-€${sep}10`, `€${sep}5-€${sep}10`],
+      // A boundary inside the last phone segment defeats multi-segment detection,
+      // so the leading pair en-dashes (matching the sentinel-weave behavior).
+      ["boundary in last phone segment", `555-123-45${sep}67`, `555${EN_DASH}123-45${sep}67`],
+      // A multiplier suffix carries one tolerated `${chr}?` slot at its head.
+      ["one boundary before suffix", `1-10${sep}x`, `1${EN_DASH}10${sep}x`],
+      ["boundary inside am/pm suffix", `2-3p${sep}m`, `2-3p${sep}m`],
+    ])("%s", (_desc, input, expected) => {
+      expect(enDashNumberRange(input, { separator: sep })).toBe(expected)
+    })
+  })
+
+  describe("negative range", () => {
+    it.each([
+      ["one boundary at the dash", `${MINUS}5${sep}-2`, `${MINUS}5${sep}${EN_DASH}2`],
+      // A boundary inside the negative start digits severs them from the MINUS.
+      ["boundary inside start digits", `${MINUS}5${sep}0-3`, `${MINUS}5${sep}0-3`],
+      // Multi-segment negatives are preserved (the following resolves non-empty).
+      ["multi-segment preserved", `${MINUS}5-3-7`, `${MINUS}5-3-7`],
+    ])("%s", (_desc, input, expected) => {
+      expect(enDashNumberRange(minusReplace(input, { separator: sep }), { separator: sep })).toBe(expected)
+    })
+  })
+
+  describe("date range", () => {
+    it.each([
+      ["one boundary at the dash", `Jan${sep}-Mar`, `Jan${sep}${EN_DASH}Mar`],
+      ["boundary inside the start month blocks", `Ja${sep}n-Mar`, `Ja${sep}n-Mar`],
+    ])("%s", (_desc, input, expected) => {
+      expect(enDashDateRange(input, { separator: sep })).toBe(expected)
+    })
+  })
+
+  describe("minus sign", () => {
+    it.each([
+      // Two stacked separators put a non-digit/letter before the hyphen, so the
+      // separator-led negative (Pattern 2b) fires; one leaves the digit visible.
+      ["two boundaries promote to negative", `1${sep}${sep}-5`, `1${sep}${sep}${MINUS}5`],
+      ["one boundary keeps the digit context", `1${sep}-5`, `1${sep}-5`],
+    ])("%s", (_desc, input, expected) => {
+      expect(minusReplace(input, { separator: sep })).toBe(expected)
+    })
+  })
+
+  describe("parenthetical em-dash (american)", () => {
+    it.each([
+      // The trailing space after a boundary belongs to the next node — kept.
+      ["space after boundary is preserved", `a -${sep} b`, `a${EM_DASH}${sep} b`],
+      // A separator alone leading the dash run still converts (separator is
+      // non-space, satisfying the lookbehind).
+      ["separator-led dash converts", `word${sep}- rest`, `word${sep}${EM_DASH}rest`],
+    ])("%s", (_desc, input, expected) => {
+      expect(hyphenReplace(input, { separator: sep })).toBe(expected)
+    })
+  })
+
+  describe("spaced math subtraction across boundaries", () => {
+    it.each([
+      // One boundary at `num`'s head (the `${chr}?` slot) is tolerated.
+      ["subtraction-of-negative, boundary at num", `5 - -${sep}3`, `5 ${MINUS} ${MINUS}${sep}3`],
+      ["spaced subtraction, boundary at num", `5 - ${sep}3`, `5 ${MINUS} ${sep}3`],
+      // A boundary at the leading digit (the lookbehind `${chr}?` slot).
+      ["spaced subtraction, boundary after digit", `5${sep} - 3`, `5${sep} ${MINUS} 3`],
+      // A boundary strictly inside the ` - ` prefix breaks the lookbehind span.
+      ["boundary inside the prefix blocks", `5 ${sep}- 3`, `5 ${sep}- 3`],
+    ])("%s", (_desc, input, expected) => {
+      expect(minusReplace(input, { separator: sep })).toBe(expected)
+    })
+  })
+
+  describe("parenthetical em-dash across boundaries", () => {
+    it.each([
+      // A boundary inside the leading spaces restarts the spaced match after it.
+      ["boundary in leading spaces", `a${sep} - b`, `a${sep}${EM_DASH}b`],
+      // A boundary inside a hyphen run truncates it (the run stays ≥2 / single).
+      ["boundary truncates trailing dashes", `a--${sep}b`, `a${EM_DASH}${sep}b`],
+      ["multiple-dash run, boundary before run", `a${sep}--b`, `a${sep}${EM_DASH}b`],
+      // A separator alone leads the dash run (boundary-led pattern).
+      ["separator-led run at text start", `${sep}- text`, `${sep}${EM_DASH}text`],
+      // The arrow guard tolerates separators around its hyphen run.
+      ["spaced dash before an arrow stays", `x - ->`, `x${EM_DASH}->`],
+      // Trailing-spaces lookahead is satisfied by end-of-text.
+      ["spaced dash at text end", `x -`, `x${EM_DASH}`],
+    ])("%s", (_desc, input, expected) => {
+      expect(hyphenReplace(input, { separator: sep })).toBe(expected)
+    })
+  })
+
+  describe("british unspaced em-dash across boundaries", () => {
+    it.each([
+      // One boundary on the sepBefore side of the em-dash is tolerated.
+      ["boundary before the em-dash", `word${sep}${EM_DASH}word`, `word${sep} ${EN_DASH} word`],
+    ])("%s", (_desc, input, expected) => {
+      expect(hyphenReplace(input, { separator: sep, dashStyle: "british" })).toBe(expected)
+    })
+  })
+
+  describe("line-leading em-dash spacing across boundaries", () => {
+    it.each([
+      // One boundary at the line-start `${chr}?` slot before the em-dash.
+      ["boundary before a line-leading em-dash", `${sep}${EM_DASH}Apple`, `${sep}${EM_DASH} Apple`],
+    ])("%s", (_desc, input, expected) => {
+      expect(hyphenReplace(input, { separator: sep })).toBe(expected)
+    })
+  })
+
+  describe("negative and multi-segment ranges across boundaries", () => {
+    it.each([
+      // A boundary inside the end digits truncates the end; the trailing word
+      // boundary then blocks the range (matching the sentinel weave).
+      ["boundary inside negative end digits", `${MINUS}5-3${sep}0`, `${MINUS}5-3${sep}0`],
+      // Four stacked boundaries split a negative start past the word-boundary
+      // reach, exposing a later sub-range that converts.
+      ["four boundaries expose a sub-range", `${MINUS}5${sep}${sep}${sep}${sep}0-3`, `${MINUS}5${sep}${sep}${sep}${sep}0${EN_DASH}3`],
+      // A multiplier suffix reached only after stacked boundaries still converts.
+      ["stacked boundaries before suffix", `1-2${sep}${sep}${sep}${sep}${sep}x`, `1${EN_DASH}2${sep}${sep}${sep}${sep}${sep}x`],
+    ])("%s", (_desc, input, expected) => {
+      expect(enDashNumberRange(input, { separator: sep })).toBe(expected)
+    })
+  })
+
+  describe("interior boundaries inside dash-run matches", () => {
+    it.each([
+      // A boundary strictly inside the leading-space run of a spaced dash.
+      ["interior boundary in leading spaces", `x${sep} - b`, `x${sep}${EM_DASH}b`],
+      // A boundary strictly inside a hyphen run that would otherwise pair.
+      ["interior boundary splits a dash pair", `a-${sep}-b quote`, `a-${sep}-b quote`],
+      ["interior boundary inside a long dash run", `a--${sep}--b`, `a--${sep}--b`],
+      // A boundary strictly inside a line-leading dash run.
+      ["interior boundary in a line-leading run", `\n-${sep}- x`, `\n-${sep}${EM_DASH}x`],
+      // A spaced en/em dash that is wholly an arrow ("–->"): no backtracked dash
+      // core escapes the arrow guard, so nothing converts.
+      ["spaced en-dash arrow stays", `a ${EN_DASH}->`, `a ${EN_DASH}->`],
+    ])("%s", (_desc, input, expected) => {
+      expect(hyphenReplace(input, { separator: sep })).toBe(expected)
+    })
+
+    // British unspaced em-dash with a boundary on the sepAfter side (interior to
+    // the `${EM_DASH}(?=[letter])` lookahead span in v4's woven form).
+    it("interior boundary after a british em-dash", () => {
+      expect(hyphenReplace(`word${EM_DASH}${sep}word`, { separator: sep, dashStyle: "british" })).toBe(
+        `word ${EN_DASH} ${sep}word`,
+      )
+    })
+
+    // A boundary between a line-leading em-dash and its following uppercase
+    // breaks v4's contiguous `${EM_DASH}[A-Z0-9]`, so no space is inserted.
+    it("interior boundary blocks line-leading em-dash spacing", () => {
+      expect(hyphenReplace(`\n${EM_DASH}${sep}Apple`, { separator: sep })).toBe(`\n${EM_DASH}${sep}Apple`)
+    })
+
+    it.each([
+      // A boundary strictly inside a two-space run before a spaced dash.
+      ["interior boundary in a two-space run", `a ${sep} - b`, `a ${sep}${EM_DASH}b`],
+      // The trailing `(?:${chr} [ ]*)?` consumes one boundary plus its kept
+      // post-boundary spaces; the lookahead is then satisfied by the next word.
+      ["trailing separator with kept spaces", `a - ${sep} b`, `a${EM_DASH}${sep} b`],
+      // The full "---" run is an em-dash candidate whose trailing `\n` fails the
+      // `(?=\S|$)` lookahead at the longest length; the run backtracks to a
+      // shorter dash core that converts, leaving the final hyphen.
+      ["dash run backtracks past a failing trailing lookahead", `a ---\n`, `a${EM_DASH}-\n`],
+    ])("%s", (_desc, input, expected) => {
+      expect(hyphenReplace(input, { separator: sep })).toBe(expected)
+    })
+  })
+
+  describe("range tail and date-range edge offsets", () => {
+    it.each([
+      // A boundary exactly at the date-range match end blocks it (the trailing
+      // word-boundary lookahead sees the separator, not the woven slot).
+      ["boundary at date-range end blocks", `Jan-Mar${sep}x`, `Jan-Mar${sep}x`],
+      // An interior boundary (in the start month) plus a boundary at the match
+      // end: the match still converts and the end boundary stops the interior
+      // scan early.
+      ["interior boundary with end boundary converts", `Jan${sep}-Mar${sep}`, `Jan${sep}${EN_DASH}Mar${sep}`],
+    ])("%s", (_desc, input, expected) => {
+      expect(enDashDateRange(input, { separator: sep })).toBe(expected)
+    })
+
+    it.each([
+      // A trailing letter that is not a valid suffix fails the word-boundary
+      // end for every `following` candidate, so the negative range is left.
+      ["negative range blocked by trailing letter", `${MINUS}5-3a`, `${MINUS}5-3a`],
+      // A valid single-letter suffix (K) does complete the tail and converts.
+      ["negative range with K suffix converts", `${MINUS}5-3K`, `${MINUS}5${EN_DASH}3K`],
+    ])("%s", (_desc, input, expected) => {
+      expect(enDashNumberRange(input, { separator: sep })).toBe(expected)
+    })
+  })
+
+  describe("greedy end backtracks over a trailing decimal", () => {
+    // v4's `wbe` rejects an end run that ends on a `.`/digit transition before a
+    // suffix letter, backtracking the end to the last all-digit run. A bare `\b`
+    // would settle at the `.` and leave the dash unconverted.
+    it.each([
+      ["decimal then suffix run", `${MINUS}5-5.xK`, `${MINUS}5${EN_DASH}5.xK`],
+      ["decimal then single suffix", `${MINUS}5-5.x`, `${MINUS}5${EN_DASH}5.x`],
+      ["decimal value with suffix", `${MINUS}5-5.5K`, `${MINUS}5${EN_DASH}5.5K`],
+    ])("%s", (_desc, input, expected) => {
+      expect(enDashNumberRange(input, { separator: sep })).toBe(expected)
+    })
+  })
+
+  describe("separator-truncated end run in a negative range", () => {
+    // The negative end run stops at the first boundary; separators between the
+    // first end digit and the rest must not fuse into one clean run.
+    it.each([
+      // Four+ stacked boundaries push the trailing digits past the wbe's
+      // separator reach, so the leading single-digit end converts.
+      ["stacked boundaries after the first end digit", `${MINUS}1${sep}-8${sep}${sep}${sep}${sep}${sep}0${sep}0w`, `${MINUS}1${sep}${EN_DASH}8${sep}${sep}${sep}${sep}${sep}0${sep}0w`],
+    ])("%s", (_desc, input, expected) => {
+      expect(enDashNumberRange(input, { separator: sep })).toBe(expected)
+    })
+  })
+
+  describe("phone area code invalidated by a boundary", () => {
+    // A boundary where v4's `rangeStart` would begin (just past a `\d{3}-` area
+    // code) invalidates the area-code reading; the digits become the range start.
+    it.each([
+      ["boundary after the area-code dash", `800-${sep}10-2,000`, `800-${sep}10-2,000`],
+      ["area-code reading falls back to range start", `800-${sep}10---2,000`, `800${EN_DASH}${sep}10---2,000`],
+    ])("%s", (_desc, input, expected) => {
+      expect(enDashNumberRange(input, { separator: sep })).toBe(expected)
+    })
+  })
+
+  describe("direct-negative num truncated by a boundary", () => {
+    // v4's Pattern 2/2b `num` (`\d*\.?\d+`) has no separator slot; it stops at the
+    // first interior boundary and must still form a number.
+    it.each([
+      ["boundary strips the mandatory digit", `-.${sep}1`, `-.${sep}1`],
+      ["boundary right after the hyphen", `-${sep}5`, `-${sep}5`],
+      ["boundary past a valid number converts", `-5${sep}5`, `${MINUS}5${sep}5`],
+    ])("%s", (_desc, input, expected) => {
+      expect(minusReplace(input, { separator: sep })).toBe(expected)
+    })
+  })
+
+  describe("spaced math subtraction num truncated by a boundary", () => {
+    // v4's `num` (`${chr}?\d*\.?\d+`) stops at the first interior boundary; a
+    // boundary that strips its mandatory `\d+` breaks the match, but one that
+    // leaves a valid number keeps it.
+    it.each([
+      ["boundary strips the mandatory digit", `5 - .${sep}5`, `5 - .${sep}5`],
+      ["boundary leaves a valid num", `5 - 12${sep}5`, `5 ${MINUS} 12${sep}5`],
+      ["boundary inside a longer num", `5 - 12${sep}5x`, `5 ${MINUS} 12${sep}5x`],
+      // A boundary exactly at the num end stops the num-body walk via its
+      // `>= numEnd` exit (vs. a boundary strictly inside num, which truncates).
+      ["boundary at the num end", `5 - 3${sep}`, `5 ${MINUS} 3${sep}`],
+      ["boundary strictly inside num", `5 - 3${sep}0`, `5 ${MINUS} 3${sep}0`],
+    ])("%s", (_desc, input, expected) => {
+      expect(minusReplace(input, { separator: sep })).toBe(expected)
+    })
+  })
+
+  // Two stacked separators exceed every single-`${chr}?` weave slot, so each
+  // pattern's boundary guard rejects the match (matching the sentinel weave).
+  describe("two stacked boundaries block each pattern", () => {
+    it.each([
+      // Positive range: two boundaries after the dash run.
+      ["enDashNumberRange", `1-${sep}${sep}5`, `1-${sep}${sep}5`, "american"],
+      // Negative range slots: end head, suffix.
+      ["enDashNumberRange", `${MINUS}5-${sep}${sep}3`, `${MINUS}5-${sep}${sep}3`, "american"],
+      ["enDashNumberRange", `${MINUS}5-3${sep}${sep}K`, `${MINUS}5-3${sep}${sep}K`, "american"],
+      // A `${MINUS}` directly before the negative start blocks (no digit follows).
+      ["enDashNumberRange", `${MINUS}-5-3`, `${MINUS}-5-3`, "american"],
+      // Spaced subtraction slots.
+      ["minusReplace", `5 - -${sep}${sep}3`, `5 - -${sep}${sep}3`, "american"],
+      ["minusReplace", `5${sep}${sep} - 3`, `5${sep}${sep} - 3`, "american"],
+      ["minusReplace", `5 - ${sep}${sep}3`, `5 - ${sep}${sep}3`, "american"],
+      // Spaced dash: two boundaries before the leading spaces / before the dash.
+      ["hyphenReplace", `a ${sep}- b`, `a ${sep}- b`, "american"],
+      // Multiple-dash run: two boundaries on either edge.
+      ["hyphenReplace", `a${sep}${sep}--b`, `a${sep}${sep}--b`, "american"],
+      ["hyphenReplace", `a--${sep}${sep}b`, `a--${sep}${sep}b`, "american"],
+      // British unspaced em-dash: two boundaries on either side.
+      ["hyphenReplace", `word${sep}${sep}${EM_DASH}word`, `word${sep}${sep}${EM_DASH}word`, "british"],
+      ["hyphenReplace", `word${EM_DASH}${sep}${sep}word`, `word${EM_DASH}${sep}${sep}word`, "british"],
+      // Line-leading em-dash spacing: two boundaries before the em-dash.
+      ["hyphenReplace", `${sep}${sep}${EM_DASH}Apple`, `${sep}${sep}${EM_DASH}Apple`, "american"],
+    ])("%s blocks: %s", (fn, input, expected, dashStyle) => {
+      const run = { enDashNumberRange, minusReplace, hyphenReplace }[fn as "hyphenReplace"]
+      expect(run(input, { separator: sep, dashStyle: dashStyle as "american" })).toBe(expected)
+    })
+  })
+
+  // Stacked separators in following/suffix/arrow slots that still resolve to a
+  // converting (or arrow-preserving) match, exercising the boundary-walk paths.
+  describe("stacked boundaries inside tails and dash runs", () => {
+    it.each([
+      // Negative following: two boundaries split the segment, leaving the leading
+      // pair to en-dash.
+      ["enDashNumberRange", `${MINUS}5-3${sep}${sep}-7`, `${MINUS}5${EN_DASH}3${sep}${sep}-7`, "american"],
+      ["enDashNumberRange", `${MINUS}5-3-${sep}${sep}7`, `${MINUS}5${EN_DASH}3-${sep}${sep}7`, "american"],
+      // Spaced math num past two boundaries still converts (boundary outside num).
+      ["minusReplace", `5 - 12${sep}${sep}3`, `5 ${MINUS} 12${sep}${sep}3`, "american"],
+      // Spaced dash with two boundaries in the leading spaces converts after them.
+      ["hyphenReplace", `a${sep}${sep} - b`, `a${sep}${sep}${EM_DASH}b`, "american"],
+      ["hyphenReplace", `a ${sep}${sep}- b`, `a ${sep}${sep}${EM_DASH}b`, "american"],
+      // Arrow guard with two boundaries in / around the hyphen run: the `>` is too
+      // far past the slots, so the dash converts.
+      ["hyphenReplace", `a -${sep}${sep}->`, `a${EM_DASH}${sep}${sep}->`, "american"],
+      ["hyphenReplace", `a - ${sep}${sep}>`, `a${EM_DASH}${sep}${sep}>`, "american"],
+      ["hyphenReplace", `a - -${sep}${sep}>`, `a${EM_DASH}-${sep}${sep}>`, "american"],
+      // A boundary-led dash run followed by another consumes only the first.
+      ["hyphenReplace", `x${sep}- ${sep}- y`, `x${sep}${EM_DASH}${sep}- y`, "american"],
+      // Em-dash spacing: spaces directly around the em-dash are removed.
+      ["hyphenReplace", `a ${EM_DASH} b`, `a${EM_DASH}b`, "american"],
+      ["hyphenReplace", `a${EM_DASH} b`, `a${EM_DASH}b`, "american"],
+    ])("%s: %s", (fn, input, expected, dashStyle) => {
+      const run = { enDashNumberRange, minusReplace, hyphenReplace }[fn as "hyphenReplace"]
+      expect(run(input, { separator: sep, dashStyle: dashStyle as "american" })).toBe(expected)
+    })
+  })
+
+  // Structural variants of the clean (separator-free) paths the golden corpus
+  // does not exercise: am/pm suffixes, currency-led end runs, the parenthesised
+  // area code, and em-dash space removal.
+  describe("clean structural variants", () => {
+    it.each([
+      ["am/pm suffix", `2-3am`, `2${EN_DASH}3am`],
+      ["pm suffix", `9-10pm`, `9${EN_DASH}10pm`],
+      ["uppercase PM suffix", `2-3PM`, `2${EN_DASH}3PM`],
+      ["currency-led end run", `5-$10`, `5${EN_DASH}$10`],
+      ["currency on both sides", `$5-$10`, `$5${EN_DASH}$10`],
+      ["currency end with no digit stays", `5-$x`, `5-$x`],
+      // The parenthesised area code is consumed but the phone number is preserved.
+      ["parenthesised area code phone", `(555) 123-4567`, `(555) 123-4567`],
+      // A non-digit in the parens defeats the area code, so the inner range converts.
+      ["broken parens area code converts inner", `(55a) 1-2`, `(55a) 1${EN_DASH}2`],
+      // A `\d{3}-` area-code candidate whose head is not all digits falls through.
+      ["letter in area-code head", `12a-5`, `12a-5`],
+    ])("%s", (_desc, input, expected) => {
+      expect(enDashNumberRange(input, { separator: sep })).toBe(expected)
+    })
+
+    it.each([
+      // Em-dash with a space on each side: both spaces are removed.
+      ["spaces around em-dash removed", `word ${EM_DASH} word`, `word${EM_DASH}word`],
+      // A line-leading spaced hyphen run with two leading spaces converts.
+      ["two leading spaces before a dash", `a  - b`, `a${EM_DASH}b`],
+      // Two consecutive negatives both convert to the minus sign.
+      ["two negatives in a row", `-5 -6`, `${MINUS}5 ${MINUS}6`],
+    ])("%s", (_desc, input, expected) => {
+      expect(hyphenReplace(input, { separator: sep })).toBe(expected)
+    })
+
+    it("two consecutive negatives via minusReplace", () => {
+      expect(minusReplace(`-5 -6`, { separator: sep })).toBe(`${MINUS}5 ${MINUS}6`)
+    })
+
+    it.each([
+      // The `num` boundary walk reaches a boundary at/after the num end and stops.
+      ["boundary right after the negative num", `-5${sep} -`, `${MINUS}5${sep} -`],
+      ["negative num then trailing boundary", `-5${sep}`, `${MINUS}5${sep}`],
+      // A subtraction whose num is followed by a boundary exits the num-body walk.
+      ["double-dash subtraction then boundary", `1--0${sep}`, `1--0${sep}`],
+    ])("direct negative num run ends before a boundary: %s", (_desc, input, expected) => {
+      expect(minusReplace(input, { separator: sep })).toBe(expected)
+    })
+  })
+
+  // Inputs that flip individual operands of the structural guards (a suffix
+  // letter that is not am/pm, an area-code candidate that fails late, a tail
+  // segment with no digit, currency/end edges) — the branch halves the golden
+  // corpus leaves unevaluated.
+  describe("structural guard branch edges", () => {
+    it.each([
+      // `[ap]` with no following `m`, and an over-long am/pm suffix: both stay.
+      ["a-suffix without m", `2-3a`, `2-3a`],
+      ["am suffix with trailing letter", `2-3amx`, `2-3amx`],
+      ["pm suffix converts", `2-3pm`, `2${EN_DASH}3pm`],
+      // `\d{3}` area-code candidate whose 4th char is not `-`.
+      ["three digits then space", `123 4-5`, `123 4${EN_DASH}5`],
+      ["four-digit start is no area code", `1234-5`, `1234${EN_DASH}5`],
+      // `(` then three digits but no closing `)`.
+      ["open paren without close", `(123-4`, `(123${EN_DASH}4`],
+      ["short paren group", `(12)-3`, `(12)-3`],
+      // Negative range whose end run resolves to no digit.
+      ["negative double dash then letter", `${MINUS}5--x`, `${MINUS}5--x`],
+      ["negative dash then letter", `${MINUS}5-a`, `${MINUS}5-a`],
+      // Negative following segment whose digit slot holds a letter.
+      ["negative following with letter", `${MINUS}5-3-a`, `${MINUS}5${EN_DASH}3-a`],
+      // Currency-led end with no digit / a boundary severing the digit.
+      ["currency end with no digit", `5-$`, `5-$`],
+      ["currency severed from end digit", `5-$${sep}10`, `5-$${sep}10`],
+      // A non-ASCII currency on the end run exercises the currency-end branch.
+      ["euro range converts", `€5-€10`, `€5${EN_DASH}€10`],
+      // A negative range whose `--neg` end run has no digit (a `(`).
+      ["negative neg-dash then non-digit", `${MINUS}5--(.`, `${MINUS}5--(.`],
+      // A negative range whose following segment digit slot is non-numeric.
+      ["negative following non-digit then currency", `${MINUS}2-5--1€`, `${MINUS}2${EN_DASH}5--1€`],
+      // Dash at end-of-string: the end run reads past the end (no currency/digit).
+      ["positive dash at end of string", `5-`, `5-`],
+      ["negative dash at end of string", `${MINUS}5-`, `${MINUS}5-`],
+      // A lone MINUS at end-of-string: the negative scan reads past the end.
+      ["lone minus", `${MINUS}`, `${MINUS}`],
+      ["minus at end of string", `5${MINUS}`, `5${MINUS}`],
+      // A trailing dash with no following digit ends the `following` walk at the end.
+      ["negative trailing dash", `${MINUS}5-3-`, `${MINUS}5${EN_DASH}3-`],
+      ["positive trailing dash", `1-2-`, `1${EN_DASH}2-`],
+    ])("%s", (_desc, input, expected) => {
+      expect(enDashNumberRange(input, { separator: sep })).toBe(expected)
+    })
+
+    it.each([
+      // A negative number with a trailing suffix letter (minusReplace).
+      ["negative with suffix letter", `-5x`, `${MINUS}5x`],
+      // A spaced dash run with two trailing spaces and nothing after (end anchor).
+      ["spaced dash with two trailing spaces", `a -  `, `a${EM_DASH}`],
+      // A spaced dash directly after a non-word, non-space char.
+      ["spaced dash after a paren", `${MINUS}) -  `, `${MINUS})${EM_DASH}`],
+      // A line-leading single hyphen before a word char (suspended hyphen): the
+      // leading spaces are consumed but the dash core rejects, so nothing changes.
+      ["leading spaces then suspended hyphen", `  -x`, `  -x`],
+      // Two leading spaces at the start of text before a spaced dash.
+      ["two leading spaces at text start", `  - b`, `${EM_DASH}b`],
+      // A word char then two spaces before the dash.
+      ["word then two spaces before dash", `x  - b`, `x${EM_DASH}b`],
+      // A spaced dash whose single trailing separator is followed by a hyphen.
+      ["spaced dash with trailing separator", `a - ${sep}-`, `a${EM_DASH}${sep}-`],
+      // A hyphen in the arrow run with two boundaries at the second `${chr}?` slot.
+      ["arrow hyphen with two trailing boundaries", `a --${sep}${sep}>`, `a${EM_DASH}-${sep}${sep}>`],
+      // Two stacked leading spaces / a boundary inside them restart the match.
+      ["boundary then two leading spaces", `a${sep}  - b`, `a${sep}${EM_DASH}b`],
+      ["leading space, boundary, space", ` ${sep} - b`, ` ${sep}${EM_DASH}b`],
+      // A trailing separator with kept spaces then a second boundary.
+      ["trailing separators with kept spaces", `a - ${sep}  ${sep}b`, `a${EM_DASH}${sep}  ${sep}b`],
+      // Arrow guard with three boundaries (no hyphens) past the slots converts.
+      ["three boundaries before arrow gt", `a - ${sep}${sep}${sep}>`, `a${EM_DASH}${sep}${sep}${sep}>`],
+      // An arrow guard split so the `>` becomes its own spaced dash candidate.
+      ["boundary-split arrow becomes dash", `a -${sep}${sep}- >`, `a${EM_DASH}${sep}${sep}${EM_DASH}>`],
+      // A boundary-led run overlapping a following boundary-led run.
+      ["overlapping boundary-led runs", `x${sep}-- ${sep}- y`, `x${sep}${EM_DASH}${sep}- y`],
+      // An em-dash with a space only on its left.
+      ["space only left of em-dash", `word ${EM_DASH}word`, `word${EM_DASH}word`],
+      // Arrow guard: a boundary inside the trailing hyphen run defeats the arrow.
+      ["boundary inside arrow hyphen run", ` ---${sep}->  Jana`, `${EM_DASH}-${sep}->  Jana`],
+      // Arrow guard with no hyphens and three boundaries before `>` (over budget).
+      ["three boundaries before arrow", `(${EM_DASH}3  ${EM_DASH}${sep}${sep}${sep}`, `(${EM_DASH}3${EM_DASH}${sep}${sep}${sep}`],
+      // Two boundaries after a hyphen in the arrow run defeat the second slot.
+      ["two boundaries after arrow hyphen", `a - -${sep}${sep}>`, `a${EM_DASH}-${sep}${sep}>`],
+      // A line-leading em-dash followed by an arrow keeps its single space removal.
+      ["em-dash run before arrow at start", `555  ${EM_DASH}->Marx`, `555${EM_DASH}->Marx`],
+    ])("%s", (_desc, input, expected) => {
+      expect(hyphenReplace(input, { separator: sep })).toBe(expected)
+    })
+
+    it("overlapping boundary-led runs (british)", () => {
+      expect(hyphenReplace(`a---.${sep}${sep}-- - word`, { separator: sep, dashStyle: "british" })).toBe(
+        `a---.${sep}${sep} ${EN_DASH} ${EN_DASH} word`,
+      )
+    })
   })
 })
 
