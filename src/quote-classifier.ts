@@ -375,6 +375,9 @@ function isDecadeElision(items: Item[], index: number): boolean {
   if (!isDigitItem(items, index + 1) || !isDigitItem(items, index + 2)) return false
   let after = index + 3
   if (isCharItem(items, after, "s")) after++
+  // A closing single quote directly after the digits means the number is
+  // quoted (`'37'`), not elided — the leading quote is its opener.
+  if (isCharItem(items, after, "'") || isCharItem(items, after, RIGHT_SINGLE_QUOTE)) return false
   return !isLetterOrDigitItem(items, after)
 }
 
@@ -571,6 +574,22 @@ function classifyOpeningDoubles(items: Item[]): void {
 }
 
 /**
+ * Opener-position prefix for the quoted-punctuation rule. Unlike
+ * {@link doubleOpenerPrefixOk}, boundaries are transparent here: a quote that
+ * merely starts a node (e.g. `"` directly after `</a>`) is not in opener
+ * position unless the character on the far side of the boundary run is itself
+ * opener context — matching how the rule classifies the equivalent plain
+ * string.
+ */
+function quotedPunctuationPrefixOk(items: Item[], index: number): boolean {
+  let j = index - 1
+  while (j >= 0 && items[j].boundary) j--
+  if (j < 0) return true
+  const ch = items[j].ch
+  return SPACE_RE.test(ch) || DOUBLE_OPEN_BEFORE_SET.has(ch)
+}
+
+/**
  * Quoted-punctuation openers like `"?"`: an opener-prefixed straight double
  * quote with a closing straight double quote anywhere ahead (at least one
  * item between them). Decisions use the pass-start set of straight quotes.
@@ -582,7 +601,7 @@ function classifyQuotedPunctuationOpeners(items: Item[]): void {
   }
   for (let k = 0; k < straightIndices.length; k++) {
     const i = straightIndices[k]
-    if (!doubleOpenerPrefixOk(items, i)) continue
+    if (!quotedPunctuationPrefixOk(items, i)) continue
     const closer = straightIndices[k + 1]
     if (closer !== undefined && closer >= i + 2) {
       items[i].ch = LEFT_DOUBLE_QUOTE

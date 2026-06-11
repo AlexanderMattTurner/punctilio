@@ -160,6 +160,15 @@
       }
     },
     {
+      "input": "<li><p>\"<a href=\"#\">Reward</a>\" is not the optimization \"target\".</p></li>",
+      "outputs": {
+        "american": "<li><p>“<a href=\"#\">Reward</a>” is not the optimization “target.”</p></li>",
+        "british": "<li><p>“<a href=\"#\">Reward</a>” is not the optimization “target”.</p></li>",
+        "german": "<li><p>„<a href=\"#\">Reward</a>“ is not the optimization „target“.</p></li>",
+        "french": "<li><p>« <a href=\"#\">Reward</a> » is not the optimization « target ».</p></li>"
+      }
+    },
+    {
       "input": "<p>\"Use <code>transform(\"hello\")</code> to apply.\"</p>",
       "outputs": {
         "american": "<p>“Use <code>transform(\"hello\")</code> to apply.”</p>",

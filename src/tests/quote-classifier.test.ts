@@ -36,6 +36,22 @@ describe("quote classifier role-stream regressions", () => {
     expect(classifyApostrophes("'90s tape'")).toBe(`${MODIFIER_LETTER_APOSTROPHE}90s tape${RIGHT_SINGLE_QUOTE}`)
   })
 
+  it.each([
+    // A quoted number is a quote pair, not a decade elision: the closing
+    // quote directly after the digits disqualifies the elision shortcut.
+    ["'37'", `${LEFT_SINGLE_QUOTE}37${RIGHT_SINGLE_QUOTE}`],
+    ["'37' x", `${LEFT_SINGLE_QUOTE}37${RIGHT_SINGLE_QUOTE} x`],
+    ["'90s' tape", `${LEFT_SINGLE_QUOTE}90s${RIGHT_SINGLE_QUOTE} tape`],
+    // A still-straight quote after the digits also disqualifies it; the
+    // closer scan then halts there and the leading quote elides.
+    ["'37'x", `${RIGHT_SINGLE_QUOTE}37'x`],
+    // Without its own closer the elision fires as before.
+    ["'37 x", `${RIGHT_SINGLE_QUOTE}37 x`],
+  ])("quoted numbers are not decade elisions: niceQuotes(%j) === %j", (input, expected) => {
+    expect(niceQuotes(input)).toBe(expected)
+    expect(niceQuotes(expected)).toBe(expected)
+  })
+
   it("feet-inches stay primes through the full pipeline: 5'10\"", () => {
     const first = transform(`He is 5'10" tall`, { nbsp: false })
     expect(first).toBe(`He is 5${PRIME}10${DOUBLE_PRIME} tall`)
@@ -117,6 +133,15 @@ describe("boundary-sensitive edges (ports of v4 sentinel behavior)", () => {
     // Two boundaries after a double quote fail both opener arms, but the
     // bare-boundary prefix lets the second fragment open it via context.
     [`x "${SEP}${SEP}y"`, `x ${LEFT_DOUBLE_QUOTE}${SEP}${SEP}y${RIGHT_DOUBLE_QUOTE}`],
+    // The quoted-punctuation opener rule sees through boundaries: a quote
+    // that merely starts a node after a word character closes even when a
+    // later quote pair follows in the same block (quoted link titles).
+    [`"${SEP}Reward${SEP}" x "y"`, `${LEFT_DOUBLE_QUOTE}${SEP}Reward${SEP}${RIGHT_DOUBLE_QUOTE} x ${LEFT_DOUBLE_QUOTE}y${RIGHT_DOUBLE_QUOTE}`],
+    // ...while opener context on the far side of the boundary run still fires
+    // the rule (space, opener char, or start of text).
+    [`say ${SEP}"?" x`, `say ${SEP}${LEFT_DOUBLE_QUOTE}?${RIGHT_DOUBLE_QUOTE} x`],
+    [`(${SEP}"?" x)`, `(${SEP}${LEFT_DOUBLE_QUOTE}?${RIGHT_DOUBLE_QUOTE} x)`],
+    [`${SEP}"?" x`, `${SEP}${LEFT_DOUBLE_QUOTE}?${RIGHT_DOUBLE_QUOTE} x`],
     // 'n' lookahead without the trailing space is not the abbreviation.
     ["the 'n'y test b' c", `the ${LEFT_SINGLE_QUOTE}n${RIGHT_SINGLE_QUOTE}y test b${RIGHT_SINGLE_QUOTE} c`],
     // Brace quirk with no space.
