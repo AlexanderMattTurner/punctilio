@@ -574,7 +574,9 @@ describe("transform", () => {
   // backs that up at the pipeline level — it catches non-regex algorithmic
   // regressions and any composed-regex polynomial that recheck missed.
   describe("end-to-end runtime budget", () => {
-    it("transforms 200k chars of mixed pathological content under budget", () => {
+    // Stryker's instrumentation overhead makes wall-clock assertions meaningless, so skip under mutation runs.
+    const itOutsideStryker = process.env.STRYKER_RUN ? it.skip : it
+    itOutsideStryker("transforms 200k chars of mixed pathological content under budget", () => {
       const pathological =
         '"a"'.repeat(5_000) +              // quote stress
         "1" + "-1".repeat(5_000) +         // dash stress

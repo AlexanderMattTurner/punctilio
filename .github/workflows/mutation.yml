@@ -1,0 +1,41 @@
+name: Mutation testing
+
+on:
+  schedule:
+    # Mondays 04:17 UTC — off-peak, avoids the top-of-hour scheduling rush.
+    - cron: "17 4 * * 1"
+  workflow_dispatch:
+
+jobs:
+  mutation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Setup
+        uses: ./.github/actions/setup
+        with:
+          node-version: 22
+
+      # Cache entries are immutable, so the primary key includes the run id
+      # and restore-keys falls back to the most recent entry for the branch.
+      - name: Restore incremental mutation state
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: reports/stryker-incremental.json
+          key: stryker-incremental-${{ github.ref_name }}-${{ github.run_id }}
+          restore-keys: |
+            stryker-incremental-${{ github.ref_name }}-
+
+      - name: Run mutation tests
+        run: pnpm run mutation
+
+      - name: Upload HTML report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: mutation-report
+          path: reports/mutation/
+          if-no-files-found: ignore
