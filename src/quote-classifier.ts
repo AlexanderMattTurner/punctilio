@@ -55,9 +55,12 @@ const ROLE_BY_CHAR = new Map<string, Exclude<QuoteRole, "LITERAL">>([
  * One element of the classifier's working sequence: either a single clean-text
  * character (occasionally a multi-character span, for guillemets absorbed with
  * their padding) or a zero-width node boundary between source fragments.
- * Boundary items take the place of the v4 sentinel separators: rules that were
- * separator-transparent skip them, rules that treated the sentinel as an
- * ordinary non-space character treat them as such.
+ *
+ * The boundary-tolerance behavior of the boundary items reproduces the
+ * element-boundary semantics of the pre-v5 sentinel-marked pipeline (pinned by
+ * the golden corpus and the migration's differential fuzz): boundary-transparent
+ * rules skip them, and rules that treat a boundary as an ordinary non-space
+ * character do so.
  */
 interface Item {
   boundary: boolean
@@ -125,9 +128,9 @@ function isCharItem(items: Item[], index: number, ch: string): boolean {
 
 /**
  * Index of the previous item, treating up to `maxBoundaries` boundary items as
- * transparent (the v4 `sep?` slots). Returns -1 at start of text; returns the
- * blocking boundary's index when the budget is exceeded, so character-class
- * tests on the result fail the way the sentinel character did.
+ * transparent. Returns -1 at start of text; returns the blocking boundary's
+ * index when the budget is exceeded, so character-class tests on the result
+ * fail (a boundary item satisfies no character class).
  */
 function prevIndex(items: Item[], index: number, maxBoundaries: number): number {
   let j = index - 1
@@ -173,7 +176,7 @@ function buildItems(view: ProseView, style: ActiveQuoteStyle): Item[] {
   let b = 0
   // German closers are depth-gated: U+201C/U+2018 close only below an open
   // low-9 quote; orphans fall back to straight-quote candidates re-derived by
-  // position (the v4 normalizeGermanQuotes depth-0 branch).
+  // position (the depth-0 branch).
   let doubleDepth = 0
   let singleDepth = 0
 
@@ -270,7 +273,7 @@ function possessiveAfter(items: Item[], index: number): boolean {
 
 /**
  * `(?<=[^\s“'])` — the closing/possessive lookbehind. A boundary directly
- * before the quote satisfies it (the sentinel was an ordinary non-space char).
+ * before the quote satisfies it (a boundary is an ordinary non-space char).
  */
 function singleCloserBefore(items: Item[], index: number): boolean {
   if (index === 0) return false
@@ -418,7 +421,7 @@ function hasClosingSingleAhead(items: Item[], index: number): boolean {
  * apostrophe ('tis, '90s) unless a closing single quote lies ahead. Decisions
  * are taken against the pre-pass state and applied together, so a quote
  * converted here is still seen as a straight quote by later scans in the same
- * pass (matching the v4 snapshot semantics).
+ * pass (snapshot semantics).
  */
 function classifyLeadingApostrophes(items: Item[]): void {
   const toConvert: number[] = []
@@ -440,7 +443,7 @@ function classifyOpeningSingles(items: Item[]): void {
   for (let i = 0; i < items.length; i++) {
     const item = items[i]
     if (item.boundary || item.ch !== "'") continue
-    // Ahead: a boundary item satisfies \S (the sentinel was non-space).
+    // Ahead: a boundary item satisfies \S (a boundary is non-space).
     const next = items[i + 1]
     if (next === undefined || (!next.boundary && SPACE_RE.test(next.ch))) continue
     // Behind: up to one boundary, then line start or an opener-context char.
@@ -541,13 +544,13 @@ function isEllipsisDots(items: Item[], index: number): boolean {
   return isCharItem(items, index, ".") && isCharItem(items, index + 1, ".") && isCharItem(items, index + 2, ".")
 }
 
-/** Opening double quote by following context (the v4 beginningDouble arms). */
+/** Opening double quote by following context. */
 function classifyOpeningDoubles(items: Item[]): void {
   for (let i = 0; i < items.length; i++) {
     const item = items[i]
     if (item.boundary || item.ch !== '"') continue
     if (!doubleOpenerPrefixOk(items, i)) continue
-    // Arm 1: a boundary then space/period/comma (the sentinel-start quirk).
+    // Arm 1: a boundary then space/period/comma (the boundary-start quirk).
     const next = items[i + 1]
     let opens = false
     if (next?.boundary === true) {
@@ -605,9 +608,9 @@ function isDoubleCloseAfterChar(ch: string): boolean {
 /**
  * Closing double quote by ending context: a non-space/non-paren character (or
  * a boundary) before it, and an ending character, a boundary, or end of input
- * after it. The v4 pass consumed the before-character, but a consumed span
- * can never contain the next match's before-character (the quote only closes
- * when followed by a non-quote), so no overlap tracking is needed.
+ * after it. A consumed span can never contain the next match's before-character
+ * (the quote only closes when followed by a non-quote), so no overlap tracking
+ * is needed.
  */
 function classifyClosingDoubles(items: Item[]): void {
   for (let i = 1; i < items.length; i++) {
@@ -728,12 +731,11 @@ function applyRelocations(order: Item[], moves: Relocation[]): Item[] {
  * American style: a period or comma directly after a closing-quote run moves
  * to just before the run, unless the character before the run is terminal
  * punctuation ("Stop!". keeps its period outside). The scan advances one item
- * on every failed position, so a blocked outer run is retried one level in —
- * exactly the v4 movePunctuationInside walk.
+ * on every failed position, so a blocked outer run is retried one level in.
  */
 function movePunctuationInside(order: Item[], isMovable: (items: Item[], index: number) => boolean): Item[] {
-  // Decisions are taken against the pass-input order (the v4 pass scanned its
-  // input string while building the output), then applied together.
+  // Decisions are taken against the pass-input order (the scan reads its input
+  // order while building the output), then applied together.
   const moves: Relocation[] = []
   let position = 0
   while (position < order.length) {
@@ -862,7 +864,7 @@ function queueRenderEdits(view: ProseView, items: Item[], table: Record<QuoteRol
 
 /**
  * The quote/apostrophe role classifier: one boundary-aware scan over the
- * view's text replaces the v4 ordered regex pipeline. Commits its edits.
+ * view's text. Commits its edits.
  */
 export function classifyAndRenderQuotes(
   view: ProseView,
