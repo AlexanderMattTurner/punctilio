@@ -1,7 +1,4 @@
-import escapeStringRegexp from "escape-string-regexp"
 import QuickLRU from "quick-lru"
-
-export { escapeStringRegexp }
 
 export const UNICODE_SYMBOLS = {
   ELLIPSIS: "\u2026",
@@ -115,41 +112,9 @@ export const LATIN_LETTERS = "A-Za-z\\u00C0-\\u00D6\\u00D8-\\u00F6\\u00F8-\\u00F
  * internals, PDF-to-text output, and icon fonts that repurpose U+E000.
  */
 export const DEFAULT_SEPARATOR = "\uE000\uE001"
-const ESCAPED_DEFAULT_SEPARATOR = escapeStringRegexp(DEFAULT_SEPARATOR)
-
-/**
- * Regex-escaped separator wrapped in `(?:...)` so quantifiers apply to
- * the entire multi-character sequence.
- */
-export function getEscapedSeparator(options: { separator?: string }): string {
-  const escaped = options.separator
-    ? escapeStringRegexp(options.separator)
-    : ESCAPED_DEFAULT_SEPARATOR
-  return `(?:${escaped})`
-}
 
 /** Regex-special characters, used for testing separator escaping. */
 export const REGEX_SPECIAL_CHARS = [".", "*", "+", "?", "^", "$", "[", "]", "\\", "|", "(", ")"] as const
-
-/**
- * Maximum stack of adjacent separator markers tolerated in the boundary
- * lookarounds. Three covers any realistic depth of nested HTML element
- * boundaries; the bound also keeps the variable-width lookbehind in a
- * range that static ReDoS analyzers can prove safe.
- */
-const MAX_BOUNDARY_SEPARATORS = 3
-
-/**
- * Marker-aware word boundary pattern for the END of a match.
- *
- * Standard `\b` can create false boundaries when separator markers appear
- * between word characters (e.g., `ReLU\uE000x` has a false `\b` after `U`).
- * This pattern rejects matches followed by up to `MAX_BOUNDARY_SEPARATORS`
- * markers and then a word character.
- */
-export function wordBoundaryEnd(escapedSeparator: string): string {
-  return `\\b(?!${escapedSeparator}{0,${MAX_BOUNDARY_SEPARATORS}}\\w)`
-}
 
 /** Space chars for regex `[...]`: regular space, tab, NBSP, NNBSP. */
 export const SPACE_CHARS = ` \t${UNICODE_SYMBOLS.NBSP}${UNICODE_SYMBOLS.NNBSP}`
