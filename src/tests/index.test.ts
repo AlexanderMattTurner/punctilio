@@ -1,4 +1,5 @@
-import { DASH_STYLES, PUNCTUATION_STYLES, TRANSFORM_OPTION_KEYS, type TransformOptions, transformView, transform as transformWithoutChecks } from "../index.js"
+import { DASH_STYLES, PUNCTUATION_STYLES, type TransformOptions, transformView, transform as transformWithoutChecks } from "../index.js"
+import { TRANSFORM_OPTION_KEYS } from "../transform-options.js"
 import { ellipsis } from "../symbols.js"
 import { UNICODE_SYMBOLS } from "../constants.js"
 import { buildMixedContent, SEP as DEFAULT_SEPARATOR, viewTransform } from "./test-helpers.js"

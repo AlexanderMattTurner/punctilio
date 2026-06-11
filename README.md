@@ -109,7 +109,30 @@ unified()
 ```
 
 * For Markdown ASTs via `remark`, use `remarkPunctilio` which builds the same boundary-aware views over inline text nodes, or use `transformMarkdown` for a simpler Markdown-to-Markdown pipeline.
-* For manual DOM walking or custom transforms, use `collectProseBlocks` and `proseViewOf` from `punctilio/rehype` to build a `ProseView` over an element’s text nodes, then run any pass (or `transformView`) over it.
+* For manual DOM walking, use `collectProseBlocks` from `punctilio/rehype` to find the elements to transform, then `applyPasses` (below) to transform each one. (`proseViewOf` builds a raw `ProseView` over an element’s text nodes if you need to drive `transformView` or a pass yourself.)
+
+### Boundary-aware custom transforms
+
+Your own site-specific regexes can join punctilio’s passes as first-class citizens. `definePass` (root export) wraps a regex and replacement into a pass with the same shape as the built-ins: string in, string out; `ProseView` in, edits committed in place. Each pattern makes an explicit decision about matches that span a node boundary (a word split by `<em>`, say): `skip` them (the safe default), `allow` them, or decide per match with a predicate.
+
+`applyPasses` (from `punctilio/rehype`) then runs built-in and custom passes over an element in order, committing between passes so each sees the previous one’s output—you never touch a `ProseView` directly. An entry may carry its own `shouldSkip`/`shouldSkipText` predicates, applied in addition to the base options for that pass only:
+
+```typescript
+import { definePass, hyphenReplace, niceQuotes } from "punctilio";
+import { applyPasses } from "punctilio/rehype";
+
+const fahrenheit = definePass(/(?<deg>\d+) ?F\b/g, "$<deg> °F"); // $&, $1, $<name>, $$ supported
+const fractions = definePass(/\b1\/2\b/g, "½"); // boundary-spanning matches skipped by default
+
+applyPasses(element, [
+  niceQuotes,
+  hyphenReplace,
+  fahrenheit,
+  { pass: fractions, shouldSkip: (node) => node.tagName === "a" }, // extra skip set for this pass only
+]);
+```
+
+Migrating from the v4 marker-character API (`transformElement`, the `separator` option, standalone `primeMarks`)? See the [v5 migration guide](docs/migrating-to-v5.md).
 
 ## Options
 
@@ -186,7 +209,7 @@ prettier --write 'docs/**/*.md'
 # "Hello" -- world.    →    “Hello” – world.
 ```
 
-Code spans, fenced code blocks, and inline HTML are left untouched. The plugin currently transforms Markdown (`*.md`, `*.mdx` via the markdown parser); for HTML files, use the [CLI](#cli) or the [`rehype` plugin](#works-with-html-doms-via-separation-boundaries) below.
+Code spans, fenced code blocks, and inline HTML are left untouched. The plugin currently transforms Markdown (`*.md`, `*.mdx` via the markdown parser); for HTML files, use the [CLI](#cli) or the [`rehype` plugin](#works-with-html-doms-via-boundary-aware-views) below.
 
 ### CLI
 

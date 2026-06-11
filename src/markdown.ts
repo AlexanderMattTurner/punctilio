@@ -4,7 +4,7 @@ import remarkGfm from "remark-gfm"
 import remarkStringify from "remark-stringify"
 import QuickLRU from "quick-lru"
 
-import { TRANSFORM_OPTION_KEYS } from "./index.js"
+import { TRANSFORM_OPTION_KEYS } from "./transform-options.js"
 import { remarkPunctilio, type RemarkPunctilioOptions } from "./remark.js"
 import { assertKnownOptionKeys, stableStringify } from "./utils.js"
 
