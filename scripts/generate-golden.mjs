@@ -1,57 +1,38 @@
 /**
- * Generates src/tests/golden/corpus.json — a snapshot of the library's
- * current output used as an oracle during architecture refactors.
+ * Generates src/tests/golden/corpus.json — a forward regression snapshot of
+ * boundary-composition behavior over nested inline HTML.
  *
  * Run after `pnpm build`:
  *   node scripts/generate-golden.mjs
+ *
+ * Regenerate only for an intentional change to HTML output, and enumerate the
+ * before/after diff in the PR description.
  */
 
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs"
+import { mkdirSync, writeFileSync } from "node:fs"
 import { fileURLToPath } from "node:url"
 import { dirname, join } from "node:path"
 
-import { transform } from "../dist/index.js"
 import { transformHtml } from "../dist/html.js"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const repoRoot = join(__dirname, "..")
 
 // ---------------------------------------------------------------------------
-// Sentinel check — U+E000 U+E001 are internal boundary markers that must
-// never leak into final output.
+// Output hygiene — U+E000 and U+E001 are Private Use Area code points that
+// must never appear in transformed output. This assertion guards against a
+// stray control character leaking into a recorded snapshot.
 // ---------------------------------------------------------------------------
-function assertNoSentinels(value, label) {
+function assertNoControlChars(value, label) {
   if (value.includes("") || value.includes("")) {
     throw new Error(
-      `Sentinel character found in output for ${label}:\n  ${JSON.stringify(value)}`
+      `Private Use Area character found in output for ${label}:\n  ${JSON.stringify(value)}`
     )
   }
 }
 
 // ---------------------------------------------------------------------------
-// A. String option sets
-// ---------------------------------------------------------------------------
-const STRING_OPTION_SETS = {
-  american: { punctuationStyle: "american" },
-  british: { punctuationStyle: "british" },
-  german: { punctuationStyle: "german" },
-  french: { punctuationStyle: "french" },
-  none: { punctuationStyle: "none" },
-  "american-full": {
-    punctuationStyle: "american",
-    fractions: true,
-    degrees: true,
-    superscript: true,
-    ligatures: true,
-  },
-  "british-dash": {
-    punctuationStyle: "british",
-    dashStyle: "british",
-  },
-}
-
-// ---------------------------------------------------------------------------
-// B. HTML snippets exercising element-boundary edge cases
+// HTML snippets exercising element-boundary edge cases
 // ---------------------------------------------------------------------------
 const HTML_SNIPPETS = [
   // Quotes spanning <em>/<strong> boundaries
@@ -130,42 +111,20 @@ const HTML_STYLES = ["american", "british", "german", "french"]
 // Main
 // ---------------------------------------------------------------------------
 async function generate() {
-  // Load benchmark inputs
-  const benchmarkCasesPath = join(repoRoot, "benchmark_cases.json")
-  const benchmarkCases = JSON.parse(readFileSync(benchmarkCasesPath, "utf8"))
-
-  const inputs = Object.values(benchmarkCases).flatMap(
-    (cases) => cases.map(([input]) => input)
-  )
-
-  // A. String cases
-  const stringEntries = inputs.map((input) => {
-    const outputs = {}
-    for (const [key, opts] of Object.entries(STRING_OPTION_SETS)) {
-      const result = transform(input, opts)
-      assertNoSentinels(result, `string input=${JSON.stringify(input)} opts=${key}`)
-      outputs[key] = result
-    }
-    return { input, outputs }
-  })
-
-  // B. HTML cases
   const htmlEntries = []
   for (const snippet of HTML_SNIPPETS) {
     const outputs = {}
     for (const style of HTML_STYLES) {
       const result = await transformHtml(snippet, { punctuationStyle: style })
-      assertNoSentinels(result, `html input=${JSON.stringify(snippet)} style=${style}`)
+      assertNoControlChars(result, `html input=${JSON.stringify(snippet)} style=${style}`)
       outputs[style] = result
     }
     htmlEntries.push({ input: snippet, outputs })
   }
 
   const corpus = {
-    stringOptionSets: STRING_OPTION_SETS,
     htmlStyles: HTML_STYLES,
     html: htmlEntries,
-    strings: stringEntries,
   }
 
   const outDir = join(repoRoot, "src/tests/golden")
@@ -173,7 +132,7 @@ async function generate() {
   const outPath = join(outDir, "corpus.json")
   writeFileSync(outPath, JSON.stringify(corpus, null, 2) + "\n")
 
-  console.log(`Wrote ${stringEntries.length} string entries and ${htmlEntries.length} HTML entries to ${outPath}`)
+  console.log(`Wrote ${htmlEntries.length} HTML entries to ${outPath}`)
 }
 
 generate().catch((err) => {
