@@ -94,12 +94,15 @@ const PUNCTUATION_OR_QUOTE = `[.,!?:;)(${LEFT_DOUBLE_QUOTE}${RIGHT_DOUBLE_QUOTE}
 const COPYRIGHT_SYMBOLS = `[${COPYRIGHT}${REGISTERED}${TRADEMARK}]`
 
 
+// The boundary-tolerance positions in this module reproduce the element-boundary
+// semantics of the pre-v5 sentinel-marked pipeline; they are pinned by the golden
+// corpus and the migration's differential fuzz.
+
 /**
- * A v4 `${sep}?` slot tolerates exactly ONE node boundary at that position;
- * two adjacent boundaries blocked the match (the lookbehind/lookahead saw a
- * sentinel character it could not consume twice). This mirrors that: at most
- * one boundary at `offset`, and every interior boundary in the span must sit
- * at one of the allowed slot offsets.
+ * A tolerated slot admits exactly ONE node boundary at that position; two
+ * adjacent boundaries block the match. This enforces that: at most one boundary
+ * at `offset`, and every interior boundary in the span must sit at one of the
+ * allowed slot offsets.
  */
 function boundariesOnlyAtSlots(view: ProseView, start: number, end: number, slots: number[]): boolean {
   for (const boundary of view.boundaries) {
@@ -134,12 +137,12 @@ function nbspAfterShortWordsOverView(view: ProseView): void {
       (match, v) => {
         const offset = match.index
         if (offset === previousMatchEnd) return null
-        // A boundary directly before the short word is a sentinel char that
-        // fails the v4 `(?<=^|space|punct|>)` lookbehind.
+        // A boundary directly before the short word fails the
+        // `(?<=^|space|punct|>)` lookbehind (a boundary is not one of those).
         if (view.hasBoundary(offset)) return null
         if (offset > 0 && NBSP_CHARS.includes(clean[offset - 1])) return null
         previousMatchEnd = offset + match[0].length
-        // Edit only the space so the boundary keeps its v4 side of the NBSP.
+        // Edit only the space so any boundary keeps its side of the NBSP.
         v.replace(offset + match[0].length - 1, offset + match[0].length, NBSP)
         return null
       },
@@ -170,15 +173,15 @@ function nbspBetweenNumberAndUnitOverView(view: ProseView): void {
       view,
       pattern,
       (match, v) => {
-        // Edit only the space (after the single digit) so the marker boundaries
-        // keep their v4 sides.
+        // Edit only the space (after the single digit) so any boundaries keep
+        // their sides.
         v.replace(match.index + 1, match.index + 2, NBSP)
         return null
       },
       {
-        // marker1 between digit and space (index+1); marker2 between space and
-        // unit (index+2). The unit literal itself must be boundary-free, which
-        // the default interior-boundary skip already enforces.
+        // Tolerated slots: between digit and space (index+1) and between space
+        // and unit (index+2). The unit literal itself must be boundary-free,
+        // which the default interior-boundary skip already enforces.
         allowBoundaries: (match, v) =>
           boundariesOnlyAtSlots(v, match.index, match.index + match[0].length, [
             match.index + 1,
@@ -198,10 +201,10 @@ const MAX_MIDDLE_WORD_LENGTH = 15
 const LATIN_LETTER_RE = cachedRegExp(`[${LATIN_LETTERS}]`, "u")
 
 /**
- * Reproduces the v4 cascade lookbehind `(?<![NBSP][LATIN]{1,15})` over clean
- * text: blocks when an NBSP/NNBSP is followed by 1..15 Latin letters ending at
- * the space. A node boundary anywhere in that backward run breaks it — the v4
- * sentinel interrupted `[LATIN]{1,15}`, re-enabling the match.
+ * The cascade lookbehind `(?<![NBSP][LATIN]{1,15})` over clean text: blocks
+ * when an NBSP/NNBSP is followed by 1..15 Latin letters ending at the space. A
+ * node boundary anywhere in that backward run breaks the run, re-enabling the
+ * match.
  */
 function cascadeBlocksLastWord(view: ProseView, spaceOffset: number): boolean {
   const text = view.text
@@ -223,7 +226,7 @@ export function nbspBeforeLastWord(input: string | ProseView): string | void {
 }
 
 function nbspBeforeLastWordOverView(view: ProseView): void {
-  // The v4 `(?<=\w|sep)` lookbehind and the `[NBSP][LATIN]{1,15}` cascade
+  // The `(?<=\w|boundary)` lookbehind and the `[NBSP][LATIN]{1,15}` cascade
   // lookbehind are enforced in the replacer, where boundaries are visible.
   const pattern = cachedRegExp(
     `${SPACE}(?<lastWord>(?:(?!\\s).){1,${MAX_LAST_WORD_LENGTH}})(?<ending>\\n\\n|$)`,
@@ -241,21 +244,21 @@ function nbspBeforeLastWordOverView(view: ProseView): void {
         const precededByWord = start > 0 && /\w/.test(clean[start - 1])
         if (!precededByWord && !view.hasBoundary(start)) return null
         if (cascadeBlocksLastWord(v, start)) return null
-        // The `ending` group's `sep?` tolerates exactly one boundary at the slot
-        // before `\n\n`/end-of-text; two adjacent boundaries blocked v4. The
+        // The `ending` group tolerates exactly one boundary at the slot before
+        // `\n\n`/end-of-text; two adjacent boundaries block the match. The
         // end-of-text slot sits at the match end (never an interior boundary),
         // so the cap is checked here rather than only in allowBoundaries.
         if (boundaryCountAt(v, end - match.groups!.ending.length) > 1) return null
         // Edit only the leading space so the lastWord/ending (and any boundary
-        // before \n\n) keep their v4 positions.
+        // before \n\n) keep their positions.
         v.replace(start, start + 1, NBSP)
         return null
       },
       {
         // The space-lookbehind boundary (== match.index) is not interior. The
-        // last word is `(?:(?!\s)(?!sep).)`, so an interior boundary inside it
-        // blocks the match (the default skip). The only interior slot is the
-        // `ending` group's `sep?` before a `\n\n`: one boundary tolerated.
+        // last word admits no interior boundary, so a boundary inside it blocks
+        // the match (the default skip). The only interior slot is the `ending`
+        // group's slot before a `\n\n`: one boundary tolerated.
         allowBoundaries: (match, v) => {
           const end = match.index + match[0].length
           const endingSlot = end - match.groups!.ending.length
@@ -269,8 +272,8 @@ function nbspBeforeLastWordOverView(view: ProseView): void {
 
 /**
  * Shared driver for the abbreviation-family rules: `(thing)(SPACE)(?=context)`
- * where the v4 marker slot (between thing and space) and the lookahead slot
- * (between space and context) each tolerate one boundary.
+ * where the slot between thing and space and the lookahead slot (between space
+ * and context) each tolerate one boundary.
  */
 function nbspBeforeContext(
   view: ProseView,
@@ -290,20 +293,19 @@ function nbspBeforeContext(
     while ((match = pattern.exec(clean)) !== null) {
       const start = match.index
       const end = start + match[0].length
-      // marker slot between the `thing` literal and the space (offset = end - 1);
-      // lookahead slot `(?=sep?context)` at the match end. Each tolerates one
-      // boundary; the literal itself must be boundary-free.
+      // Slot between the `thing` literal and the space (offset = end - 1);
+      // lookahead slot at the match end. Each tolerates one boundary; the
+      // literal itself must be boundary-free.
       const allowed =
         boundariesOnlyAtSlots(view, start, end, [end - 1]) && boundaryCountAt(view, end) <= 1
       if (!allowed) {
         // A boundary broke the (possibly longer) literal; let the scan re-anchor
-        // one position later so a shorter sub-abbreviation can still match, as
-        // the v4 sentinel-aware regex did.
+        // one position later so a shorter sub-abbreviation can still match.
         pattern.lastIndex = start + 1
         continue
       }
-      // Edit only the trailing space so the marker/lookahead boundaries keep
-      // their v4 sides.
+      // Edit only the trailing space so the slot/lookahead boundaries keep their
+      // sides.
       view.replace(end - 1, end, NBSP)
     }
   }
