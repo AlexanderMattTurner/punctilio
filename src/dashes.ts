@@ -173,6 +173,12 @@ function wordBoundaryEndOk(view: ProseView, pos: number): boolean {
   // `wordBoundaryEndOk` is only ever called at the end of a digit, letter, or
   // suffix run, so `pos` is always ≥ 1 and `text[pos - 1]` is a real char.
   const leftWord = isWordChar(text[pos - 1])
+  // A multiplication sign one space to the right blocks like the word char
+  // it folds from: the multiplication pass renders `5X 8` as `5 × 8`, and a
+  // range blocked at `3-5X` must stay blocked at `3-5 ×`.
+  if (text[pos] !== undefined && SPACE_CHAR_RE.test(text[pos]) && text[pos + 1] === MULTIPLICATION) {
+    return false
+  }
   const nb = boundaryCountAt(view, pos)
   const nextCleanWord = isWordChar(text[pos])
   // The marked char right after pos is a separator when nb > 0 (non-word).

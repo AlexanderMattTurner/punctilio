@@ -475,7 +475,7 @@ function isDigitItem(items: Item[], index: number): boolean {
 function isLetterOrDigitItem(items: Item[], index: number): boolean {
   if (index < 0 || index >= items.length) return false
   const item = items[index]
-  return !item.boundary && (LETTER_RE.test(item.ch) || DIGIT_RE.test(item.ch))
+  return !item.boundary && (LETTER_RE.test(item.ch) || DIGIT_RE.test(item.ch) || FOLDED_WORD_CHARS.has(item.ch))
 }
 
 /** `nʼ ` directly after the quote — a quote leading into an already-classified 'n'. */
@@ -954,12 +954,21 @@ function movePunctuationInside(order: Item[], isMovable: (items: Item[], index: 
       while (beforeIndex >= 0 && movedFrom.has(beforeIndex)) beforeIndex--
     }
     const precededByTerminal = beforeIndex >= 0 && !order[beforeIndex].boundary && TERMINAL_SET.has(order[beforeIndex].ch)
-    if (precededByTerminal || punctIndex >= order.length || order[punctIndex].boundary || !isMovable(order, punctIndex)) {
+    // Gates that read only the run's end hold for every sub-run too, so on
+    // those failures the scan skips past the whole run — rescanning each
+    // suffix would be quadratic on long closer runs. The position-dependent
+    // lookbehinds (terminal char, A-side wall) instead retry one level in,
+    // where the preceding item is a closer and can no longer block.
+    if (punctIndex >= order.length || order[punctIndex].boundary || !isMovable(order, punctIndex)) {
+      position = Math.max(runEnd, position + 1)
+      continue
+    }
+    if (precededByTerminal || moveWallAt(order, prevIndex(order, runStart, 1))) {
       position++
       continue
     }
-    if (moveWallAt(order, prevIndex(order, runStart, 1)) || moveWallAt(order, nextIndex(order, punctIndex, 1))) {
-      position++
+    if (moveWallAt(order, nextIndex(order, punctIndex, 1))) {
+      position = Math.max(runEnd, position + 1)
       continue
     }
     if (insideMoveFlipsContext(order, runStart, punctIndex)) {
