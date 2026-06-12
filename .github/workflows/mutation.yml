@@ -51,7 +51,9 @@ jobs:
             stryker-incremental-${{ matrix.shard }}-
 
       - name: Run mutation tests
-        run: pnpm run mutation -- --mutate "${{ matrix.mutate }}" --incrementalFile "reports/stryker-incremental-${{ matrix.shard }}.json"
+        # No `--` before the flags: pnpm forwards it literally and Stryker's
+        # CLI rejects it as a positional argument.
+        run: pnpm run mutation --mutate "${{ matrix.mutate }}" --incrementalFile "reports/stryker-incremental-${{ matrix.shard }}.json"
 
       - name: Upload HTML report
         if: always()
