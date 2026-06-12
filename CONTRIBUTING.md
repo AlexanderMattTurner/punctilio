@@ -30,7 +30,7 @@ Jest enforces **100% coverage** (branches, functions, lines, statements) via `co
 
 ### Mutation testing
 
-`pnpm mutation` runs [Stryker](https://stryker-mutator.io/) over `src/` using the Jest suite (minus the regex-safety analysis gate and the randomized fuzz file — see `jest.stryker.config.js`). The weekly `mutation.yml` workflow publishes the HTML report as an artifact and keeps an incremental cache so reruns only test changed code. Surviving mutants point at assertions worth strengthening; aim not to lower the score with new code.
+`pnpm mutation` runs [Stryker](https://stryker-mutator.io/) over `src/` using the Jest suite (minus the regex-safety analysis gate and the randomized fuzz file — see `jest.stryker.config.js`). CI runs it on every pull request via `mutation.yml`, sharded across a matrix of size-balanced file groups with a per-shard incremental cache, so only mutants touched by your diff actually re-run; each shard publishes its HTML report as an artifact. Surviving mutants point at assertions worth strengthening; aim not to lower the score with new code.
 
 ## Regex safety
 
@@ -47,4 +47,4 @@ If your change adds or modifies a regex, expect both gates to weigh in.
 
 ## CI
 
-Pull requests run the test and lint workflows on Node 20, 22, and 24. GitHub Actions are SHA-pinned, and the lint workflow rejects unpinned `uses:` references. Mutation testing runs on a weekly schedule (and on demand via `workflow_dispatch`) rather than per-PR.
+Pull requests run the test and lint workflows on Node 20, 22, and 24, plus the sharded mutation-testing matrix. GitHub Actions are SHA-pinned, and the lint workflow rejects unpinned `uses:` references.
