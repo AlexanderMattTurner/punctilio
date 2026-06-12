@@ -1,4 +1,4 @@
-import { cachedRegExp, LATIN_LETTERS, UNICODE_SYMBOLS } from "./constants.js"
+import { cachedRegExp, LATIN_LETTERS, NBSP_CHARS, SPACE_CHARS, UNICODE_SYMBOLS } from "./constants.js"
 import { boundaryCountAt, overInput, type ProseView, replaceAllInView, type ReplaceAllOptions } from "./prose-view.js"
 import { namedGroups } from "./utils.js"
 
@@ -10,7 +10,11 @@ export interface DashOptions {
   dashStyle?: DashStyle
 }
 
-const { EN_DASH, EM_DASH, MINUS, MULTIPLICATION, PLUS_MINUS, LEFT_DOUBLE_QUOTE, RIGHT_DOUBLE_QUOTE, LEFT_SINGLE_QUOTE, RIGHT_SINGLE_QUOTE } = UNICODE_SYMBOLS
+const {
+  EN_DASH, EM_DASH, MINUS, MULTIPLICATION, PLUS_MINUS,
+  LEFT_DOUBLE_QUOTE, RIGHT_DOUBLE_QUOTE, LEFT_SINGLE_QUOTE, RIGHT_SINGLE_QUOTE,
+  SUPERSCRIPT_ST, SUPERSCRIPT_ND, SUPERSCRIPT_RD, SUPERSCRIPT_TH,
+} = UNICODE_SYMBOLS
 
 // Prevents false-positive ranges in model names like "Llama-2-7B".
 export const numberRangeDisallowedPrefixes = ["-", EN_DASH, EM_DASH, MINUS] as const
@@ -32,6 +36,50 @@ const monthPattern = months.join("|")
 
 const WORD_CHAR_RE = /\w/
 const LATIN_LETTER_RE = new RegExp(`[${LATIN_LETTERS}]`)
+
+/**
+ * Glyphs the symbol passes fold word characters into (multiplication `x` →
+ * `×`, ordinal suffixes → superscripts). The dash rules run before those
+ * passes, so their word-character tests must treat a folded glyph like the
+ * word character it folds from — otherwise a range blocked at `6x3` converts
+ * once a re-run sees `6×3`.
+ */
+const FOLDED_WORD_CHARS = new Set<string>([
+  MULTIPLICATION,
+  ...SUPERSCRIPT_ST, ...SUPERSCRIPT_ND, ...SUPERSCRIPT_RD, ...SUPERSCRIPT_TH,
+])
+
+/** `\w` extended with {@link FOLDED_WORD_CHARS} for fold-stable `\b` checks. */
+function isWordChar(ch: string | undefined): boolean {
+  return ch !== undefined && (WORD_CHAR_RE.test(ch) || FOLDED_WORD_CHARS.has(ch))
+}
+
+/**
+ * Glyphs the math-symbol pass folds two-character operators into (`=~` → `≈`,
+ * `!=` → `≠`, ...). The fold tolerates one node boundary at its junction, so
+ * it can consume the character that sat between a boundary and a dash.
+ */
+const FOLDED_MATH_OPERATORS = new Set<string>([
+  UNICODE_SYMBOLS.APPROXIMATE,
+  UNICODE_SYMBOLS.GREATER_EQUAL,
+  UNICODE_SYMBOLS.LESS_EQUAL,
+  UNICODE_SYMBOLS.NOT_EQUAL,
+  UNICODE_SYMBOLS.PLUS_MINUS,
+])
+
+/**
+ * Glyphs the symbol passes fold from a source ending in a dash char (`<-` →
+ * `←`, `+-` → `±`). Where a trailing hyphen blocks a dash rule, its folded
+ * glyph must keep blocking, or the rule fires only on the re-run.
+ */
+const FOLDED_FROM_TRAILING_DASH = new Set<string>([
+  UNICODE_SYMBOLS.ARROW_LEFT,
+  UNICODE_SYMBOLS.PLUS_MINUS,
+])
+
+/** Mirror of {@link FOLDED_FROM_TRAILING_DASH} for sources starting with a
+ * dash char (`->` → `→`). */
+const FOLDED_FROM_LEADING_DASH = new Set<string>([UNICODE_SYMBOLS.ARROW_RIGHT])
 
 /**
  * Runs one boundary-gated regex pass over the view and commits it immediately.
@@ -107,8 +155,7 @@ const MAX_BOUNDARY_SEPARATORS = 3
 function wordBoundaryStartOk(view: ProseView, matchStart: number): boolean {
   if (matchStart === 0) return true
   const nb = boundaryCountAt(view, matchStart)
-  const prev = view.text[matchStart - 1]
-  const prevWord = prev !== undefined && WORD_CHAR_RE.test(prev)
+  const prevWord = isWordChar(view.text[matchStart - 1])
   if (nb === 0) return !prevWord // `\b` needs a non-word char immediately left
   // A separator sits left (non-word) so `\b` holds; the lookbehind blocks only
   // when a word char is within ≤MAX boundaries.
@@ -123,13 +170,11 @@ function wordBoundaryStartOk(view: ProseView, matchStart: number): boolean {
  */
 function wordBoundaryEndOk(view: ProseView, pos: number): boolean {
   const text = view.text
-  // `wordBoundaryEndOk` is only ever called at the end of a digit run, so `pos`
-  // is always ≥ 1 and `text[pos - 1]` is a real char.
-  const prevChar = text[pos - 1] as string
-  const leftWord = WORD_CHAR_RE.test(prevChar)
+  // `wordBoundaryEndOk` is only ever called at the end of a digit, letter, or
+  // suffix run, so `pos` is always ≥ 1 and `text[pos - 1]` is a real char.
+  const leftWord = isWordChar(text[pos - 1])
   const nb = boundaryCountAt(view, pos)
-  const nextClean = text[pos]
-  const nextCleanWord = nextClean !== undefined && WORD_CHAR_RE.test(nextClean)
+  const nextCleanWord = isWordChar(text[pos])
   // The marked char right after pos is a separator when nb > 0 (non-word).
   const rightWord = nb > 0 ? false : nextCleanWord
   if (leftWord === rightWord) return false // no `\b`
@@ -155,7 +200,7 @@ export function enDashNumberRange(input: string | ProseView): string | void {
 
 /**
  * The positive-range shape is `phoneAreaCode? \b (?:p\.?|[currency])?\d[\d.,]*
- * -{1,3} [currency]?\d[\d.,]* (?:[-−]\d+)* (?:[AaPp][Mm]|[xKBTM])? \b`, scanned
+ * -{1,3} [currency]?\d[\d.,]* (?:[-−]\d+)* (?:[AaPp][Mm]|[xKBTMCF])? \b`, scanned
  * left to right. The consume/advance behaviour determines which sub-ranges a
  * later pass sees. The scan below realizes it: at each offset it attempts the
  * structural match (boundary-aware), consuming its span on success (whether or
@@ -451,14 +496,25 @@ function followingCandidates(view: ProseView, endSpanEnd: number, allowMinus: bo
 }
 
 /**
- * The `(?:[AaPp][Mm]|[xKBTM])?${wbe}` suffix at `pos`, with one tolerated
+ * Single-letter range suffixes: the multipliers `x`/`K`/`B`/`T`/`M` and the
+ * temperature units `C`/`F`. The degree pass rewrites `5C` to `5 °C` — a
+ * space a re-run's word boundary sees through — so the range must already
+ * convert with the unit attached. `X` and `×` are deliberately absent: an
+ * unconverted `1-10X` folds to `1-10×`, which the word-boundary check (which
+ * treats `×` as the word char it folds from) keeps blocking on re-runs.
+ */
+const RANGE_SUFFIX_RE = /[xKBTMCF]/
+
+/**
+ * The `(?:[AaPp][Mm]|[xKBTMCF])?${wbe}` suffix at `pos`, with one tolerated
  * boundary before the suffix. Returns the end offset after the optional suffix
  * when the tail completes (wbe passes), or null when it does not.
  */
 function suffixWbeEnd(view: ProseView, pos: number, allowAmPm: boolean): number | null {
   if (wordBoundaryEndOk(view, pos)) return pos
-  // An optional suffix: one tolerated boundary then am/pm or one of x/K/B/T/M,
-  // followed by wbe. The suffix letters sit at the clean `pos`.
+  // An optional suffix: one tolerated boundary then am/pm or one of
+  // {@link RANGE_SUFFIX_RE}'s letters, followed by wbe. The suffix letters sit
+  // at the clean `pos`.
   if (boundaryCountAt(view, pos) > 1) return null
   const text = view.text
   // `[AaPp][Mm]` is contiguous — a boundary between the two letters breaks the
@@ -466,7 +522,7 @@ function suffixWbeEnd(view: ProseView, pos: number, allowAmPm: boolean): number 
   if (allowAmPm && /[ap]/i.test(text[pos] ?? "") && /m/i.test(text[pos + 1] ?? "") && !view.hasBoundary(pos + 1)) {
     return wordBoundaryEndOk(view, pos + 2) ? pos + 2 : null
   }
-  if (/[xKBTM]/.test(text[pos] ?? "")) {
+  if (RANGE_SUFFIX_RE.test(text[pos] ?? "")) {
     return wordBoundaryEndOk(view, pos + 1) ? pos + 1 : null
   }
   return null
@@ -474,17 +530,80 @@ function suffixWbeEnd(view: ProseView, pos: number, allowAmPm: boolean): number 
 
 const NOT_AFTER_DASH_RE = new RegExp(`[${DISALLOWED_PREFIX_CLASS_FRAGMENT}${LATIN_LETTERS}${MULTIPLICATION}${PLUS_MINUS}.+]`)
 
+const SPACE_CHAR_RE = new RegExp(`[${SPACE_CHARS}]`)
+
+/**
+ * Offset of the dot reachable backwards across one inter-dot gap ending at the
+ * dot at `dotIndex` (the mirror of the ellipsis pass's forward gap rule: the
+ * gap is nothing, one space character, or one node boundary). -1 when none.
+ */
+function ellipsisPrevDot(view: ProseView, dotIndex: number): number {
+  const text = view.text
+  if (text[dotIndex - 1] === ".") {
+    // Empty gap: at most one boundary between the two dots.
+    return boundaryCountAt(view, dotIndex) <= 1 ? dotIndex - 1 : -1
+  }
+  // Space gap: one space character with no boundary on either side of it.
+  if (boundaryCountAt(view, dotIndex) === 0 && dotIndex >= 2 && SPACE_CHAR_RE.test(text[dotIndex - 1])
+    && text[dotIndex - 2] === "." && boundaryCountAt(view, dotIndex - 1) === 0) {
+    return dotIndex - 2
+  }
+  return -1
+}
+
+/** True iff the dot at `dotIndex` can close a `...`/`. . .` triple. */
+function endsFoldableEllipsisDots(view: ProseView, dotIndex: number): boolean {
+  const second = ellipsisPrevDot(view, dotIndex)
+  return second >= 0 && ellipsisPrevDot(view, second) >= 0
+}
+
 /**
  * `notAfterDash` is a single-char negative lookbehind. A node boundary
  * immediately before the start hides the clean char (a boundary is not the
  * dash/letter), so the guard only fires when a disallowed clean char sits
  * directly before the start with no intervening boundary.
+ *
+ * A `.` that closes a dot triple does not block: the ellipsis pass (which
+ * runs after the dash rules) folds the triple to `…` and pads a following
+ * digit with a space, so a re-run would see a plain space here and convert —
+ * converting now reaches that fixed point in one pass. A line-leading em dash
+ * does not block for the same reason: the em-dash spacing normalizer pads it
+ * before a digit (`^—5` → `— 5`), mirroring that rule's one tolerated
+ * boundary at line start.
  */
 function notAfterDashOk(view: ProseView, startOffset: number): boolean {
   if (startOffset === 0) return true
   if (boundaryCountAt(view, startOffset) > 0) return true
   const prev = view.text[startOffset - 1]
-  return prev === undefined || !NOT_AFTER_DASH_RE.test(prev)
+  // A multiplication sign one space slot further left blocks like the `x` it
+  // folds from: the multiplication pass renders `5x8` as `5 × 8`, so a range
+  // blocked at `x8-6` must stay blocked at `× 8-6`.
+  if (prev !== undefined && SPACE_CHAR_RE.test(prev) && view.text[startOffset - 2] === MULTIPLICATION) {
+    return false
+  }
+  if (prev === undefined || !NOT_AFTER_DASH_RE.test(prev)) return true
+  if (prev === "." && endsFoldableEllipsisDots(view, startOffset - 1)) return true
+  const dashIndex = startOffset - 1
+  if (prev === EM_DASH && boundaryCountAt(view, dashIndex) <= 1
+    && (dashIndex === 0 || view.text[dashIndex - 1] === "\n" || emDashBehindLeadingSpaces(view, dashIndex))) {
+    return true
+  }
+  // An en dash behind leading spaces converts the same way: the spaced-dash
+  // rule renders it as a line-leading em dash, which the normalizer then pads.
+  return prev === EN_DASH && boundaryCountAt(view, dashIndex) <= 1
+    && emDashBehindLeadingSpaces(view, dashIndex)
+}
+
+/**
+ * True iff only plain spaces sit between text start and the em dash at
+ * `emIndex`. The spaced-dash rule collapses that run, leaving the em dash
+ * line-leading, which the spacing normalizer then pads before a digit — the
+ * same state the `\n` arm of {@link notAfterDashOk} accepts.
+ */
+function emDashBehindLeadingSpaces(view: ProseView, emIndex: number): boolean {
+  let j = emIndex
+  while (j > 0 && view.text[j - 1] === " ") j--
+  return j < emIndex && j === 0
 }
 
 /** Range-number gates: reject year-month, phone-shaped, and toll-free pairs. */
@@ -519,14 +638,22 @@ function enDashDateRangeOverView(view: ProseView, dashStyle: DashStyle): void {
 
   // Atomic-optional year groups (lookahead + backref). The capture inside the
   // lookahead is locked in once matched, so the year group commits without
-  // backtracking.
-  const startYear = `(?=(?<startYear> \\d{4})?)\\k<startYear>`
-  const endYear = `(?=(?<endYear> \\d{4})?)\\k<endYear>`
+  // backtracking. The year space also matches NBSP/NNBSP: the nbsp pass (which
+  // runs after the dash rules) glues "March 2025" with an NBSP, and the year
+  // must still capture on a re-run so the trailing-boundary gate sees the same
+  // end position.
+  const startYear = `(?=(?<startYear>[ ${NBSP_CHARS}]\\d{4})?)\\k<startYear>`
+  const endYear = `(?=(?<endYear>[ ${NBSP_CHARS}]\\d{4})?)\\k<endYear>`
   const pattern = `\\b(?<startMonth>${monthPattern})${startYear}(?<preSpace> ?)-(?<postSpace> ?)(?<endMonth>${monthPattern})${endYear}\\b`
   pass(
     view,
     cachedRegExp(pattern, "g"),
     (match, v) => {
+      // The pattern's trailing `\b` sees a folded glyph (`×`, a superscript
+      // ordinal) as a non-word char, but the source character it folds from is
+      // a word char that blocks the match ("March 2025x3"); re-check the end
+      // boundary fold-stably.
+      if (!wordBoundaryEndOk(v, match.index + match[0].length)) return null
       const groups = namedGroups<{
         startMonth: string
         startYear?: string
@@ -650,7 +777,13 @@ function minusSubtractionPrefixOk(match: RegExpExecArray, view: ProseView, prefi
 }
 
 const MINUS_BEFORE_CLASS_RE = new RegExp(`[\\s("'${LEFT_DOUBLE_QUOTE}${RIGHT_DOUBLE_QUOTE}${LEFT_SINGLE_QUOTE}${RIGHT_SINGLE_QUOTE}]`)
-const NUM_BEFORE_2B_BLOCK_RE = new RegExp(`[\\d.,${LATIN_LETTERS}]`)
+// The folded word glyphs block like the word chars they fold from ("1x|-0"
+// and "1×|-0" must agree), and the folded math operators block like the
+// operator chars they fold from: the `!=` → `≠` fold consumes the `=` that
+// blocked Pattern 2 ("!=-1"), stranding the hyphen boundary-adjacent.
+const FOLDED_WORD_CLASS_FRAGMENT = [...FOLDED_WORD_CHARS].join("")
+const FOLDED_MATH_CLASS_FRAGMENT = [...FOLDED_MATH_OPERATORS].join("")
+const NUM_BEFORE_2B_BLOCK_RE = new RegExp(`[\\d.,${LATIN_LETTERS}${FOLDED_WORD_CLASS_FRAGMENT}${FOLDED_MATH_CLASS_FRAGMENT}]`)
 
 /**
  * Direct negative numbers, in two cases: Pattern 2 converts `-\d` after line
@@ -775,6 +908,16 @@ function convertSpacedDashes(view: ProseView, rendered: string): void {
         || view.hasBoundary(matchStart)
         || (text[matchStart - 1] !== undefined && !/\s/.test(text[matchStart - 1]))
       if (!leftOk) return null
+      // A dash char left of the leading spaces (boundaries are zero-width, so
+      // this reads through them) marks this run as the tail of an
+      // already-spaced dash ("x – -"): the overlap consumption above leaves
+      // it on the pass that converts the head, and the head's edits can
+      // rewrite the linking context so the consumption never re-links; block
+      // the tail deterministically. Glyphs folded from a trailing dash (`←`,
+      // `±`) block like the hyphen that sat in this slot before the fold.
+      const charBeforeSpaces = text[matchStart - 1]
+      if (matchStart > 0
+        && (isDashChar(charBeforeSpaces) || FOLDED_FROM_TRAILING_DASH.has(charBeforeSpaces))) return null
       // The leading spaces between matchStart and the dash must be at least one
       // (`[ ]+` is one-or-more) — a boundary directly before the dash leaves
       // none, which is the boundary-led pattern's job, not this one.
@@ -895,7 +1038,9 @@ function spacedArrowAhead(view: ProseView, runEnd: number): boolean {
     if (boundaryCountAt(view, runEnd) > 1) return false // first slot
     if (boundaryCountAt(view, h) > 1) return false // second slot
   }
-  return text[h] === ">"
+  // `≥` guards like the `>=` it folds from: the math pass folds the `>` this
+  // guard keys on, and a dash blocked before `–>=` must stay blocked at `–≥`.
+  return text[h] === ">" || text[h] === UNICODE_SYMBOLS.GREATER_EQUAL
 }
 
 /**
@@ -920,10 +1065,14 @@ function convertBoundaryLedDashes(view: ProseView, rendered: string): void {
     if (b < lastProcessedEnd) continue
     if (!isDashChar(text[b])) continue
     // Non-space before the boundary: ≥2 stacked boundaries, or a non-space
-    // clean char immediately left.
+    // clean char immediately left. A folded math operator there marks the
+    // fold-stranded configuration: the math pass consumes one character
+    // across this junction (`=` + `~—` folds to `≈` + `—`), so the character
+    // that blocked this rule on the source text is gone, and converting now
+    // would diverge from that blocked first pass.
     if (stackedHere < 2) {
       const before = text[b - 1]
-      if (before === undefined || /\s/.test(before)) continue
+      if (before === undefined || /\s/.test(before) || FOLDED_MATH_OPERATORS.has(before)) continue
     }
     // Dash run from the boundary, not crossing a further boundary.
     let runEnd = b + 1
@@ -932,6 +1081,16 @@ function convertBoundaryLedDashes(view: ProseView, rendered: string): void {
     let spaceEnd = runEnd
     while (text[spaceEnd] === " " && !view.hasBoundary(spaceEnd)) spaceEnd++
     if (spaceEnd === runEnd) continue // no trailing space
+    // A dash (or a glyph folded from a dash-led source) after the spaces
+    // blocks when the rendered form ends in a dash: consuming the spaces
+    // would fuse the rendered dash with it into a run the next pass
+    // collapses (see the same guard in the multiple-dash rule). A boundary
+    // at the junction prevents the fusion, so only a same-node follower
+    // blocks.
+    const afterSpaces = text[spaceEnd]
+    if (afterSpaces !== undefined && !view.hasBoundary(spaceEnd)
+      && isDashChar(rendered[rendered.length - 1])
+      && (isDashChar(afterSpaces) || FOLDED_FROM_LEADING_DASH.has(afterSpaces))) continue
     edits.push([b, spaceEnd])
     lastProcessedEnd = spaceEnd
   }
@@ -970,7 +1129,25 @@ function convertMultipleDashes(view: ProseView, rendered: string): void {
       if (boundaryCountAt(v, runEnd) >= 2) return null
       const next = text[runEnd]
       if (next === undefined || !afterRe.test(next)) return null
-      v.replace(start, runEnd, rendered)
+      // Consume the trailing space run (not crossing a boundary): the rendered
+      // dash carries its own spacing, and a re-run's spaced-dash rule would
+      // otherwise collapse the leftover spaces into it. When the rendered
+      // form ends in a dash (the unspaced American em dash), a dash (or a
+      // glyph folded from a dash-led source) after the spaces keeps them:
+      // consuming would fuse the rendered dash with it into a fresh run, and
+      // the spaced-dash rule's dash-tail guard already holds the leftover
+      // spaces still.
+      let editEnd = runEnd
+      while (text[editEnd] === " " && !v.hasBoundary(editEnd)) editEnd++
+      // A boundary at the junction prevents the fusion (dash runs never span
+      // boundaries), so only a same-node follower blocks.
+      const afterSpaces = text[editEnd]
+      if (editEnd > runEnd && afterSpaces !== undefined && !v.hasBoundary(editEnd)
+        && isDashChar(rendered[rendered.length - 1])
+        && (isDashChar(afterSpaces) || FOLDED_FROM_LEADING_DASH.has(afterSpaces))) {
+        editEnd = runEnd
+      }
+      v.replace(start, editEnd, rendered)
       return null
     },
     { allowBoundaries: () => true },
@@ -1039,9 +1216,15 @@ function removeSpacesAroundEmDash(view: ProseView): void {
       const leftAnchored = left === 0 || v.hasBoundary(left) || !/\s/.test(text[left - 1])
       const rightAnchored = right === text.length || v.hasBoundary(right) || !/\s/.test(text[right])
       if (!leftAnchored || !rightAnchored) return null
-      // Drop the adjacent space runs; the em-dash and any edge boundaries stay.
-      if (left < d) v.replace(left, d, "")
-      if (right > d + 1) v.replace(d + 1, right, "")
+      // Drop the adjacent space runs; the em-dash and any edge boundaries
+      // stay. A side whose anchor is another dash keeps its spaces: deleting
+      // them would fuse the dashes into a run the multiple-dash rule then
+      // collapses on the next pass. Glyphs folded from a dash-edged source
+      // (`±`, `←`, `→`) anchor like the dash they fold from.
+      const leftAnchor = text[left - 1]
+      const rightAnchor = text[right]
+      if (left < d && !isDashChar(leftAnchor) && !FOLDED_FROM_TRAILING_DASH.has(leftAnchor)) v.replace(left, d, "")
+      if (right > d + 1 && !isDashChar(rightAnchor) && !FOLDED_FROM_LEADING_DASH.has(rightAnchor)) v.replace(d + 1, right, "")
       return null
     },
   )

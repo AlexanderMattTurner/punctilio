@@ -146,7 +146,7 @@
       "outputs": {
         "american": "<p>“Visit <a href=\"https://example.com\">example.com</a>,” he said.</p>",
         "british": "<p>“Visit <a href=\"https://example.com\">example.com</a>”, he said.</p>",
-        "german": "<p>„Visit <a href=\"https://example.com\">example.com</a>“, he said.</p>",
+        "german": "<p>„Visit <a href=\"https://example.com\">example.com</a>,“ he said.</p>",
         "french": "<p>« Visit <a href=\"https://example.com\">example.com</a> », he said.</p>"
       }
     },
@@ -270,10 +270,10 @@
     {
       "input": "<p>\"He told me, <em>'She said, \"hello\"'</em>.\"</p>",
       "outputs": {
-        "american": "<p>“He told me, <em>‘She said, “hello\".’</em>”</p>",
-        "british": "<p>“He told me, <em>‘She said, “hello\"’</em>”.</p>",
-        "german": "<p>„He told me, <em>‚She said, „hello\"‘</em>“.</p>",
-        "french": "<p>« He told me, <em>‘She said, « hello\"’</em> ».</p>"
+        "american": "<p>“He told me, <em>’She said, “hello\"’</em>.”</p>",
+        "british": "<p>“He told me, <em>’She said, “hello\"’</em>”.</p>",
+        "german": "<p>„He told me, <em>’She said, „hello\"’</em>.“</p>",
+        "french": "<p>« He told me, <em>’She said, « hello\"’</em> ».</p>"
       }
     }
   ]

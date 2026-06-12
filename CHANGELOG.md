@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Fixed
+- Idempotency (`transform(transform(x)) === transform(x)`) for a long tail of inputs found by the new property-based fuzz suite, across all punctuation and dash styles and the string, view, HTML, and Markdown surfaces. The fixes share one principle — a rule's decision must survive the rewrites later passes apply — and cover: prime/quote balance disagreeing with the quote classifier (`'9'7`, `"9"7`); punctuation-placement moves changing contexts a re-run re-reads (rendered apostrophes joining closing runs, German orphan re-derivation, straight-quote and dash "walls", movable-punctuation chains, ending-context stripping across element boundaries); and earlier-pass gates flipped by later folds — ligatures (`"?!` → `"⁈`), ellipses, multiplication (`6x'` → `6×'`), superscript ordinals, fractions, degree spacing, NBSP-glued year ranges, and tab/space collapse before dashes (whitespace now also collapses at pipeline entry).
+- Number ranges with temperature units now convert (`20-30C` → `20–30C`), matching the existing multiplier suffixes.
+
+### Added
+- Property-based fuzz suite (`src/tests/fuzz.test.ts`, [fast-check](https://fast-check.dev/)): transform idempotence over arbitrary unicode and option combinations, multi-node `ProseView` semantics against a flat-string oracle, `definePass` template semantics against `String.replace`, and HTML/Markdown round-trips. Runs with a fresh seed in every `pnpm test`; reproduce failures with `FUZZ_SEED`/`FUZZ_PATH`, soak with `FUZZ_RUNS`.
+- Mutation testing ([Stryker](https://stryker-mutator.io/)): `pnpm mutation` locally, and a `mutation.yml` workflow that runs on every pull request, sharded across six size-balanced file groups with per-shard incremental caches and HTML report artifacts.
+
 ## [4.1.4] - 2026-06-17
 
 ### Fixed

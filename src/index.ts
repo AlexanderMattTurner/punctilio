@@ -42,7 +42,13 @@ interface PipelinePass {
  * (#214); each entry's comment records the constraint it satisfies.
  */
 const PIPELINE: readonly PipelinePass[] = [
-  // Dashes first: quote classification keys off the converted glyphs (an
+  // collapseSpaces runs twice. This early run normalizes whitespace so the
+  // space-sensitive rules below match the same shapes a re-run would see
+  // (e.g. tab+space before an em dash collapses to the plain space the
+  // spaced-dash rule keys on); the late run re-collapses runs the passes
+  // themselves create (e.g. French opener padding next to an existing space).
+  { enabled: (options) => options.collapseSpaces, run: (view) => collapseSpacesTransform(view) },
+  // Dashes next: quote classification keys off the converted glyphs (an
   // opening quote after an em dash, the minus sign in ‘−5’), so hyphens must
   // become em/en dashes and minus signs before the quote rules run.
   {
@@ -69,8 +75,9 @@ const PIPELINE: readonly PipelinePass[] = [
   { enabled: (options) => options.degrees, run: (view) => degreesTransform(view) },
   { enabled: (options) => options.superscript, run: (view) => superscriptTransform(view) },
   { enabled: (options) => options.ligatures, run: (view) => ligaturesTransform(view) },
-  // collapseSpaces before nbsp: the nbsp rules bind through single spaces, so
-  // runs must be collapsed before non-breaking spaces are inserted.
+  // collapseSpaces again (see the entry pass) before nbsp: the nbsp rules
+  // bind through single spaces, so runs must be collapsed before
+  // non-breaking spaces are inserted.
   { enabled: (options) => options.collapseSpaces, run: (view) => collapseSpacesTransform(view) },
   { enabled: (options) => options.nbsp, run: (view) => nbspTransformFn(view) },
 ]
