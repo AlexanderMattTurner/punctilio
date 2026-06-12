@@ -5,6 +5,7 @@
   "testRunner": "jest",
   "testRunnerNodeArgs": ["--experimental-vm-modules"],
   "coverageAnalysis": "perTest",
+  "dryRunTimeoutMinutes": 20,
   "mutate": ["src/**/*.ts", "!src/tests/**"],
   "jest": {
     "configFile": "jest.stryker.config.js"
