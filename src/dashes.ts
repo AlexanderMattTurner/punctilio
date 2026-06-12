@@ -784,12 +784,18 @@ function minusSubtractionPrefixOk(match: RegExpExecArray, view: ProseView, prefi
 
 const MINUS_BEFORE_CLASS_RE = new RegExp(`[\\s("'${LEFT_DOUBLE_QUOTE}${RIGHT_DOUBLE_QUOTE}${LEFT_SINGLE_QUOTE}${RIGHT_SINGLE_QUOTE}]`)
 // The folded word glyphs block like the word chars they fold from ("1x|-0"
-// and "1×|-0" must agree), and the folded math operators block like the
-// operator chars they fold from: the `!=` → `≠` fold consumes the `=` that
-// blocked Pattern 2 ("!=-1"), stranding the hyphen boundary-adjacent.
+// and "1×|-0" must agree), the folded math operators block like the operator
+// chars they fold from (the `!=` → `≠` fold consumes the `=` that blocked
+// Pattern 2 in "!=-1"), and the folded terminals — plus the bare `!` the
+// `!!` normalization leaves — block like the `!`/`?`/`.` runs they fold from
+// ("?|!-0" folds to "⁈|-0" with the hyphen stranded boundary-adjacent).
 const FOLDED_WORD_CLASS_FRAGMENT = [...FOLDED_WORD_CHARS].join("")
 const FOLDED_MATH_CLASS_FRAGMENT = [...FOLDED_MATH_OPERATORS].join("")
-const NUM_BEFORE_2B_BLOCK_RE = new RegExp(`[\\d.,${LATIN_LETTERS}${FOLDED_WORD_CLASS_FRAGMENT}${FOLDED_MATH_CLASS_FRAGMENT}]`)
+const FOLDED_TERMINAL_CLASS_FRAGMENT = [
+  UNICODE_SYMBOLS.ELLIPSIS, UNICODE_SYMBOLS.DOUBLE_QUESTION, UNICODE_SYMBOLS.QUESTION_EXCLAMATION,
+  UNICODE_SYMBOLS.EXCLAMATION_QUESTION, UNICODE_SYMBOLS.DOUBLE_EXCLAMATION, UNICODE_SYMBOLS.INTERROBANG, "!",
+].join("")
+const NUM_BEFORE_2B_BLOCK_RE = new RegExp(`[\\d.,${LATIN_LETTERS}${FOLDED_WORD_CLASS_FRAGMENT}${FOLDED_MATH_CLASS_FRAGMENT}${FOLDED_TERMINAL_CLASS_FRAGMENT}]`)
 
 /**
  * Direct negative numbers, in two cases: Pattern 2 converts `-\d` after line

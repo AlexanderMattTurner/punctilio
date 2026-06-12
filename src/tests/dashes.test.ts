@@ -595,6 +595,13 @@ describe("idempotency", () => {
     expect(enDashNumberRange(input)).toBe(expected)
     expect(enDashNumberRange(expected)).toBe(expected)
   })
+
+  // A range end one space before a multiplication sign blocks like the word
+  // char the sign folds from ("3-5X 8" renders as "3-5 × 8" and must not
+  // become a range on the re-run).
+  it("range end blocks before the multiplication pass's padded render", () => {
+    expect(enDashNumberRange(`3-5 ${MULTIPLICATION} 8`)).toBe(`3-5 ${MULTIPLICATION} 8`)
+  })
 })
 
 describe("dashStyle option", () => {
@@ -899,6 +906,10 @@ describe("ProseView boundary-tolerance edges", () => {
       // separator-led negative (Pattern 2b) fires; one leaves the digit visible.
       ["two boundaries promote to negative", `1${sep}${sep}-5`, `1${sep}${sep}${MINUS}5`],
       ["one boundary keeps the digit context", `1${sep}-5`, `1${sep}-5`],
+      // A folded terminal (or the bare `!` the `!!` normalization leaves)
+      // before the boundary blocks like the `!`/`?` run it folds from.
+      ["folded terminal blocks the negative", `${UNICODE_SYMBOLS.QUESTION_EXCLAMATION}${sep}-0`, `${UNICODE_SYMBOLS.QUESTION_EXCLAMATION}${sep}-0`],
+      ["bare bang blocks the negative", `!${sep}-0`, `!${sep}-0`],
     ])("%s", (_desc, input, expected) => {
       expect(viewTransform(minusReplace, input, sep)).toBe(expected)
     })

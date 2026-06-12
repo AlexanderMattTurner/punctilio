@@ -348,6 +348,12 @@ describe("fold-stability of the != / ellipsis / possessive guards", () => {
     [`~'}'${SEP}.${SEP}${SEP}z`, `~'}${RIGHT_SINGLE_QUOTE}${SEP}.${SEP}${SEP}z`],
     [`("5"!=3)`, `(${LEFT_DOUBLE_QUOTE}5${UNICODE_SYMBOLS.DOUBLE_PRIME}!=3)`],
     [`'.${SEP}"`, `.${RIGHT_SINGLE_QUOTE}${SEP}${RIGHT_DOUBLE_QUOTE}`],
+    // A dash directly after the period is a wall: the minus rule reads the
+    // char left of the hyphen, and the moved period would change it.
+    [`'.-2`, `${RIGHT_SINGLE_QUOTE}.-2`],
+    // The decade-elision gate reads a folded word glyph like the word char
+    // it folds from, so the apostrophe call is stable across the fold.
+    [`{'39${UNICODE_SYMBOLS.MULTIPLICATION}${SEP}'`, `{'39${UNICODE_SYMBOLS.MULTIPLICATION}${SEP}${RIGHT_SINGLE_QUOTE}`],
   ])("niceQuotes(%j) === %j", (input, expected) => {
     const once = viewTransform(niceQuotes, input, SEP)
     expect(once).toBe(expected)

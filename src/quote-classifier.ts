@@ -950,8 +950,9 @@ function movePunctuationInside(order: Item[], isMovable: (items: Item[], index: 
     let beforeIndex = position - 1
     while (beforeIndex >= 0 && movedFrom.has(beforeIndex)) beforeIndex--
     if (beforeIndex >= 0 && order[beforeIndex].boundary && !(beforeIndex >= 1 && order[beforeIndex - 1].boundary)) {
+      // No moved-item skip here: a moved punct is always run-adjacent, and
+      // the run-skip above resolves such runs at the boundary item itself.
       beforeIndex--
-      while (beforeIndex >= 0 && movedFrom.has(beforeIndex)) beforeIndex--
     }
     const precededByTerminal = beforeIndex >= 0 && !order[beforeIndex].boundary && TERMINAL_SET.has(order[beforeIndex].ch)
     // Gates that read only the run's end hold for every sub-run too, so on
