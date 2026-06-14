@@ -467,10 +467,9 @@ describe("transform", () => {
       "the 5x10-20 pack",
       "buy 3x5-10 cards",
       "give or take +/-1-5 units",
-      // A tab mixed into the spaces around a dash used to block conversion on
-      // the first pass while collapseSpaces (running last) normalized it, so a
-      // second pass converted the dash. Collapsing before the dash pass fixes
-      // it. (regression: these threw "Transform is not idempotent".)
+      // A tab in the whitespace around a dash must not defer conversion to a
+      // later pass. (regression: these threw "Transform is not idempotent"
+      // when collapseSpaces only ran after the dash pass.)
       "word \t- word",
       "word \t-- word",
       "a \t- b \t- c",
