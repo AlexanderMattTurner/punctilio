@@ -87,6 +87,11 @@
     "node": ">=20.0.0"
   },
   "packageManager": "pnpm@10.28.1",
+  "pnpm": {
+    "overrides": {
+      "esbuild@>=0.17.0 <0.28.1": ">=0.28.1"
+    }
+  },
   "devDependencies": {
     "@eslint/js": "9.39.4",
     "@types/hast": "3.0.4",
