@@ -311,59 +311,18 @@ function applyPunctuationStyle(text: string, sep: string, style: PunctuationStyl
   return text
 }
 
-// Normalize German quotes back to American for idempotent re-processing.
-// Tracks „..." and ‚...' pairs so ambiguous closers map correctly.
+// Collapse every German/curly quote to its straight equivalent so the main
+// pipeline re-classifies them by position exactly as it would for fresh straight
+// input. German output uses „…" (U+201E…U+201C) and ‚…' (U+201A…U+2018) with
+// apostrophes as U+2019; U+201C/U+2018 each double as American openers, so any
+// depth-based scheme misclassifies orphans or quotes adjacent to other quotes.
+// Position-based re-classification sidesteps that ambiguity and keeps
+// re-processing German output idempotent.
 function normalizeGermanQuotes(text: string): string {
-  const DLQ = UNICODE_SYMBOLS.DOUBLE_LOW_9_QUOTE
-  const SLQ = UNICODE_SYMBOLS.SINGLE_LOW_9_QUOTE
-
-  const chars: string[] = []
-  let doubleDepth = 0
-  let singleDepth = 0
-
-  for (const ch of text) {
-    if (ch === DLQ) {
-      chars.push(LEFT_DOUBLE_QUOTE)
-      doubleDepth++
-    } else if (ch === LEFT_DOUBLE_QUOTE) {
-      // U+201C is both the American opening double quote and the German closing
-      // double quote. A balanced closer (depth > 0) maps to RDQ; an orphan
-      // (depth 0) maps to a straight quote so convertDoubleQuotes re-derives it
-      // by position. Without the orphan branch, re-processing German output like
-      // "word“" turns the lone closer back into an opener („) and breaks
-      // idempotency.
-      if (doubleDepth > 0) {
-        chars.push(RIGHT_DOUBLE_QUOTE)
-        doubleDepth--
-      } else {
-        chars.push('"')
-      }
-    } else if (ch === SLQ) {
-      chars.push(LEFT_SINGLE_QUOTE)
-      singleDepth++
-    } else if (ch === LEFT_SINGLE_QUOTE) {
-      // Mirror of the U+201C case: U+2018 is both the American opening single
-      // quote and the German closing single quote.
-      if (singleDepth > 0) {
-        chars.push(RIGHT_SINGLE_QUOTE)
-        singleDepth--
-      } else {
-        chars.push("'")
-      }
-    } else if (ch === RIGHT_DOUBLE_QUOTE) {
-      // RDQ is not used in German typography — normalize to straight quote
-      // so the pipeline can re-classify it (e.g., from a previous American pass)
-      chars.push('"')
-    } else if (ch === RIGHT_SINGLE_QUOTE) {
-      // RSQ is not used in German typography — normalize to straight quote
-      // so the pipeline can re-classify apostrophes vs closing quotes
-      chars.push("'")
-    } else {
-      chars.push(ch)
-    }
-  }
-
-  return chars.join("")
+  const { DOUBLE_LOW_9_QUOTE, SINGLE_LOW_9_QUOTE } = UNICODE_SYMBOLS
+  return text
+    .replace(cachedRegExp(`[${DOUBLE_LOW_9_QUOTE}${LEFT_DOUBLE_QUOTE}${RIGHT_DOUBLE_QUOTE}]`, "g"), '"')
+    .replace(cachedRegExp(`[${SINGLE_LOW_9_QUOTE}${LEFT_SINGLE_QUOTE}${RIGHT_SINGLE_QUOTE}]`, "g"), "'")
 }
 
 function applyGermanQuotes(text: string): string {

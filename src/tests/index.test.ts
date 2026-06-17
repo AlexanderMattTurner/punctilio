@@ -473,6 +473,10 @@ describe("transform", () => {
       "word \t- word",
       "word \t-- word",
       "a \t- b \t- c",
+      "1-55x5",
+      "wait...1-5 minutes",
+      // fractions strip the "/" that legalSymbols' path heuristic keys on
+      "1/2(tm) and 3/4(r)",
     ])('is idempotent: "%s"', (input) => {
       const first = transform(input, { fractions: true, degrees: true, superscript: true, ligatures: true })
       const second = transform(first, { fractions: true, degrees: true, superscript: true, ligatures: true })
@@ -484,6 +488,16 @@ describe("transform", () => {
       // the same result a fully space-padded dash would already produce.
       expect(transform("word \t- word")).toBe(`word${EM_DASH}word`)
       expect(transform("word \t- word", { dashStyle: "british" })).toBe(`word ${EN_DASH} word`)
+    })
+
+    // The superscript pass turns trailing ordinal letters (st/nd/rd/th) into
+    // non-word superscripts, which can flip a range's trailing word boundary.
+    it.each([
+      "5--1st",
+      "items 1-52nd",
+    ])('range abutting a superscript ordinal is idempotent: "%s"', (input) => {
+      const first = transform(input, { superscript: true })
+      expect(transform(first, { superscript: true })).toBe(first)
     })
 
     it.each([
