@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## [4.1.3] - 2026-06-17
+
 ### Fixed
 - `transform()` is now idempotent when a tab sits in the whitespace around a dash, e.g. `"word \t- word"`. The dash now converts on the first pass, matching the result a fully space-padded dash already produced; previously the tab blocked conversion until `collapseSpaces` normalized the whitespace to a plain space, so a second pass changed the output.
 
