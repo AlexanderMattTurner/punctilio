@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## [4.1.4] - 2026-06-17
+
+### Fixed
+
+- Closed remaining idempotency gaps in handling of ellipsis/range, fraction/legal, and German quotes.
+
 ## [4.1.3] - 2026-06-17
 
 ### Fixed
