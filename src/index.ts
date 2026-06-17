@@ -232,6 +232,16 @@ export function transform(text: string, options: TransformOptions = {}): string 
   const original = text
   const { symbols, fractions, degrees, superscript, ligatures, nbsp, collapseSpaces, checkIdempotency, ...pipelineOpts } = { ...defaultOpts, ...filterUndefined(options) }
 
+  // Collapse whitespace before the whitespace-sensitive dash and symbol passes.
+  // Those passes recognize dashes by their surrounding spaces (`[ ]+`), so a tab
+  // mixed into a space run (e.g. "word \t- word") would block conversion on the
+  // first pass; collapsing it to a single space afterwards would then let a
+  // second pass convert the dash, breaking idempotency. Normalizing first means
+  // every pass sees the same spacing.
+  if (collapseSpaces) {
+    text = collapseSpacesTransform(text)
+  }
+
   text = hyphenReplace(text, pipelineOpts)
   if (pipelineOpts.punctuationStyle !== "none") {
     text = primeMarks(text, pipelineOpts)
@@ -258,6 +268,9 @@ export function transform(text: string, options: TransformOptions = {}): string 
     text = ligaturesTransform(text, pipelineOpts)
   }
 
+  // Collapse again after the quote passes: localized styles (French guillemets,
+  // German low-9 quotes) pad with narrow/no-break spaces that can land next to
+  // an existing space, forming a run the up-front collapse never saw.
   if (collapseSpaces) {
     text = collapseSpacesTransform(text)
   }

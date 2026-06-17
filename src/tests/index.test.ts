@@ -467,10 +467,23 @@ describe("transform", () => {
       "the 5x10-20 pack",
       "buy 3x5-10 cards",
       "give or take +/-1-5 units",
+      // A tab in the whitespace around a dash must not defer conversion to a
+      // later pass. (regression: these threw "Transform is not idempotent"
+      // when collapseSpaces only ran after the dash pass.)
+      "word \t- word",
+      "word \t-- word",
+      "a \t- b \t- c",
     ])('is idempotent: "%s"', (input) => {
       const first = transform(input, { fractions: true, degrees: true, superscript: true, ligatures: true })
       const second = transform(first, { fractions: true, degrees: true, superscript: true, ligatures: true })
       expect(second).toBe(first)
+    })
+
+    it("converts a dash padded by tab-and-space whitespace on the first pass", () => {
+      // The mixed space+tab run collapses to one space, then the dash converts —
+      // the same result a fully space-padded dash would already produce.
+      expect(transform("word \t- word")).toBe(`word${EM_DASH}word`)
+      expect(transform("word \t- word", { dashStyle: "british" })).toBe(`word ${EN_DASH} word`)
     })
 
     it.each([
