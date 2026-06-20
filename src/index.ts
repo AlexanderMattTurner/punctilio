@@ -27,6 +27,14 @@ export {
   REFERENCE_ABBREVIATIONS,
   UNITS,
 } from "./nbsp.js"
+export {
+  buildProseView,
+  type ProseNode,
+  type ProseView,
+  replaceAllInView,
+  type ReplaceAllOptions,
+  runLegacyPass,
+} from "./prose-view.js"
 export { classifyApostrophes, niceQuotes, PUNCTUATION_STYLES, type PunctuationStyle, type QuoteOptions } from "./quotes.js"
 
 export interface TransformOptions {
