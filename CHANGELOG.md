@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## [4.3.0] - 2026-06-20
+
+### Added
+- ProseView boundary-aware edit layer with legacy pass adapter for improved view handling.
+- Quote classifier role-based system to replace the previous regex pipeline for more robust quote detection.
+
+### Changed
+- Quote processing now uses a classifier-based approach instead of regex pipelines for better accuracy.
+
 ## [4.1.4] - 2026-06-17
 
 ### Fixed
