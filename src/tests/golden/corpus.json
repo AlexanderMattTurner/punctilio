@@ -1,0 +1,2122 @@
+{
+  "stringOptionSets": {
+    "american": {
+      "punctuationStyle": "american"
+    },
+    "british": {
+      "punctuationStyle": "british"
+    },
+    "german": {
+      "punctuationStyle": "german"
+    },
+    "french": {
+      "punctuationStyle": "french"
+    },
+    "none": {
+      "punctuationStyle": "none"
+    },
+    "american-full": {
+      "punctuationStyle": "american",
+      "fractions": true,
+      "degrees": true,
+      "superscript": true,
+      "ligatures": true
+    },
+    "british-dash": {
+      "punctuationStyle": "british",
+      "dashStyle": "british"
+    }
+  },
+  "htmlStyles": [
+    "american",
+    "british",
+    "german",
+    "french"
+  ],
+  "html": [
+    {
+      "input": "<p>\"He said <em>'never'</em>\", she replied.</p>",
+      "outputs": {
+        "american": "<p>“He said <em>‘never,’</em>” she replied.</p>",
+        "british": "<p>“He said <em>‘never’</em>”, she replied.</p>",
+        "german": "<p>„He said <em>‚never‘</em>“, she replied.</p>",
+        "french": "<p>« He said <em>‘never’</em> », she replied.</p>"
+      }
+    },
+    {
+      "input": "<p><strong>\"Bold claim,\"</strong> he noted.</p>",
+      "outputs": {
+        "american": "<p><strong>“Bold claim,”</strong> he noted.</p>",
+        "british": "<p><strong>“Bold claim”,</strong> he noted.</p>",
+        "german": "<p><strong>„Bold claim“,</strong> he noted.</p>",
+        "french": "<p><strong>« Bold claim »,</strong> he noted.</p>"
+      }
+    },
+    {
+      "input": "<p>\"She said, <em>'yes'</em> and <em>'no'</em>\".</p>",
+      "outputs": {
+        "american": "<p>“She said, <em>‘yes’</em> and <em>‘no.’</em>”</p>",
+        "british": "<p>“She said, <em>‘yes’</em> and <em>‘no’</em>”.</p>",
+        "german": "<p>„She said, <em>‚yes‘</em> and <em>‚no‘</em>“.</p>",
+        "french": "<p>« She said, <em>‘yes’</em> and <em>‘no’</em> ».</p>"
+      }
+    },
+    {
+      "input": "<p>1<em>-</em>2</p>",
+      "outputs": {
+        "american": "<p>1<em>–</em>2</p>",
+        "british": "<p>1<em>–</em>2</p>",
+        "german": "<p>1<em>–</em>2</p>",
+        "french": "<p>1<em>–</em>2</p>"
+      }
+    },
+    {
+      "input": "<p>Pages 10<strong>-</strong>20</p>",
+      "outputs": {
+        "american": "<p>Pages 10<strong>–</strong>20</p>",
+        "british": "<p>Pages 10<strong>–</strong>20</p>",
+        "german": "<p>Pages 10<strong>–</strong>20</p>",
+        "french": "<p>Pages 10<strong>–</strong>20</p>"
+      }
+    },
+    {
+      "input": "<p>do<em>n't</em></p>",
+      "outputs": {
+        "american": "<p>do<em>n’t</em></p>",
+        "british": "<p>do<em>n’t</em></p>",
+        "german": "<p>do<em>n’t</em></p>",
+        "french": "<p>do<em>n’t</em></p>"
+      }
+    },
+    {
+      "input": "<p>it<strong>'</strong>s fine</p>",
+      "outputs": {
+        "american": "<p>it<strong>’</strong>s fine</p>",
+        "british": "<p>it<strong>’</strong>s fine</p>",
+        "german": "<p>it<strong>’</strong>s fine</p>",
+        "french": "<p>it<strong>’</strong>s fine</p>"
+      }
+    },
+    {
+      "input": "<p>Alice<em>'s</em> book</p>",
+      "outputs": {
+        "american": "<p>Alice<em>’s</em> book</p>",
+        "british": "<p>Alice<em>’s</em> book</p>",
+        "german": "<p>Alice<em>’s</em> book</p>",
+        "french": "<p>Alice<em>’s</em> book</p>"
+      }
+    },
+    {
+      "input": "<p>the <em>team</em>'s result</p>",
+      "outputs": {
+        "american": "<p>the <em>team</em>’s result</p>",
+        "british": "<p>the <em>team</em>’s result</p>",
+        "german": "<p>the <em>team</em>’s result</p>",
+        "french": "<p>the <em>team</em>’s result</p>"
+      }
+    },
+    {
+      "input": "<p>Wait<em>.</em>..</p>",
+      "outputs": {
+        "american": "<p>Wait<em>…</em></p>",
+        "british": "<p>Wait<em>…</em></p>",
+        "german": "<p>Wait<em>…</em></p>",
+        "french": "<p>Wait<em>…</em></p>"
+      }
+    },
+    {
+      "input": "<p>Hmm...<em>yes</em></p>",
+      "outputs": {
+        "american": "<p>Hmm…<em>yes</em></p>",
+        "british": "<p>Hmm…<em>yes</em></p>",
+        "german": "<p>Hmm…<em>yes</em></p>",
+        "french": "<p>Hmm…<em>yes</em></p>"
+      }
+    },
+    {
+      "input": "<p>5<em>'</em>10\"</p>",
+      "outputs": {
+        "american": "<p>5<em>′</em>10″</p>",
+        "british": "<p>5<em>′</em>10″</p>",
+        "german": "<p>5<em>′</em>10″</p>",
+        "french": "<p>5<em>′</em>10″</p>"
+      }
+    },
+    {
+      "input": "<p>He is 6<strong>'</strong>2\" tall.</p>",
+      "outputs": {
+        "american": "<p>He is 6<strong>′</strong>2″ tall.</p>",
+        "british": "<p>He is 6<strong>′</strong>2″ tall.</p>",
+        "german": "<p>He is 6<strong>′</strong>2″ tall.</p>",
+        "french": "<p>He is 6<strong>′</strong>2″ tall.</p>"
+      }
+    },
+    {
+      "input": "<div><p>\"This is the first paragraph of dialogue.</p><p>\"And this is the second.\"</p></div>",
+      "outputs": {
+        "american": "<div><p>“This is the first paragraph of dialogue.</p><p>“And this is the second.”</p></div>",
+        "british": "<div><p>“This is the first paragraph of dialogue.</p><p>“And this is the second”.</p></div>",
+        "german": "<div><p>„This is the first paragraph of dialogue.</p><p>„And this is the second“.</p></div>",
+        "french": "<div><p>« This is the first paragraph of dialogue.</p><p>« And this is the second ».</p></div>"
+      }
+    },
+    {
+      "input": "<blockquote><p>\"Outer quote with <blockquote><p>\"inner quote\"</p></blockquote> embedded.\"</p></blockquote>",
+      "outputs": {
+        "american": "<blockquote><p>“Outer quote with </p><blockquote><p>“inner quote”</p></blockquote> embedded.”<p></p></blockquote>",
+        "british": "<blockquote><p>“Outer quote with </p><blockquote><p>“inner quote”</p></blockquote> embedded”.<p></p></blockquote>",
+        "german": "<blockquote><p>„Outer quote with </p><blockquote><p>„inner quote“</p></blockquote> embedded“.<p></p></blockquote>",
+        "french": "<blockquote><p>« Outer quote with </p><blockquote><p>« inner quote »</p></blockquote> embedded ».<p></p></blockquote>"
+      }
+    },
+    {
+      "input": "<p>\"Visit <a href=\"https://example.com\">example.com</a>,\" he said.</p>",
+      "outputs": {
+        "american": "<p>“Visit <a href=\"https://example.com\">example.com</a>,” he said.</p>",
+        "british": "<p>“Visit <a href=\"https://example.com\">example.com</a>”, he said.</p>",
+        "german": "<p>„Visit <a href=\"https://example.com\">example.com</a>“, he said.</p>",
+        "french": "<p>« Visit <a href=\"https://example.com\">example.com</a> », he said.</p>"
+      }
+    },
+    {
+      "input": "<p>\"See <a href=\"#ref\">here</a> for more.\"</p>",
+      "outputs": {
+        "american": "<p>“See <a href=\"#ref\">here</a> for more.”</p>",
+        "british": "<p>“See <a href=\"#ref\">here</a> for more”.</p>",
+        "german": "<p>„See <a href=\"#ref\">here</a> for more“.</p>",
+        "french": "<p>« See <a href=\"#ref\">here</a> for more ».</p>"
+      }
+    },
+    {
+      "input": "<p>\"Use <code>transform(\"hello\")</code> to apply.\"</p>",
+      "outputs": {
+        "american": "<p>“Use <code>transform(\"hello\")</code> to apply.”</p>",
+        "british": "<p>“Use <code>transform(\"hello\")</code> to apply”.</p>",
+        "german": "<p>„Use <code>transform(\"hello\")</code> to apply“.</p>",
+        "french": "<p>« Use <code>transform(\"hello\")</code> to apply ».</p>"
+      }
+    },
+    {
+      "input": "<p>The function <code>don't</code> is not transformed.</p>",
+      "outputs": {
+        "american": "<p>The function <code>don't</code> is not transformed.</p>",
+        "british": "<p>The function <code>don't</code> is not transformed.</p>",
+        "german": "<p>The function <code>don't</code> is not transformed.</p>",
+        "french": "<p>The function <code>don't</code> is not transformed.</p>"
+      }
+    },
+    {
+      "input": "<p>Er sagte, \"Das ist <em>'gut'</em>\".</p>",
+      "outputs": {
+        "american": "<p>Er sagte, “Das ist <em>‘gut.’</em>”</p>",
+        "british": "<p>Er sagte, “Das ist <em>‘gut’</em>”.</p>",
+        "german": "<p>Er sagte, „Das ist <em>‚gut‘</em>“.</p>",
+        "french": "<p>Er sagte, « Das ist <em>‘gut’</em> ».</p>"
+      }
+    },
+    {
+      "input": "<p>Il dit, \"C'est <em>'bien'</em>\".</p>",
+      "outputs": {
+        "american": "<p>Il dit, “C’est <em>‘bien.’</em>”</p>",
+        "british": "<p>Il dit, “C’est <em>‘bien’</em>”.</p>",
+        "german": "<p>Il dit, „C’est <em>‚bien‘</em>“.</p>",
+        "french": "<p>Il dit, « C’est <em>‘bien’</em> ».</p>"
+      }
+    },
+    {
+      "input": "<p>Dr. <em>Smith</em> arrived.</p>",
+      "outputs": {
+        "american": "<p>Dr. <em>Smith</em> arrived.</p>",
+        "british": "<p>Dr. <em>Smith</em> arrived.</p>",
+        "german": "<p>Dr. <em>Smith</em> arrived.</p>",
+        "french": "<p>Dr. <em>Smith</em> arrived.</p>"
+      }
+    },
+    {
+      "input": "<p>100 <em>km</em> away.</p>",
+      "outputs": {
+        "american": "<p>100 <em>km</em> away.</p>",
+        "british": "<p>100 <em>km</em> away.</p>",
+        "german": "<p>100 <em>km</em> away.</p>",
+        "french": "<p>100 <em>km</em> away.</p>"
+      }
+    },
+    {
+      "input": "<p>Prof. <strong>Jones</strong> said hello.</p>",
+      "outputs": {
+        "american": "<p>Prof. <strong>Jones</strong> said hello.</p>",
+        "british": "<p>Prof. <strong>Jones</strong> said hello.</p>",
+        "german": "<p>Prof. <strong>Jones</strong> said hello.</p>",
+        "french": "<p>Prof. <strong>Jones</strong> said hello.</p>"
+      }
+    },
+    {
+      "input": "<p>She waited--<em>and waited</em>--for the reply.</p>",
+      "outputs": {
+        "american": "<p>She waited—<em>and waited</em>—for the reply.</p>",
+        "british": "<p>She waited—<em>and waited</em>—for the reply.</p>",
+        "german": "<p>She waited—<em>and waited</em>—for the reply.</p>",
+        "french": "<p>She waited—<em>and waited</em>—for the reply.</p>"
+      }
+    },
+    {
+      "input": "<p>He paused<em>--</em>then continued.</p>",
+      "outputs": {
+        "american": "<p>He paused<em>—</em>then continued.</p>",
+        "british": "<p>He paused<em>—</em>then continued.</p>",
+        "german": "<p>He paused<em>—</em>then continued.</p>",
+        "french": "<p>He paused<em>—</em>then continued.</p>"
+      }
+    },
+    {
+      "input": "<p>The class of <em>'99</em> reunion.</p>",
+      "outputs": {
+        "american": "<p>The class of <em>’99</em> reunion.</p>",
+        "british": "<p>The class of <em>’99</em> reunion.</p>",
+        "german": "<p>The class of <em>’99</em> reunion.</p>",
+        "french": "<p>The class of <em>’99</em> reunion.</p>"
+      }
+    },
+    {
+      "input": "<p><em>10</em>-20 items available.</p>",
+      "outputs": {
+        "american": "<p><em>10</em>–20 items available.</p>",
+        "british": "<p><em>10</em>–20 items available.</p>",
+        "german": "<p><em>10</em>–20 items available.</p>",
+        "french": "<p><em>10</em>–20 items available.</p>"
+      }
+    },
+    {
+      "input": "<p>\"Hello,\" <em>she said,</em> \"how are you?\"</p>",
+      "outputs": {
+        "american": "<p>“Hello,” <em>she said,</em> “how are you?”</p>",
+        "british": "<p>“Hello”, <em>she said,</em> “how are you?”</p>",
+        "german": "<p>„Hello“, <em>she said,</em> „how are you?“</p>",
+        "french": "<p>« Hello », <em>she said,</em> « how are you? »</p>"
+      }
+    },
+    {
+      "input": "<p>\"He told me, <em>'She said, \"hello\"'</em>.\"</p>",
+      "outputs": {
+        "american": "<p>“He told me, <em>‘She said, “hello\".’</em>”</p>",
+        "british": "<p>“He told me, <em>‘She said, “hello\"’</em>”.</p>",
+        "german": "<p>„He told me, <em>‚She said, „hello\"‘</em>“.</p>",
+        "french": "<p>« He told me, <em>‘She said, « hello\"’</em> ».</p>"
+      }
+    }
+  ],
+  "strings": [
+    {
+      "input": "\"This is a quote\", she said.",
+      "outputs": {
+        "american": "“This is a quote,” she said.",
+        "british": "“This is a quote”, she said.",
+        "german": "„This is a quote“, she said.",
+        "french": "« This is a quote », she said.",
+        "none": "\"This is a quote\", she said.",
+        "american-full": "“This is a quote,” she said.",
+        "british-dash": "“This is a quote”, she said."
+      }
+    },
+    {
+      "input": "She said, \"This is a quote.\"",
+      "outputs": {
+        "american": "She said, “This is a quote.”",
+        "british": "She said, “This is a quote”.",
+        "german": "She said, „This is a quote“.",
+        "french": "She said, « This is a quote ».",
+        "none": "She said, \"This is a quote.\"",
+        "american-full": "She said, “This is a quote.”",
+        "british-dash": "She said, “This is a quote”."
+      }
+    },
+    {
+      "input": "\"Hello.\" Mary",
+      "outputs": {
+        "american": "“Hello.” Mary",
+        "british": "“Hello”. Mary",
+        "german": "„Hello“. Mary",
+        "french": "« Hello ». Mary",
+        "none": "\"Hello.\" Mary",
+        "american-full": "“Hello.” Mary",
+        "british-dash": "“Hello”. Mary"
+      }
+    },
+    {
+      "input": "\"I am\" so \"tired\" of \"these\" \"quotes\".",
+      "outputs": {
+        "american": "“I am” so “tired” of “these” “quotes.”",
+        "british": "“I am” so “tired” of “these” “quotes”.",
+        "german": "„I am“ so „tired“ of „these“ „quotes“.",
+        "french": "« I am » so « tired » of « these » « quotes ».",
+        "none": "\"I am\" so \"tired\" of \"these\" \"quotes\".",
+        "american-full": "“I am” so “tired” of “these” “quotes.”",
+        "british-dash": "“I am” so “tired” of “these” “quotes”."
+      }
+    },
+    {
+      "input": "\"world model\";",
+      "outputs": {
+        "american": "“world model”;",
+        "british": "“world model”;",
+        "german": "„world model“;",
+        "french": "« world model »;",
+        "none": "\"world model\";",
+        "american-full": "“world model”;",
+        "british-dash": "“world model”;"
+      }
+    },
+    {
+      "input": "(\"the best\")",
+      "outputs": {
+        "american": "(“the best”)",
+        "british": "(“the best”)",
+        "german": "(„the best“)",
+        "french": "(« the best »)",
+        "none": "(\"the best\")",
+        "american-full": "(“the best”)",
+        "british-dash": "(“the best”)"
+      }
+    },
+    {
+      "input": "He said, 'Hi'",
+      "outputs": {
+        "american": "He said, ‘Hi’",
+        "british": "He said, ‘Hi’",
+        "german": "He said, ‚Hi‘",
+        "french": "He said, ‘Hi’",
+        "none": "He said, 'Hi'",
+        "american-full": "He said, ‘Hi’",
+        "british-dash": "He said, ‘Hi’"
+      }
+    },
+    {
+      "input": "He wanted 'power.'",
+      "outputs": {
+        "american": "He wanted ‘power.’",
+        "british": "He wanted ‘power’.",
+        "german": "He wanted ‚power‘.",
+        "french": "He wanted ‘power’.",
+        "none": "He wanted 'power.'",
+        "american-full": "He wanted ‘power.’",
+        "british-dash": "He wanted ‘power’."
+      }
+    },
+    {
+      "input": "—'Hi'—",
+      "outputs": {
+        "american": "—‘Hi’—",
+        "british": "—‘Hi’—",
+        "german": "—‚Hi‘—",
+        "french": "—‘Hi’—",
+        "none": "—'Hi'—",
+        "american-full": "—‘Hi’—",
+        "british-dash": "—‘Hi’—"
+      }
+    },
+    {
+      "input": "I'd",
+      "outputs": {
+        "american": "I’d",
+        "british": "I’d",
+        "german": "I’d",
+        "french": "I’d",
+        "none": "I'd",
+        "american-full": "I’d",
+        "british-dash": "I’d"
+      }
+    },
+    {
+      "input": "don't",
+      "outputs": {
+        "american": "don’t",
+        "british": "don’t",
+        "german": "don’t",
+        "french": "don’t",
+        "none": "don't",
+        "american-full": "don’t",
+        "british-dash": "don’t"
+      }
+    },
+    {
+      "input": "I'm not the best, haven't you heard?",
+      "outputs": {
+        "american": "I’m not the best, haven’t you heard?",
+        "british": "I’m not the best, haven’t you heard?",
+        "german": "I’m not the best, haven’t you heard?",
+        "french": "I’m not the best, haven’t you heard?",
+        "none": "I'm not the best, haven't you heard?",
+        "american-full": "I’m not the best, haven’t you heard?",
+        "british-dash": "I’m not the best, haven’t you heard?"
+      }
+    },
+    {
+      "input": "'SUP",
+      "outputs": {
+        "american": "’SUP",
+        "british": "’SUP",
+        "german": "’SUP",
+        "french": "’SUP",
+        "none": "'SUP",
+        "american-full": "’SUP",
+        "british-dash": "’SUP"
+      }
+    },
+    {
+      "input": "Rock 'n' Roll",
+      "outputs": {
+        "american": "Rock ’n’ Roll",
+        "british": "Rock ’n’ Roll",
+        "german": "Rock ’n’ Roll",
+        "french": "Rock ’n’ Roll",
+        "none": "Rock 'n' Roll",
+        "american-full": "Rock ’n’ Roll",
+        "british-dash": "Rock ’n’ Roll"
+      }
+    },
+    {
+      "input": "I was born in '99",
+      "outputs": {
+        "american": "I was born in ’99",
+        "british": "I was born in ’99",
+        "german": "I was born in ’99",
+        "french": "I was born in ’99",
+        "none": "I was born in '99",
+        "american-full": "I was born in ’99",
+        "british-dash": "I was born in ’99"
+      }
+    },
+    {
+      "input": "'99 tigers weren't a match",
+      "outputs": {
+        "american": "’99 tigers weren’t a match",
+        "british": "’99 tigers weren’t a match",
+        "german": "’99 tigers weren’t a match",
+        "french": "’99 tigers weren’t a match",
+        "none": "'99 tigers weren't a match",
+        "american-full": "’99 tigers weren’t a match",
+        "british-dash": "’99 tigers weren’t a match"
+      }
+    },
+    {
+      "input": "strategy s's return is good",
+      "outputs": {
+        "american": "strategy s’s return is good",
+        "british": "strategy s’s return is good",
+        "german": "strategy s’s return is good",
+        "french": "strategy s’s return is good",
+        "none": "strategy s's return is good",
+        "american-full": "strategy s’s return is good",
+        "british-dash": "strategy s’s return is good"
+      }
+    },
+    {
+      "input": "\"She said 'hello'\"",
+      "outputs": {
+        "american": "“She said ‘hello’”",
+        "british": "“She said ‘hello’”",
+        "german": "„She said ‚hello‘“",
+        "french": "« She said ‘hello’ »",
+        "none": "\"She said 'hello'\"",
+        "american-full": "“She said ‘hello’”",
+        "british-dash": "“She said ‘hello’”"
+      }
+    },
+    {
+      "input": "\"'sup\"",
+      "outputs": {
+        "american": "“’sup”",
+        "british": "“’sup”",
+        "german": "„’sup“",
+        "french": "« ’sup »",
+        "none": "\"'sup\"",
+        "american-full": "“’sup”",
+        "british-dash": "“’sup”"
+      }
+    },
+    {
+      "input": "This is a - hyphen.",
+      "outputs": {
+        "american": "This is a—hyphen.",
+        "british": "This is a—hyphen.",
+        "german": "This is a—hyphen.",
+        "french": "This is a—hyphen.",
+        "none": "This is a—hyphen.",
+        "american-full": "This is a—hyphen.",
+        "british-dash": "This is a – hyphen."
+      }
+    },
+    {
+      "input": "word — word",
+      "outputs": {
+        "american": "word—word",
+        "british": "word—word",
+        "german": "word—word",
+        "french": "word—word",
+        "none": "word—word",
+        "american-full": "word—word",
+        "british-dash": "word – word"
+      }
+    },
+    {
+      "input": "word ---",
+      "outputs": {
+        "american": "word—",
+        "british": "word—",
+        "german": "word—",
+        "french": "word—",
+        "none": "word—",
+        "american-full": "word—",
+        "british-dash": "word – "
+      }
+    },
+    {
+      "input": "Hi-- what do you think?",
+      "outputs": {
+        "american": "Hi—what do you think?",
+        "british": "Hi—what do you think?",
+        "german": "Hi—what do you think?",
+        "french": "Hi—what do you think?",
+        "none": "Hi—what do you think?",
+        "american-full": "Hi—what do you think?",
+        "british-dash": "Hi – what do you think?"
+      }
+    },
+    {
+      "input": "since--as you know",
+      "outputs": {
+        "american": "since—as you know",
+        "british": "since—as you know",
+        "german": "since—as you know",
+        "french": "since—as you know",
+        "none": "since—as you know",
+        "american-full": "since—as you know",
+        "british-dash": "since – as you know"
+      }
+    },
+    {
+      "input": "\"Hello\"--\"World\"",
+      "outputs": {
+        "american": "“Hello”—“World”",
+        "british": "“Hello”—“World”",
+        "german": "„Hello“—„World“",
+        "french": "« Hello »—« World »",
+        "none": "\"Hello\"—\"World\"",
+        "american-full": "“Hello”—“World”",
+        "british-dash": "“Hello” – “World”"
+      }
+    },
+    {
+      "input": "Pages 1-5",
+      "outputs": {
+        "american": "Pages 1–5",
+        "british": "Pages 1–5",
+        "german": "Pages 1–5",
+        "french": "Pages 1–5",
+        "none": "Pages 1–5",
+        "american-full": "Pages 1–5",
+        "british-dash": "Pages 1–5"
+      }
+    },
+    {
+      "input": "2000-2020",
+      "outputs": {
+        "american": "2000–2020",
+        "british": "2000–2020",
+        "german": "2000–2020",
+        "french": "2000–2020",
+        "none": "2000–2020",
+        "american-full": "2000–2020",
+        "british-dash": "2000–2020"
+      }
+    },
+    {
+      "input": "p.10-15",
+      "outputs": {
+        "american": "p.10–15",
+        "british": "p.10–15",
+        "german": "p.10–15",
+        "french": "p.10–15",
+        "none": "p.10–15",
+        "american-full": "p.10–15",
+        "british-dash": "p.10–15"
+      }
+    },
+    {
+      "input": "€5-€10",
+      "outputs": {
+        "american": "€5–€10",
+        "british": "€5–€10",
+        "german": "€5–€10",
+        "french": "€5–€10",
+        "none": "€5–€10",
+        "american-full": "€5–€10",
+        "british-dash": "€5–€10"
+      }
+    },
+    {
+      "input": "£100-£200",
+      "outputs": {
+        "american": "£100–£200",
+        "british": "£100–£200",
+        "german": "£100–£200",
+        "french": "£100–£200",
+        "none": "£100–£200",
+        "american-full": "£100–£200",
+        "british-dash": "£100–£200"
+      }
+    },
+    {
+      "input": "2-3pm",
+      "outputs": {
+        "american": "2–3pm",
+        "british": "2–3pm",
+        "german": "2–3pm",
+        "french": "2–3pm",
+        "none": "2–3pm",
+        "american-full": "2–3pm",
+        "british-dash": "2–3pm"
+      }
+    },
+    {
+      "input": "9-10am",
+      "outputs": {
+        "american": "9–10am",
+        "british": "9–10am",
+        "german": "9–10am",
+        "french": "9–10am",
+        "none": "9–10am",
+        "american-full": "9–10am",
+        "british-dash": "9–10am"
+      }
+    },
+    {
+      "input": "January-March",
+      "outputs": {
+        "american": "January–March",
+        "british": "January–March",
+        "german": "January–March",
+        "french": "January–March",
+        "none": "January–March",
+        "american-full": "January–March",
+        "british-dash": "January – March"
+      }
+    },
+    {
+      "input": "Jan-Mar",
+      "outputs": {
+        "american": "Jan–Mar",
+        "british": "Jan–Mar",
+        "german": "Jan–Mar",
+        "french": "Jan–Mar",
+        "none": "Jan–Mar",
+        "american-full": "Jan–Mar",
+        "british-dash": "Jan – Mar"
+      }
+    },
+    {
+      "input": "-5",
+      "outputs": {
+        "american": "−5",
+        "british": "−5",
+        "german": "−5",
+        "french": "−5",
+        "none": "−5",
+        "american-full": "−5",
+        "british-dash": "−5"
+      }
+    },
+    {
+      "input": "(-5)",
+      "outputs": {
+        "american": "(−5)",
+        "british": "(−5)",
+        "german": "(−5)",
+        "french": "(−5)",
+        "none": "(−5)",
+        "american-full": "(−5)",
+        "british-dash": "(−5)"
+      }
+    },
+    {
+      "input": "The value is -10",
+      "outputs": {
+        "american": "The value is −10",
+        "british": "The value is −10",
+        "german": "The value is −10",
+        "french": "The value is −10",
+        "none": "The value is −10",
+        "american-full": "The value is −10",
+        "british-dash": "The value is −10"
+      }
+    },
+    {
+      "input": "a browser- or OS-specific fashion",
+      "outputs": {
+        "american": "a browser- or OS-specific fashion",
+        "british": "a browser- or OS-specific fashion",
+        "german": "a browser- or OS-specific fashion",
+        "french": "a browser- or OS-specific fashion",
+        "none": "a browser- or OS-specific fashion",
+        "american-full": "a browser- or OS-specific fashion",
+        "british-dash": "a browser- or OS-specific fashion"
+      }
+    },
+    {
+      "input": "well-known",
+      "outputs": {
+        "american": "well-known",
+        "british": "well-known",
+        "german": "well-known",
+        "french": "well-known",
+        "none": "well-known",
+        "american-full": "well-known",
+        "british-dash": "well-known"
+      }
+    },
+    {
+      "input": "Wait for it...",
+      "outputs": {
+        "american": "Wait for it…",
+        "british": "Wait for it…",
+        "german": "Wait for it…",
+        "french": "Wait for it…",
+        "none": "Wait for it…",
+        "american-full": "Wait for it…",
+        "british-dash": "Wait for it…"
+      }
+    },
+    {
+      "input": "Hmm... let me think",
+      "outputs": {
+        "american": "Hmm… let me think",
+        "british": "Hmm… let me think",
+        "german": "Hmm… let me think",
+        "french": "Hmm… let me think",
+        "none": "Hmm… let me think",
+        "american-full": "Hmm… let me think",
+        "british-dash": "Hmm… let me think"
+      }
+    },
+    {
+      "input": "...",
+      "outputs": {
+        "american": "…",
+        "british": "…",
+        "german": "…",
+        "french": "…",
+        "none": "…",
+        "american-full": "…",
+        "british-dash": "…"
+      }
+    },
+    {
+      "input": ". . .",
+      "outputs": {
+        "american": "…",
+        "british": "…",
+        "german": "…",
+        "french": "…",
+        "none": "…",
+        "american-full": "…",
+        "british-dash": "…"
+      }
+    },
+    {
+      "input": "Wait. . . more",
+      "outputs": {
+        "american": "Wait… more",
+        "british": "Wait… more",
+        "german": "Wait… more",
+        "french": "Wait… more",
+        "none": "Wait… more",
+        "american-full": "Wait… more",
+        "british-dash": "Wait… more"
+      }
+    },
+    {
+      "input": "e.g.",
+      "outputs": {
+        "american": "e.g.",
+        "british": "e.g.",
+        "german": "e.g.",
+        "french": "e.g.",
+        "none": "e.g.",
+        "american-full": "e.g.",
+        "british-dash": "e.g."
+      }
+    },
+    {
+      "input": "U.S.A.",
+      "outputs": {
+        "american": "U.S.A.",
+        "british": "U.S.A.",
+        "german": "U.S.A.",
+        "french": "U.S.A.",
+        "none": "U.S.A.",
+        "american-full": "U.S.A.",
+        "british-dash": "U.S.A."
+      }
+    },
+    {
+      "input": "5x5",
+      "outputs": {
+        "american": "5×5",
+        "british": "5×5",
+        "german": "5×5",
+        "french": "5×5",
+        "none": "5×5",
+        "american-full": "5×5",
+        "british-dash": "5×5"
+      }
+    },
+    {
+      "input": "10 x 20",
+      "outputs": {
+        "american": "10 × 20",
+        "british": "10 × 20",
+        "german": "10 × 20",
+        "french": "10 × 20",
+        "none": "10 × 20",
+        "american-full": "10 × 20",
+        "british-dash": "10 × 20"
+      }
+    },
+    {
+      "input": "Resolution: 1920x1080",
+      "outputs": {
+        "american": "Resolution: 1920×1080",
+        "british": "Resolution: 1920×1080",
+        "german": "Resolution: 1920×1080",
+        "french": "Resolution: 1920×1080",
+        "none": "Resolution: 1920×1080",
+        "american-full": "Resolution: 1920×1080",
+        "british-dash": "Resolution: 1920×1080"
+      }
+    },
+    {
+      "input": "extra",
+      "outputs": {
+        "american": "extra",
+        "british": "extra",
+        "german": "extra",
+        "french": "extra",
+        "none": "extra",
+        "american-full": "extra",
+        "british-dash": "extra"
+      }
+    },
+    {
+      "input": "complex",
+      "outputs": {
+        "american": "complex",
+        "british": "complex",
+        "german": "complex",
+        "french": "complex",
+        "none": "complex",
+        "american-full": "complex",
+        "british-dash": "complex"
+      }
+    },
+    {
+      "input": "x-axis",
+      "outputs": {
+        "american": "x-axis",
+        "british": "x-axis",
+        "german": "x-axis",
+        "french": "x-axis",
+        "none": "x-axis",
+        "american-full": "x-axis",
+        "british-dash": "x-axis"
+      }
+    },
+    {
+      "input": "Copyright (c) 2024",
+      "outputs": {
+        "american": "Copyright © 2024",
+        "british": "Copyright © 2024",
+        "german": "Copyright © 2024",
+        "french": "Copyright © 2024",
+        "none": "Copyright © 2024",
+        "american-full": "Copyright © 2024",
+        "british-dash": "Copyright © 2024"
+      }
+    },
+    {
+      "input": "Brand(r)",
+      "outputs": {
+        "american": "Brand®",
+        "british": "Brand®",
+        "german": "Brand®",
+        "french": "Brand®",
+        "none": "Brand®",
+        "american-full": "Brand®",
+        "british-dash": "Brand®"
+      }
+    },
+    {
+      "input": "Name(tm)",
+      "outputs": {
+        "american": "Name™",
+        "british": "Name™",
+        "german": "Name™",
+        "french": "Name™",
+        "none": "Name™",
+        "american-full": "Name™",
+        "british-dash": "Name™"
+      }
+    },
+    {
+      "input": "A -> B",
+      "outputs": {
+        "american": "A → B",
+        "british": "A → B",
+        "german": "A → B",
+        "french": "A → B",
+        "none": "A → B",
+        "american-full": "A → B",
+        "british-dash": "A → B"
+      }
+    },
+    {
+      "input": "A <- B",
+      "outputs": {
+        "american": "A ← B",
+        "british": "A ← B",
+        "german": "A ← B",
+        "french": "A ← B",
+        "none": "A ← B",
+        "american-full": "A ← B",
+        "british-dash": "A ← B"
+      }
+    },
+    {
+      "input": "A <-> B",
+      "outputs": {
+        "american": "A ↔ B",
+        "british": "A ↔ B",
+        "german": "A ↔ B",
+        "french": "A ↔ B",
+        "none": "A ↔ B",
+        "american-full": "A ↔ B",
+        "british-dash": "A ↔ B"
+      }
+    },
+    {
+      "input": "function->call",
+      "outputs": {
+        "american": "function->call",
+        "british": "function->call",
+        "german": "function->call",
+        "french": "function->call",
+        "none": "function->call",
+        "american-full": "function->call",
+        "british-dash": "function->call"
+      }
+    },
+    {
+      "input": "array[0]->value",
+      "outputs": {
+        "american": "array[0]->value",
+        "british": "array[0]->value",
+        "german": "array[0]->value",
+        "french": "array[0]->value",
+        "none": "array[0]->value",
+        "american-full": "array[0]->value",
+        "british-dash": "array[0]->value"
+      }
+    },
+    {
+      "input": "5'10\"",
+      "outputs": {
+        "american": "5′10″",
+        "british": "5′10″",
+        "german": "5′10″",
+        "french": "5′10″",
+        "none": "5'10\"",
+        "american-full": "5′10″",
+        "british-dash": "5′10″"
+      }
+    },
+    {
+      "input": "He is 6'2\" tall",
+      "outputs": {
+        "american": "He is 6′2″ tall",
+        "british": "He is 6′2″ tall",
+        "german": "He is 6′2″ tall",
+        "french": "He is 6′2″ tall",
+        "none": "He is 6'2\" tall",
+        "american-full": "He is 6′2″ tall",
+        "british-dash": "He is 6′2″ tall"
+      }
+    },
+    {
+      "input": "The board is 8' long",
+      "outputs": {
+        "american": "The board is 8′ long",
+        "british": "The board is 8′ long",
+        "german": "The board is 8′ long",
+        "french": "The board is 8′ long",
+        "none": "The board is 8' long",
+        "american-full": "The board is 8′ long",
+        "british-dash": "The board is 8′ long"
+      }
+    },
+    {
+      "input": "Location: 45° 30' 15\"",
+      "outputs": {
+        "american": "Location: 45° 30′ 15″",
+        "british": "Location: 45° 30′ 15″",
+        "german": "Location: 45° 30′ 15″",
+        "french": "Location: 45° 30′ 15″",
+        "none": "Location: 45° 30' 15\"",
+        "american-full": "Location: 45° 30′ 15″",
+        "british-dash": "Location: 45° 30′ 15″"
+      }
+    },
+    {
+      "input": "Room is 10' x 12'",
+      "outputs": {
+        "american": "Room is 10′ × 12′",
+        "british": "Room is 10′ × 12′",
+        "german": "Room is 10′ × 12′",
+        "french": "Room is 10′ × 12′",
+        "none": "Room is 10' x 12'",
+        "american-full": "Room is 10′ × 12′",
+        "british-dash": "Room is 10′ × 12′"
+      }
+    },
+    {
+      "input": "5' and 8' boards",
+      "outputs": {
+        "american": "5′ and 8′ boards",
+        "british": "5′ and 8′ boards",
+        "german": "5′ and 8′ boards",
+        "french": "5′ and 8′ boards",
+        "none": "5' and 8' boards",
+        "american-full": "5′ and 8′ boards",
+        "british-dash": "5′ and 8′ boards"
+      }
+    },
+    {
+      "input": "it's 5' long",
+      "outputs": {
+        "american": "it’s 5′ long",
+        "british": "it’s 5′ long",
+        "german": "it’s 5′ long",
+        "french": "it’s 5′ long",
+        "none": "it's 5' long",
+        "american-full": "it’s 5′ long",
+        "british-dash": "it’s 5′ long"
+      }
+    },
+    {
+      "input": "don't measure 8'",
+      "outputs": {
+        "american": "don’t measure 8′",
+        "british": "don’t measure 8′",
+        "german": "don’t measure 8′",
+        "french": "don’t measure 8′",
+        "none": "don't measure 8'",
+        "american-full": "don’t measure 8′",
+        "british-dash": "don’t measure 8′"
+      }
+    },
+    {
+      "input": "the dogs' 5' leashes",
+      "outputs": {
+        "american": "the dogs’ 5′ leashes",
+        "british": "the dogs’ 5′ leashes",
+        "german": "the dogs’ 5′ leashes",
+        "french": "the dogs’ 5′ leashes",
+        "none": "the dogs' 5' leashes",
+        "american-full": "the dogs’ 5′ leashes",
+        "british-dash": "the dogs’ 5′ leashes"
+      }
+    },
+    {
+      "input": "'Twas a 5' board",
+      "outputs": {
+        "american": "‘Twas a 5’ board",
+        "british": "‘Twas a 5’ board",
+        "german": "‚Twas a 5‘ board",
+        "french": "‘Twas a 5’ board",
+        "none": "'Twas a 5' board",
+        "american-full": "‘Twas a 5’ board",
+        "british-dash": "‘Twas a 5’ board"
+      }
+    },
+    {
+      "input": "\"Guten Tag\"",
+      "outputs": {
+        "american": "“Guten Tag”",
+        "british": "“Guten Tag”",
+        "german": "„Guten Tag“",
+        "french": "« Guten Tag »",
+        "none": "\"Guten Tag\"",
+        "american-full": "“Guten Tag”",
+        "british-dash": "“Guten Tag”"
+      }
+    },
+    {
+      "input": "'Hallo'",
+      "outputs": {
+        "american": "‘Hallo’",
+        "british": "‘Hallo’",
+        "german": "‚Hallo‘",
+        "french": "‘Hallo’",
+        "none": "'Hallo'",
+        "american-full": "‘Hallo’",
+        "british-dash": "‘Hallo’"
+      }
+    },
+    {
+      "input": "\"Bonjour\"",
+      "outputs": {
+        "american": "“Bonjour”",
+        "british": "“Bonjour”",
+        "german": "„Bonjour“",
+        "french": "« Bonjour »",
+        "none": "\"Bonjour\"",
+        "american-full": "“Bonjour”",
+        "british-dash": "“Bonjour”"
+      }
+    },
+    {
+      "input": "\"café\"",
+      "outputs": {
+        "american": "“café”",
+        "british": "“café”",
+        "german": "„café“",
+        "french": "« café »",
+        "none": "\"café\"",
+        "american-full": "“café”",
+        "british-dash": "“café”"
+      }
+    },
+    {
+      "input": "\"Águila\"",
+      "outputs": {
+        "american": "“Águila”",
+        "british": "“Águila”",
+        "german": "„Águila“",
+        "french": "« Águila »",
+        "none": "\"Águila\"",
+        "american-full": "“Águila”",
+        "british-dash": "“Águila”"
+      }
+    },
+    {
+      "input": "\"naïve\"",
+      "outputs": {
+        "american": "“naïve”",
+        "british": "“naïve”",
+        "german": "„naïve“",
+        "french": "« naïve »",
+        "none": "\"naïve\"",
+        "american-full": "“naïve”",
+        "british-dash": "“naïve”"
+      }
+    },
+    {
+      "input": "O'Brien's idea",
+      "outputs": {
+        "american": "O’Brien’s idea",
+        "british": "O’Brien’s idea",
+        "german": "O’Brien’s idea",
+        "french": "O’Brien’s idea",
+        "none": "O'Brien's idea",
+        "american-full": "O’Brien’s idea",
+        "british-dash": "O’Brien’s idea"
+      }
+    },
+    {
+      "input": "The O'Connors",
+      "outputs": {
+        "american": "The O’Connors",
+        "british": "The O’Connors",
+        "german": "The O’Connors",
+        "french": "The O’Connors",
+        "none": "The O'Connors",
+        "american-full": "The O’Connors",
+        "british-dash": "The O’Connors"
+      }
+    },
+    {
+      "input": "Llama-2-7B",
+      "outputs": {
+        "american": "Llama-2-7B",
+        "british": "Llama-2-7B",
+        "german": "Llama-2-7B",
+        "french": "Llama-2-7B",
+        "none": "Llama-2-7B",
+        "american-full": "Llama-2-7B",
+        "british-dash": "Llama-2-7B"
+      }
+    },
+    {
+      "input": "Llama-3-8B-Instruct",
+      "outputs": {
+        "american": "Llama-3-8B-Instruct",
+        "british": "Llama-3-8B-Instruct",
+        "german": "Llama-3-8B-Instruct",
+        "french": "Llama-3-8B-Instruct",
+        "none": "Llama-3-8B-Instruct",
+        "american-full": "Llama-3-8B-Instruct",
+        "british-dash": "Llama-3-8B-Instruct"
+      }
+    },
+    {
+      "input": "GPT-4",
+      "outputs": {
+        "american": "GPT-4",
+        "british": "GPT-4",
+        "german": "GPT-4",
+        "french": "GPT-4",
+        "none": "GPT-4",
+        "american-full": "GPT-4",
+        "british-dash": "GPT-4"
+      }
+    },
+    {
+      "input": "Qwen1.5-1.8B",
+      "outputs": {
+        "american": "Qwen1.5-1.8B",
+        "british": "Qwen1.5-1.8B",
+        "german": "Qwen1.5-1.8B",
+        "french": "Qwen1.5-1.8B",
+        "none": "Qwen1.5-1.8B",
+        "american-full": "Qwen1.5-1.8B",
+        "british-dash": "Qwen1.5-1.8B"
+      }
+    },
+    {
+      "input": "555-123-4567",
+      "outputs": {
+        "american": "555-123-4567",
+        "british": "555-123-4567",
+        "german": "555-123-4567",
+        "french": "555-123-4567",
+        "none": "555-123-4567",
+        "american-full": "555-123-4567",
+        "british-dash": "555-123-4567"
+      }
+    },
+    {
+      "input": "978-3-16-148410-0",
+      "outputs": {
+        "american": "978-3-16-148410-0",
+        "british": "978-3-16-148410-0",
+        "german": "978-3-16-148410-0",
+        "french": "978-3-16-148410-0",
+        "none": "978-3-16-148410-0",
+        "american-full": "978-3-16-148410-0",
+        "british-dash": "978-3-16-148410-0"
+      }
+    },
+    {
+      "input": "2024-01-15",
+      "outputs": {
+        "american": "2024-01-15",
+        "british": "2024-01-15",
+        "german": "2024-01-15",
+        "french": "2024-01-15",
+        "none": "2024-01-15",
+        "american-full": "2024-01-15",
+        "british-dash": "2024-01-15"
+      }
+    },
+    {
+      "input": "2020-2024",
+      "outputs": {
+        "american": "2020–2024",
+        "british": "2020–2024",
+        "german": "2020–2024",
+        "french": "2020–2024",
+        "none": "2020–2024",
+        "american-full": "2020–2024",
+        "british-dash": "2020–2024"
+      }
+    },
+    {
+      "input": "the 1990-1999 decade",
+      "outputs": {
+        "american": "the 1990–1999 decade",
+        "british": "the 1990–1999 decade",
+        "german": "the 1990–1999 decade",
+        "french": "the 1990–1999 decade",
+        "none": "the 1990–1999 decade",
+        "american-full": "the 1990–1999 decade",
+        "british-dash": "the 1990–1999 decade"
+      }
+    },
+    {
+      "input": "won 3-2",
+      "outputs": {
+        "american": "won 3–2",
+        "british": "won 3–2",
+        "german": "won 3–2",
+        "french": "won 3–2",
+        "none": "won 3–2",
+        "american-full": "won 3–2",
+        "british-dash": "won 3–2"
+      }
+    },
+    {
+      "input": "final score 21-17",
+      "outputs": {
+        "american": "final score 21–17",
+        "british": "final score 21–17",
+        "german": "final score 21–17",
+        "french": "final score 21–17",
+        "none": "final score 21–17",
+        "american-full": "final score 21–17",
+        "british-dash": "final score 21–17"
+      }
+    },
+    {
+      "input": "40° 44' 54\" N",
+      "outputs": {
+        "american": "40° 44′ 54″ N",
+        "british": "40° 44′ 54″ N",
+        "german": "40° 44′ 54″ N",
+        "french": "40° 44′ 54″ N",
+        "none": "40° 44' 54\" N",
+        "american-full": "40° 44′ 54″ N",
+        "british-dash": "40° 44′ 54″ N"
+      }
+    },
+    {
+      "input": "74° 0' 21\" W",
+      "outputs": {
+        "american": "74° 0′ 21″ W",
+        "british": "74° 0′ 21″ W",
+        "german": "74° 0′ 21″ W",
+        "french": "74° 0′ 21″ W",
+        "none": "74° 0' 21\" W",
+        "american-full": "74° 0′ 21″ W",
+        "british-dash": "74° 0′ 21″ W"
+      }
+    },
+    {
+      "input": "\"Alfred 'bertrand' cees\"",
+      "outputs": {
+        "american": "“Alfred ‘bertrand’ cees”",
+        "british": "“Alfred ‘bertrand’ cees”",
+        "german": "„Alfred ‚bertrand‘ cees“",
+        "french": "« Alfred ‘bertrand’ cees »",
+        "none": "\"Alfred 'bertrand' cees\"",
+        "american-full": "“Alfred ‘bertrand’ cees”",
+        "british-dash": "“Alfred ‘bertrand’ cees”"
+      }
+    },
+    {
+      "input": "'Alfred \"bertrand\" cees'",
+      "outputs": {
+        "american": "‘Alfred “bertrand” cees’",
+        "british": "‘Alfred “bertrand” cees’",
+        "german": "‚Alfred „bertrand“ cees‘",
+        "french": "‘Alfred « bertrand » cees’",
+        "none": "'Alfred \"bertrand\" cees'",
+        "american-full": "‘Alfred “bertrand” cees’",
+        "british-dash": "‘Alfred “bertrand” cees’"
+      }
+    },
+    {
+      "input": "0x5F3759DF",
+      "outputs": {
+        "american": "0x5F3759DF",
+        "british": "0x5F3759DF",
+        "german": "0x5F3759DF",
+        "french": "0x5F3759DF",
+        "none": "0x5F3759DF",
+        "american-full": "0x5F3759DF",
+        "british-dash": "0x5F3759DF"
+      }
+    },
+    {
+      "input": "0xff",
+      "outputs": {
+        "american": "0xff",
+        "british": "0xff",
+        "german": "0xff",
+        "french": "0xff",
+        "none": "0xff",
+        "american-full": "0xff",
+        "british-dash": "0xff"
+      }
+    },
+    {
+      "input": "5x5x5",
+      "outputs": {
+        "american": "5×5×5",
+        "british": "5×5×5",
+        "german": "5×5×5",
+        "french": "5×5×5",
+        "none": "5×5×5",
+        "american-full": "5×5×5",
+        "british-dash": "5×5×5"
+      }
+    },
+    {
+      "input": "5 x 5 x 5",
+      "outputs": {
+        "american": "5 × 5 × 5",
+        "british": "5 × 5 × 5",
+        "german": "5 × 5 × 5",
+        "french": "5 × 5 × 5",
+        "none": "5 × 5 × 5",
+        "american-full": "5 × 5 × 5",
+        "british-dash": "5 × 5 × 5"
+      }
+    },
+    {
+      "input": "10*10*10",
+      "outputs": {
+        "american": "10×10×10",
+        "british": "10×10×10",
+        "german": "10×10×10",
+        "french": "10×10×10",
+        "none": "10×10×10",
+        "american-full": "10×10×10",
+        "british-dash": "10×10×10"
+      }
+    },
+    {
+      "input": "555-123-4567",
+      "outputs": {
+        "american": "555-123-4567",
+        "british": "555-123-4567",
+        "german": "555-123-4567",
+        "french": "555-123-4567",
+        "none": "555-123-4567",
+        "american-full": "555-123-4567",
+        "british-dash": "555-123-4567"
+      }
+    },
+    {
+      "input": "(555) 123-4567",
+      "outputs": {
+        "american": "(555) 123-4567",
+        "british": "(555) 123-4567",
+        "german": "(555) 123-4567",
+        "french": "(555) 123-4567",
+        "none": "(555) 123-4567",
+        "american-full": "(555) 123-4567",
+        "british-dash": "(555) 123-4567"
+      }
+    },
+    {
+      "input": "1-800-555-1234",
+      "outputs": {
+        "american": "1-800-555-1234",
+        "british": "1-800-555-1234",
+        "german": "1-800-555-1234",
+        "french": "1-800-555-1234",
+        "none": "1-800-555-1234",
+        "american-full": "1-800-555-1234",
+        "british-dash": "1-800-555-1234"
+      }
+    },
+    {
+      "input": "1-800",
+      "outputs": {
+        "american": "1-800",
+        "british": "1-800",
+        "german": "1-800",
+        "french": "1-800",
+        "none": "1-800",
+        "american-full": "1-800",
+        "british-dash": "1-800"
+      }
+    },
+    {
+      "input": "1-888",
+      "outputs": {
+        "american": "1-888",
+        "british": "1-888",
+        "german": "1-888",
+        "french": "1-888",
+        "none": "1-888",
+        "american-full": "1-888",
+        "british-dash": "1-888"
+      }
+    },
+    {
+      "input": "+1-800-555-1234",
+      "outputs": {
+        "american": "+1-800-555-1234",
+        "british": "+1-800-555-1234",
+        "german": "+1-800-555-1234",
+        "french": "+1-800-555-1234",
+        "none": "+1-800-555-1234",
+        "american-full": "+1-800-555-1234",
+        "british-dash": "+1-800-555-1234"
+      }
+    },
+    {
+      "input": "+44-20-7946-0958",
+      "outputs": {
+        "american": "+44-20-7946-0958",
+        "british": "+44-20-7946-0958",
+        "german": "+44-20-7946-0958",
+        "french": "+44-20-7946-0958",
+        "none": "+44-20-7946-0958",
+        "american-full": "+44-20-7946-0958",
+        "british-dash": "+44-20-7946-0958"
+      }
+    },
+    {
+      "input": "555-1234",
+      "outputs": {
+        "american": "555-1234",
+        "british": "555-1234",
+        "german": "555-1234",
+        "french": "555-1234",
+        "none": "555-1234",
+        "american-full": "555-1234",
+        "british-dash": "555-1234"
+      }
+    },
+    {
+      "input": "call 444-1000 now",
+      "outputs": {
+        "american": "call 444-1000 now",
+        "british": "call 444-1000 now",
+        "german": "call 444-1000 now",
+        "french": "call 444-1000 now",
+        "none": "call 444-1000 now",
+        "american-full": "call 444-1000 now",
+        "british-dash": "call 444-1000 now"
+      }
+    },
+    {
+      "input": "the range 100-5,000 items",
+      "outputs": {
+        "american": "the range 100–5,000 items",
+        "british": "the range 100–5,000 items",
+        "german": "the range 100–5,000 items",
+        "french": "the range 100–5,000 items",
+        "none": "the range 100–5,000 items",
+        "american-full": "the range 100–5,000 items",
+        "british-dash": "the range 100–5,000 items"
+      }
+    },
+    {
+      "input": "European range 100-5.000 items",
+      "outputs": {
+        "american": "European range 100–5.000 items",
+        "british": "European range 100–5.000 items",
+        "german": "European range 100–5.000 items",
+        "french": "European range 100–5.000 items",
+        "none": "European range 100–5.000 items",
+        "american-full": "European range 100–5.000 items",
+        "british-dash": "European range 100–5.000 items"
+      }
+    },
+    {
+      "input": "\"\"",
+      "outputs": {
+        "american": "“”",
+        "british": "“”",
+        "german": "„“",
+        "french": "« »",
+        "none": "\"\"",
+        "american-full": "“”",
+        "british-dash": "“”"
+      }
+    },
+    {
+      "input": "''",
+      "outputs": {
+        "american": "‘’",
+        "british": "‘’",
+        "german": "‚‘",
+        "french": "‘’",
+        "none": "''",
+        "american-full": "‘’",
+        "british-dash": "‘’"
+      }
+    },
+    {
+      "input": "\"Yes,\" he said, \"absolutely.\"",
+      "outputs": {
+        "american": "“Yes,” he said, “absolutely.”",
+        "british": "“Yes”, he said, “absolutely”.",
+        "german": "„Yes“, he said, „absolutely“.",
+        "french": "« Yes », he said, « absolutely ».",
+        "none": "\"Yes,\" he said, \"absolutely.\"",
+        "american-full": "“Yes,” he said, “absolutely.”",
+        "british-dash": "“Yes”, he said, “absolutely”."
+      }
+    },
+    {
+      "input": "\"No,\" she replied, \"I disagree.\"",
+      "outputs": {
+        "american": "“No,” she replied, “I disagree.”",
+        "british": "“No”, she replied, “I disagree”.",
+        "german": "„No“, she replied, „I disagree“.",
+        "french": "« No », she replied, « I disagree ».",
+        "none": "\"No,\" she replied, \"I disagree.\"",
+        "american-full": "“No,” she replied, “I disagree.”",
+        "british-dash": "“No”, she replied, “I disagree”."
+      }
+    },
+    {
+      "input": "I'd've",
+      "outputs": {
+        "american": "I’d’ve",
+        "british": "I’d’ve",
+        "german": "I’d’ve",
+        "french": "I’d’ve",
+        "none": "I'd've",
+        "american-full": "I’d’ve",
+        "british-dash": "I’d’ve"
+      }
+    },
+    {
+      "input": "wouldn't've",
+      "outputs": {
+        "american": "wouldn’t’ve",
+        "british": "wouldn’t’ve",
+        "german": "wouldn’t’ve",
+        "french": "wouldn’t’ve",
+        "none": "wouldn't've",
+        "american-full": "wouldn’t’ve",
+        "british-dash": "wouldn’t’ve"
+      }
+    },
+    {
+      "input": "y'all'd've",
+      "outputs": {
+        "american": "y’all’d’ve",
+        "british": "y’all’d’ve",
+        "german": "y’all’d’ve",
+        "french": "y’all’d’ve",
+        "none": "y'all'd've",
+        "american-full": "y’all’d’ve",
+        "british-dash": "y’all’d’ve"
+      }
+    },
+    {
+      "input": "I was born in '99",
+      "outputs": {
+        "american": "I was born in ’99",
+        "british": "I was born in ’99",
+        "german": "I was born in ’99",
+        "french": "I was born in ’99",
+        "none": "I was born in '99",
+        "american-full": "I was born in ’99",
+        "british-dash": "I was born in ’99"
+      }
+    },
+    {
+      "input": "The '80s were great",
+      "outputs": {
+        "american": "The ’80s were great",
+        "british": "The ’80s were great",
+        "german": "The ’80s were great",
+        "french": "The ’80s were great",
+        "none": "The '80s were great",
+        "american-full": "The ’80s were great",
+        "british-dash": "The ’80s were great"
+      }
+    },
+    {
+      "input": "Class of '22",
+      "outputs": {
+        "american": "Class of ’22",
+        "british": "Class of ’22",
+        "german": "Class of ’22",
+        "french": "Class of ’22",
+        "none": "Class of '22",
+        "american-full": "Class of ’22",
+        "british-dash": "Class of ’22"
+      }
+    },
+    {
+      "input": "1,000-2,000",
+      "outputs": {
+        "american": "1,000–2,000",
+        "british": "1,000–2,000",
+        "german": "1,000–2,000",
+        "french": "1,000–2,000",
+        "none": "1,000–2,000",
+        "american-full": "1,000–2,000",
+        "british-dash": "1,000–2,000"
+      }
+    },
+    {
+      "input": "$1,000-$2,000",
+      "outputs": {
+        "american": "$1,000–$2,000",
+        "british": "$1,000–$2,000",
+        "german": "$1,000–$2,000",
+        "french": "$1,000–$2,000",
+        "none": "$1,000–$2,000",
+        "american-full": "$1,000–$2,000",
+        "british-dash": "$1,000–$2,000"
+      }
+    },
+    {
+      "input": "€100,000-€200,000",
+      "outputs": {
+        "american": "€100,000–€200,000",
+        "british": "€100,000–€200,000",
+        "german": "€100,000–€200,000",
+        "french": "€100,000–€200,000",
+        "none": "€100,000–€200,000",
+        "american-full": "€100,000–€200,000",
+        "british-dash": "€100,000–€200,000"
+      }
+    },
+    {
+      "input": "A -> B -> C",
+      "outputs": {
+        "american": "A → B → C",
+        "british": "A → B → C",
+        "german": "A → B → C",
+        "french": "A → B → C",
+        "none": "A → B → C",
+        "american-full": "A → B → C",
+        "british-dash": "A → B → C"
+      }
+    },
+    {
+      "input": "A <- B <- C",
+      "outputs": {
+        "american": "A ← B ← C",
+        "british": "A ← B ← C",
+        "german": "A ← B ← C",
+        "french": "A ← B ← C",
+        "none": "A ← B ← C",
+        "american-full": "A ← B ← C",
+        "british-dash": "A ← B ← C"
+      }
+    },
+    {
+      "input": "One... Two... Three...",
+      "outputs": {
+        "american": "One… Two… Three…",
+        "british": "One… Two… Three…",
+        "german": "One… Two… Three…",
+        "french": "One… Two… Three…",
+        "none": "One… Two… Three…",
+        "american-full": "One… Two… Three…",
+        "british-dash": "One… Two… Three…"
+      }
+    },
+    {
+      "input": "Wait...",
+      "outputs": {
+        "american": "Wait…",
+        "british": "Wait…",
+        "german": "Wait…",
+        "french": "Wait…",
+        "none": "Wait…",
+        "american-full": "Wait…",
+        "british-dash": "Wait…"
+      }
+    },
+    {
+      "input": "10:30-11:30",
+      "outputs": {
+        "american": "10:30–11:30",
+        "british": "10:30–11:30",
+        "german": "10:30–11:30",
+        "french": "10:30–11:30",
+        "none": "10:30–11:30",
+        "american-full": "10:30–11:30",
+        "british-dash": "10:30–11:30"
+      }
+    },
+    {
+      "input": "9:00-5:00",
+      "outputs": {
+        "american": "9:00–5:00",
+        "british": "9:00–5:00",
+        "german": "9:00–5:00",
+        "french": "9:00–5:00",
+        "none": "9:00–5:00",
+        "american-full": "9:00–5:00",
+        "british-dash": "9:00–5:00"
+      }
+    },
+    {
+      "input": "12:00-1:00",
+      "outputs": {
+        "american": "12:00–1:00",
+        "british": "12:00–1:00",
+        "german": "12:00–1:00",
+        "french": "12:00–1:00",
+        "none": "12:00–1:00",
+        "american-full": "12:00–1:00",
+        "british-dash": "12:00–1:00"
+      }
+    },
+    {
+      "input": "She asked, \"Why?\"",
+      "outputs": {
+        "american": "She asked, “Why?”",
+        "british": "She asked, “Why?”",
+        "german": "She asked, „Why?“",
+        "french": "She asked, « Why? »",
+        "none": "She asked, \"Why?\"",
+        "american-full": "She asked, “Why?”",
+        "british-dash": "She asked, “Why?”"
+      }
+    },
+    {
+      "input": "\"Really?\" he asked.",
+      "outputs": {
+        "american": "“Really?” he asked.",
+        "british": "“Really?” he asked.",
+        "german": "„Really?“ he asked.",
+        "french": "« Really? » he asked.",
+        "none": "\"Really?\" he asked.",
+        "american-full": "“Really?” he asked.",
+        "british-dash": "“Really?” he asked."
+      }
+    },
+    {
+      "input": "He shouted, \"Stop!\"",
+      "outputs": {
+        "american": "He shouted, “Stop!”",
+        "british": "He shouted, “Stop!”",
+        "german": "He shouted, „Stop!“",
+        "french": "He shouted, « Stop! »",
+        "none": "He shouted, \"Stop!\"",
+        "american-full": "He shouted, “Stop!”",
+        "british-dash": "He shouted, “Stop!”"
+      }
+    },
+    {
+      "input": "\"Are you sure?\", she said.",
+      "outputs": {
+        "american": "“Are you sure?”, she said.",
+        "british": "“Are you sure?”, she said.",
+        "german": "„Are you sure?“, she said.",
+        "french": "« Are you sure? », she said.",
+        "none": "\"Are you sure?\", she said.",
+        "american-full": "“Are you sure?”, she said.",
+        "british-dash": "“Are you sure?”, she said."
+      }
+    },
+    {
+      "input": "\"He said, 'Hello.'\"",
+      "outputs": {
+        "american": "“He said, ‘Hello.’”",
+        "british": "“He said, ‘Hello’”.",
+        "german": "„He said, ‚Hello‘“.",
+        "french": "« He said, ‘Hello’ ».",
+        "none": "\"He said, 'Hello.'\"",
+        "american-full": "“He said, ‘Hello.’”",
+        "british-dash": "“He said, ‘Hello’”."
+      }
+    },
+    {
+      "input": "\"She replied, 'No way!'\"",
+      "outputs": {
+        "american": "“She replied, ‘No way!’”",
+        "british": "“She replied, ‘No way!’”",
+        "german": "„She replied, ‚No way!‘“",
+        "french": "« She replied, ‘No way!’ »",
+        "none": "\"She replied, 'No way!'\"",
+        "american-full": "“She replied, ‘No way!’”",
+        "british-dash": "“She replied, ‘No way!’”"
+      }
+    },
+    {
+      "input": "He said: \"Hello.\"",
+      "outputs": {
+        "american": "He said: “Hello.”",
+        "british": "He said: “Hello”.",
+        "german": "He said: „Hello“.",
+        "french": "He said: « Hello ».",
+        "none": "He said: \"Hello.\"",
+        "american-full": "He said: “Hello.”",
+        "british-dash": "He said: “Hello”."
+      }
+    },
+    {
+      "input": "The sign read: \"Stop\"",
+      "outputs": {
+        "american": "The sign read: “Stop”",
+        "british": "The sign read: “Stop”",
+        "german": "The sign read: „Stop“",
+        "french": "The sign read: « Stop »",
+        "none": "The sign read: \"Stop\"",
+        "american-full": "The sign read: “Stop”",
+        "british-dash": "The sign read: “Stop”"
+      }
+    },
+    {
+      "input": "\"Wait--\" she began.",
+      "outputs": {
+        "american": "“Wait—” she began.",
+        "british": "“Wait—” she began.",
+        "german": "„Wait—“ she began.",
+        "french": "« Wait— » she began.",
+        "none": "\"Wait—\" she began.",
+        "american-full": "“Wait—” she began.",
+        "british-dash": "“Wait – \" she began."
+      }
+    },
+    {
+      "input": "\"I was going to say--\" he paused.",
+      "outputs": {
+        "american": "“I was going to say—” he paused.",
+        "british": "“I was going to say—” he paused.",
+        "german": "„I was going to say—“ he paused.",
+        "french": "« I was going to say— » he paused.",
+        "none": "\"I was going to say—\" he paused.",
+        "american-full": "“I was going to say—” he paused.",
+        "british-dash": "“I was going to say – \" he paused."
+      }
+    },
+    {
+      "input": "1.5-2.5",
+      "outputs": {
+        "american": "1.5–2.5",
+        "british": "1.5–2.5",
+        "german": "1.5–2.5",
+        "french": "1.5–2.5",
+        "none": "1.5–2.5",
+        "american-full": "1.5–2.5",
+        "british-dash": "1.5–2.5"
+      }
+    },
+    {
+      "input": "0.25-0.75",
+      "outputs": {
+        "american": "0.25–0.75",
+        "british": "0.25–0.75",
+        "german": "0.25–0.75",
+        "french": "0.25–0.75",
+        "none": "0.25–0.75",
+        "american-full": "0.25–0.75",
+        "british-dash": "0.25–0.75"
+      }
+    },
+    {
+      "input": "pH 7.0-7.4",
+      "outputs": {
+        "american": "pH 7.0–7.4",
+        "british": "pH 7.0–7.4",
+        "german": "pH 7.0–7.4",
+        "french": "pH 7.0–7.4",
+        "none": "pH 7.0–7.4",
+        "american-full": "pH 7.0–7.4",
+        "british-dash": "pH 7.0–7.4"
+      }
+    },
+    {
+      "input": "The board is 8'.",
+      "outputs": {
+        "american": "The board is 8′.",
+        "british": "The board is 8′.",
+        "german": "The board is 8′.",
+        "french": "The board is 8′.",
+        "none": "The board is 8'.",
+        "american-full": "The board is 8′.",
+        "british-dash": "The board is 8′."
+      }
+    },
+    {
+      "input": "He's 6'2\".",
+      "outputs": {
+        "american": "He’s 6′2″.",
+        "british": "He’s 6′2″.",
+        "german": "He’s 6′2″.",
+        "french": "He’s 6′2″.",
+        "none": "He's 6'2\".",
+        "american-full": "He’s 6′2″.",
+        "british-dash": "He’s 6′2″."
+      }
+    },
+    {
+      "input": "5m x 5m",
+      "outputs": {
+        "american": "5m × 5m",
+        "british": "5m × 5m",
+        "german": "5m × 5m",
+        "french": "5m × 5m",
+        "none": "5m × 5m",
+        "american-full": "5m × 5m",
+        "british-dash": "5m × 5m"
+      }
+    },
+    {
+      "input": "10cm x 20cm",
+      "outputs": {
+        "american": "10cm × 20cm",
+        "british": "10cm × 20cm",
+        "german": "10cm × 20cm",
+        "french": "10cm × 20cm",
+        "none": "10cm × 20cm",
+        "american-full": "10cm × 20cm",
+        "british-dash": "10cm × 20cm"
+      }
+    },
+    {
+      "input": "210mm x 297mm paper",
+      "outputs": {
+        "american": "210mm × 297mm paper",
+        "british": "210mm × 297mm paper",
+        "german": "210mm × 297mm paper",
+        "french": "210mm × 297mm paper",
+        "none": "210mm × 297mm paper",
+        "american-full": "210mm × 297mm paper",
+        "british-dash": "210mm × 297mm paper"
+      }
+    },
+    {
+      "input": "5 m x 5 m",
+      "outputs": {
+        "american": "5 m × 5 m",
+        "british": "5 m × 5 m",
+        "german": "5 m × 5 m",
+        "french": "5 m × 5 m",
+        "none": "5 m × 5 m",
+        "american-full": "5 m × 5 m",
+        "british-dash": "5 m × 5 m"
+      }
+    },
+    {
+      "input": "1920px x 1080px",
+      "outputs": {
+        "american": "1920px × 1080px",
+        "british": "1920px × 1080px",
+        "german": "1920px × 1080px",
+        "french": "1920px × 1080px",
+        "none": "1920px × 1080px",
+        "american-full": "1920px × 1080px",
+        "british-dash": "1920px × 1080px"
+      }
+    },
+    {
+      "input": "5ft x 10ft",
+      "outputs": {
+        "american": "5ft × 10ft",
+        "british": "5ft × 10ft",
+        "german": "5ft × 10ft",
+        "french": "5ft × 10ft",
+        "none": "5ft × 10ft",
+        "american-full": "5ft × 10ft",
+        "british-dash": "5ft × 10ft"
+      }
+    },
+    {
+      "input": "desk 120 cm x 60 cm x 75 cm",
+      "outputs": {
+        "american": "desk 120 cm × 60 cm × 75 cm",
+        "british": "desk 120 cm × 60 cm × 75 cm",
+        "german": "desk 120 cm × 60 cm × 75 cm",
+        "french": "desk 120 cm × 60 cm × 75 cm",
+        "none": "desk 120 cm × 60 cm × 75 cm",
+        "american-full": "desk 120 cm × 60 cm × 75 cm",
+        "british-dash": "desk 120 cm × 60 cm × 75 cm"
+      }
+    }
+  ]
+}

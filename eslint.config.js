@@ -28,11 +28,12 @@ export default tseslint.config(
     },
   },
   {
-    files: ["*.mjs"],
+    files: ["*.mjs", "scripts/*.mjs"],
     languageOptions: {
       globals: {
         console: "readonly",
         performance: "readonly",
+        process: "readonly",
       },
     },
   },
