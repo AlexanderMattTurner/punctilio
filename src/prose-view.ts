@@ -121,6 +121,10 @@ class ProseViewImpl implements ProseView {
    * with a replacement starting at the same offset: the insertion's text lands
    * before the replaced span's text. Overlapping spans (and two pure
    * insertions at the same offset) are rejected.
+   *
+   * All edits are distributed in a single left-to-right pass that rebuilds
+   * each node's value once — per-edit string surgery would be quadratic on
+   * edit-dense input.
    */
   commit(): void {
     if (this.edits.length === 0) {
@@ -155,60 +159,70 @@ class ProseViewImpl implements ProseView {
       ends.push(cursor)
     }
 
-    // Apply right-to-left so earlier offsets stay valid as we mutate.
-    for (let i = sorted.length - 1; i >= 0; i--) {
-      this.applyEdit(sorted[i], starts, ends)
+    const text = this.cachedText
+    const parts: string[][] = this.nodes.map(() => [])
+
+    // Rolling copy state: kept text in [0, copiedUpTo) has been distributed.
+    let copiedUpTo = 0
+    let copyNode = 0
+    const copyUpTo = (target: number): void => {
+      while (copiedUpTo < target) {
+        while (copyNode < this.nodes.length - 1 && ends[copyNode] <= copiedUpTo) copyNode++
+        const sliceEnd = Math.min(target, ends[copyNode])
+        parts[copyNode].push(text.slice(copiedUpTo, sliceEnd))
+        copiedUpTo = sliceEnd
+      }
     }
+
+    for (const edit of sorted) {
+      copyUpTo(edit.start)
+      // Deleted spans are simply never copied; replacement/insertion text
+      // lands in the target node, whose parts are filled exactly up to
+      // `edit.start` at this point.
+      if (edit.text.length > 0) {
+        const targetIndex = edit.end > edit.start
+          ? this.nodeContainingChar(edit.start, ends)
+          : this.targetNodeForInsertion(edit, ends)
+        parts[targetIndex].push(edit.text)
+      }
+      if (edit.end > copiedUpTo) copiedUpTo = edit.end
+    }
+    copyUpTo(text.length)
+
+    this.nodes.forEach((node, index) => {
+      node.value = parts[index].join("")
+    })
 
     this.edits = []
     this.refresh()
   }
 
-  /** Index of the node whose span contains the character at `offset`. */
-  private nodeContainingChar(offset: number, starts: number[], ends: number[]): number {
-    for (let i = 0; i < this.nodes.length; i++) {
-      if (offset >= starts[i] && offset < ends[i]) return i
+  /**
+   * Index of the node whose span contains the character at `offset`: the
+   * first node whose end lies past the offset (binary search; empty nodes at
+   * the offset are skipped, matching a first-containing-span linear scan).
+   */
+  private nodeContainingChar(offset: number, ends: number[]): number {
+    let low = 0
+    let high = ends.length - 1
+    while (low < high) {
+      const mid = (low + high) >>> 1
+      if (ends[mid] <= offset) {
+        low = mid + 1
+      } else {
+        high = mid
+      }
     }
-    /* istanbul ignore next -- defensive: callers only pass offsets that fall within a node span */
-    return this.nodes.length - 1
+    return low
   }
 
-  private targetNodeForInsertion(edit: QueuedEdit, starts: number[], ends: number[]): number {
+  private targetNodeForInsertion(edit: QueuedEdit, ends: number[]): number {
     if (edit.bind === "left") {
       if (edit.start === 0) return 0
-      return this.nodeContainingChar(edit.start - 1, starts, ends)
+      return this.nodeContainingChar(edit.start - 1, ends)
     }
     if (edit.start === this.cachedText.length) return this.nodes.length - 1
-    return this.nodeContainingChar(edit.start, starts, ends)
-  }
-
-  private applyEdit(edit: QueuedEdit, starts: number[], ends: number[]): void {
-    const { start, end, text } = edit
-
-    // Decide where replacement/insertion text lands before mutating values.
-    const targetIndex = end > start
-      ? this.nodeContainingChar(start, starts, ends)
-      : this.targetNodeForInsertion(edit, starts, ends)
-    const insertOffsetInTarget = start - starts[targetIndex]
-
-    // Delete the intersection of [start, end) from every covered node.
-    for (let i = 0; i < this.nodes.length; i++) {
-      const delStart = Math.max(start, starts[i])
-      const delEnd = Math.min(end, ends[i])
-      if (delStart >= delEnd) continue
-      const node = this.nodes[i]
-      const localStart = delStart - starts[i]
-      const localEnd = delEnd - starts[i]
-      node.value = node.value.slice(0, localStart) + node.value.slice(localEnd)
-    }
-
-    // Insert replacement text into the target node. For replacements the
-    // deletion above removed [start, end) from the target, so `start` is the
-    // correct insertion point inside the (now shortened) target value.
-    if (text.length > 0) {
-      const target = this.nodes[targetIndex]
-      target.value = target.value.slice(0, insertOffsetInTarget) + text + target.value.slice(insertOffsetInTarget)
-    }
+    return this.nodeContainingChar(edit.start, ends)
   }
 }
 
