@@ -435,10 +435,14 @@ function mathSymbolsOverView(view: ProseView): void {
 /**
  * The `(?!=)` guard: the match is blocked when the forbidden character follows
  * through at most one boundary. Two or more boundaries put the character out of
- * reach (one boundary tolerated), so the match proceeds.
+ * reach (one boundary tolerated), so the match proceeds. `≈` blocks where `=`
+ * does: a later rule in this same pass folds `=~` to `≈`, consuming the `=`
+ * this guard keys on (`!==~` must stay blocked once it reads `!=≈`).
  */
 function mathLookaheadBlocks(text: string, view: ProseView, end: number, forbidden: string): boolean {
-  return text[end] === forbidden && boundaryCountAt(view, end) <= 1
+  const next = text[end]
+  const matches = next === forbidden || (forbidden === "=" && next === APPROXIMATE)
+  return matches && boundaryCountAt(view, end) <= 1
 }
 
 /**
@@ -463,9 +467,20 @@ const LEGAL_SYMBOL_CONTEXT_WINDOW = 25
 // characters of context, so boundary-dense markup exposes less of it.
 const BOUNDARY_CONTEXT_COST = 2
 
+// Vulgar fraction glyphs (½, ¾, …). A fraction folds from `n/m`, which the path
+// heuristic below reads as a path context — so the glyph must read the same way,
+// or `1/2(tm)` (blocked) would convert once fractions strips the slash to `½(tm)`.
+const FRACTION_GLYPH_RE = new RegExp(
+  `[${Object.entries(UNICODE_SYMBOLS)
+    .filter(([key]) => key.startsWith("FRACTION_"))
+    .map(([, glyph]) => glyph)
+    .join("")}]`,
+)
+
 const isPathContext = (before: string): boolean => {
   const parts = before.split(/\s+/)
   const trailing = parts[parts.length - 1]
+  if (FRACTION_GLYPH_RE.test(trailing)) return true
   const slashIdx = trailing.indexOf("/")
   return slashIdx >= 0 && slashIdx < trailing.length - 1
 }

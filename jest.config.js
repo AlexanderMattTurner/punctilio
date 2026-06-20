@@ -15,6 +15,8 @@ export default {
     ],
   },
   testMatch: ["**/*.test.ts"],
+  // Stryker copies the project (tests included) into its sandbox directory.
+  testPathIgnorePatterns: ["/node_modules/", "/\\.stryker-tmp/"],
   collectCoverage: true,
   // Jest defaults plus json-summary, which .github/scripts/coverage-badge.mjs
   // reads to publish the live coverage badge.

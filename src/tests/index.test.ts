@@ -574,7 +574,9 @@ describe("transform", () => {
   // backs that up at the pipeline level — it catches non-regex algorithmic
   // regressions and any composed-regex polynomial that recheck missed.
   describe("end-to-end runtime budget", () => {
-    it("transforms 200k chars of mixed pathological content under budget", () => {
+    // Stryker's instrumentation overhead makes wall-clock assertions meaningless, so skip under mutation runs.
+    const itOutsideStryker = process.env.STRYKER_RUN ? it.skip : it
+    itOutsideStryker("transforms 200k chars of mixed pathological content under budget", () => {
       const pathological =
         '"a"'.repeat(5_000) +              // quote stress
         "1" + "-1".repeat(5_000) +         // dash stress
@@ -594,10 +596,12 @@ describe("transform", () => {
       transformWithoutChecks(pathological, allFeatures)
       const elapsed = performance.now() - start
 
-      // Linear runtime on ~200k chars is sub-second on modern Node;
-      // quadratic blowup would push it past tens of seconds. 5s gives
-      // ~10× headroom for CI noise.
-      expect(elapsed).toBeLessThan(5_000)
+      // Linear runtime on ~200k chars takes ~0.5s on modern Node (the
+      // idempotency guards in placement and the dash rules cost a measured
+      // ~5x constant factor over the unguarded passes); quadratic blowup
+      // would push it past tens of seconds. 15s tolerates CI worker
+      // contention while still tripping on any polynomial regression.
+      expect(elapsed).toBeLessThan(15_000)
     })
   })
 

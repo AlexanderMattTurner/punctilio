@@ -16,6 +16,11 @@ const {
   NNBSP,
   PRIME,
   DOUBLE_PRIME,
+  DOUBLE_LOW_9_QUOTE,
+  ELLIPSIS,
+  MULTIPLICATION,
+  EM_DASH,
+  APPROXIMATE,
 } = UNICODE_SYMBOLS
 
 describe("quote classifier role-stream regressions", () => {
@@ -180,11 +185,72 @@ describe("classifier quirks carried over from v4", () => {
     )
   })
 
-  it("british outside-moves merge into one insertion after the quote run", () => {
-    // The period moves out first, then the comma lands between the closer and
-    // the period — both anchored at the same offset.
+  describe("fold-stable gates and placement guards", () => {
+    // Each output is a fixed point: rules that read characters a later pass
+    // folds (`×`, `≠`, `…`, superscripts) or that relocate punctuation decide
+    // the way a re-run of the rendered text would.
+    it.each<[string, PunctuationStyle, string]>([
+      // `!=` folds to `≠`, which is not an ending char: openers open past
+      // it, closers do not close on it (`!==` never folds and still blocks).
+      ['"!=x', "american", `${LEFT_DOUBLE_QUOTE}!=x`],
+      ['"!==x', "american", '"!==x'],
+      [`".'!=`, "german", `".${RIGHT_SINGLE_QUOTE}!=`],
+      // A spaced dot triple folds to `…`, which the opener arm reads through.
+      ['". . .x', "american", `${LEFT_DOUBLE_QUOTE}. . .x`],
+      // Inside moves: punctuation this pass relocates stops blocking the
+      // terminal lookbehind of later runs, and the movers iterate to a
+      // fixed point.
+      ['"".".', "american", `${LEFT_DOUBLE_QUOTE}.${RIGHT_DOUBLE_QUOTE}.${RIGHT_DOUBLE_QUOTE}`],
+      ['"",".', "american", `${LEFT_DOUBLE_QUOTE},${RIGHT_DOUBLE_QUOTE}.${RIGHT_DOUBLE_QUOTE}`],
+      // Inside moves stay put when the landing or removal site would re-read
+      // differently: completing `'s` + ending, completing a dot triple, or
+      // vacating the `.` that blocks a number range.
+      [`".'s'.`, "american", `".'s${RIGHT_SINGLE_QUOTE}.`],
+      [`".. '.`, "american", `".. ${RIGHT_SINGLE_QUOTE}.`],
+      [`'.3-3`, "american", `${RIGHT_SINGLE_QUOTE}.3-3`],
+      // Outside moves: `…` blocks the movable-punctuation chain guards like
+      // the dots it folds from; interleaved period+closer pairs don't cascade.
+      [`x."${ELLIPSIS}`, "british", `x.${RIGHT_DOUBLE_QUOTE}${ELLIPSIS}`],
+      [`${ELLIPSIS},"`, "british", `${ELLIPSIS},${RIGHT_DOUBLE_QUOTE}`],
+      [`.'.'`, "british", `.${RIGHT_SINGLE_QUOTE}${RIGHT_SINGLE_QUOTE}.`],
+      // German re-derivation guards: moves that would strip a single
+      // closer's ending context, create a plural-possessive reading, or
+      // expose an opener prefix stay put; input U+02BC re-derives like the
+      // U+2019 it renders to; folded `×` reads as the letter it folds from.
+      [`"a'.'`, "german", `${DOUBLE_LOW_9_QUOTE}a${LEFT_SINGLE_QUOTE}.${LEFT_SINGLE_QUOTE}`],
+      [`as.'`, "german", `as.${LEFT_SINGLE_QUOTE}`],
+      [`-."`, "german", `-.${LEFT_DOUBLE_QUOTE}`],
+      [`x${MODIFIER_LETTER_APOSTROPHE}y`, "german", `x${RIGHT_SINGLE_QUOTE}y`],
+      [`"3${MULTIPLICATION}''`, "german", `${DOUBLE_LOW_9_QUOTE}3${MULTIPLICATION}'${RIGHT_SINGLE_QUOTE}`],
+      // French NNBSP padding: adjacent NBSPs absorb into the guillemet
+      // render instead of oscillating with collapseSpaces, a space after a
+      // classified opener reads as the opener, and the outside mover sees
+      // through the space a padded closer will absorb.
+      [`" "${EM_DASH}`, "french", `${LEFT_GUILLEMET}${NNBSP} ${NNBSP}${RIGHT_GUILLEMET}${EM_DASH}`],
+      [`"a${NBSP}"`, "french", `${LEFT_GUILLEMET}${NNBSP}a${NNBSP}${RIGHT_GUILLEMET}`],
+      [`"${NBSP}a"`, "french", `${LEFT_GUILLEMET}${NNBSP}a${NNBSP}${RIGHT_GUILLEMET}`],
+      [`${LEFT_GUILLEMET}a. ${RIGHT_GUILLEMET}`, "french", `${LEFT_GUILLEMET}${NNBSP}a ${NNBSP}${RIGHT_GUILLEMET}.`],
+    ])("%s (%s) renders a fixed point", (input, style, expected) => {
+      const once = niceQuotes(input, { punctuationStyle: style })
+      expect(once).toBe(expected)
+      expect(niceQuotes(once, { punctuationStyle: style })).toBe(once)
+    })
+
+    it("a boundary stranded by a fold fails the opener prefix; an ordinary char before it passes", () => {
+      // `~=` folds to `≈` consuming the junction boundary, so pass 1 (which
+      // read the blocking `=` in the prefix slot) must agree with the re-run.
+      expect(viewTransform((view) => niceQuotes(view), `${APPROXIMATE}${SEP}"x`)).toBe(`${APPROXIMATE}${SEP}"x`)
+      expect(viewTransform((view) => niceQuotes(view), `x!${SEP}"y`)).toBe(`x!${SEP}"y`)
+      expect(viewTransform((view) => niceQuotes(view), `a${SEP}"x`)).toBe(`a${SEP}${LEFT_DOUBLE_QUOTE}x`)
+    })
+  })
+
+  it("british chained movable punctuation stays in place before the closer", () => {
+    // Moving the period out would leave the comma group-adjacent to the run,
+    // and the next run would move it too (one mark per run, a cascade); the
+    // chain guard keeps both marks where they are.
     expect(niceQuotes('x,."', { punctuationStyle: "british" })).toBe(
-      `x${RIGHT_DOUBLE_QUOTE},.`
+      `x,.${RIGHT_DOUBLE_QUOTE}`
     )
   })
 
@@ -216,5 +282,106 @@ describe("fuzz: transform is a fixed point on mixed content", () => {
         )
       }
     }
+  })
+})
+
+describe("placement and opener stability across boundaries", () => {
+  // Each case pins the fixed point of a fold/boundary configuration: the
+  // first application must already produce the state a re-run reproduces.
+  it.each([
+    // The period's node empties if it moves, stacking two boundaries after
+    // the closer; the leading-apostrophe scan then stops reading it as a
+    // closer, so the period stays put.
+    [`~'}'${SEP}.${SEP}`, `~'}${RIGHT_SINGLE_QUOTE}${SEP}.${SEP}`],
+    // Same shape with a non-ending follower after the period.
+    [`~'}'${SEP}.2`, `~'}${RIGHT_SINGLE_QUOTE}${SEP}.2`],
+    // An ending follower keeps the run a closer for the scan, so the period
+    // moves inside as usual.
+    [`~'}'${SEP}.,`, `~'}.${RIGHT_SINGLE_QUOTE}${SEP},`],
+    // Terminal punctuation blocks the inside move through one boundary, the
+    // slot a ligature fold can pull it across.
+    [`${UNICODE_SYMBOLS.QUESTION_EXCLAMATION}${SEP}",`, `${UNICODE_SYMBOLS.QUESTION_EXCLAMATION}${SEP}${RIGHT_DOUBLE_QUOTE},`],
+    // A `!` behind one boundary marks a fold-stranded opener prefix (the
+    // ligature pass folds `!`-runs across the edge), blocking the opener.
+    [`!${SEP}!${SEP}""${SEP}`, `!${SEP}!${SEP}"${RIGHT_DOUBLE_QUOTE}${SEP}`],
+    // The stranded-prefix lookbehind reads through stacked boundaries left
+    // by emptied nodes.
+    [`!${SEP}${SEP}""${SEP}`, `!${SEP}${SEP}"${RIGHT_DOUBLE_QUOTE}${SEP}`],
+    // A dot triple split as `.` + boundary + `..` folds to an ellipsis, so
+    // the closer reads its ending context through the gap.
+    [`x".${SEP}..`, `x${RIGHT_DOUBLE_QUOTE}.${SEP}..`],
+    // A double-only closing run is no closer for the single-quote scan, so
+    // the unresolved straight quote does not pin the period.
+    [`5'x${SEP}"q"${SEP}.2`, `5'x${SEP}${LEFT_DOUBLE_QUOTE}q${RIGHT_DOUBLE_QUOTE}${SEP}.2`],
+    [`5'x${SEP}"q"${SEP}.z`, `5'x${SEP}${LEFT_DOUBLE_QUOTE}q.${RIGHT_DOUBLE_QUOTE}${SEP}z`],
+    // A single trailing boundary keeps the run a closer for the re-run's
+    // scan, so the period still moves inside.
+    [`~'}'${SEP}.`, `~'}.${RIGHT_SINGLE_QUOTE}${SEP}`],
+    // Two stacked boundaries hide the dot from the terminal lookbehind; the
+    // landing-site dot-gap probe then reads through the boundary pair.
+    [`q.${SEP}${SEP}".`, `q.${SEP}${SEP}.${RIGHT_DOUBLE_QUOTE}`],
+  ])("niceQuotes(%j) === %j", (input, expected) => {
+    const once = viewTransform(niceQuotes, input, SEP)
+    expect(once).toBe(expected)
+    expect(viewTransform(niceQuotes, once, SEP)).toBe(expected)
+  })
+})
+
+describe("fold-stability of the != / ellipsis / possessive guards", () => {
+  const { DOUBLE_PRIME } = UNICODE_SYMBOLS
+
+  // A `"` whose following `!=` folds to `≠` (not an ending context) is not a
+  // closing double, and a digit-led `"` candidate folds to a double prime
+  // there rather than closing. Both decisions survive the `!=` → `≠` fold.
+  it.each([
+    [`x"!=y`, `x"!=y`],
+    [`5"!=y`, `5${DOUBLE_PRIME}!=y`],
+  ])("niceQuotes(%j) === %j", (input, expected) => {
+    expect(niceQuotes(input)).toBe(expected)
+    expect(niceQuotes(expected)).toBe(expected)
+  })
+
+  // An unresolved straight single quote pins a single closer's run; a `!=`
+  // (folding to `≠`) after the period is no ending context, so the post-move
+  // lookahead blocks the inside move.
+  it("blocks the inside move when the post-move follower folds to not-equal", () => {
+    const input = `~'}'${SEP}.!=2`
+    const once = viewTransform(niceQuotes, input, SEP)
+    expect(once).toBe(`~'}${UNICODE_SYMBOLS.RIGHT_SINGLE_QUOTE}${SEP}.!=2`)
+    expect(viewTransform(niceQuotes, once, SEP)).toBe(once)
+  })
+
+  // French: a straight `"` one space after the opening guillemet absorbs into
+  // the opener as a closer candidate.
+  it.each([
+    `${UNICODE_SYMBOLS.LEFT_GUILLEMET} "x`,
+    // A straight quote in the absorbed-opener slot whose ending context makes
+    // it a closer reads as a closing guillemet.
+    `${UNICODE_SYMBOLS.LEFT_GUILLEMET} ".`,
+  ])("french reads a straight quote after the opener padding as a closer slot: %j", (input) => {
+    const once = niceQuotes(input, { punctuationStyle: "french" })
+    expect(niceQuotes(once, { punctuationStyle: "french" })).toBe(once)
+  })
+
+  // More multi-node placement/prime fixed points pinning specific guards: a
+  // backward dot-gap probe across a boundary, the post-move two-boundary
+  // lookahead budget, a digit-led prime candidate whose `!=` follower folds
+  // to `≠`, and a terminal lookbehind that skips a moved period behind the
+  // fold-transparent boundary.
+  it.each([
+    [`'.${SEP}".`, `.${RIGHT_SINGLE_QUOTE}${SEP}.${RIGHT_DOUBLE_QUOTE}`],
+    [`~'}'${SEP}.${SEP}${SEP}z`, `~'}${RIGHT_SINGLE_QUOTE}${SEP}.${SEP}${SEP}z`],
+    [`("5"!=3)`, `(${LEFT_DOUBLE_QUOTE}5${UNICODE_SYMBOLS.DOUBLE_PRIME}!=3)`],
+    [`'.${SEP}"`, `.${RIGHT_SINGLE_QUOTE}${SEP}${RIGHT_DOUBLE_QUOTE}`],
+    // A dash directly after the period is a wall: the minus rule reads the
+    // char left of the hyphen, and the moved period would change it.
+    [`'.-2`, `${RIGHT_SINGLE_QUOTE}.-2`],
+    // The decade-elision gate reads a folded word glyph like the word char
+    // it folds from, so the apostrophe call is stable across the fold.
+    [`{'39${UNICODE_SYMBOLS.MULTIPLICATION}${SEP}'`, `{'39${UNICODE_SYMBOLS.MULTIPLICATION}${SEP}${RIGHT_SINGLE_QUOTE}`],
+  ])("niceQuotes(%j) === %j", (input, expected) => {
+    const once = viewTransform(niceQuotes, input, SEP)
+    expect(once).toBe(expected)
+    expect(viewTransform(niceQuotes, once, SEP)).toBe(expected)
   })
 })
