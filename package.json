@@ -54,6 +54,7 @@
     "lint": "eslint src",
     "benchmark": "pnpm run build && node benchmark.mjs",
     "mutation": "STRYKER_RUN=1 stryker run",
+    "mutation:changed": "node scripts/mutate-changed.mjs",
     "prepare": "if [ -d src ]; then tsc; else true; fi",
     "prepublishOnly": "pnpm run build && pnpm run test"
   },

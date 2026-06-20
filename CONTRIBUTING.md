@@ -18,6 +18,7 @@ pnpm lint        # ESLint over src/
 pnpm benchmark   # build, then run benchmark.mjs against competitor libraries
 pnpm build       # tsc
 pnpm mutation    # Stryker mutation testing (slow; CI runs it weekly)
+pnpm mutation:changed   # Stryker over only the files changed on this branch
 ```
 
 ## Testing
