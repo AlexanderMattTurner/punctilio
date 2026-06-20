@@ -247,6 +247,16 @@ function matchContainsBoundary(match: RegExpExecArray, view: ProseView): boolean
   return false
 }
 
+/** Count of node boundaries that fall at exactly `offset` (empty nodes stack). */
+export function boundaryCountAt(view: ProseView, offset: number): number {
+  let count = 0
+  for (const boundary of view.boundaries) {
+    if (boundary === offset) count++
+    else if (boundary > offset) break
+  }
+  return count
+}
+
 export function replaceAllInView(
   view: ProseView,
   regex: RegExp,
@@ -279,6 +289,26 @@ export function replaceAllInView(
 
     view.replace(match.index, match.index + match[0].length, replacement, bind ? { bind } : undefined)
   }
+}
+
+/**
+ * Splits sentinel-marked text on the separator, builds a ProseView over the
+ * fragments, runs `run` against the clean-text view, commits the queued edits,
+ * and rejoins the fragments with the separator. The separator count is
+ * preserved exactly: each fragment maps to one source node, and `commit()`
+ * never creates or destroys node boundaries.
+ */
+export function withProseView(
+  markedText: string,
+  separator: string,
+  run: (view: ProseView) => void,
+): string {
+  const fragments = separator.length > 0 ? markedText.split(separator) : [markedText]
+  const nodes: ProseNode[] = fragments.map((value) => ({ value }))
+  const view = buildProseView(nodes)
+  run(view)
+  view.commit()
+  return nodes.map((node) => node.value).join(separator)
 }
 
 export function runLegacyPass(

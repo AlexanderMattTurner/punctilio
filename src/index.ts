@@ -34,6 +34,7 @@ export {
   replaceAllInView,
   type ReplaceAllOptions,
   runLegacyPass,
+  withProseView,
 } from "./prose-view.js"
 export { classifyApostrophes, niceQuotes, PUNCTUATION_STYLES, type PunctuationStyle, type QuoteOptions } from "./quotes.js"
 
