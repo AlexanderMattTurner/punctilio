@@ -491,6 +491,16 @@ describe("transform", () => {
       expect(second).toBe(first)
     })
 
+    // The superscript pass turns trailing ordinal letters (st/nd/rd/th) into
+    // non-word superscripts, which can flip a range's trailing word boundary.
+    it.each([
+      "5--1st",
+      "items 1-52nd",
+    ])('range abutting a superscript ordinal is idempotent: "%s"', (input) => {
+      const first = transform(input, { superscript: true })
+      expect(transform(first, { superscript: true })).toBe(first)
+    })
+
     it.each([
       `${LEFT_DOUBLE_QUOTE}Hello${RIGHT_DOUBLE_QUOTE}`,
       `word${EM_DASH}word`,

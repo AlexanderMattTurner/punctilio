@@ -359,6 +359,7 @@ describe("enDashNumberRange preserves", () => {
     "2024-01-15", "2024-01", "1999-12", // ISO dates
     "192-168-1-1", "12-34-5678", // IPs
     `5${UNICODE_SYMBOLS.MULTIPLICATION}10-20`, `2${UNICODE_SYMBOLS.MULTIPLICATION}5-10`, // × (from "x") before a range start: a multiplication operand, not a range
+    `1-55${UNICODE_SYMBOLS.MULTIPLICATION}5`, `10-20${UNICODE_SYMBOLS.MULTIPLICATION}3`, // × after a range end: the trailing side
     `${UNICODE_SYMBOLS.PLUS_MINUS}1-5`, // ± (from "+/-") before a range start: not a range
   ])('"%s"', (input) => {
     expect(enDashNumberRange(input)).toBe(input)
