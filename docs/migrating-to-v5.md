@@ -1,9 +1,75 @@
 # Migrating to v5
 
-v5 removes the sentinel-separator architecture. Passes no longer weave a
-marker character through flattened text; they run over a _ProseView_ — a
-boundary-aware view of an element's text nodes — and commit offset edits back
-onto the source nodes. For most consumers the visible changes are:
+## Main takeaways
+
+**If you only call `transform()`, the CLI, or the `rehype`/`remark`/`markdown`
+plugins with their default options, you don't need to change anything.** v5's
+output is byte-identical to v4 except for two deliberate quote fixes (below),
+so for most consumers upgrading is just bumping the version.
+
+You only need to make changes if you touched punctilio's internals. Use this
+table to find out:
+
+| Did you… | Then in v5… |
+| --- | --- |
+| set the `separator` option anywhere? | Delete it — it no longer exists (and isn't needed). |
+| set `checkIdempotency`? | Delete it — the option is gone. |
+| call `primeMarks` (usually before `niceQuotes`)? | Delete the `primeMarks` call — `niceQuotes` now does primes itself. Pass `primes: false` to opt out. |
+| import a single rule like `ellipsis`, `fractions`, `arrows`, `minusReplace`, or an `nbspAfter…` helper? | Use the composed pass (`symbolTransform`, `nbspTransform`, `hyphenReplace`) or the matching `transform()` option instead — see the [removed-exports tables](#5-removed-symbols-and-replacements). |
+| call `transformElement(...)` to process your own HTML nodes? | Switch to [`applyPasses(element, passes, options)`](#1-sentinel--marker-character-removal). |
+| run your own regexes over punctilio's flattened text? | Wrap each one in [`definePass`](#2-site-specific-regexes--definepass). |
+
+The two intentional output changes (both restoring more correct behavior):
+
+1. A straight double quote that merely starts a text node (e.g. right after
+   `</a>`) now **closes** instead of opening, when a later quote pair follows
+   in the same block.
+2. A quoted multi-digit number like `'37'` is a **quote pair** again, not a
+   decade elision — restoring the pre-4.1.1 output.
+
+That's everything a consumer needs. The rest of this document explains the
+underlying change and gives precise before/after recipes for each case.
+
+## Why it changed (optional background)
+
+**The problem.** Punctilio often transforms text that HTML has split across
+several text nodes — the word in `so<em>met</em>hing`, for example, is three
+separate nodes. A rule like curly-quoting or dash conversion has to read the
+whole string `something` to decide correctly, but then it has to write each
+edit back into the _right_ original node. So every rule needs two things at
+once: one combined string to read, and a way to map any position in that
+string back to the node it came from.
+
+**The v4 answer: a marker character (the "sentinel").** Punctilio glued the
+nodes into one string, inserting a special marker character at each node
+boundary — a stand-in that means "a node edge is here." Rules ran over that
+glued string, and afterward punctilio split on the marker to hand each
+node back its share of the edited text.
+
+The trouble is that the boundary was now a real character living _inside_ the
+text, and that's fragile in three ways:
+
+- it can **collide** with a marker character that was already in the content;
+- it can **leak** into the output if a rule fails to strip it;
+- it can be **miscounted** when a rule's match spans it, throwing off the
+  split that maps text back to nodes.
+
+**The v5 answer: a ProseView.** v5 deletes the marker. A rule still reads one
+combined string, but the node boundaries now live _beside_ the string as a
+list of numeric positions (offsets), not as characters within it. The view
+answers "which node does offset _N_ belong to?" by arithmetic, and a rule
+expresses an edit as "replace characters _X_–_Y_," which the view commits onto
+the underlying nodes.
+
+Because a boundary is a position rather than a character, it simply can't
+collide, leak, or be miscounted — the three failure modes are gone by
+construction. Everything else in this guide — `applyPasses` owning the view,
+`definePass` asking what to do when a match crosses a boundary, `PassEntry`
+skip sets — follows from that one shift.
+
+## Detailed migration reference
+
+The breaking changes in full:
 
 1. [`transformElement` and marker characters are gone](#1-sentinel--marker-character-removal) — use `applyPasses`.
 2. [Custom regexes become passes via `definePass`](#2-site-specific-regexes--definepass), with an explicit per-pattern boundary decision.
@@ -11,13 +77,6 @@ onto the source nodes. For most consumers the visible changes are:
 4. [`primeMarks` is folded into `niceQuotes`](#4-standalone-primemarks--nicequotes).
 5. [Several symbols and helpers were removed](#5-removed-symbols-and-replacements).
 6. [Per-rule sub-passes left the root export](#6-sub-passes-left-the-root-contract).
-
-Default-option `transform()` output is byte-identical to v4, with two
-deliberate classifier fixes: a straight double quote that merely starts a
-node (e.g. directly after `</a>`) now closes instead of opening when a later
-quote pair follows in the same block, and a quoted multi-digit number like
-`'37'` is a quote pair again rather than a decade elision (restoring the
-pre-4.1.1 output).
 
 ## 1. Sentinel / marker-character removal
 

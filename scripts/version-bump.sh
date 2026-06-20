@@ -239,48 +239,56 @@ fi
 log "$PUBLISH_OUTPUT"
 log "✅ Published $PACKAGE_NAME@$NEW_VERSION"
 
+# Pin the README's pre-commit `rev:` to this release so the documented version
+# never lags behind what's published. The helper touches only the line inside
+# punctilio's own pre-commit repo block, and warns rather than failing the
+# (already-published) release if it can't find that block.
+if [ -f README.md ]; then
+  NEW_VERSION="$NEW_VERSION" pnpm exec tsx scripts/pin-readme-rev.ts
+fi
+
 # Promote "## Unreleased" to a dated version section in CHANGELOG.md, using
-# the drafted body. Committed back to main so users see the release notes
-# in the repo. Tag is created AFTER this commit (and only if the commit reached
-# main) so HEAD == tag SHA and the resulting push doesn't re-trigger this
-# workflow meaningfully — the next run sees "HEAD is already tagged" and exits.
-CHANGELOG_PUSH_FAILED=0
+# the drafted body.
 if [ -f CHANGELOG.md ] && [ -n "$CHANGELOG_SECTION" ]; then
   RELEASE_DATE=$(date -u +%Y-%m-%d)
   NEW_VERSION="$NEW_VERSION" \
   RELEASE_DATE="$RELEASE_DATE" \
   CHANGELOG_SECTION="$CHANGELOG_SECTION" \
     pnpm exec tsx scripts/promote-changelog.ts
+fi
 
-  # Commit only CHANGELOG.md; package.json stays dirty (npm is the source of
-  # truth for version). Use a bot identity and `[skip ci]` so the resulting
-  # push doesn't spawn another workflow run.
-  git config user.name "github-actions[bot]"
-  git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-  if git diff --quiet CHANGELOG.md; then
-    log "No CHANGELOG.md changes to commit."
-  else
-    git add CHANGELOG.md
-    git commit -m "docs(changelog): release $NEW_VERSION [skip ci]"
-    # Push to main explicitly so this works whether actions/checkout left us on
-    # a branch or in detached HEAD state.
-    if ! git push origin HEAD:main; then
-      log "⚠️ Failed to push CHANGELOG update. Release was published; CHANGELOG can be updated manually."
-      CHANGELOG_PUSH_FAILED=1
-    fi
+# Commit the release docs (CHANGELOG entry + README rev pin) back to main so
+# users see the release notes and an up-to-date pre-commit pin. package.json
+# stays dirty (npm is the source of truth for version). A bot identity and
+# `[skip ci]` keep the resulting push from spawning another workflow run. The
+# tag is created AFTER this commit (and only if it reached main) so HEAD == tag
+# SHA and the next run sees "HEAD is already tagged" and exits.
+RELEASE_DOCS_PUSH_FAILED=0
+git config user.name "github-actions[bot]"
+git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+if git diff --quiet -- CHANGELOG.md README.md; then
+  log "No release-docs changes to commit."
+else
+  git add -- CHANGELOG.md README.md
+  git commit -m "docs: release $NEW_VERSION [skip ci]"
+  # Push to main explicitly so this works whether actions/checkout left us on
+  # a branch or in detached HEAD state.
+  if ! git push origin HEAD:main; then
+    log "⚠️ Failed to push release-docs update. Release was published; docs can be updated manually."
+    RELEASE_DOCS_PUSH_FAILED=1
   fi
 fi
 
-# Tag only when the CHANGELOG commit (if any) actually reached main. Otherwise
-# the local HEAD is an orphan commit that nobody can see, and tagging it would
-# leave v$NEW_VERSION pointing at a SHA outside the main-branch history.
-if [ "$CHANGELOG_PUSH_FAILED" = "1" ]; then
-  log "⚠️ Skipping tag v$NEW_VERSION because the CHANGELOG commit did not reach main."
-  log "    Release was published to npm; reconcile by pushing the CHANGELOG commit and tagging manually."
+# Tag only when the release-docs commit (if any) actually reached main.
+# Otherwise the local HEAD is an orphan commit that nobody can see, and tagging
+# it would leave v$NEW_VERSION pointing at a SHA outside the main-branch history.
+if [ "$RELEASE_DOCS_PUSH_FAILED" = "1" ]; then
+  log "⚠️ Skipping tag v$NEW_VERSION because the release-docs commit did not reach main."
+  log "    Release was published to npm; reconcile by pushing the release-docs commit and tagging manually."
   exit 1
 fi
 
 # Tag the release for future commit range detection. Tag HEAD (which now
-# includes the CHANGELOG commit, if any) so a re-trigger sees HEAD == tag SHA.
+# includes the release-docs commit, if any) so a re-trigger sees HEAD == tag SHA.
 git tag "v$NEW_VERSION"
 git push origin "v$NEW_VERSION" || log "⚠️ Failed to push tag v$NEW_VERSION. Next run may re-analyze these commits."

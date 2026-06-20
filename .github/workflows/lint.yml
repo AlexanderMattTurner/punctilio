@@ -19,6 +19,9 @@ jobs:
       - name: Run ESLint
         run: pnpm lint
 
+      - name: Typecheck release scripts
+        run: pnpm typecheck:scripts
+
       - name: Check GitHub Actions are SHA-pinned
         run: |
           UNPINNED=$(grep -rn 'uses:.*@v[0-9]' .github/workflows/ .github/actions/ || true)
