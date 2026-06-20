@@ -3,7 +3,8 @@ import type { Transformer } from "unified"
 
 import { visitParents } from "unist-util-visit-parents"
 
-import { TRANSFORM_OPTION_KEYS, type TransformOptions, transformView } from "./index.js"
+import { transformView } from "./index.js"
+import { TRANSFORM_OPTION_KEYS, type TransformOptions } from "./transform-options.js"
 import { MAX_RECURSION_DEPTH } from "./constants.js"
 import { buildProseView } from "./prose-view.js"
 import { assertKnownOptionKeys } from "./utils.js"
