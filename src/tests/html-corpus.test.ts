@@ -5,7 +5,7 @@
  * the four punctuation styles.
  *
  * A failure means transformHtml output changed. If the change is intentional,
- * regenerate via `node scripts/generate-golden.mjs` AND enumerate the
+ * regenerate via `node scripts/generate-html-corpus.mjs` AND enumerate the
  * before/after diff in the PR description. Never regenerate to silence a failure
  * you do not understand.
  */
@@ -30,12 +30,12 @@ interface Corpus {
 }
 
 const corpus: Corpus = JSON.parse(
-  readFileSync(resolve(__dirname, "golden/corpus.json"), "utf8")
+  readFileSync(resolve(__dirname, "html-corpus/corpus.json"), "utf8")
 )
 
 const HTML_STYLES = corpus.htmlStyles
 
-describe("golden corpus — html", () => {
+describe("html corpus", () => {
   it.each(corpus.html)(
     "transformHtml($input)",
     async ({ input, outputs }) => {

@@ -79,7 +79,7 @@ const ROLE_BY_CHAR = new Map<string, Exclude<QuoteRole, "LITERAL">>([
  *
  * The boundary-tolerance behavior of the boundary items reproduces the
  * element-boundary semantics of the pre-v5 sentinel-marked pipeline (pinned by
- * the golden corpus and the migration's differential fuzz): boundary-transparent
+ * the HTML regression corpus and the migration's differential fuzz): boundary-transparent
  * rules skip them, and rules that treat a boundary as an ordinary non-space
  * character do so.
  */

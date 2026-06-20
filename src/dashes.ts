@@ -80,7 +80,7 @@ function pass(
 //
 // The boundary-tolerance positions throughout this module reproduce the
 // element-boundary semantics of the pre-v5 sentinel-marked pipeline; they are
-// pinned by the golden corpus and the migration's differential fuzz. Over a
+// pinned by the HTML regression corpus and the migration's differential fuzz. Over a
 // clean ProseView, `replaceAllInView` skips any match with an interior boundary
 // unless `allowBoundaries` opts in. Each pass below builds an `allowBoundaries`
 // callback that admits a match only when every interior boundary sits at a

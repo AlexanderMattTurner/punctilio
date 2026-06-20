@@ -95,8 +95,8 @@ const COPYRIGHT_SYMBOLS = `[${COPYRIGHT}${REGISTERED}${TRADEMARK}]`
 
 
 // The boundary-tolerance positions in this module reproduce the element-boundary
-// semantics of the pre-v5 sentinel-marked pipeline; they are pinned by the golden
-// corpus and the migration's differential fuzz.
+// semantics of the pre-v5 sentinel-marked pipeline; they are pinned by the HTML
+// regression corpus and the migration's differential fuzz.
 
 /**
  * A tolerated slot admits exactly ONE node boundary at that position; two

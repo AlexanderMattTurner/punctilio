@@ -1,9 +1,9 @@
 /**
- * Generates src/tests/golden/corpus.json — a forward regression snapshot of
- * boundary-composition behavior over nested inline HTML.
+ * Generates src/tests/html-corpus/corpus.json — a forward regression snapshot
+ * of boundary-composition behavior over nested inline HTML.
  *
  * Run after `pnpm build`:
- *   node scripts/generate-golden.mjs
+ *   node scripts/generate-html-corpus.mjs
  *
  * Regenerate only for an intentional change to HTML output, and enumerate the
  * before/after diff in the PR description.
@@ -130,7 +130,7 @@ async function generate() {
     html: htmlEntries,
   }
 
-  const outDir = join(repoRoot, "src/tests/golden")
+  const outDir = join(repoRoot, "src/tests/html-corpus")
   mkdirSync(outDir, { recursive: true })
   const outPath = join(outDir, "corpus.json")
   writeFileSync(outPath, JSON.stringify(corpus, null, 2) + "\n")

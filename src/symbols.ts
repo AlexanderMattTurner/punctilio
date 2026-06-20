@@ -36,7 +36,7 @@ const {
 
 // The boundary-tolerance positions throughout this module reproduce the
 // element-boundary semantics of the pre-v5 sentinel-marked pipeline; they are
-// pinned by the golden corpus and the migration's differential fuzz.
+// pinned by the HTML regression corpus and the migration's differential fuzz.
 
 /** Convert "..." or ". . ." to "…". */
 export const ellipsis = makeProsePass(ellipsisOverView)
