@@ -1,7 +1,7 @@
-import { countSeparators, DASH_STYLES, DEFAULT_SEPARATOR, PUNCTUATION_STYLES, TRANSFORM_OPTION_KEYS, type TransformOptions, transform as transformWithoutChecks } from "../index.js"
+import { DASH_STYLES, PUNCTUATION_STYLES, TRANSFORM_OPTION_KEYS, type TransformOptions, transformView, transform as transformWithoutChecks } from "../index.js"
 import { ellipsis } from "../symbols.js"
-import { MAX_REGEX_CACHE_SIZE, REGEX_SPECIAL_CHARS, UNICODE_SYMBOLS } from "../constants.js"
-import { buildMixedContent } from "./test-helpers.js"
+import { UNICODE_SYMBOLS } from "../constants.js"
+import { buildMixedContent, SEP as DEFAULT_SEPARATOR, viewTransform } from "./test-helpers.js"
 
 const {
   LEFT_DOUBLE_QUOTE,
@@ -28,11 +28,18 @@ const {
   SUPERSCRIPT_ST,
 } = UNICODE_SYMBOLS
 
-// `checkIdempotency` defaults to false in production, so the test suite opts
-// back in: every transform call below also verifies the idempotency
-// guarantee. Tests that need the check off pass an explicit false.
+// Idempotency is a design guarantee (the fuzz suite is the systematic
+// guard), so every transform call below re-runs on its own output and
+// asserts a fixed point.
 function transform(text: string, options: TransformOptions = {}): string {
-  return transformWithoutChecks(text, { checkIdempotency: true, ...options })
+  const first = transformWithoutChecks(text, options)
+  expect(transformWithoutChecks(first, options)).toBe(first)
+  return first
+}
+
+/** Runs the full pipeline over the multi-node view a marked string describes. */
+function transformOverView(markedInput: string, options: TransformOptions = {}): string {
+  return viewTransform((view) => transformView(view, options), markedInput, DEFAULT_SEPARATOR)
 }
 
 describe("transform", () => {
@@ -48,10 +55,15 @@ describe("transform", () => {
     expect(transform(input, { nbsp: false })).toBe(expected)
   })
 
-  it("preserves separator character", () => {
+  it("transformView defaults its options", () => {
+    expect(viewTransform((view) => transformView(view), '"Dr. Smith"'))
+      .toBe(`${LEFT_DOUBLE_QUOTE}Dr.${NBSP}Smith${RIGHT_DOUBLE_QUOTE}`)
+  })
+
+  it("transforms across node boundaries", () => {
     const sep = DEFAULT_SEPARATOR
     const input = `"Hello${sep}" - test`
-    expect(transform(input, { separator: sep, nbsp: false })).toBe(`${LEFT_DOUBLE_QUOTE}Hello${sep}${RIGHT_DOUBLE_QUOTE}${EM_DASH}test`)
+    expect(transformOverView(input, { nbsp: false })).toBe(`${LEFT_DOUBLE_QUOTE}Hello${sep}${RIGHT_DOUBLE_QUOTE}${EM_DASH}test`)
   })
 
   describe("symbol transforms", () => {
@@ -166,32 +178,31 @@ describe("transform", () => {
       expect(second).toBe(first)
     })
 
-    it("preserves separator count with nbsp enabled", () => {
+    it("preserves node count with nbsp enabled", () => {
       const sep = DEFAULT_SEPARATOR
       const input = `Dr.${sep} Smith has${sep} 5 kg`
-      expect(() => transform(input, { nbsp: true, separator: sep })).not.toThrow()
+      expect(transformOverView(input, { nbsp: true }).split(sep)).toHaveLength(3)
     })
   })
 
-  describe("separator preservation", () => {
+  describe("node-count preservation", () => {
     it.each([
-      [`Wait.${DEFAULT_SEPARATOR}.${DEFAULT_SEPARATOR}. for it`, 2],
-      [`"Hello${DEFAULT_SEPARATOR}" - ${DEFAULT_SEPARATOR}she${DEFAULT_SEPARATOR} said`, 3],
-      [`.${DEFAULT_SEPARATOR}.${DEFAULT_SEPARATOR}.`, 2],
-    ])('preserves %i separators in "%s"', (input, expectedCount) => {
-      expect(() => transform(input, { separator: DEFAULT_SEPARATOR, nbsp: false })).not.toThrow()
-      expect(countSeparators(transform(input, { separator: DEFAULT_SEPARATOR, nbsp: false }), DEFAULT_SEPARATOR)).toBe(expectedCount)
+      [`Wait.${DEFAULT_SEPARATOR}.${DEFAULT_SEPARATOR}. for it`, 3],
+      [`"Hello${DEFAULT_SEPARATOR}" - ${DEFAULT_SEPARATOR}she${DEFAULT_SEPARATOR} said`, 4],
+      [`.${DEFAULT_SEPARATOR}.${DEFAULT_SEPARATOR}.`, 3],
+    ])('preserves %i nodes in "%s"', (input, expectedCount) => {
+      expect(transformOverView(input, { nbsp: false }).split(DEFAULT_SEPARATOR)).toHaveLength(expectedCount)
     })
 
-    it("preserves separator in ellipsis", () => {
+    it("preserves node count in ellipsis", () => {
       const input = `.${DEFAULT_SEPARATOR}.${DEFAULT_SEPARATOR}.`
-      const result = ellipsis(input, { separator: DEFAULT_SEPARATOR })
-      expect(result.split(DEFAULT_SEPARATOR).length - 1).toBe(2)
+      const result = viewTransform(ellipsis, input)
+      expect(result.split(DEFAULT_SEPARATOR)).toHaveLength(3)
     })
 
-    it("preserves consecutive separators", () => {
+    it("preserves empty interior nodes", () => {
       const input = `a${DEFAULT_SEPARATOR}${DEFAULT_SEPARATOR}${DEFAULT_SEPARATOR}b`
-      expect(transform(input, { nbsp: false })).toBe(input)
+      expect(transformOverView(input, { nbsp: false })).toBe(input)
     })
   })
 
@@ -413,45 +424,38 @@ describe("transform", () => {
     })
   })
 
-  describe("separator robustness", () => {
+  describe("boundary robustness", () => {
     const sep = DEFAULT_SEPARATOR
 
     it.each([
       [`${sep}"test"${sep}`, `${sep}${LEFT_DOUBLE_QUOTE}test${RIGHT_DOUBLE_QUOTE}${sep}`],
       [`"test${sep}word"`, `${LEFT_DOUBLE_QUOTE}test${sep}word${RIGHT_DOUBLE_QUOTE}`],
       [`${sep}${sep}"test"${sep}${sep}`, `${sep}${sep}${LEFT_DOUBLE_QUOTE}test${RIGHT_DOUBLE_QUOTE}${sep}${sep}`],
-    ])('handles separator in quotes', (input, expected) => {
-      expect(transform(input, { separator: sep, nbsp: false })).toBe(expected)
+    ])('handles boundaries in quotes', (input, expected) => {
+      expect(transformOverView(input, { nbsp: false })).toBe(expected)
     })
 
     it.each([
       [`word${sep} - ${sep}word`, `word${sep}${EM_DASH}${sep}word`],
       [`1${sep}-${sep}5`, `1${sep}${EN_DASH}${sep}5`],
-    ])('handles separator in dashes', (input, expected) => {
-      expect(transform(input, { separator: sep, nbsp: false })).toBe(expected)
+    ])('handles boundaries in dashes', (input, expected) => {
+      expect(transformOverView(input, { nbsp: false })).toBe(expected)
     })
 
-    it("preserves exact separator count through transform", () => {
+    it("preserves the exact node count through the pipeline", () => {
       const input = `${sep}text${sep}more${sep}text${sep}`
-      const result = transform(input, { separator: sep, nbsp: false })
-      const inputCount = (input.match(new RegExp(sep, "g")) || []).length
-      const resultCount = (result.match(new RegExp(sep, "g")) || []).length
-      expect(resultCount).toBe(inputCount)
+      const result = transformOverView(input, { nbsp: false })
+      expect(result.split(sep)).toHaveLength(input.split(sep).length)
     })
 
-    it("handles input containing separator character", () => {
-      const input = `Text with ${sep} in it`
-      expect(() => transform(input, { separator: sep, nbsp: false })).not.toThrow()
-    })
-
-    it("handles separator in fractions", () => {
+    it("handles boundaries in fractions", () => {
       const input = `1${sep}/2`
-      expect(transform(input, { separator: sep, fractions: true, nbsp: false })).toBe(`${sep}${FRACTION_1_2}`)
+      expect(transformOverView(input, { fractions: true, nbsp: false })).toBe(`${sep}${FRACTION_1_2}`)
     })
 
-    it("handles separator in degrees", () => {
+    it("handles boundaries in degrees", () => {
       const input = `72${sep} F`
-      expect(transform(input, { separator: sep, degrees: true, nbsp: false })).toBe(`72${sep} ${DEGREE}F`)
+      expect(transformOverView(input, { degrees: true, nbsp: false })).toBe(`72${sep} ${DEGREE}F`)
     })
   })
 
@@ -587,16 +591,16 @@ describe("transform", () => {
         "wait... ".repeat(2_000) +         // ellipsis stress
         "a b c d e f ".repeat(2_000) +     // nbsp short-word stress
         buildMixedContent(50_000)          // realistic content
-      // checkIdempotency: false — idempotency is covered separately; here
-      // we're measuring runtime and the adversarial input intentionally
-      // exercises edge cases that don't always converge in one pass.
-      const allFeatures = { fractions: true, degrees: true, superscript: true, ligatures: true, checkIdempotency: false }
+      // Direct (single-run) transform: we're measuring runtime, and the
+      // adversarial input intentionally exercises edge cases that don't
+      // always converge in one pass.
+      const allFeatures = { fractions: true, degrees: true, superscript: true, ligatures: true }
 
       // Warmup so JIT compiles all hot paths before timing.
-      transform(pathological, allFeatures)
+      transformWithoutChecks(pathological, allFeatures)
 
       const start = performance.now()
-      transform(pathological, allFeatures)
+      transformWithoutChecks(pathological, allFeatures)
       const elapsed = performance.now() - start
 
       // Linear runtime on ~200k chars is sub-second on modern Node;
@@ -635,49 +639,16 @@ describe("transform", () => {
     })
   })
 
-  describe("separator validation", () => {
-    const invalidSeparators = [
-      ["🎉", "emoji (non-BMP)"],
-      ["", "empty string"],
-    ] as const
-
-    it.each(invalidSeparators)("rejects %s separator (%s)", (sep) => {
-      expect(() => transform('"Hello"', { separator: sep, nbsp: false })).toThrow(
-        /Invalid separator/
-      )
-    })
-
-    const validSeparators = ["\uE000\uE001", "\uE000", "|", "\u2603", "ab"] // Default, single PUA, pipe, snowman, multi-char
-
-    it.each(validSeparators)("accepts '%s' as separator", (sep) => {
-      expect(() => transform('"Hello"', { separator: sep, nbsp: false })).not.toThrow()
-    })
-  })
-
-  describe("regex-special separator characters", () => {
-    it.each(REGEX_SPECIAL_CHARS)("handles '%s' as separator", (sep) => {
-      expect(transform('"Hello"', { separator: sep, nbsp: false })).toEqual(
-        `${LEFT_DOUBLE_QUOTE}Hello${RIGHT_DOUBLE_QUOTE}`
-      )
-    })
-  })
-
-  describe("multi-character separator behavior", () => {
-    const sep = "\uE000\uE001"
+  describe("multi-node boundary behavior", () => {
+    const sep = DEFAULT_SEPARATOR
 
     it.each([
-      ["quotes with separator at boundary", `${sep}"Hello"`, `${sep}${LEFT_DOUBLE_QUOTE}Hello${RIGHT_DOUBLE_QUOTE}`],
-      ["em-dash with adjacent separators", `word${sep} - ${sep}word`, `word${sep}${EM_DASH}${sep}word`],
-      ["ellipsis with separator between dots", `a.${sep}.${sep}.`, `a\u2026${sep}${sep}`],
-      ["nbsp before last word with trailing separator", `Hello world${sep}`, `Hello${NBSP}world${sep}`],
+      ["quotes with boundary at node start", `${sep}"Hello"`, `${sep}${LEFT_DOUBLE_QUOTE}Hello${RIGHT_DOUBLE_QUOTE}`],
+      ["em-dash with adjacent boundaries", `word${sep} - ${sep}word`, `word${sep}${EM_DASH}${sep}word`],
+      ["ellipsis with boundaries between dots", `a.${sep}.${sep}.`, `a\u2026${sep}${sep}`],
+      ["nbsp before last word with trailing empty node", `Hello world${sep}`, `Hello${NBSP}world${sep}`],
     ])("%s", (_desc, input, expected) => {
-      expect(transform(input, { separator: sep, nbsp: true })).toBe(expected)
-    })
-
-    it("preserves separator count through transform", () => {
-      const input = `${sep}"Hello"${sep} -- ${sep}world${sep}`
-      const result = transform(input, { separator: sep })
-      expect(countSeparators(result, sep)).toBe(countSeparators(input, sep))
+      expect(transformOverView(input, { nbsp: true })).toBe(expected)
     })
   })
 
@@ -701,9 +672,9 @@ describe("transform", () => {
       ["german"],
       ["french"],
     ] as const)("idempotent with %s style", (style) => {
-      const opts = { punctuationStyle: style, checkIdempotency: false, nbsp: false } as const
-      const first = transform(mixedInput, opts)
-      const second = transform(first, opts)
+      const opts = { punctuationStyle: style, nbsp: false } as const
+      const first = transformWithoutChecks(mixedInput, opts)
+      const second = transformWithoutChecks(first, opts)
       expect(second).toBe(first)
     })
   })
@@ -717,32 +688,6 @@ describe("transform", () => {
       ["nbsp only", NBSP, NBSP],
     ])("handles %s", (_desc, input, expected) => {
       expect(transform(input)).toBe(expected)
-    })
-  })
-
-  describe("separator collision", () => {
-    it("preserves default separator in plain transform", () => {
-      // transform() itself uses the separator internally but tolerates it in input
-      // The assertSeparatorAbsent check is in the rehype/remark plugins
-      const input = `text${DEFAULT_SEPARATOR}more`
-      const result = transform(input)
-      expect(countSeparators(result, DEFAULT_SEPARATOR)).toBe(1)
-    })
-
-    it("does not throw for single char of multi-char default separator", () => {
-      expect(() => transform(`text${DEFAULT_SEPARATOR[0]}more`)).not.toThrow()
-    })
-  })
-
-  describe("regex cache thrashing", () => {
-    it("produces correct results after exceeding cache capacity", () => {
-      const input = `"Hello," she said.`
-      const separatorCount = MAX_REGEX_CACHE_SIZE + 200
-      for (let i = 0; i < separatorCount; i++) {
-        const sep = String.fromCharCode(0xE100 + i)
-        const result = transform(input, { separator: sep, nbsp: false })
-        expect(result).toBe(`${LEFT_DOUBLE_QUOTE}Hello,${RIGHT_DOUBLE_QUOTE} she said.`)
-      }
     })
   })
 
@@ -850,14 +795,13 @@ describe("transform", () => {
       const callTransform = () => transform("hello", { [key]: true } as never)
       expect(callTransform).toThrow(`Unknown option "${key}" for transform`)
       expect(callTransform).toThrow("Valid options:")
-      expect(callTransform).toThrow("separator")
+      expect(callTransform).toThrow("symbols")
     })
 
     it.each(TRANSFORM_OPTION_KEYS.map((key) => [key]))(
       'accepts valid option key "%s"',
       (key) => {
-        const value = key === "separator" ? "|"
-          : key === "punctuationStyle" || key === "dashStyle" ? "american"
+        const value = key === "punctuationStyle" || key === "dashStyle" ? "american"
           : false
         expect(() => transform("hello", { [key]: value } as never)).not.toThrow()
       },
@@ -865,7 +809,6 @@ describe("transform", () => {
 
     it("TRANSFORM_OPTION_KEYS matches the documented TransformOptions keys", () => {
       expect([...TRANSFORM_OPTION_KEYS].sort()).toEqual([
-        "checkIdempotency",
         "collapseSpaces",
         "dashStyle",
         "degrees",
@@ -874,7 +817,6 @@ describe("transform", () => {
         "ligatures",
         "nbsp",
         "punctuationStyle",
-        "separator",
         "superscript",
         "symbols",
       ])

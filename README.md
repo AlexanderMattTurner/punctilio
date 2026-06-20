@@ -80,28 +80,20 @@ _Note on benchmark construction: I assembled the initial cases myself. I then so
 
 Setting aside the benchmark, `punctilio`’s test suite runs at 100% branch coverage with well over a thousand tests, including edge cases derived from competitor libraries ([`smartquotes`](https://github.com/kellym/smartquotes.js), [`retext-smartypants`](https://github.com/retextjs/retext-smartypants), [`typograf`](https://github.com/typograf/typograf)) and the [Standard Ebooks typography manual](https://standardebooks.org/manual/). The 100% figure isn’t hand-maintained: Jest’s `coverageThreshold` requires 100% branches, functions, lines, and statements, CI fails below that, and the coverage badge above is regenerated from the actual coverage report on every push to `main`. I also verify that all transformations are stable when applied multiple times. Uses [`recheck`](https://makenowjust-labs.github.io/recheck/) to statically verify the absence of inefficient RegEx patterns.
 
-## Works with HTML DOMs via separation boundaries
+## Works with HTML DOMs via boundary-aware views
 
-Perhaps the most innovative feature of the library is that it properly handles DOMs! Other typography libraries take one of two approaches, both with drawbacks. 
+Perhaps the most innovative feature of the library is that it properly handles DOMs! Other typography libraries take one of two approaches, both with drawbacks. 
 
-1.  String-based libraries (like [`smartypants`](https://www.npmjs.com/package/smartypants)) transform plain text but are unaware of HTML structure. If you flatten text from `"<em>"Wait</em>"` into `"Wait"`, transform the text so that it has smart quotes (`“Wait”`), and then try to convert back—you've lost track of where the `</em>` belongs. 
-2.  AST-based libraries (like [`rehype-retext`](https://github.com/rehypejs/rehype-retext)) process each text node individually, preserving structure but losing cross-node information. A quote that opens inside `<em>"Wait</em>` and closes outside it `"` spans two text nodes. Processed independently, the library can't tell whether the final `"` is opening or closing, because it never sees both at once. 
+1.  String-based libraries (like [`smartypants`](https://www.npmjs.com/package/smartypants)) transform plain text but are unaware of HTML structure. If you flatten text from `"<em>"Wait</em>"` into `"Wait"`, transform the text so that it has smart quotes (`“Wait”`), and then try to convert back—you've lost track of where the `</em>` belongs. 
+2.  AST-based libraries (like [`rehype-retext`](https://github.com/rehypejs/rehype-retext)) process each text node individually, preserving structure but losing cross-node information. A quote that opens inside `<em>"Wait</em>` and closes outside it `"` spans two text nodes. Processed independently, the library can't tell whether the final `"` is opening or closing, because it never sees both at once. 
 
-`punctilio` introduces _separation boundaries_ to get the best of both worlds:
+`punctilio` gets the best of both worlds with a _ProseView_: a view over a sequence of text nodes that exposes their concatenated text plus the offsets where one node ends and the next begins.
 
-1.  Flatten the parent container's contents to a string, delimiting element boundaries with a two-character private-use Unicode sentinel (`U+E000 U+E001`) to avoid unintended matches.
-2.  Every regex allows (and preserves) these characters, treating them as boundaries of a “permeable membrane” through which contextual information flows. For example, `.U+E000..` still becomes `…U+E000`.
-3.  Rehydrate the HTML AST. For all _k_, set element _k_’s text content to the segment starting at separator occurrence _k_.
+1.  Every pass scans the full concatenated text, so cross-node context (the closing `"` above) is always visible.
+2.  Passes consult the node boundaries explicitly — a rule can treat a boundary as transparent, as a word boundary, or as a blocker, matching what the markup means.
+3.  Edits are queued by offset and committed back onto the source text nodes, so the HTML structure is never lost and never has to be re-derived.
 
-```typescript
-import { transform, DEFAULT_SEPARATOR } from "punctilio";
-
-transform(`"Wait${DEFAULT_SEPARATOR}"`);
-// → `“Wait”${DEFAULT_SEPARATOR}`
-// The separator doesn’t block the information that this should be an end-quote!
-```
-
-For `rehype` / `unified` pipelines, use the built-in plugin which handles the separator logic automatically:
+For `rehype` / `unified` pipelines, use the built-in plugin which handles all of this automatically:
 
 ```typescript
 import rehypePunctilio from "punctilio/rehype";
@@ -116,8 +108,8 @@ unified()
 //  are both resolved correctly across the element boundary.
 ```
 
-* For Markdown ASTs via `remark`, use `remarkPunctilio` which applies the same separator technique to preserve inline element boundaries, or use `transformMarkdown` for a simpler Markdown-to-Markdown pipeline.
-* For manual DOM walking or custom transforms, use `transformElement` from `punctilio/rehype`.
+* For Markdown ASTs via `remark`, use `remarkPunctilio` which builds the same boundary-aware views over inline text nodes, or use `transformMarkdown` for a simpler Markdown-to-Markdown pipeline.
+* For manual DOM walking or custom transforms, use `collectProseBlocks` and `proseViewOf` from `punctilio/rehype` to build a `ProseView` over an element’s text nodes, then run any pass (or `transformView`) over it.
 
 ## Options
 
@@ -136,7 +128,6 @@ transform(text, {
   superscript: false, // 1st → 1ˢᵗ
   ligatures: false, // ??? → ⁇, ?! → ⁈, !? → ⁉, !!! → !
   nbsp: true, // non-breaking spaces (after honorifics, between numbers and units, etc.)
-  checkIdempotency: false, // verify transform(transform(x)) === transform(x); doubles the work
 });
 ```
 
@@ -240,7 +231,7 @@ repos:
   - Single quotes remain as curly quotes
   - Punctuation outside quotes
 - Setting either style to `none` skips the entire transform category: `punctuationStyle: 'none'` preserves straight quotes, apostrophes, and prime marks; `dashStyle: 'none'` preserves all hyphens, number ranges, date ranges, and minus signs.
-- `punctilio` is idempotent by design: `transform(transform(text))` always equals `transform(text)`. Set `checkIdempotency: true` to verify this on every call (off by default, since the check doubles the work); `punctilio`’s own test suite runs with it enabled.
+- `punctilio` is idempotent by design: `transform(transform(text))` always equals `transform(text)`. The test suite verifies the fixed point on every case plus fuzzed mixed content.
 - Use `classifyApostrophes(text)` to distinguish apostrophes from closing single quotes. It returns text with apostrophes as U+02BC (MODIFIER LETTER APOSTROPHE) and closing quotes as U+2019 (RIGHT SINGLE QUOTATION MARK). Per the [Unicode Standard](https://www.unicode.org/versions/Unicode16.0.0/core-spec/chapter-6/#G30602), `transform()` and `niceQuotes()` use U+2019 for both in their output.
 
 ## Changelog

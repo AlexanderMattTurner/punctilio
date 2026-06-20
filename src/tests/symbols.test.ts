@@ -12,7 +12,8 @@ import {
   superscriptOrdinal,
   symbolTransform,
 } from "../symbols.js"
-import { DEFAULT_SEPARATOR, UNICODE_SYMBOLS } from "../constants.js"
+import { UNICODE_SYMBOLS } from "../constants.js"
+import { SEP as DEFAULT_SEPARATOR, viewTransform } from "./test-helpers.js"
 
 describe("ellipsis", () => {
   it.each([
@@ -39,7 +40,7 @@ describe("ellipsis", () => {
     ["after first dot", `.${DEFAULT_SEPARATOR}..`, `${UNICODE_SYMBOLS.ELLIPSIS}${DEFAULT_SEPARATOR}`],
     ["after second dot", `..${DEFAULT_SEPARATOR}.`, `${UNICODE_SYMBOLS.ELLIPSIS}${DEFAULT_SEPARATOR}`],
   ])("preserves separators: %s", (_desc, input, expected) => {
-    const result = ellipsis(input, { separator: DEFAULT_SEPARATOR })
+    const result = viewTransform(ellipsis, input)
     expect(result).toBe(expected)
   })
 
@@ -57,7 +58,7 @@ describe("ellipsis", () => {
     // Regression: spaced dots still collapse.
     ["spaced dots", "a. . . b", `a${UNICODE_SYMBOLS.ELLIPSIS} b`],
   ])("does not merge across separator boundaries: %s", (_desc, input, expected) => {
-    expect(ellipsis(input, { separator: DEFAULT_SEPARATOR })).toBe(expected)
+    expect(viewTransform(ellipsis, input)).toBe(expected)
   })
 })
 
@@ -116,7 +117,7 @@ describe("multiplication", () => {
 
   it("handles separator characters", () => {
     const sep = "\uE000"
-    expect(multiplication(`5${sep}x${sep}5`, { separator: sep })).toBe(`5${sep}${UNICODE_SYMBOLS.MULTIPLICATION}${sep}5`)
+    expect(viewTransform(multiplication, `5${sep}x${sep}5`, sep)).toBe(`5${sep}${UNICODE_SYMBOLS.MULTIPLICATION}${sep}5`)
   })
 
   describe("marker robustness", () => {
@@ -130,7 +131,7 @@ describe("multiplication", () => {
       ["valid boundary before space", `5x${sep} done`, `5${UNICODE_SYMBOLS.MULTIPLICATION}${sep} done`], // should convert
       ["valid boundary before punctuation", `5x${sep}.`, `5${UNICODE_SYMBOLS.MULTIPLICATION}${sep}.`], // should convert
     ])("handles %s", (_desc, input, expected) => {
-      expect(multiplication(input, { separator: sep })).toBe(expected)
+      expect(viewTransform(multiplication, input, sep)).toBe(expected)
     })
   })
 })
@@ -162,10 +163,9 @@ describe("mathSymbols", () => {
     expect(mathSymbols(input)).toBe(expected)
   })
 
-  // Cross-boundary conversion must preserve the captured separator so the
-  // text-node-count invariant in transformTextNodes holds. Convention: the
-  // Unicode symbol replaces the left operator char, the separator is re-emitted
-  // after it (matching the multiplication test's pre/post-sep convention).
+  // Cross-boundary conversion keeps the node boundary in place. Convention:
+  // the Unicode symbol replaces the left operator char and the boundary stays
+  // after it (matching the multiplication test's pre/post-boundary convention).
   it.each([
     [`!${DEFAULT_SEPARATOR}=`, `${UNICODE_SYMBOLS.NOT_EQUAL}${DEFAULT_SEPARATOR}`],
     [`<${DEFAULT_SEPARATOR}=`, `${UNICODE_SYMBOLS.LESS_EQUAL}${DEFAULT_SEPARATOR}`],
@@ -175,7 +175,7 @@ describe("mathSymbols", () => {
     [`+/${DEFAULT_SEPARATOR}-`, `${UNICODE_SYMBOLS.PLUS_MINUS}${DEFAULT_SEPARATOR}`],
     [`+${DEFAULT_SEPARATOR}-`, `${UNICODE_SYMBOLS.PLUS_MINUS}${DEFAULT_SEPARATOR}`],
   ])('converts across separator boundary preserving sep: "%s"', (input, expected) => {
-    expect(mathSymbols(input, { separator: DEFAULT_SEPARATOR })).toBe(expected)
+    expect(viewTransform(mathSymbols, input)).toBe(expected)
   })
 
   // Lookahead sees through the separator so `!==`/`<==`/`>==` split across a
@@ -185,7 +185,7 @@ describe("mathSymbols", () => {
     [`x <${DEFAULT_SEPARATOR}== y`, `x <${DEFAULT_SEPARATOR}== y`],
     [`x >${DEFAULT_SEPARATOR}== y`, `x >${DEFAULT_SEPARATOR}== y`],
   ])('preserves multi-char operator split across separator: "%s"', (input, expected) => {
-    expect(mathSymbols(input, { separator: DEFAULT_SEPARATOR })).toBe(expected)
+    expect(viewTransform(mathSymbols, input)).toBe(expected)
   })
 })
 
@@ -246,7 +246,7 @@ describe("legalSymbols", () => {
 
   it("detects copyright year across separator boundary", () => {
     const sep = DEFAULT_SEPARATOR
-    expect(legalSymbols(`(c)${sep} 2024`, { separator: sep })).toBe(`${UNICODE_SYMBOLS.COPYRIGHT}${sep} 2024`)
+    expect(viewTransform(legalSymbols, `(c)${sep} 2024`, sep)).toBe(`${UNICODE_SYMBOLS.COPYRIGHT}${sep} 2024`)
   })
 })
 
@@ -274,7 +274,7 @@ describe("arrows", () => {
     [`foo -${DEFAULT_SEPARATOR}> bar`, `foo ${UNICODE_SYMBOLS.ARROW_RIGHT}${DEFAULT_SEPARATOR} bar`],
     [`foo <${DEFAULT_SEPARATOR}- bar`, `foo ${UNICODE_SYMBOLS.ARROW_LEFT}${DEFAULT_SEPARATOR} bar`],
   ])('converts across separator boundary: "%s"', (input, expected) => {
-    expect(arrows(input, { separator: DEFAULT_SEPARATOR })).toBe(expected)
+    expect(viewTransform(arrows, input)).toBe(expected)
   })
 })
 
@@ -312,7 +312,7 @@ describe("degrees", () => {
 
   it("handles separator characters", () => {
     const sep = "\uE000"
-    expect(degrees(`20${sep}C`, { separator: sep })).toBe(
+    expect(viewTransform(degrees, `20${sep}C`, sep)).toBe(
       `20${sep} ${UNICODE_SYMBOLS.DEGREE}C`
     )
   })
@@ -327,7 +327,7 @@ describe("degrees", () => {
       ["valid boundary before space", `20C${sep} today`, `20 ${UNICODE_SYMBOLS.DEGREE}C${sep} today`], // should convert
       ["valid boundary before punctuation", `68F${sep}.`, `68 ${UNICODE_SYMBOLS.DEGREE}F${sep}.`], // should convert
     ])("handles %s", (_desc, input, expected) => {
-      expect(degrees(input, { separator: sep })).toBe(expected)
+      expect(viewTransform(degrees, input, sep)).toBe(expected)
     })
   })
 })
@@ -393,7 +393,7 @@ describe("primeMarks", () => {
 
   it("handles separator characters", () => {
     const sep = "\uE000"
-    expect(primeMarks(`5${sep}'${sep}10${sep}"`, { separator: sep })).toBe(
+    expect(viewTransform(primeMarks, `5${sep}'${sep}10${sep}"`, sep)).toBe(
       `5${sep}${UNICODE_SYMBOLS.PRIME}${sep}10${sep}${UNICODE_SYMBOLS.DOUBLE_PRIME}`
     )
   })
@@ -408,7 +408,7 @@ describe("primeMarks", () => {
     // Trailing apostrophe with separator: dogs<sep>'
     [`the dogs${"\uE000"}' 5' leashes`, `the dogs${"\uE000"}' 5${UNICODE_SYMBOLS.PRIME} leashes`],
   ])('separator-aware contraction/trailing in "%s"', (input, expected) => {
-    expect(primeMarks(input, { separator: "\uE000" })).toBe(expected)
+    expect(viewTransform(primeMarks, input, "\uE000")).toBe(expected)
   })
 })
 
@@ -443,7 +443,7 @@ describe("fractions", () => {
 
   it("handles separator characters", () => {
     const sep = "\uE000"
-    expect(fractions(`1${sep}/${sep}2`, { separator: sep })).toBe(
+    expect(viewTransform(fractions, `1${sep}/${sep}2`, sep)).toBe(
       `${sep}${UNICODE_SYMBOLS.FRACTION_1_2}${sep}`
     )
   })
@@ -545,7 +545,7 @@ describe("superscriptOrdinal", () => {
 
   it("handles separator characters", () => {
     const sep = "\uE000"
-    expect(superscriptOrdinal(`30${sep}th`, { separator: sep })).toBe(
+    expect(viewTransform(superscriptOrdinal, `30${sep}th`, sep)).toBe(
       `30${sep}${UNICODE_SYMBOLS.SUPERSCRIPT_TH}`
     )
   })
@@ -562,7 +562,7 @@ describe("superscriptOrdinal", () => {
       ["valid boundary before space", `1st${sep} place`, `1${UNICODE_SYMBOLS.SUPERSCRIPT_ST}${sep} place`], // should convert
       ["valid boundary before punctuation", `2nd${sep}.`, `2${UNICODE_SYMBOLS.SUPERSCRIPT_ND}${sep}.`], // should convert
     ])("handles %s", (_desc, input, expected) => {
-      expect(superscriptOrdinal(input, { separator: sep })).toBe(expected)
+      expect(viewTransform(superscriptOrdinal, input, sep)).toBe(expected)
     })
   })
 })
@@ -603,18 +603,17 @@ describe("punctuationLigatures", () => {
     ["!!", `!${DEFAULT_SEPARATOR}`],
   ])("preserves separator in %s", (marks, expected) => {
     const input = marks[0] + DEFAULT_SEPARATOR + marks[1]
-    expect(punctuationLigatures(input, { separator: DEFAULT_SEPARATOR })).toBe(expected)
+    expect(viewTransform(punctuationLigatures, input)).toBe(expected)
   })
 
-  // Multi-separator: 3+ punctuation chars split across 3+ text nodes produces
-  // a match with multiple separators inside the repeating group. Every one
-  // must be re-emitted so transformTextNodes's text-node-count invariant holds.
+  // Multi-boundary: 3+ punctuation chars split across 3+ text nodes produce
+  // a run with multiple interior boundaries; the node count must survive.
   it.each([
     [`?${DEFAULT_SEPARATOR}?${DEFAULT_SEPARATOR}?`, `${UNICODE_SYMBOLS.DOUBLE_QUESTION}${DEFAULT_SEPARATOR}${DEFAULT_SEPARATOR}`],
     [`!${DEFAULT_SEPARATOR}!${DEFAULT_SEPARATOR}!`, `!${DEFAULT_SEPARATOR}${DEFAULT_SEPARATOR}`],
     [`??${DEFAULT_SEPARATOR}?${DEFAULT_SEPARATOR}?`, `${UNICODE_SYMBOLS.DOUBLE_QUESTION}${DEFAULT_SEPARATOR}${DEFAULT_SEPARATOR}`],
   ])("preserves every separator in multi-split %s", (input, expected) => {
-    expect(punctuationLigatures(input, { separator: DEFAULT_SEPARATOR })).toBe(expected)
+    expect(viewTransform(punctuationLigatures, input)).toBe(expected)
   })
 
   it("handles multiple ligatures in same text", () => {
@@ -839,10 +838,10 @@ describe("symbolTransform", () => {
     expect(symbolTransform(input)).toEqual(expected)
   })
 
-  it("respects separator option", () => {
+  it("transforms a multi-node view", () => {
     const sep = "\uE000"
     const input = `5${sep}x${sep}5`
-    expect(symbolTransform(input, { separator: sep })).toEqual(`5${sep}${UNICODE_SYMBOLS.MULTIPLICATION}${sep}5`)
+    expect(viewTransform((view) => symbolTransform(view), input, sep)).toEqual(`5${sep}${UNICODE_SYMBOLS.MULTIPLICATION}${sep}5`)
   })
 
   it("includes arrows by default", () => {

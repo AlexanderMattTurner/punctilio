@@ -1,5 +1,6 @@
 import { classifyApostrophes, niceQuotes } from "../quotes.js"
-import { DEFAULT_SEPARATOR, TERMINAL_PUNCTUATION, UNICODE_SYMBOLS } from "../constants.js"
+import { TERMINAL_PUNCTUATION, UNICODE_SYMBOLS } from "../constants.js"
+import { SEP as DEFAULT_SEPARATOR, viewTransform } from "./test-helpers.js"
 
 const {
   LEFT_DOUBLE_QUOTE,
@@ -352,6 +353,16 @@ describe("niceQuotes", () => {
     })
   })
 
+  describe("pre-existing U+02BC normalization", () => {
+    it.each([
+      ["american", undefined],
+      ["none", "none"],
+    ] as const)("normalizes U+02BC to U+2019 under %s style", (_desc, style) => {
+      const options = style ? { punctuationStyle: style } : {}
+      expect(niceQuotes(`can${MODIFIER_LETTER_APOSTROPHE}t`, options)).toBe(`can${RIGHT_SINGLE_QUOTE}t`)
+    })
+  })
+
   describe("with separator character", () => {
     const sep = DEFAULT_SEPARATOR
     it.each([
@@ -367,21 +378,21 @@ describe("niceQuotes", () => {
       // Closing after separator
       [`'hello${sep}'`, `${LEFT_SINGLE_QUOTE}hello${sep}${RIGHT_SINGLE_QUOTE}`, "closing quote after separator"],
     ])("%s → %s (%s)", (input, expected) => {
-      expect(classifyApostrophes(input, { separator: sep })).toBe(expected)
+      expect(viewTransform(classifyApostrophes, input, sep)).toBe(expected)
     })
 
     it("plural possessive across separator", () => {
       const input = `dogs${sep}' food`
       const expected = `dogs${sep}${MODIFIER_LETTER_APOSTROPHE} food`
-      expect(classifyApostrophes(input, { separator: sep })).toBe(expected)
-      expect(classifyApostrophes(expected, { separator: sep })).toBe(expected)
+      expect(viewTransform(classifyApostrophes, input, sep)).toBe(expected)
+      expect(viewTransform(classifyApostrophes, expected, sep)).toBe(expected)
     })
 
     it("'n' with separators around word boundaries", () => {
       const input = `Rock${sep} 'n' ${sep}Roll`
       const expected = `Rock${sep} ${MODIFIER_LETTER_APOSTROPHE}n${MODIFIER_LETTER_APOSTROPHE} ${sep}Roll`
-      expect(classifyApostrophes(input, { separator: sep })).toBe(expected)
-      expect(classifyApostrophes(expected, { separator: sep })).toBe(expected)
+      expect(viewTransform(classifyApostrophes, input, sep)).toBe(expected)
+      expect(viewTransform(classifyApostrophes, expected, sep)).toBe(expected)
     })
   })
 
@@ -798,7 +809,7 @@ describe("niceQuotes", () => {
       const sep = DEFAULT_SEPARATOR
       const body = "y".repeat(120)
       const input = `${sep}"?${body}"`
-      expect(niceQuotes(input, { separator: sep })).toBe(
+      expect(viewTransform(niceQuotes, input, sep)).toBe(
         `${sep}${LEFT_DOUBLE_QUOTE}?${body}${RIGHT_DOUBLE_QUOTE}`
       )
     })

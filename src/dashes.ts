@@ -1,13 +1,11 @@
-import { cachedRegExp, DEFAULT_SEPARATOR, LATIN_LETTERS, UNICODE_SYMBOLS } from "./constants.js"
-import { boundaryCountAt, type ProseView, replaceAllInView, type ReplaceAllOptions, withProseView } from "./prose-view.js"
+import { cachedRegExp, LATIN_LETTERS, UNICODE_SYMBOLS } from "./constants.js"
+import { boundaryCountAt, overInput, type ProseView, replaceAllInView, type ReplaceAllOptions } from "./prose-view.js"
 import { namedGroups } from "./utils.js"
 
 export const DASH_STYLES = ["american", "british", "none"] as const
 export type DashStyle = (typeof DASH_STYLES)[number]
 
 export interface DashOptions {
-  /** Boundary marker for HTML element boundaries. Default: "" */
-  separator?: string
   /** "american" (unspaced em), "british" (spaced en), "none". Default: "american" */
   dashStyle?: DashStyle
 }
@@ -37,9 +35,8 @@ const LATIN_LETTER_RE = new RegExp(`[${LATIN_LETTERS}]`)
 
 /**
  * Runs one boundary-gated regex pass over the view and commits it immediately.
- * v4 chained `text.replace` calls, each operating on the previous pass's full
- * output; committing after every pass reproduces that sequencing so a later
- * pass sees the earlier edits and never queues an overlapping edit.
+ * Committing after every pass sequences the passes so a later pass sees the
+ * earlier edits and never queues an overlapping edit.
  */
 function pass(
   view: ProseView,
@@ -54,11 +51,13 @@ function pass(
 // ---------------------------------------------------------------------------
 // Boundary-tolerance helpers over a ProseView
 //
-// v4 wove `${escapedSep}?` into patterns to tolerate the sentinel at specific
-// positions. Over a clean ProseView, `replaceAllInView` skips any match with an
-// interior boundary unless `allowBoundaries` opts in. Each pass below builds an
-// `allowBoundaries` callback that admits a match only when every interior
-// boundary sits at a position where the v4 pattern carried a separator weave.
+// The boundary-tolerance positions throughout this module reproduce the
+// element-boundary semantics of the pre-v5 sentinel-marked pipeline; they are
+// pinned by the golden corpus and the migration's differential fuzz. Over a
+// clean ProseView, `replaceAllInView` skips any match with an interior boundary
+// unless `allowBoundaries` opts in. Each pass below builds an `allowBoundaries`
+// callback that admits a match only when every interior boundary sits at a
+// tolerated slot offset.
 // ---------------------------------------------------------------------------
 
 /** Interior boundary offsets of a match, strictly inside (matchStart, matchEnd). */
@@ -75,9 +74,9 @@ function interiorBoundaryOffsets(match: RegExpExecArray, view: ProseView): numbe
 
 /**
  * True iff every interior boundary of the match lands on a tolerated offset,
- * with no offset carrying more boundaries than its budget. A v4 `${chr}?` slot
- * tolerates exactly one boundary; two stacked boundaries (an empty fragment)
- * exceed the single-separator budget and block the match, as in v4.
+ * with no offset carrying more boundaries than its budget. A tolerated slot
+ * admits exactly one boundary; two stacked boundaries (an empty fragment)
+ * exceed the single-boundary budget and block the match.
  */
 function interiorBoundariesAllowed(
   match: RegExpExecArray,
@@ -145,23 +144,22 @@ function wordBoundaryEndOk(view: ProseView, pos: number): boolean {
 const CURRENCY_RE = /[$€£¥₹]/
 
 /** Convert number ranges to en-dash (e.g., "1-5" → "1–5"). */
-export function enDashNumberRange(text: string, options: DashOptions = {}): string {
-  const separator = options.separator ?? DEFAULT_SEPARATOR
-  return withProseView(text, separator, (view) => {
+export function enDashNumberRange(input: string): string
+export function enDashNumberRange(input: ProseView): void
+export function enDashNumberRange(input: string | ProseView): string | void {
+  return overInput(input, (view) => {
     convertPositiveRanges(view)
     convertNegativeRanges(view)
   })
 }
 
 /**
- * v4's positive-range regex was `phoneAreaCode? \b (?:p\.?|[currency])?\d[\d.,]*
- * -{1,3} [currency]?\d[\d.,]* (?:${chr}?[-−]${chr}?\d+)* (?:[AaPp][Mm]|[xKBTM])?
- * \b`, scanned with the `g` flag. The lookbehinds (`notAfterDash`) and the
- * separator weaves cannot survive over clean text, and — critically — the
- * `g`-flag consume/advance behaviour determines which sub-ranges a later pass
- * sees. The scan below reproduces it: at each offset it attempts the structural
- * match (boundary-aware), consuming its span on success (whether or not the
- * dash converts) and advancing one character otherwise. So a multi-segment
+ * The positive-range shape is `phoneAreaCode? \b (?:p\.?|[currency])?\d[\d.,]*
+ * -{1,3} [currency]?\d[\d.,]* (?:[-−]\d+)* (?:[AaPp][Mm]|[xKBTM])? \b`, scanned
+ * left to right. The consume/advance behaviour determines which sub-ranges a
+ * later pass sees. The scan below realizes it: at each offset it attempts the
+ * structural match (boundary-aware), consuming its span on success (whether or
+ * not the dash converts) and advancing one character otherwise. So a multi-segment
  * number whose head fails to form a structural match (e.g. boundary-broken
  * "2024-01-15") still exposes a later sub-range ("01-15"), while a structurally
  * matching but non-converting number hides its inner dashes.
@@ -177,17 +175,17 @@ function convertPositiveRanges(view: ProseView): void {
 }
 
 /**
- * Attempts v4's `phoneAreaCode? \b rangeStart -{1,3} rangeEnd following* suffix?
+ * Attempts the `phoneAreaCode? \b rangeStart -{1,3} rangeEnd following* suffix?
  * \b` structural match beginning at clean offset `i`, converting the dash when
- * v4's gates pass. Returns the consumed end offset on a structural match (so the
+ * the gates pass. Returns the consumed end offset on a structural match (so the
  * scan skips it), or null when no structural match begins at `i`.
  */
 function matchPositiveRangeAt(view: ProseView, i: number): number | null {
   // Optional phoneAreaCode (`\d{3}-` or `(\d{3}) `); when it ends in a dash that
-  // dash can instead be the range dash, so both interpretations are tried. v4's
-  // `rangeStart` carries no leading separator slot, so a boundary right where it
-  // would begin (just past the area code) invalidates the area-code reading: v4
-  // falls back to treating the area-code digits as the range start.
+  // dash can instead be the range dash, so both interpretations are tried.
+  // `rangeStart` carries no leading slot, so a boundary right where it would
+  // begin (just past the area code) invalidates the area-code reading: fall back
+  // to treating the area-code digits as the range start.
   const areaCode = readPhoneAreaCode(view, i)
   const startStarts = areaCode === null || view.hasBoundary(i + areaCode) ? [i] : [i + areaCode, i]
   for (const startStart of startStarts) {
@@ -200,10 +198,10 @@ function matchPositiveRangeAt(view: ProseView, i: number): number | null {
 const THREE_DIGITS_RE = /^\d\d\d/
 const THREE_DIGITS_IN_PARENS_RE = /^\(\d\d\d\)/
 
-/** v4's `phoneAreaCode` = `\d{3}-|\(\d{3}\) ?` at `i`; returns its length or null. */
+/** `phoneAreaCode` = `\d{3}-|\(\d{3}\) ?` at `i`; returns its length or null. */
 function readPhoneAreaCode(view: ProseView, i: number): number | null {
   const text = view.text
-  // `\d{3}-` with no separator woven into the digits or before the dash.
+  // `\d{3}-` with no boundary inside the digits or before the dash.
   if (THREE_DIGITS_RE.test(text.slice(i, i + 3)) && text[i + 3] === "-"
     && !view.hasBoundary(i + 1) && !view.hasBoundary(i + 2) && !view.hasBoundary(i + 3)) {
     return 4
@@ -217,8 +215,8 @@ function readPhoneAreaCode(view: ProseView, i: number): number | null {
 
 /**
  * Matches `\b rangeStart -{1,3} rangeEnd following* suffix? \b` boundary-aware,
- * beginning the start at `startStart`. Converts the dash on a v4-converting
- * match. Returns the consumed end offset (structural span end) or null.
+ * beginning the start at `startStart`. Converts the dash on a converting match.
+ * Returns the consumed end offset (structural span end) or null.
  */
 function matchRangeBody(view: ProseView, startStart: number): number | null {
   const text = view.text
@@ -226,10 +224,10 @@ function matchRangeBody(view: ProseView, startStart: number): number | null {
   const start = readStartRun(view, startStart)
   if (start === null) return null
   const startSpanEnd = startStart + start.length
-  // One `${chr}?` between start and the dash tolerates a single boundary there.
+  // One slot between start and the dash tolerates a single boundary there.
   if (boundaryCountAt(view, startSpanEnd) > 1) return null
   // Dash run of 1..3 hyphens that never spans an interior boundary (a boundary
-  // between two hyphens truncates the run, as in v4's `-{1,3}`).
+  // between two hyphens truncates the run).
   if (text[startSpanEnd] !== "-") return null
   let dashEnd = startSpanEnd + 1
   while (text[dashEnd] === "-" && dashEnd - startSpanEnd < 3 && !view.hasBoundary(dashEnd)) dashEnd++
@@ -243,7 +241,7 @@ function matchRangeBody(view: ProseView, startStart: number): number | null {
 
   const end = readEndRun(view, dashEnd)
   if (end === null) return null
-  // v4's greedy end `[\d.,]*` and greedy `following*` backtrack together; the
+  // The greedy end `[\d.,]*` and greedy `following*` backtrack together; the
   // structural match commits at the longest end whose tail completes.
   for (let len = end.length; len >= end.minLen; len--) {
     const endPos = end.firstDigitStart + len
@@ -259,8 +257,8 @@ function matchRangeBody(view: ProseView, startStart: number): number | null {
 }
 
 /**
- * v4's `(?:p\.?|[currency])?\d[\d.,]*` start run, boundary-truncated. v4's `wb`
- * (`(?<!\w${chr}{0,3})\b`) anchors the start at a word boundary, so the currency
+ * The `(?:p\.?|[currency])?\d[\d.,]*` start run, boundary-truncated. The `wb`
+ * (`(?<!\w)\b`) anchors the start at a word boundary, so the currency
  * alternative is unreachable: a leading currency symbol is non-word, and the only
  * `\b` sits after it, at the digit — so the currency is never part of `start`
  * (e.g. "$100-2000" reads start "100", which the 3+4 phone gate then blocks). The
@@ -270,8 +268,8 @@ function readStartRun(view: ProseView, pos: number): { length: number } | null {
   const text = view.text
   let i = pos
   if (text[i] === "p") {
-    // v4's `p\.?\d` is contiguous (no separator slot), so a boundary between `p`,
-    // an optional `.`, and the first digit breaks the prefix.
+    // `p\.?\d` is contiguous (no interior slot), so a boundary between `p`, an
+    // optional `.`, and the first digit breaks the prefix.
     if (view.hasBoundary(i + 1)) return null
     i++
     if (text[i] === ".") {
@@ -279,7 +277,7 @@ function readStartRun(view: ProseView, pos: number): { length: number } | null {
       i++
     }
   }
-  // v4's `\d` is required after the optional `p\.?` prefix. The prefix chars are
+  // `\d` is required after the optional `p\.?` prefix. The prefix chars are
   // never digits, so a missing digit here means no start run begins.
   if (!/\d/.test(text[i] ?? "")) return null
   i++
@@ -296,12 +294,12 @@ interface EndRun {
   minLen: number
 }
 
-/** v4's `[currency]?\d[\d.,]*` end run starting at `pos`, boundary-truncated. */
+/** The `[currency]?\d[\d.,]*` end run starting at `pos`, boundary-truncated. */
 function readEndRun(view: ProseView, pos: number): EndRun | null {
   const text = view.text
   let i = pos
   if (CURRENCY_RE.test(text[i] ?? "")) {
-    // v4 has no separator slot between the currency symbol and the digit.
+    // No slot between the currency symbol and the digit.
     if (view.hasBoundary(i + 1)) return null
     i++
   }
@@ -320,7 +318,7 @@ interface ResolvedTail {
 
 /**
  * Resolves the tail at `endPos`: finds the longest `following` whose
- * `suffix? wbe` completes (v4's greedy choice). `followingEmpty` reports whether
+ * `suffix? wbe` completes (the greedy choice). `followingEmpty` reports whether
  * that following is empty (the convert condition); `consumedEnd` is the tail's
  * end including any suffix (for the scan's consume/advance). Returns null when
  * no following completes.
@@ -339,9 +337,9 @@ function resolvePositiveTail(view: ProseView, endPos: number): ResolvedTail | nu
 
 /**
  * Negative ranges: −5-5 → −5–5, −5--2 → −5–−2. A separate hand scan (not a regex)
- * because the end run, like v4's `(?<end>${chr}?\d[\d.,]*)`, must truncate at node
- * boundaries before its tail is resolved: over clean text a regex would fuse
- * separator-split digits into one run (e.g. "8{sep}{sep}{sep}{sep}{sep}0" reads as
+ * because the end run (`\d[\d.,]*`, with one tolerated boundary at its head)
+ * must truncate at node boundaries before its tail is resolved: a regex would
+ * fuse boundary-split digits into one run (e.g. "8{b}{b}{b}{b}{b}0" reads as
  * "80") and mis-place or miss the conversion. The scan mirrors `matchRangeBody`:
  * at each MINUS-led start it resolves the longest end whose `following* suffix?
  * wbe` tail completes, converting only when that tail leaves `following` empty.
@@ -363,25 +361,25 @@ function convertNegativeRanges(view: ProseView): void {
 }
 
 /**
- * Attempts v4's `(?<![LAT]) ${MINUS}\d[\d.,]* -{1,3} -? end following* suffix? wbe`
- * beginning the MINUS at clean offset `i`. Converts the dash run when v4's gates
+ * Attempts `(?<![LAT]) ${MINUS}\d[\d.,]* -{1,3} -? end following* suffix? wbe`
+ * beginning the MINUS at clean offset `i`. Converts the dash run when the gates
  * pass. Returns the consumed structural end offset, or null when no match begins.
  */
 function matchNegativeRangeAt(view: ProseView, i: number): number | null {
   const text = view.text
-  // v4's `(?<![LAT])`: a Latin letter directly before the MINUS (no intervening
+  // `(?<![LAT])`: a Latin letter directly before the MINUS (no intervening
   // boundary, which would hide it) blocks the match.
   if (boundaryCountAt(view, i) === 0) {
     const before = text[i - 1]
     if (before !== undefined && LATIN_LETTER_RE.test(before)) return null
   }
 
-  // start = `${MINUS}\d[\d.,]*${chr}?`: the digits after MINUS must not cross a
-  // boundary (v4's `start` body has no separator slot before its trailing one).
+  // start = `${MINUS}\d[\d.,]*`: the digits after MINUS must not cross a
+  // boundary (the `start` body has no interior slot before its trailing one).
   if (!/\d/.test(text[i + 1] ?? "")) return null
   let startEnd = i + 1
   while (/[\d.,]/.test(text[startEnd] ?? "") && !view.hasBoundary(startEnd)) startEnd++
-  // One `${chr}?` between start and the dash tolerates a single boundary there.
+  // One slot between start and the dash tolerates a single boundary there.
   if (boundaryCountAt(view, startEnd) > 1) return null
   if (text[startEnd] !== "-") return null
 
@@ -392,12 +390,12 @@ function matchNegativeRangeAt(view: ProseView, i: number): number | null {
   const dashRunLen = dashRunEnd - startEnd
   const hasNeg = dashRunLen >= 2
   const negEnd = dashRunEnd
-  // The `(?<end>${chr}?...)` head separator slot tolerates one boundary.
+  // The `end` head slot tolerates one boundary.
   if (boundaryCountAt(view, negEnd) > 1) return null
 
   const end = readNegEndRun(view, negEnd)
   if (end === null) return null
-  // v4's greedy end and `following*` backtrack together; commit at the longest end
+  // The greedy end and `following*` backtrack together; commit at the longest end
   // whose tail completes, converting only when that tail's `following` is empty.
   for (let len = end.length; len >= 1; len--) {
     const endPos = end.firstDigitStart + len
@@ -419,7 +417,7 @@ interface NegEndRun {
   length: number
 }
 
-/** v4's negative `end` body `\d[\d.,]*` starting at `pos`, boundary-truncated. */
+/** The negative `end` body `\d[\d.,]*` starting at `pos`, boundary-truncated. */
 function readNegEndRun(view: ProseView, pos: number): NegEndRun | null {
   const text = view.text
   if (!/\d/.test(text[pos] ?? "")) return null
@@ -430,9 +428,9 @@ function readNegEndRun(view: ProseView, pos: number): NegEndRun | null {
 
 /**
  * Boundary-aware `following` end positions, shortest (empty) first, walking
- * segments `${chr}?[-(−)]${chr}?\d+`. Separators are zero-width in clean text;
- * each `${chr}?` tolerates one boundary, and each `\d+` stops at a boundary.
- * `allowMinus` admits a MINUS as a segment's dash (positive ranges).
+ * segments `[-(−)]\d+`. Each segment tolerates one boundary on each side of its
+ * dash, and each `\d+` stops at a boundary. `allowMinus` admits a MINUS as a
+ * segment's dash (positive ranges).
  */
 function followingCandidates(view: ProseView, endSpanEnd: number, allowMinus: boolean): number[] {
   const candidates = [endSpanEnd]
@@ -460,11 +458,12 @@ const SUPERSCRIPT_ORDINAL_FIRST_RE = new RegExp(
 )
 
 /**
- * v4's `(?<suffix>${chr}?(?:[AaPp][Mm]|[xKBTM]))?${wbe}` at `pos`. Returns the
- * end offset after the optional suffix when the tail completes (wbe passes), or
- * null when it does not. Two non-`\w` glyphs the v5 symbol passes emit
- * (superscript ordinals, `×`) abut the digit run and must block conversion even
- * though `wbe` would read them as a clean word boundary; both return null first.
+ * The `(?:[AaPp][Mm]|[xKBTM])?${wbe}` suffix at `pos`, with one tolerated
+ * boundary before the suffix. Returns the end offset after the optional suffix
+ * when the tail completes (wbe passes), or null when it does not. Two non-`\w`
+ * glyphs the symbol passes emit (superscript ordinals, `×`) abut the digit run
+ * and must block conversion even though `wbe` would read them as a clean word
+ * boundary; both return null first.
  */
 function suffixWbeEnd(view: ProseView, pos: number, allowAmPm: boolean): number | null {
   const text = view.text
@@ -476,11 +475,11 @@ function suffixWbeEnd(view: ProseView, pos: number, allowAmPm: boolean): number 
   // `55×5` is multiplication, not a range endpoint — block the same as `52nd`.
   if (text[pos] === MULTIPLICATION) return null
   if (wordBoundaryEndOk(view, pos)) return pos
-  // An optional suffix: one ${chr}? (zero-width, ≤1 boundary) then am/pm or one
-  // of x/K/B/T/M, followed by wbe. The suffix letters sit at the clean `pos`.
+  // An optional suffix: one tolerated boundary then am/pm or one of x/K/B/T/M,
+  // followed by wbe. The suffix letters sit at the clean `pos`.
   if (boundaryCountAt(view, pos) > 1) return null
-  // `[AaPp][Mm]` is contiguous in v4 — a boundary between the two letters breaks
-  // the suffix.
+  // `[AaPp][Mm]` is contiguous — a boundary between the two letters breaks the
+  // suffix.
   if (allowAmPm && /[ap]/i.test(text[pos] ?? "") && /m/i.test(text[pos + 1] ?? "") && !view.hasBoundary(pos + 1)) {
     return wordBoundaryEndOk(view, pos + 2) ? pos + 2 : null
   }
@@ -493,9 +492,9 @@ function suffixWbeEnd(view: ProseView, pos: number, allowAmPm: boolean): number 
 const NOT_AFTER_DASH_RE = new RegExp(`[${DISALLOWED_PREFIX_CLASS_FRAGMENT}${LATIN_LETTERS}${MULTIPLICATION}${PLUS_MINUS}.+]`)
 
 /**
- * v4's `notAfterDash` was a single-char negative lookbehind. A node boundary
- * immediately before the start hides the clean char (v4 saw the separator, not
- * the dash/letter), so the guard only fires when a disallowed clean char sits
+ * `notAfterDash` is a single-char negative lookbehind. A node boundary
+ * immediately before the start hides the clean char (a boundary is not the
+ * dash/letter), so the guard only fires when a disallowed clean char sits
  * directly before the start with no intervening boundary.
  */
 function notAfterDashOk(view: ProseView, startOffset: number): boolean {
@@ -505,7 +504,7 @@ function notAfterDashOk(view: ProseView, startOffset: number): boolean {
   return prev === undefined || !NOT_AFTER_DASH_RE.test(prev)
 }
 
-/** v4 range-number gates: reject year-month, phone-shaped, and toll-free pairs. */
+/** Range-number gates: reject year-month, phone-shaped, and toll-free pairs. */
 function rangeNumbersConvert(startNum: string, endNum: string): boolean {
   if (/^(?:19|20)\d{2}$/.test(startNum) && /^(?:0[1-9]|1[0-2])$/.test(endNum)) return false
   // Skip 3+4 digit phone-shaped patterns (555-1234, or the second half of
@@ -525,23 +524,44 @@ function rangeNumbersConvert(startNum: string, endNum: string): boolean {
 // ---------------------------------------------------------------------------
 
 /** Convert month ranges to en-dash (e.g., "January-March" → "January–March"). */
-export function enDashDateRange(text: string, options: DashOptions = {}): string {
-  const dashStyle = options.dashStyle ?? "american"
-  if (dashStyle === "none") return text
-  const separator = options.separator ?? DEFAULT_SEPARATOR
+export function enDashDateRange(input: string, options?: DashOptions): string
+export function enDashDateRange(input: ProseView, options?: DashOptions): void
+export function enDashDateRange(input: string | ProseView, options: DashOptions = {}): string | void {
+  return overInput(input, (view) => enDashDateRangeOverView(view, options.dashStyle ?? "american"))
+}
+
+function enDashDateRangeOverView(view: ProseView, dashStyle: DashStyle): void {
+  if (dashStyle === "none") return
   const [pre, post] = dashStyle === "british" ? [" ", " "] : ["", ""]
 
-  return withProseView(text, separator, (view) => {
-    // Atomic-optional year groups (lookahead + backref). The capture inside the
-    // lookahead is locked in once matched, so the year group commits without
-    // backtracking.
-    const startYear = `(?=(?<startYear> \\d{4})?)\\k<startYear>`
-    const endYear = `(?=(?<endYear> \\d{4})?)\\k<endYear>`
-    const pattern = `\\b(?<startMonth>${monthPattern})${startYear}(?<preSpace> ?)-(?<postSpace> ?)(?<endMonth>${monthPattern})${endYear}\\b`
-    pass(
-      view,
-      cachedRegExp(pattern, "g"),
-      (match, v) => {
+  // Atomic-optional year groups (lookahead + backref). The capture inside the
+  // lookahead is locked in once matched, so the year group commits without
+  // backtracking.
+  const startYear = `(?=(?<startYear> \\d{4})?)\\k<startYear>`
+  const endYear = `(?=(?<endYear> \\d{4})?)\\k<endYear>`
+  const pattern = `\\b(?<startMonth>${monthPattern})${startYear}(?<preSpace> ?)-(?<postSpace> ?)(?<endMonth>${monthPattern})${endYear}\\b`
+  pass(
+    view,
+    cachedRegExp(pattern, "g"),
+    (match, v) => {
+      const groups = namedGroups<{
+        startMonth: string
+        startYear?: string
+        preSpace: string
+        postSpace: string
+        endMonth: string
+        endYear?: string
+      }>(matchArgs(match))
+      // Replace `[preSpace]-[postSpace]` (the dash and its spaces) with the
+      // styled en-dash, leaving the months and any boundaries around them.
+      const startLen = groups.startMonth.length + (groups.startYear?.length ?? 0)
+      const dashSpan = groups.preSpace.length + 1 + groups.postSpace.length
+      const dashStart = match.index + startLen
+      v.replace(dashStart, dashStart + dashSpan, `${pre}${EN_DASH}${post}`)
+      return null
+    },
+    {
+      allowBoundaries: (match, v) => {
         const groups = namedGroups<{
           startMonth: string
           startYear?: string
@@ -550,38 +570,19 @@ export function enDashDateRange(text: string, options: DashOptions = {}): string
           endMonth: string
           endYear?: string
         }>(matchArgs(match))
-        // Replace `[preSpace]-[postSpace]` (the dash and its spaces) with the
-        // styled en-dash, leaving the months and any boundaries around them.
         const startLen = groups.startMonth.length + (groups.startYear?.length ?? 0)
-        const dashSpan = groups.preSpace.length + 1 + groups.postSpace.length
+        // One boundary is tolerated after the start year and one before the end
+        // month, bracketing the dash and spaces.
         const dashStart = match.index + startLen
-        v.replace(dashStart, dashStart + dashSpan, `${pre}${EN_DASH}${post}`)
-        return null
+        const dashEnd = dashStart + groups.preSpace.length + 1 + groups.postSpace.length
+        const tolerated = new Map<number, number>()
+        tolerated.set(dashStart, 1)
+        tolerated.set(dashEnd, 1)
+        if (!interiorBoundariesAllowed(match, v, tolerated)) return false
+        return wordBoundaryStartOk(v, match.index) && wordBoundaryEndOk(v, match.index + match[0].length)
       },
-      {
-        allowBoundaries: (match, v) => {
-          const groups = namedGroups<{
-            startMonth: string
-            startYear?: string
-            preSpace: string
-            postSpace: string
-            endMonth: string
-            endYear?: string
-          }>(matchArgs(match))
-          const startLen = groups.startMonth.length + (groups.startYear?.length ?? 0)
-          // v4 tolerated one separator after the start year (`preSep`) and one
-          // before the end month (`postSep`), bracketing the dash and spaces.
-          const dashStart = match.index + startLen
-          const dashEnd = dashStart + groups.preSpace.length + 1 + groups.postSpace.length
-          const tolerated = new Map<number, number>()
-          tolerated.set(dashStart, 1)
-          tolerated.set(dashEnd, 1)
-          if (!interiorBoundariesAllowed(match, v, tolerated)) return false
-          return wordBoundaryStartOk(v, match.index) && wordBoundaryEndOk(v, match.index + match[0].length)
-        },
-      },
-    )
-  })
+    },
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -589,9 +590,10 @@ export function enDashDateRange(text: string, options: DashOptions = {}): string
 // ---------------------------------------------------------------------------
 
 /** Convert hyphens to minus signs in numeric contexts (e.g., "-5" → "−5"). */
-export function minusReplace(text: string, options: DashOptions = {}): string {
-  const separator = options.separator ?? DEFAULT_SEPARATOR
-  return withProseView(text, separator, (view) => {
+export function minusReplace(input: string): string
+export function minusReplace(input: ProseView): void
+export function minusReplace(input: string | ProseView): string | void {
+  return overInput(input, (view) => {
     minusSubtractionOfNegative(view)
     minusSpacedSubtraction(view)
     minusDirectNegative(view)
@@ -600,14 +602,14 @@ export function minusReplace(text: string, options: DashOptions = {}): string {
 
 /** Pattern 1a/1b: spaced math subtraction after a digit (`5 - 3`, `5 - -3`). */
 function minusSubtractionOfNegative(view: ProseView): void {
-  // "5 - -3" → "5 − −3"; the negative hyphen is consumed first. v4's `${chr}?`
-  // before `num` tolerates one boundary there (the `- -` prefix has 4 chars).
+  // "5 - -3" → "5 − −3"; the negative hyphen is consumed first. The slot before
+  // `num` tolerates one boundary there (the `- -` prefix has 4 chars).
   pass(
     view,
     cachedRegExp(`(?<=\\d) - -(?<num>\\d*\\.?\\d+)`, "g"),
     (match, v) => {
       // Replace only the ` - -` prefix; `num` (which may carry interior
-      // boundaries v4 truncated at) stays untouched.
+      // boundaries that truncate it) stays untouched.
       if (!minusSubtractionPrefixOk(match, v, 4)) return null
       v.replace(match.index, match.index + 4, ` ${MINUS} ${MINUS}`)
       return null
@@ -633,27 +635,27 @@ function minusSpacedSubtraction(view: ProseView): void {
 const NUM_BODY_RE = /^\d*\.?\d+/
 
 /**
- * v4's subtraction patterns wove one `${chr}?` after the leading digit (in the
- * lookbehind, at the match start) and one before `num` (`(?<num>${chr}?\d*\.?\d+)`).
- * The `${chr}?-` prefix span ([match.index, match.index + prefixLen)) must stay
- * separator-free; one boundary may sit at `num`'s head. v4's `num` body
- * (`\d*\.?\d+`) carries no separator slot, so it stops at the first interior
- * boundary: a boundary that truncates `num` to a still-valid number (e.g. "12"
- * in "5 - 12{sep}5") leaves v4 matching, but one that strips the mandatory `\d+`
- * (e.g. "." in "5 - .{sep}5") breaks v4's match. The targeted edit only rewrites
- * the ` - ` prefix, so a converting match must keep v4's `num` satisfiable.
+ * The subtraction patterns tolerate one boundary after the leading digit (at
+ * the match start) and one before `num`. The `-` prefix span ([match.index,
+ * match.index + prefixLen)) must stay boundary-free; one boundary may sit at
+ * `num`'s head. The `num` body (`\d*\.?\d+`) carries no interior slot, so it
+ * stops at the first interior boundary: a boundary that truncates `num` to a
+ * still-valid number (e.g. "12" in "5 - 12{b}5") leaves the match standing, but
+ * one that strips the mandatory `\d+` (e.g. "." in "5 - .{b}5") breaks it. The
+ * targeted edit only rewrites the ` - ` prefix, so a converting match must keep
+ * `num` satisfiable.
  */
 function minusSubtractionPrefixOk(match: RegExpExecArray, view: ProseView, prefixLen: number): boolean {
-  // The `${chr}?` in v4's lookbehind (`(?<=\d${chr}?)`) sits at the match start
-  // between the leading digit and the space; it tolerates at most one boundary.
+  // The slot in the lookbehind (`(?<=\d)`) sits at the match start between the
+  // leading digit and the space; it tolerates at most one boundary.
   if (boundaryCountAt(view, match.index) > 1) return false
   const numStart = match.index + prefixLen
   for (const b of view.boundaries) {
     if (b > match.index && b < numStart) return false
   }
-  // The `${chr}?` before `num` tolerates at most one boundary at the num head.
+  // The slot before `num` tolerates at most one boundary at the num head.
   if (boundaryCountAt(view, numStart) > 1) return false
-  // v4's `num` stops at the first interior boundary; the clean run up to it must
+  // `num` stops at the first interior boundary; the clean run up to it must
   // still satisfy `\d*\.?\d+` (the mandatory trailing `\d+`).
   const numEnd = match.index + match[0].length
   let truncatedEnd = numEnd
@@ -668,12 +670,12 @@ const MINUS_BEFORE_CLASS_RE = new RegExp(`[\\s("'${LEFT_DOUBLE_QUOTE}${RIGHT_DOU
 const NUM_BEFORE_2B_BLOCK_RE = new RegExp(`[\\d.,${LATIN_LETTERS}]`)
 
 /**
- * Direct negative numbers. v4 ran two passes: Pattern 2 converts `-\d` after
- * line start, whitespace, `(`, or a quote; Pattern 2b converts `${chr}-\d` (a
- * separator-led hyphen) when no digit/`.`/`,`/Latin precedes the separator —
- * which prevents `1${chr}-2` and `GPT${chr}-3` from reading as negatives. In
- * the view, Pattern 2 fires when the clean char before the hyphen qualifies and
- * no boundary intrudes; Pattern 2b fires when a boundary leads the hyphen.
+ * Direct negative numbers, in two cases: Pattern 2 converts `-\d` after line
+ * start, whitespace, `(`, or a quote; Pattern 2b converts a boundary-led hyphen
+ * `-\d` when no digit/`.`/`,`/Latin precedes the boundary — which prevents
+ * `1{b}-2` and `GPT{b}-3` from reading as negatives. Pattern 2 fires when the
+ * clean char before the hyphen qualifies and no boundary intrudes; Pattern 2b
+ * fires when a boundary leads the hyphen.
  */
 function minusDirectNegative(view: ProseView): void {
   pass(
@@ -681,11 +683,11 @@ function minusDirectNegative(view: ProseView): void {
     cachedRegExp(`-(?<num>\\d*\\.?\\d+)`, "gm"),
     (match, v) => {
       const start = match.index
-      // v4's `num` (`\d*\.?\d+`) carries no separator slot, so it stops at the
-      // first interior boundary; the clean run up to it must still satisfy
+      // `num` (`\d*\.?\d+`) carries no interior slot, so it stops at the first
+      // interior boundary; the clean run up to it must still satisfy
       // `\d*\.?\d+`. A boundary right after the hyphen (head) leaves no digits
-      // ("-{sep}5"), and one that strips the mandatory `\d+` ("-.{sep}1") breaks
-      // the match, but one past a valid number ("-5{sep}5") leaves it intact.
+      // ("-{b}5"), and one that strips the mandatory `\d+` ("-.{b}1") breaks the
+      // match, but one past a valid number ("-5{b}5") leaves it intact.
       const numEnd = start + match[0].length
       let numTruncEnd = numEnd
       for (const b of v.boundaries) {
@@ -698,9 +700,9 @@ function minusDirectNegative(view: ProseView): void {
       // hyphen has either a boundary or a clean char immediately before it.)
       const nb = boundaryCountAt(v, start)
       if (nb > 0) {
-        // Pattern 2b: the marked char before the separator run must not be a
-        // digit, `.`, `,`, or Latin letter. With ≥2 stacked separators that char
-        // is another separator (admitted); with one, it is the clean char left.
+        // Pattern 2b: the char before the boundary run must not be a digit,
+        // `.`, `,`, or Latin letter. With ≥2 stacked boundaries that char is
+        // another boundary (admitted); with one, it is the clean char left.
         if (nb < 2) {
           const before = v.text[start - 1]
           if (before !== undefined && NUM_BEFORE_2B_BLOCK_RE.test(before)) return null
@@ -747,21 +749,21 @@ function isDashChar(ch: string | undefined): boolean {
  * before a word char (the suspended/hanging hyphen, "Yes-men and -women") is
  * skipped. The arrow guard rejects shapes like "- >" so `foo -> bar` stays.
  *
- * v4's dash core (`[${EN}${EM}][-${EN}${EM}]*|-{2,}|-(?!sep*[LAT\d])`) never
- * spanned a separator, so a node boundary inside the dash run truncates the run
- * — the boundary becomes the `sepAfter` slot and any dashes past it are left
- * untouched. The replacer reproduces this by truncating the run at the first
- * interior boundary and re-validating the dash core on the truncated form.
+ * The dash core (`[${EN}${EM}][-${EN}${EM}]*|-{2,}|-(?![LAT\d])`) never spans a
+ * boundary, so a node boundary inside the dash run truncates the run — the
+ * boundary becomes the trailing slot and any dashes past it are left untouched.
+ * The replacer realizes this by truncating the run at the first interior
+ * boundary and re-validating the dash core on the truncated form.
  */
 function convertSpacedDashes(view: ProseView, rendered: string): void {
-  // v4's `(?<=[^\s]|^)` lookbehind is validated in the replacer instead, since a
-  // separator (non-space) also satisfies it, letting a match begin even when the
+  // The `(?<=[^\s]|^)` lookbehind is validated in the replacer instead, since a
+  // boundary (non-space) also satisfies it, letting a match begin even when the
   // clean char to the left is whitespace. The cheap `(?<![ ])` anchor keeps each
   // `[ ]+` run starting at its leftmost space, avoiding quadratic backtracking.
   const pattern = `(?<![ ])[ ]+(?<dashStart>[-${EN_DASH}${EM_DASH}])`
-  // v4's regex consumed the trailing `[ ]*` inside each match, advancing past it;
-  // this clean pattern does not, so a later match could begin inside a previous
-  // match's consumed trailing spaces. Track the last consumed offset and skip.
+  // The full shape consumes the trailing `[ ]*`, advancing past it; this pattern
+  // does not, so a later match could begin inside a previous match's consumed
+  // trailing spaces. Track the last consumed offset and skip.
   let consumedThrough = -1
   pass(
     view,
@@ -770,8 +772,8 @@ function convertSpacedDashes(view: ProseView, rendered: string): void {
       const text = v.text
       const groups = namedGroups<{ dashStart: string }>(matchArgs(match))
       const firstDash = match.index + match[0].length - groups.dashStart.length
-      // v4's greedy `[ ]+` starts at the leftmost position whose `(?<=[^\s]|^)`
-      // holds: line/text start, a non-whitespace clean char, or a separator. A
+      // The greedy `[ ]+` starts at the leftmost position whose `(?<=[^\s]|^)`
+      // holds: line/text start, a non-whitespace clean char, or a boundary. A
       // boundary inside the leading spaces restarts the match just after it (the
       // spaces before it stay with the previous node). The previous match's
       // consumed span is also a floor: leading spaces it already consumed are not
@@ -785,24 +787,23 @@ function convertSpacedDashes(view: ProseView, rendered: string): void {
          stops at this dash, so `consumedThrough` never reaches past `firstDash`. */
       if (matchStart >= firstDash + 1) return null
       // Validate the lookbehind at matchStart: start of text/line, a boundary
-      // immediately left (separator), or a non-whitespace clean char.
+      // immediately left, or a non-whitespace clean char.
       const leftOk = matchStart === 0
         || view.hasBoundary(matchStart)
         || (text[matchStart - 1] !== undefined && !/\s/.test(text[matchStart - 1]))
       if (!leftOk) return null
       // The leading spaces between matchStart and the dash must be at least one
-      // (v4's `[ ]+` is one-or-more) — a boundary directly before the dash leaves
+      // (`[ ]+` is one-or-more) — a boundary directly before the dash leaves
       // none, which is the boundary-led pattern's job, not this one.
       if (matchStart === firstDash) return null
-      // A separator between the leading spaces and the dash breaks v4's
-      // `[ ]+dashCore` (no separator slot there); neither spaced nor boundary-led
-      // matches, so skip.
+      // A boundary between the leading spaces and the dash breaks `[ ]+dashCore`
+      // (no slot there); neither spaced nor boundary-led matches, so skip.
       if (view.hasBoundary(firstDash)) return null
-      // Maximal dash run from firstDash that does not cross a boundary (v4's core
-      // never spanned a separator).
+      // Maximal dash run from firstDash that does not cross a boundary (the core
+      // never spans a boundary).
       let fullRunEnd = firstDash + 1
       while (isDashChar(text[fullRunEnd]) && !v.hasBoundary(fullRunEnd)) fullRunEnd++
-      // v4's dashCore (`-{2,}` greedy, then single `-`) backtracks past the arrow
+      // The dashCore (`-{2,}` greedy, then single `-`) backtracks past the arrow
       // guard AND the trailing `[ ]*(?=\S|$)`, so try run ends longest-first and
       // take the first one whose whole tail validates.
       const chosen = chooseSpacedDashRun(v, firstDash, fullRunEnd)
@@ -816,7 +817,7 @@ function convertSpacedDashes(view: ProseView, rendered: string): void {
 }
 
 /**
- * Picks v4's dashCore from the maximal dash run [firstDash, fullRunEnd). v4 tries
+ * Picks the dashCore from the maximal dash run [firstDash, fullRunEnd). Tries
  * `[EN EM][-EN EM]*`, then `-{2,}` (greedy), then a single `-`, backtracking past
  * the arrow guard and the trailing `[ ]*(?=\S|$)`. Returns the chosen run end and
  * the trailing-spaces end (`scan`) to replace, or null when no branch validates.
@@ -835,7 +836,7 @@ function chooseSpacedDashRun(view: ProseView, firstDash: number, fullRunEnd: num
     }
     return null
   }
-  // v4's `-{2,}` and single-`-` branches match hyphens only, so a leading-hyphen
+  // The `-{2,}` and single-`-` branches match hyphens only, so a leading-hyphen
   // run stops at the first EN/EM dash (e.g. "-–" is a single `-` core, not a
   // two-dash run that would swallow the EN dash).
   let hyphenRunEnd = firstDash
@@ -863,19 +864,19 @@ interface SpacedTrailing {
 }
 
 /**
- * v4's trailing `[ ]*(?:${chr} [ ]*)?(?=\S|$)`. The leading `[ ]*` (before any
- * separator) is deleted; spaces after a separator are kept (they belong to the
- * next node) but still consumed. The lookahead then requires a non-space char, a
- * boundary, or end of text. Returns the edit/consumed offsets, or null on failure.
+ * The trailing `[ ]*(?:[ ]*)?(?=\S|$)` with one tolerated boundary. The leading
+ * `[ ]*` (before any boundary) is deleted; spaces after a boundary are kept
+ * (they belong to the next node) but still consumed. The lookahead then requires
+ * a non-space char, a boundary, or end of text. Returns the edit/consumed
+ * offsets, or null on failure.
  */
 function spacedTrailingEnd(view: ProseView, runEnd: number): SpacedTrailing | null {
   const text = view.text
   let editEnd = runEnd
   while (text[editEnd] === " " && !view.hasBoundary(editEnd)) editEnd++
-  // v4's `(?:${chr} [ ]*)?(?=\S|$)` is a greedy optional group: try consuming a
-  // single sepAfter separator and its kept trailing spaces first, then fall back
-  // to no separator. `(?=\S|$)` is satisfied by a boundary (a non-space
-  // separator), a non-space clean char, or end of text.
+  // The trailing optional group is greedy: try consuming a single boundary and
+  // its kept trailing spaces first, then fall back to no boundary. `(?=\S|$)` is
+  // satisfied by a boundary (non-space), a non-space clean char, or end of text.
   if (boundaryCountAt(view, editEnd) === 1) {
     let consumedEnd = editEnd
     while (text[consumedEnd] === " " && (consumedEnd === editEnd || !view.hasBoundary(consumedEnd))) consumedEnd++
@@ -885,17 +886,17 @@ function spacedTrailingEnd(view: ProseView, runEnd: number): SpacedTrailing | nu
   return null
 }
 
-/** v4's `(?=\S|$)`: end of text, a node boundary, or a non-space clean char. */
+/** `(?=\S|$)`: end of text, a node boundary, or a non-space clean char. */
 function lookaheadNonSpace(view: ProseView, pos: number): boolean {
   return pos === view.text.length || view.hasBoundary(pos) || !/\s/.test(view.text[pos])
 }
 
 /**
- * v4's `(?!${sep}?-*${sep}?>)` arrow guard, boundary-aware. The two `${sep}?`
- * slots bracket the `-*` hyphen run: one boundary may sit before the run and one
- * after. With no hyphens both slots collapse to the run-end offset (up to two
- * boundaries there); a boundary inside the hyphen run, or more than the two
- * slots allow, hides the `>` (so the dash is not an arrow and converts).
+ * The `(?!-*>)` arrow guard, boundary-aware. Two slots bracket the `-*` hyphen
+ * run: one boundary may sit before the run and one after. With no hyphens both
+ * slots collapse to the run-end offset (up to two boundaries there); a boundary
+ * inside the hyphen run, or more than the two slots allow, hides the `>` (so the
+ * dash is not an arrow and converts).
  */
 function spacedArrowAhead(view: ProseView, runEnd: number): boolean {
   const text = view.text
@@ -905,24 +906,24 @@ function spacedArrowAhead(view: ProseView, runEnd: number): boolean {
     h++
   }
   if (h === runEnd) {
-    // No hyphens: both ${sep}? slots fall at this offset (≤2 boundaries total).
+    // No hyphens: both slots fall at this offset (≤2 boundaries total).
     if (boundaryCountAt(view, runEnd) > 2) return false
   } else {
-    if (boundaryCountAt(view, runEnd) > 1) return false // first ${sep}?
-    if (boundaryCountAt(view, h) > 1) return false // second ${sep}?
+    if (boundaryCountAt(view, runEnd) > 1) return false // first slot
+    if (boundaryCountAt(view, h) > 1) return false // second slot
   }
   return text[h] === ">"
 }
 
 /**
- * Dashes where a separator alone precedes the dash run: "word{sep}– rest". v4's
- * pattern `(?<=[^\s])${sep}[dash]+[ ]+` required a separator immediately before
- * the dash run, a non-space marked char before that separator, and at least one
- * trailing space. Because the leading separator is required, this only fires
- * where a node boundary opens a dash run, so the pass scans boundaries rather
- * than the clean text. The "non-space before the separator" is satisfied by a
- * real non-space clean char (single boundary) or by another stacked separator
- * (two or more boundaries — a separator is itself non-space).
+ * Dashes where a boundary alone precedes the dash run: "word{b}– rest". The
+ * shape `(?<=[^\s])[dash]+[ ]+` with a leading boundary requires a boundary
+ * immediately before the dash run, a non-space char before that boundary, and
+ * at least one trailing space. Because the leading boundary is required, this
+ * only fires where a node boundary opens a dash run, so the pass scans
+ * boundaries rather than the clean text. The "non-space before the boundary" is
+ * satisfied by a real non-space clean char (single boundary) or by another
+ * stacked boundary (two or more boundaries — a boundary is itself non-space).
  */
 function convertBoundaryLedDashes(view: ProseView, rendered: string): void {
   const text = view.text
@@ -935,7 +936,7 @@ function convertBoundaryLedDashes(view: ProseView, rendered: string): void {
     prevOffset = b
     if (b < lastProcessedEnd) continue
     if (!isDashChar(text[b])) continue
-    // Non-space before the separator: ≥2 stacked separators, or a non-space
+    // Non-space before the boundary: ≥2 stacked boundaries, or a non-space
     // clean char immediately left.
     if (stackedHere < 2) {
       const before = text[b - 1]
@@ -944,7 +945,7 @@ function convertBoundaryLedDashes(view: ProseView, rendered: string): void {
     // Dash run from the boundary, not crossing a further boundary.
     let runEnd = b + 1
     while (isDashChar(text[runEnd]) && !view.hasBoundary(runEnd)) runEnd++
-    // Required trailing space run; stop at a boundary (sepAfter).
+    // Required trailing space run; stop at a boundary.
     let spaceEnd = runEnd
     while (text[spaceEnd] === " " && !view.hasBoundary(spaceEnd)) spaceEnd++
     if (spaceEnd === runEnd) continue // no trailing space
@@ -956,12 +957,12 @@ function convertBoundaryLedDashes(view: ProseView, rendered: string): void {
 }
 
 /**
- * Multiple dashes: "word--word", "word---word", `"quote"--"quote"`. v4's
- * `(?<=[LAT\d quote])${sep}?[dash]{2,50}${sep}?(?=[LAT quote space])` tolerated
- * one separator on each side of the run but its `[dash]{2,50}` never spanned a
- * separator. A boundary inside the run truncates it (and the 2..50 count must
- * still hold for the truncated run); two stacked boundaries on either edge
- * exceed the single `${sep}?` slot and block the match.
+ * Multiple dashes: "word--word", "word---word", `"quote"--"quote"`. The shape
+ * `(?<=[LAT\d quote])[dash]{2,50}(?=[LAT quote space])` tolerates one boundary
+ * on each side of the run, but its `[dash]{2,50}` never spans a boundary. A
+ * boundary inside the run truncates it (and the 2..50 count must still hold for
+ * the truncated run); two stacked boundaries on either edge exceed the single
+ * slot and block the match.
  */
 function convertMultipleDashes(view: ProseView, rendered: string): void {
   const before = `[${LATIN_LETTERS}\\d${QUOTE_CHARS}]`
@@ -975,14 +976,14 @@ function convertMultipleDashes(view: ProseView, rendered: string): void {
     (match, v) => {
       const text = v.text
       const start = match.index
-      // Two stacked boundaries before the run exceed sepBefore's one-sep budget.
+      // Two stacked boundaries before the run exceed the leading slot's budget.
       if (boundaryCountAt(v, start) >= 2) return null
-      // Truncate the run at the first interior boundary (v4's class stops there).
+      // Truncate the run at the first interior boundary (the class stops there).
       let runEnd = start + 1
       while (isDashChar(text[runEnd]) && !v.hasBoundary(runEnd)) runEnd++
       if (runEnd - start < 2 || runEnd - start > 50) return null
-      // sepAfter tolerates one boundary; v4's trailing lookahead then checks the
-      // clean char after the run is [LAT quote space].
+      // The trailing slot tolerates one boundary; the trailing lookahead then
+      // checks the clean char after the run is [LAT quote space].
       if (boundaryCountAt(v, runEnd) >= 2) return null
       const next = text[runEnd]
       if (next === undefined || !afterRe.test(next)) return null
@@ -994,11 +995,10 @@ function convertMultipleDashes(view: ProseView, rendered: string): void {
 }
 
 /**
- * Dashes at start of line: "^- " → styled dash. v4 wove one optional `${chr}?`
- * at line start (before the dashes); it sits at the match start, never interior.
- * The dash run has no interior separator slot, so a boundary inside the run
- * blocks the match — the default interior-boundary rejection, which is what we
- * want here.
+ * Dashes at start of line: "^- " → styled dash. One boundary is tolerated at
+ * line start (before the dashes); it sits at the match start, never interior.
+ * The dash run has no interior slot, so a boundary inside the run blocks the
+ * match — the default interior-boundary rejection, which is what we want here.
  */
 function convertLeadingLineDashes(view: ProseView, localizedDash: string): void {
   pass(view, cachedRegExp(`^-+ `, "gm"), () => `${localizedDash} `)
@@ -1011,8 +1011,8 @@ function convertUnspacedEmDashes(view: ProseView, rendered: string): void {
     view,
     cachedRegExp(pattern, "g"),
     (match, v) => {
-      // v4's `(?<sepBefore>${chr}?)${EM_DASH}(?<sepAfter>${chr}?)` tolerated one
-      // boundary on each side; two or more exceed the slot and block the match.
+      // One boundary is tolerated on each side of the em-dash; two or more
+      // exceed the slot and block the match.
       if (boundaryCountAt(v, match.index) > 1) return null
       if (boundaryCountAt(v, match.index + match[0].length) > 1) return null
       v.replace(match.index, match.index + match[0].length, rendered)
@@ -1034,12 +1034,11 @@ function normalizeEmDashSpacing(view: ProseView): void {
 
 /**
  * Remove spaces directly around an em-dash that has non-whitespace on both
- * sides. v4's `(?<=\S|^)${sep}?[ ]*${EM}[ ]*${sep}?(?=\S|$)` only consumed the
- * spaces immediately adjacent to the dash; a separator between a space and the
- * dash kept that space (the leading `[ ]*` could not reach across the marker).
- * The walk therefore stops space consumption at node boundaries, and the
- * `\S|^` / `\S|$` anchors treat a boundary (a non-space marker) as satisfying
- * the anchor.
+ * sides. Only the spaces immediately adjacent to the dash are consumed; a
+ * boundary between a space and the dash keeps that space (space consumption
+ * cannot reach across a boundary). The walk therefore stops space consumption
+ * at node boundaries, and the `\S|^` / `\S|$` anchors treat a boundary (a
+ * non-space) as satisfying the anchor.
  */
 function removeSpacesAroundEmDash(view: ProseView): void {
   pass(
@@ -1071,8 +1070,8 @@ function preserveLineLeadingEmDashSpace(view: ProseView): void {
     view,
     cachedRegExp(`^${EM_DASH}(?<after>[A-Z0-9])`, "gm"),
     (match, v) => {
-      // v4's `^${chr}?${EM_DASH}` tolerated one boundary between the line start
-      // and the em-dash; two or more exceed that slot and block the match.
+      // One boundary is tolerated between the line start and the em-dash; two or
+      // more exceed that slot and block the match.
       if (boundaryCountAt(v, match.index) > 1) return null
       const groups = namedGroups<{ after: string }>(matchArgs(match))
       return `${EM_DASH} ${groups.after}`
@@ -1084,18 +1083,18 @@ function preserveLineLeadingEmDashSpace(view: ProseView): void {
 // Public dash pipeline
 // ---------------------------------------------------------------------------
 
-export function hyphenReplace(text: string, options: DashOptions = {}): string {
-  const separator = options.separator ?? DEFAULT_SEPARATOR
+export function hyphenReplace(input: string, options?: DashOptions): string
+export function hyphenReplace(input: ProseView, options?: DashOptions): void
+export function hyphenReplace(input: string | ProseView, options: DashOptions = {}): string | void {
   const style = options.dashStyle ?? "american"
-  if (style === "none") return text
-  text = minusReplace(text, options)
-  text = enDashDateRange(text, options)
-  text = enDashNumberRange(text, options)
-  text = withProseView(text, separator, (view) => {
+  return overInput(input, (view) => {
+    if (style === "none") return
+    minusReplace(view)
+    enDashDateRangeOverView(view, style)
+    enDashNumberRange(view)
     convertParentheticalDashes(view, style)
     if (style === "american") normalizeEmDashSpacing(view)
   })
-  return text
 }
 
 const { WORD_JOINER } = UNICODE_SYMBOLS
@@ -1115,9 +1114,13 @@ const { WORD_JOINER } = UNICODE_SYMBOLS
  * `nbspTransform` (U+00A0 breaks `Fig. 1` searches). Apply only in rendered
  * HTML; do not write into Markdown source.
  */
-export function dashWordJoiner(text: string): string {
-  const re = cachedRegExp(`(?<=[^\\s${WORD_JOINER}])[${EM_DASH}${EN_DASH}]`, "gu")
-  return text.replace(re, `${WORD_JOINER}$&`)
+export function dashWordJoiner(input: string): string
+export function dashWordJoiner(input: ProseView): void
+export function dashWordJoiner(input: string | ProseView): string | void {
+  return overInput(input, (view) => {
+    const re = cachedRegExp(`(?<=[^\\s${WORD_JOINER}])[${EM_DASH}${EN_DASH}]`, "gu")
+    replaceAllInView(view, re, (match) => `${WORD_JOINER}${match[0]}`)
+  })
 }
 
 /** Reconstructs `.replace()`-style callback args from a RegExpExecArray. */

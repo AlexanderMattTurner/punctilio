@@ -1,6 +1,3 @@
-import { DEFAULT_SEPARATOR } from "./constants.js"
-import { transformTextNodes } from "./utils.js"
-
 export interface ProseNode {
   value: string
 }
@@ -54,8 +51,8 @@ class ProseViewImpl implements ProseView {
     return this.cachedBoundaries
   }
 
-  /** Recompute `text` and `boundaries` from the current node values. @internal */
-  refresh(): void {
+  /** Recompute `text` and `boundaries` from the current node values. */
+  private refresh(): void {
     let text = ""
     const boundaries: number[] = []
     this.nodes.forEach((node, index) => {
@@ -66,16 +63,6 @@ class ProseViewImpl implements ProseView {
     })
     this.cachedText = text
     this.cachedBoundaries = boundaries
-  }
-
-  /** @internal */
-  hasQueuedEdits(): boolean {
-    return this.edits.length > 0
-  }
-
-  /** @internal */
-  getNodes(): ProseNode[] {
-    return this.nodes
   }
 
   hasBoundary(offset: number): boolean {
@@ -292,34 +279,29 @@ export function replaceAllInView(
 }
 
 /**
- * Splits sentinel-marked text on the separator, builds a ProseView over the
- * fragments, runs `run` against the clean-text view, commits the queued edits,
- * and rejoins the fragments with the separator. The separator count is
- * preserved exactly: each fragment maps to one source node, and `commit()`
- * never creates or destroys node boundaries.
+ * String↔view bridge: builds a single-node ProseView over `text`, runs `run`
+ * against it, commits any queued edits, and returns the resulting text.
  */
-export function withProseView(
-  markedText: string,
-  separator: string,
-  run: (view: ProseView) => void,
-): string {
-  const fragments = separator.length > 0 ? markedText.split(separator) : [markedText]
-  const nodes: ProseNode[] = fragments.map((value) => ({ value }))
-  const view = buildProseView(nodes)
+export function withProseView(text: string, run: (view: ProseView) => void): string {
+  const node: ProseNode = { value: text }
+  const view = buildProseView([node])
   run(view)
   view.commit()
-  return nodes.map((node) => node.value).join(separator)
+  return node.value
 }
 
-export function runLegacyPass(
-  view: ProseView,
-  passFn: (markedText: string) => string,
-  separator: string = DEFAULT_SEPARATOR,
-): void {
-  const impl = view as ProseViewImpl
-  if (impl.hasQueuedEdits()) {
-    throw new Error("runLegacyPass() cannot run while the view has uncommitted queued edits.")
+/**
+ * Dual-input driver shared by the public passes: a string runs through a
+ * single-node view and returns the transformed string; a ProseView has the
+ * pass's edits queued and committed onto it in place (returns nothing).
+ */
+export function overInput(input: string, run: (view: ProseView) => void): string
+export function overInput(input: ProseView, run: (view: ProseView) => void): void
+export function overInput(input: string | ProseView, run: (view: ProseView) => void): string | void
+export function overInput(input: string | ProseView, run: (view: ProseView) => void): string | void {
+  if (typeof input === "string") {
+    return withProseView(input, run)
   }
-  transformTextNodes(impl.getNodes(), passFn, separator)
-  impl.refresh()
+  run(input)
+  input.commit()
 }

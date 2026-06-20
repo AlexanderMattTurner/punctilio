@@ -46,7 +46,6 @@ describe("regex safety (runtime introspection)", () => {
             degrees: true,
             superscript: true,
             ligatures: true,
-            checkIdempotency: false,
           })
         }
       }

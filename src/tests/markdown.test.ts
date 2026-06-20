@@ -166,7 +166,7 @@ describe("transformMarkdown", () => {
       if (line.trim() === "") continue
 
       // collapseSpaces: false because Markdown uses double-space for formatting
-      const transformed = transform(line, { nbsp: false, collapseSpaces: false, checkIdempotency: false })
+      const transformed = transform(line, { nbsp: false, collapseSpaces: false })
       expect(transformed).toBe(line)
     }
   })

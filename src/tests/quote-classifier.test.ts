@@ -1,8 +1,8 @@
-import { DEFAULT_SEPARATOR, UNICODE_SYMBOLS } from "../constants.js"
+import { UNICODE_SYMBOLS } from "../constants.js"
 import { transform } from "../index.js"
 import { classifyApostrophes, niceQuotes, type PunctuationStyle } from "../quotes.js"
 import { primeMarks } from "../symbols.js"
-import { buildMixedContent } from "./test-helpers.js"
+import { buildMixedContent, SEP, viewTransform } from "./test-helpers.js"
 
 const {
   LEFT_DOUBLE_QUOTE,
@@ -17,8 +17,6 @@ const {
   PRIME,
   DOUBLE_PRIME,
 } = UNICODE_SYMBOLS
-
-const SEP = DEFAULT_SEPARATOR
 
 describe("quote classifier role-stream regressions", () => {
   it("plural possessive before a period stays outside on first and second pass", () => {
@@ -44,7 +42,10 @@ describe("quote classifier role-stream regressions", () => {
     expect(transform(first, { nbsp: false })).toBe(first)
   })
 
-  it("niceQuotes alone (no prime pass) leaves the prime candidates to the quote rules", () => {
+  it("niceQuotes converts prime candidates by default and leaves them with primes: false", () => {
+    expect(niceQuotes('5\'10" tall')).toBe(`5${PRIME}10${DOUBLE_PRIME} tall`)
+    expect(niceQuotes('5\'10" tall', { primes: false })).toBe(`5'10${RIGHT_DOUBLE_QUOTE} tall`)
+    // classifyApostrophes never converts primes.
     expect(classifyApostrophes('5\'10" tall')).toBe(`5'10${RIGHT_DOUBLE_QUOTE} tall`)
   })
 
@@ -92,7 +93,7 @@ describe("boundary-sensitive edges (ports of v4 sentinel behavior)", () => {
     // lookbehind treats the boundary as an ordinary non-space character.
     [`can't${SEP}${SEP} stop`, `can${MODIFIER_LETTER_APOSTROPHE}t${SEP}${SEP} stop`],
   ])("classifyApostrophes(%j) === %j", (input, expected) => {
-    expect(classifyApostrophes(input, { separator: SEP })).toBe(expected)
+    expect(viewTransform(classifyApostrophes, input, SEP)).toBe(expected)
   })
 
   it.each([
@@ -101,7 +102,7 @@ describe("boundary-sensitive edges (ports of v4 sentinel behavior)", () => {
     // A boundary after the quote passes the not-a-letter lookahead.
     [`5'${SEP}x`, `5${PRIME}${SEP}x`],
   ])("primeMarks(%j) === %j", (input, expected) => {
-    expect(primeMarks(input, { separator: SEP })).toBe(expected)
+    expect(viewTransform(primeMarks, input, SEP)).toBe(expected)
   })
 
   it.each([
@@ -128,13 +129,13 @@ describe("boundary-sensitive edges (ports of v4 sentinel behavior)", () => {
     // a non-space follower.
     [`x ' b${RIGHT_SINGLE_QUOTE} c`, `x ' b${RIGHT_SINGLE_QUOTE} c`],
   ])("niceQuotes(%j) === %j", (input, expected) => {
-    expect(niceQuotes(input, { separator: SEP })).toBe(expected)
+    expect(viewTransform(niceQuotes, input, SEP)).toBe(expected)
   })
 
-  it("supports an empty separator (treated as a single unsplit fragment)", () => {
-    expect(niceQuotes('"x"', { separator: "" })).toBe(`${LEFT_DOUBLE_QUOTE}x${RIGHT_DOUBLE_QUOTE}`)
-    expect(niceQuotes("don't", { separator: "" })).toBe(`don${RIGHT_SINGLE_QUOTE}t`)
-    expect(primeMarks("5'", { separator: "" })).toBe(`5${PRIME}`)
+  it("a single-node view behaves like the plain-string path", () => {
+    expect(viewTransform(niceQuotes, '"x"')).toBe(`${LEFT_DOUBLE_QUOTE}x${RIGHT_DOUBLE_QUOTE}`)
+    expect(viewTransform(niceQuotes, "don't")).toBe(`don${RIGHT_SINGLE_QUOTE}t`)
+    expect(viewTransform(primeMarks, "5'")).toBe(`5${PRIME}`)
   })
 })
 

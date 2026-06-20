@@ -8,23 +8,23 @@ import {
   nbspBeforeLastWord,
   nbspBetweenInitials,
   nbspBetweenNumberAndUnit,
-  type NbspOptions,
   nbspTransform,
   REFERENCE_ABBREVIATIONS,
   UNITS,
 } from "../nbsp.js"
-import { DEFAULT_SEPARATOR, UNICODE_SYMBOLS } from "../constants.js"
+import { UNICODE_SYMBOLS } from "../constants.js"
+import type { ProseView } from "../prose-view.js"
+import { SEP, viewTransform } from "./test-helpers.js"
 
 const { NBSP, COPYRIGHT, REGISTERED, TRADEMARK } = UNICODE_SYMBOLS
-const SEP = DEFAULT_SEPARATOR
 
-/** Calls fn with separator option, checking all cases produce correct nbsp. */
+/** Runs fn over the multi-node view each marked input describes, checking per-node values. */
 function expectSep(
-  fn: (text: string, options?: NbspOptions) => string,
+  fn: (view: ProseView) => void,
   cases: [string, string][],
 ) {
   for (const [input, expected] of cases) {
-    expect(fn(input, { separator: SEP })).toBe(expected)
+    expect(viewTransform(fn, input)).toBe(expected)
   }
 }
 
@@ -100,7 +100,7 @@ describe("nbspBetweenNumberAndUnit", () => {
 
   it("does not match unit letter that starts a cross-element word", () => {
     // "5 m" + SEP + "ade" simulates <span>5 m</span><span>ade</span> ("made")
-    expect(nbspBetweenNumberAndUnit(`5 m${SEP}ade`, { separator: SEP }))
+    expect(viewTransform(nbspBetweenNumberAndUnit, `5 m${SEP}ade`))
       .toBe(`5 m${SEP}ade`)
   })
 })
@@ -244,8 +244,8 @@ describe("nbspTransform", () => {
     expect(nbspTransform("Hello world")).toBe(`Hello${NBSP}world`)
   })
 
-  it("passes separator through to all functions", () => {
-    expect(nbspTransform(`Dr.${SEP} Smith`, { separator: SEP }))
+  it("applies all rules over a multi-node view", () => {
+    expect(viewTransform(nbspTransform, `Dr.${SEP} Smith`))
       .toBe(`Dr.${SEP}${NBSP}Smith`)
   })
 

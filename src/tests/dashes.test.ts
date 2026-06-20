@@ -1,5 +1,6 @@
 import { dashWordJoiner, enDashDateRange, enDashNumberRange, hyphenReplace, minusReplace, numberRangeDisallowedPrefixes } from "../dashes.js"
-import { DEFAULT_SEPARATOR, UNICODE_SYMBOLS } from "../constants.js"
+import { UNICODE_SYMBOLS } from "../constants.js"
+import { SEP as DEFAULT_SEPARATOR, viewTransform } from "./test-helpers.js"
 
 const {
   LEFT_DOUBLE_QUOTE,
@@ -168,7 +169,7 @@ describe("hyphenReplace", () => {
       [`foo --${sep}> bar`, `foo --${sep}> bar`, "double dash before sep+> preserved for arrow"],
       [`foo -${sep}-${sep}> bar`, `foo -${sep}-${sep}> bar`, "dash, sep, dash, sep, > preserved for arrow"],
     ])("%s → %s (%s)", (input, expected) => {
-      expect(hyphenReplace(input, { separator: sep })).toBe(expected)
+      expect(viewTransform(hyphenReplace, input, sep)).toBe(expected)
     })
 
     it.each([
@@ -176,7 +177,7 @@ describe("hyphenReplace", () => {
       [`text - ${sep} more`, `text ${EN_DASH} ${sep} more`, "preserves space after separator for en-dash"],
       [`word${sep}${EN_DASH} rest`, `word${sep} ${EN_DASH} rest`, "en-dash after separator british style"],
     ])("%s → %s (%s)", (input, expected) => {
-      expect(hyphenReplace(input, { separator: sep, dashStyle: "british" })).toBe(expected)
+      expect(viewTransform((view) => hyphenReplace(view, { dashStyle: "british" }), input, sep)).toBe(expected)
     })
   })
 })
@@ -247,7 +248,7 @@ describe("enDashNumberRange", () => {
       ["false trailing boundary (non-suffix)", `1-10${sep}y`, `1-10${sep}y`], // "y" is not a valid suffix
       ["valid boundaries with space", `pages ${sep}1-10${sep} total`, `pages ${sep}1${EN_DASH}10${sep} total`], // should convert
     ])("handles %s", (_desc, input, expected) => {
-      expect(enDashNumberRange(input, { separator: sep })).toBe(expected)
+      expect(viewTransform(enDashNumberRange, input, sep)).toBe(expected)
     })
   })
 })
@@ -310,7 +311,7 @@ describe("enDashDateRange", () => {
       ["false trailing boundary", `January-March${sep}x`, `January-March${sep}x`], // "January-Marchx" - should NOT convert
       ["valid boundaries with space", `from ${sep}January-March${sep} period`, `from ${sep}January${EN_DASH}March${sep} period`], // should convert
     ])("handles %s", (_desc, input, expected) => {
-      expect(enDashDateRange(input, { separator: sep })).toBe(expected)
+      expect(viewTransform(enDashDateRange, input, sep)).toBe(expected)
     })
   })
 })
@@ -718,14 +719,6 @@ describe("phone number preservation", () => {
   })
 })
 
-describe("minusReplace regex-special separators", () => {
-  const regexSpecialChars = [".", "*", "+", "?", "^", "$", "[", "]", "\\", "|", "(", ")"]
-
-  it.each(regexSpecialChars)("handles '%s' as separator", (sep) => {
-    expect(() => minusReplace("-5", { separator: sep })).not.toThrow()
-  })
-})
-
 const sep = DEFAULT_SEPARATOR
 
 describe("minusReplace separator boundary", () => {
@@ -733,7 +726,7 @@ describe("minusReplace separator boundary", () => {
     ["genuine negative at element start", `${sep}-5${sep}`, `${sep}${MINUS}5${sep}`],
     ["negative in parens across boundary", `(${sep}-5${sep})`, `(${sep}${MINUS}5${sep})`],
   ])("%s", (_desc, input, expected) => {
-    expect(minusReplace(input, { separator: sep })).toBe(expected)
+    expect(viewTransform(minusReplace, input, sep)).toBe(expected)
   })
 
   it.each([
@@ -741,7 +734,7 @@ describe("minusReplace separator boundary", () => {
     ["no false negative after letter+sep", `GPT${sep}-3`],
     ["multi-segment 1-2-3 with seps", `1-${sep}2${sep}-3`],
   ])("%s", (_desc, input) => {
-    expect(minusReplace(input, { separator: sep })).toBe(input)
+    expect(viewTransform(minusReplace, input, sep)).toBe(input)
   })
 })
 
@@ -750,7 +743,7 @@ describe("hyphenReplace preserves multi-segment numbers across separators", () =
     ["1-2-3 across elements", `1-${sep}2${sep}-3`],
     ["model name across elements", `${sep}GPT${sep}-3`],
   ])("%s", (_desc, input) => {
-    expect(hyphenReplace(input, { separator: sep })).toBe(input)
+    expect(viewTransform(hyphenReplace, input, sep)).toBe(input)
   })
 })
 
@@ -780,9 +773,12 @@ describe("ProseView boundary-tolerance edges", () => {
       ["boundary in last phone segment", `555-123-45${sep}67`, `555${EN_DASH}123-45${sep}67`],
       // A multiplier suffix carries one tolerated `${chr}?` slot at its head.
       ["one boundary before suffix", `1-10${sep}x`, `1${EN_DASH}10${sep}x`],
+      // A boundary between `p.` and the digit severs the page prefix; the bare
+      // range past the boundary still converts.
+      ["boundary after the p. prefix", `p.${sep}5-10`, `p.${sep}5${EN_DASH}10`],
       ["boundary inside am/pm suffix", `2-3p${sep}m`, `2-3p${sep}m`],
     ])("%s", (_desc, input, expected) => {
-      expect(enDashNumberRange(input, { separator: sep })).toBe(expected)
+      expect(viewTransform(enDashNumberRange, input, sep)).toBe(expected)
     })
   })
 
@@ -794,7 +790,7 @@ describe("ProseView boundary-tolerance edges", () => {
       // Multi-segment negatives are preserved (the following resolves non-empty).
       ["multi-segment preserved", `${MINUS}5-3-7`, `${MINUS}5-3-7`],
     ])("%s", (_desc, input, expected) => {
-      expect(enDashNumberRange(minusReplace(input, { separator: sep }), { separator: sep })).toBe(expected)
+      expect(viewTransform(enDashNumberRange, viewTransform(minusReplace, input, sep), sep)).toBe(expected)
     })
   })
 
@@ -803,7 +799,7 @@ describe("ProseView boundary-tolerance edges", () => {
       ["one boundary at the dash", `Jan${sep}-Mar`, `Jan${sep}${EN_DASH}Mar`],
       ["boundary inside the start month blocks", `Ja${sep}n-Mar`, `Ja${sep}n-Mar`],
     ])("%s", (_desc, input, expected) => {
-      expect(enDashDateRange(input, { separator: sep })).toBe(expected)
+      expect(viewTransform(enDashDateRange, input, sep)).toBe(expected)
     })
   })
 
@@ -814,7 +810,7 @@ describe("ProseView boundary-tolerance edges", () => {
       ["two boundaries promote to negative", `1${sep}${sep}-5`, `1${sep}${sep}${MINUS}5`],
       ["one boundary keeps the digit context", `1${sep}-5`, `1${sep}-5`],
     ])("%s", (_desc, input, expected) => {
-      expect(minusReplace(input, { separator: sep })).toBe(expected)
+      expect(viewTransform(minusReplace, input, sep)).toBe(expected)
     })
   })
 
@@ -826,7 +822,7 @@ describe("ProseView boundary-tolerance edges", () => {
       // non-space, satisfying the lookbehind).
       ["separator-led dash converts", `word${sep}- rest`, `word${sep}${EM_DASH}rest`],
     ])("%s", (_desc, input, expected) => {
-      expect(hyphenReplace(input, { separator: sep })).toBe(expected)
+      expect(viewTransform(hyphenReplace, input, sep)).toBe(expected)
     })
   })
 
@@ -840,7 +836,7 @@ describe("ProseView boundary-tolerance edges", () => {
       // A boundary strictly inside the ` - ` prefix breaks the lookbehind span.
       ["boundary inside the prefix blocks", `5 ${sep}- 3`, `5 ${sep}- 3`],
     ])("%s", (_desc, input, expected) => {
-      expect(minusReplace(input, { separator: sep })).toBe(expected)
+      expect(viewTransform(minusReplace, input, sep)).toBe(expected)
     })
   })
 
@@ -858,7 +854,7 @@ describe("ProseView boundary-tolerance edges", () => {
       // Trailing-spaces lookahead is satisfied by end-of-text.
       ["spaced dash at text end", `x -`, `x${EM_DASH}`],
     ])("%s", (_desc, input, expected) => {
-      expect(hyphenReplace(input, { separator: sep })).toBe(expected)
+      expect(viewTransform(hyphenReplace, input, sep)).toBe(expected)
     })
   })
 
@@ -867,7 +863,7 @@ describe("ProseView boundary-tolerance edges", () => {
       // One boundary on the sepBefore side of the em-dash is tolerated.
       ["boundary before the em-dash", `word${sep}${EM_DASH}word`, `word${sep} ${EN_DASH} word`],
     ])("%s", (_desc, input, expected) => {
-      expect(hyphenReplace(input, { separator: sep, dashStyle: "british" })).toBe(expected)
+      expect(viewTransform((view) => hyphenReplace(view, { dashStyle: "british" }), input, sep)).toBe(expected)
     })
   })
 
@@ -876,7 +872,7 @@ describe("ProseView boundary-tolerance edges", () => {
       // One boundary at the line-start `${chr}?` slot before the em-dash.
       ["boundary before a line-leading em-dash", `${sep}${EM_DASH}Apple`, `${sep}${EM_DASH} Apple`],
     ])("%s", (_desc, input, expected) => {
-      expect(hyphenReplace(input, { separator: sep })).toBe(expected)
+      expect(viewTransform(hyphenReplace, input, sep)).toBe(expected)
     })
   })
 
@@ -891,7 +887,7 @@ describe("ProseView boundary-tolerance edges", () => {
       // A multiplier suffix reached only after stacked boundaries still converts.
       ["stacked boundaries before suffix", `1-2${sep}${sep}${sep}${sep}${sep}x`, `1${EN_DASH}2${sep}${sep}${sep}${sep}${sep}x`],
     ])("%s", (_desc, input, expected) => {
-      expect(enDashNumberRange(input, { separator: sep })).toBe(expected)
+      expect(viewTransform(enDashNumberRange, input, sep)).toBe(expected)
     })
   })
 
@@ -908,13 +904,13 @@ describe("ProseView boundary-tolerance edges", () => {
       // core escapes the arrow guard, so nothing converts.
       ["spaced en-dash arrow stays", `a ${EN_DASH}->`, `a ${EN_DASH}->`],
     ])("%s", (_desc, input, expected) => {
-      expect(hyphenReplace(input, { separator: sep })).toBe(expected)
+      expect(viewTransform(hyphenReplace, input, sep)).toBe(expected)
     })
 
     // British unspaced em-dash with a boundary on the sepAfter side (interior to
     // the `${EM_DASH}(?=[letter])` lookahead span in v4's woven form).
     it("interior boundary after a british em-dash", () => {
-      expect(hyphenReplace(`word${EM_DASH}${sep}word`, { separator: sep, dashStyle: "british" })).toBe(
+      expect(viewTransform((view) => hyphenReplace(view, { dashStyle: "british" }), `word${EM_DASH}${sep}word`, sep)).toBe(
         `word ${EN_DASH} ${sep}word`,
       )
     })
@@ -922,7 +918,7 @@ describe("ProseView boundary-tolerance edges", () => {
     // A boundary between a line-leading em-dash and its following uppercase
     // breaks v4's contiguous `${EM_DASH}[A-Z0-9]`, so no space is inserted.
     it("interior boundary blocks line-leading em-dash spacing", () => {
-      expect(hyphenReplace(`\n${EM_DASH}${sep}Apple`, { separator: sep })).toBe(`\n${EM_DASH}${sep}Apple`)
+      expect(viewTransform(hyphenReplace, `\n${EM_DASH}${sep}Apple`, sep)).toBe(`\n${EM_DASH}${sep}Apple`)
     })
 
     it.each([
@@ -936,7 +932,7 @@ describe("ProseView boundary-tolerance edges", () => {
       // shorter dash core that converts, leaving the final hyphen.
       ["dash run backtracks past a failing trailing lookahead", `a ---\n`, `a${EM_DASH}-\n`],
     ])("%s", (_desc, input, expected) => {
-      expect(hyphenReplace(input, { separator: sep })).toBe(expected)
+      expect(viewTransform(hyphenReplace, input, sep)).toBe(expected)
     })
   })
 
@@ -950,7 +946,7 @@ describe("ProseView boundary-tolerance edges", () => {
       // scan early.
       ["interior boundary with end boundary converts", `Jan${sep}-Mar${sep}`, `Jan${sep}${EN_DASH}Mar${sep}`],
     ])("%s", (_desc, input, expected) => {
-      expect(enDashDateRange(input, { separator: sep })).toBe(expected)
+      expect(viewTransform(enDashDateRange, input, sep)).toBe(expected)
     })
 
     it.each([
@@ -960,7 +956,7 @@ describe("ProseView boundary-tolerance edges", () => {
       // A valid single-letter suffix (K) does complete the tail and converts.
       ["negative range with K suffix converts", `${MINUS}5-3K`, `${MINUS}5${EN_DASH}3K`],
     ])("%s", (_desc, input, expected) => {
-      expect(enDashNumberRange(input, { separator: sep })).toBe(expected)
+      expect(viewTransform(enDashNumberRange, input, sep)).toBe(expected)
     })
   })
 
@@ -973,7 +969,7 @@ describe("ProseView boundary-tolerance edges", () => {
       ["decimal then single suffix", `${MINUS}5-5.x`, `${MINUS}5${EN_DASH}5.x`],
       ["decimal value with suffix", `${MINUS}5-5.5K`, `${MINUS}5${EN_DASH}5.5K`],
     ])("%s", (_desc, input, expected) => {
-      expect(enDashNumberRange(input, { separator: sep })).toBe(expected)
+      expect(viewTransform(enDashNumberRange, input, sep)).toBe(expected)
     })
   })
 
@@ -985,7 +981,7 @@ describe("ProseView boundary-tolerance edges", () => {
       // separator reach, so the leading single-digit end converts.
       ["stacked boundaries after the first end digit", `${MINUS}1${sep}-8${sep}${sep}${sep}${sep}${sep}0${sep}0w`, `${MINUS}1${sep}${EN_DASH}8${sep}${sep}${sep}${sep}${sep}0${sep}0w`],
     ])("%s", (_desc, input, expected) => {
-      expect(enDashNumberRange(input, { separator: sep })).toBe(expected)
+      expect(viewTransform(enDashNumberRange, input, sep)).toBe(expected)
     })
   })
 
@@ -996,7 +992,7 @@ describe("ProseView boundary-tolerance edges", () => {
       ["boundary after the area-code dash", `800-${sep}10-2,000`, `800-${sep}10-2,000`],
       ["area-code reading falls back to range start", `800-${sep}10---2,000`, `800${EN_DASH}${sep}10---2,000`],
     ])("%s", (_desc, input, expected) => {
-      expect(enDashNumberRange(input, { separator: sep })).toBe(expected)
+      expect(viewTransform(enDashNumberRange, input, sep)).toBe(expected)
     })
   })
 
@@ -1008,7 +1004,7 @@ describe("ProseView boundary-tolerance edges", () => {
       ["boundary right after the hyphen", `-${sep}5`, `-${sep}5`],
       ["boundary past a valid number converts", `-5${sep}5`, `${MINUS}5${sep}5`],
     ])("%s", (_desc, input, expected) => {
-      expect(minusReplace(input, { separator: sep })).toBe(expected)
+      expect(viewTransform(minusReplace, input, sep)).toBe(expected)
     })
   })
 
@@ -1025,7 +1021,7 @@ describe("ProseView boundary-tolerance edges", () => {
       ["boundary at the num end", `5 - 3${sep}`, `5 ${MINUS} 3${sep}`],
       ["boundary strictly inside num", `5 - 3${sep}0`, `5 ${MINUS} 3${sep}0`],
     ])("%s", (_desc, input, expected) => {
-      expect(minusReplace(input, { separator: sep })).toBe(expected)
+      expect(viewTransform(minusReplace, input, sep)).toBe(expected)
     })
   })
 
@@ -1056,7 +1052,7 @@ describe("ProseView boundary-tolerance edges", () => {
       ["hyphenReplace", `${sep}${sep}${EM_DASH}Apple`, `${sep}${sep}${EM_DASH}Apple`, "american"],
     ])("%s blocks: %s", (fn, input, expected, dashStyle) => {
       const run = { enDashNumberRange, minusReplace, hyphenReplace }[fn as "hyphenReplace"]
-      expect(run(input, { separator: sep, dashStyle: dashStyle as "american" })).toBe(expected)
+      expect(viewTransform((view) => run(view, { dashStyle: dashStyle as "american" }), input, sep)).toBe(expected)
     })
   })
 
@@ -1085,7 +1081,7 @@ describe("ProseView boundary-tolerance edges", () => {
       ["hyphenReplace", `a${EM_DASH} b`, `a${EM_DASH}b`, "american"],
     ])("%s: %s", (fn, input, expected, dashStyle) => {
       const run = { enDashNumberRange, minusReplace, hyphenReplace }[fn as "hyphenReplace"]
-      expect(run(input, { separator: sep, dashStyle: dashStyle as "american" })).toBe(expected)
+      expect(viewTransform((view) => run(view, { dashStyle: dashStyle as "american" }), input, sep)).toBe(expected)
     })
   })
 
@@ -1107,7 +1103,7 @@ describe("ProseView boundary-tolerance edges", () => {
       // A `\d{3}-` area-code candidate whose head is not all digits falls through.
       ["letter in area-code head", `12a-5`, `12a-5`],
     ])("%s", (_desc, input, expected) => {
-      expect(enDashNumberRange(input, { separator: sep })).toBe(expected)
+      expect(viewTransform(enDashNumberRange, input, sep)).toBe(expected)
     })
 
     it.each([
@@ -1118,11 +1114,11 @@ describe("ProseView boundary-tolerance edges", () => {
       // Two consecutive negatives both convert to the minus sign.
       ["two negatives in a row", `-5 -6`, `${MINUS}5 ${MINUS}6`],
     ])("%s", (_desc, input, expected) => {
-      expect(hyphenReplace(input, { separator: sep })).toBe(expected)
+      expect(viewTransform(hyphenReplace, input, sep)).toBe(expected)
     })
 
     it("two consecutive negatives via minusReplace", () => {
-      expect(minusReplace(`-5 -6`, { separator: sep })).toBe(`${MINUS}5 ${MINUS}6`)
+      expect(viewTransform(minusReplace, `-5 -6`, sep)).toBe(`${MINUS}5 ${MINUS}6`)
     })
 
     it.each([
@@ -1132,7 +1128,7 @@ describe("ProseView boundary-tolerance edges", () => {
       // A subtraction whose num is followed by a boundary exits the num-body walk.
       ["double-dash subtraction then boundary", `1--0${sep}`, `1--0${sep}`],
     ])("direct negative num run ends before a boundary: %s", (_desc, input, expected) => {
-      expect(minusReplace(input, { separator: sep })).toBe(expected)
+      expect(viewTransform(minusReplace, input, sep)).toBe(expected)
     })
   })
 
@@ -1176,7 +1172,7 @@ describe("ProseView boundary-tolerance edges", () => {
       ["negative trailing dash", `${MINUS}5-3-`, `${MINUS}5${EN_DASH}3-`],
       ["positive trailing dash", `1-2-`, `1${EN_DASH}2-`],
     ])("%s", (_desc, input, expected) => {
-      expect(enDashNumberRange(input, { separator: sep })).toBe(expected)
+      expect(viewTransform(enDashNumberRange, input, sep)).toBe(expected)
     })
 
     it.each([
@@ -1219,11 +1215,11 @@ describe("ProseView boundary-tolerance edges", () => {
       // A line-leading em-dash followed by an arrow keeps its single space removal.
       ["em-dash run before arrow at start", `555  ${EM_DASH}->Marx`, `555${EM_DASH}->Marx`],
     ])("%s", (_desc, input, expected) => {
-      expect(hyphenReplace(input, { separator: sep })).toBe(expected)
+      expect(viewTransform(hyphenReplace, input, sep)).toBe(expected)
     })
 
     it("overlapping boundary-led runs (british)", () => {
-      expect(hyphenReplace(`a---.${sep}${sep}-- - word`, { separator: sep, dashStyle: "british" })).toBe(
+      expect(viewTransform((view) => hyphenReplace(view, { dashStyle: "british" }), `a---.${sep}${sep}-- - word`, sep)).toBe(
         `a---.${sep}${sep} ${EN_DASH} ${EN_DASH} word`,
       )
     })

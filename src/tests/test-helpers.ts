@@ -4,6 +4,27 @@
 
 import seedrandom from "seedrandom"
 
+import { buildProseView, type ProseNode, type ProseView } from "../prose-view.js"
+
+/** Marker used in tests to write multi-node view fixtures as one string. */
+export const SEP = "\uE000\uE001"
+
+/**
+ * Runs a view pass over the multi-node view described by `markedInput`
+ * (node boundaries written as `marker`) and returns the per-node values
+ * re-joined with `marker`, so expectations use the same notation.
+ */
+export function viewTransform(
+  run: (view: ProseView) => void,
+  markedInput: string,
+  marker: string = SEP,
+): string {
+  const nodes: ProseNode[] = markedInput.split(marker).map((value) => ({ value }))
+  const view = buildProseView(nodes)
+  run(view)
+  return nodes.map((node) => node.value).join(marker)
+}
+
 /**
  * Fragments covering every transform type: quotes, dashes, apostrophes,
  * ellipses, multiplication, math symbols, legal symbols, arrows, primes,
