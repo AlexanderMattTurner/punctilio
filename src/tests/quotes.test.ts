@@ -520,22 +520,36 @@ describe("niceQuotes", () => {
           .toBe(`${LEFT_SINGLE_QUOTE}Stop!${RIGHT_SINGLE_QUOTE},`)
       })
 
-      // British: comma inside always moves outside (even after terminal punctuation)
-      // Exclude "." — the period regex also fires, creating a cascading double-movement
-      it.each(TERMINAL_PUNCTUATION.filter((m) => m !== ".").map((mark) => [
+      // British: comma inside moves outside (even after terminal punctuation),
+      // except after another movable mark ("." or "," or the ellipsis "..."
+      // folds to) — chained movable punctuation stays in place so re-runs
+      // cannot cascade one mark per run.
+      it.each(TERMINAL_PUNCTUATION.filter((m) => m !== "." && m !== "," && m !== UNICODE_SYMBOLS.ELLIPSIS).map((mark) => [
         `${LEFT_DOUBLE_QUOTE}Test${mark},${RIGHT_DOUBLE_QUOTE}`,
         `${LEFT_DOUBLE_QUOTE}Test${mark}${RIGHT_DOUBLE_QUOTE},`,
       ]))("british comma moves outside: %s → %s", (input, expected) => {
         expect(niceQuotes(input, { punctuationStyle: "british" })).toBe(expected)
       })
 
-      // British: period inside always moves outside (even after terminal punctuation)
-      // Exclude "," — the comma regex also fires, creating a cascading double-movement
-      it.each(TERMINAL_PUNCTUATION.filter((m) => m !== ",").map((mark) => [
+      // British: period inside moves outside (even after terminal punctuation),
+      // except after another movable mark — see the comma cases above.
+      it.each(TERMINAL_PUNCTUATION.filter((m) => m !== "," && m !== "." && m !== UNICODE_SYMBOLS.ELLIPSIS).map((mark) => [
         `${LEFT_DOUBLE_QUOTE}Test${mark}.${RIGHT_DOUBLE_QUOTE}`,
         `${LEFT_DOUBLE_QUOTE}Test${mark}${RIGHT_DOUBLE_QUOTE}.`,
       ]))("british period moves outside: %s → %s", (input, expected) => {
         expect(niceQuotes(input, { punctuationStyle: "british" })).toBe(expected)
+      })
+
+      // The chained forms themselves are fixed points. The ellipsis chains
+      // like the "..." it folds from, so "…," and "…." hold still too.
+      it.each([
+        `,,`,
+        `..`,
+        `${UNICODE_SYMBOLS.ELLIPSIS},`,
+        `${UNICODE_SYMBOLS.ELLIPSIS}.`,
+      ])("british chained %s stays in place", (marks) => {
+        const input = `${LEFT_DOUBLE_QUOTE}Test${marks}${RIGHT_DOUBLE_QUOTE}`
+        expect(niceQuotes(input, { punctuationStyle: "british" })).toBe(input)
       })
     })
 
