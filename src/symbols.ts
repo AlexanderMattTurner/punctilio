@@ -1,5 +1,5 @@
 import { cachedRegExp, LATIN_LETTER_RE, LATIN_LETTERS, MAX_BOUNDARY_SEPARATORS, SPACE_CHAR_RE, UNICODE_SYMBOLS, WORD_RE } from "./constants.js"
-import { boundaryCountAt, makeProsePass, overInput, type ProseView, replaceAllInView } from "./prose-view.js"
+import { boundaryCountAt, exceedsSingleBoundary, makeProsePass, overInput, type ProseView, replaceAllInView } from "./prose-view.js"
 import { convertPrimeMarks } from "./quote-classifier.js"
 
 export interface SymbolOptions {
@@ -244,7 +244,7 @@ function leftSuffixUnsplit(view: ProseView, text: string, digitsEnd: number, slo
   // A prime or unit suffix begins after one optional space-or-boundary slot;
   // a second boundary in that slot (before the suffix) leaves `\d+suffix`
   // matching only the digits, detaching the operator.
-  if (slotStart > digitsEnd && boundaryCountAt(view, digitsEnd) > 1) return false
+  if (slotStart > digitsEnd && exceedsSingleBoundary(view, digitsEnd)) return false
   for (let i = digitsEnd + 1; i < slotStart; i++) {
     if (LATIN_LETTER_RE.test(text[i - 1]) && LATIN_LETTER_RE.test(text[i]) && view.hasBoundary(i)) return false
   }
@@ -358,7 +358,7 @@ function multiplicationOverView(view: ProseView): void {
     const operatorOffset = match.index + num.length
     trailingScan = match.index + match[0].length
     // One optional boundary may sit between the digits and the operator.
-    if (boundaryCountAt(view, operatorOffset) > 1) continue
+    if (exceedsSingleBoundary(view, operatorOffset)) continue
     // Leading guard and hex skip, on the boundary-free digit run ending at the
     // operator (a boundary inside the digits truncates the operand).
     const runStart = leftDigitRunStart(view, trailingText, operatorOffset, 0)

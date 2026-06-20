@@ -244,6 +244,15 @@ export function boundaryCountAt(view: ProseView, offset: number): number {
   return count
 }
 
+/**
+ * True when more than one node boundary is stacked at `offset` — i.e. the
+ * position exceeds the single-boundary tolerance the passes allow in an
+ * editing slot.
+ */
+export function exceedsSingleBoundary(view: ProseView, offset: number): boolean {
+  return boundaryCountAt(view, offset) > 1
+}
+
 export function replaceAllInView(
   view: ProseView,
   regex: RegExp,

@@ -1,5 +1,5 @@
 import { cachedRegExp, LATIN_LETTER_RE, LATIN_LETTERS, NBSP_CHARS, SPACE_CHARS, UNICODE_SYMBOLS } from "./constants.js"
-import { boundaryCountAt, makeProsePass, overInput, type ProseView, replaceAllInView } from "./prose-view.js"
+import { boundaryCountAt, exceedsSingleBoundary, makeProsePass, overInput, type ProseView, replaceAllInView } from "./prose-view.js"
 
 const {
   NBSP,
@@ -110,7 +110,7 @@ function boundariesOnlyAtSlots(view: ProseView, start: number, end: number, slot
     if (!slots.includes(boundary)) return false
   }
   for (const slot of slots) {
-    if (boundaryCountAt(view, slot) > 1) return false
+    if (exceedsSingleBoundary(view, slot)) return false
   }
   return true
 }
@@ -234,7 +234,7 @@ function nbspBeforeLastWordOverView(view: ProseView): void {
         // `\n\n`/end-of-text; two adjacent boundaries block the match. The
         // end-of-text slot sits at the match end (never an interior boundary),
         // so the cap is checked here rather than only in allowBoundaries.
-        if (boundaryCountAt(v, end - match.groups!.ending.length) > 1) return null
+        if (exceedsSingleBoundary(v, end - match.groups!.ending.length)) return null
         // Edit only the leading space so the lastWord/ending (and any boundary
         // before \n\n) keep their positions.
         v.replace(start, start + 1, NBSP)

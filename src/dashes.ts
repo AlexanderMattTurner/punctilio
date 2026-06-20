@@ -1,5 +1,5 @@
 import { cachedRegExp, FOLDED_WORD_CHARS, isWordLike, LATIN_LETTER_RE, LATIN_LETTERS, MAX_BOUNDARY_SEPARATORS, NBSP_CHARS, SPACE_CHAR_RE, UNICODE_SYMBOLS } from "./constants.js"
-import { boundaryCountAt, makeProsePass, overInput, type ProseView, replaceAllInView, type ReplaceAllOptions } from "./prose-view.js"
+import { boundaryCountAt, exceedsSingleBoundary, makeProsePass, overInput, type ProseView, replaceAllInView, type ReplaceAllOptions } from "./prose-view.js"
 import { namedGroups } from "./utils.js"
 
 export const DASH_STYLES = ["american", "british", "none"] as const
@@ -248,13 +248,13 @@ function matchRangeBody(view: ProseView, startStart: number): number | null {
   if (start === null) return null
   const startSpanEnd = startStart + start.length
   // One slot between start and the dash tolerates a single boundary there.
-  if (boundaryCountAt(view, startSpanEnd) > 1) return null
+  if (exceedsSingleBoundary(view, startSpanEnd)) return null
   // Dash run of 1..3 hyphens that never spans an interior boundary (a boundary
   // between two hyphens truncates the run).
   if (text[startSpanEnd] !== "-") return null
   let dashEnd = startSpanEnd + 1
   while (text[dashEnd] === "-" && dashEnd - startSpanEnd < 3 && !view.hasBoundary(dashEnd)) dashEnd++
-  if (boundaryCountAt(view, dashEnd) > 1) return null
+  if (exceedsSingleBoundary(view, dashEnd)) return null
 
   // `readStartRun` already stops at the first interior boundary, so the start
   // span is boundary-free and its clean digits are the whole run.
@@ -403,7 +403,7 @@ function matchNegativeRangeAt(view: ProseView, i: number): number | null {
   let startEnd = i + 1
   while (/[\d.,]/.test(text[startEnd] ?? "") && !view.hasBoundary(startEnd)) startEnd++
   // One slot between start and the dash tolerates a single boundary there.
-  if (boundaryCountAt(view, startEnd) > 1) return null
+  if (exceedsSingleBoundary(view, startEnd)) return null
   if (text[startEnd] !== "-") return null
 
   // `-{1,3}?` then optional `(?<neg>-)`: a 1..3 hyphen run with no interior
@@ -414,7 +414,7 @@ function matchNegativeRangeAt(view: ProseView, i: number): number | null {
   const hasNeg = dashRunLen >= 2
   const negEnd = dashRunEnd
   // The `end` head slot tolerates one boundary.
-  if (boundaryCountAt(view, negEnd) > 1) return null
+  if (exceedsSingleBoundary(view, negEnd)) return null
 
   const end = readNegEndRun(view, negEnd)
   if (end === null) return null
@@ -459,11 +459,11 @@ function followingCandidates(view: ProseView, endSpanEnd: number, allowMinus: bo
   const candidates = [endSpanEnd]
   let pos = endSpanEnd
   for (;;) {
-    if (boundaryCountAt(view, pos) > 1) break
+    if (exceedsSingleBoundary(view, pos)) break
     const dashCh = view.text[pos]
     if (dashCh !== "-" && !(allowMinus && dashCh === MINUS)) break
     const digitStart = pos + 1
-    if (boundaryCountAt(view, digitStart) > 1) break
+    if (exceedsSingleBoundary(view, digitStart)) break
     if (!/\d/.test(view.text[digitStart] ?? "")) break
     let end = digitStart + 1
     while (/\d/.test(view.text[end] ?? "") && !view.hasBoundary(end)) end++
@@ -493,7 +493,7 @@ function suffixWbeEnd(view: ProseView, pos: number, allowAmPm: boolean): number 
   // An optional suffix: one tolerated boundary then am/pm or one of
   // {@link RANGE_SUFFIX_RE}'s letters, followed by wbe. The suffix letters sit
   // at the clean `pos`.
-  if (boundaryCountAt(view, pos) > 1) return null
+  if (exceedsSingleBoundary(view, pos)) return null
   const text = view.text
   // `[AaPp][Mm]` is contiguous — a boundary between the two letters breaks the
   // suffix.
@@ -730,13 +730,13 @@ const NUM_BODY_RE = /^\d*\.?\d+/
 function minusSubtractionPrefixOk(match: RegExpExecArray, view: ProseView, prefixLen: number): boolean {
   // The slot in the lookbehind (`(?<=\d)`) sits at the match start between the
   // leading digit and the space; it tolerates at most one boundary.
-  if (boundaryCountAt(view, match.index) > 1) return false
+  if (exceedsSingleBoundary(view, match.index)) return false
   const numStart = match.index + prefixLen
   for (const b of view.boundaries) {
     if (b > match.index && b < numStart) return false
   }
   // The slot before `num` tolerates at most one boundary at the num head.
-  if (boundaryCountAt(view, numStart) > 1) return false
+  if (exceedsSingleBoundary(view, numStart)) return false
   // `num` stops at the first interior boundary; the clean run up to it must
   // still satisfy `\d*\.?\d+` (the mandatory trailing `\d+`).
   const numEnd = match.index + match[0].length
@@ -1013,8 +1013,8 @@ function spacedArrowAhead(view: ProseView, runEnd: number): boolean {
     // No hyphens: both slots fall at this offset (≤2 boundaries total).
     if (boundaryCountAt(view, runEnd) > 2) return false
   } else {
-    if (boundaryCountAt(view, runEnd) > 1) return false // first slot
-    if (boundaryCountAt(view, h) > 1) return false // second slot
+    if (exceedsSingleBoundary(view, runEnd)) return false // first slot
+    if (exceedsSingleBoundary(view, h)) return false // second slot
   }
   // `≥` guards like the `>=` it folds from: the math pass folds the `>` this
   // guard keys on, and a dash blocked before `–>=` must stay blocked at `–≥`.
@@ -1151,8 +1151,8 @@ function convertUnspacedEmDashes(view: ProseView, rendered: string): void {
     (match, v) => {
       // One boundary is tolerated on each side of the em-dash; two or more
       // exceed the slot and block the match.
-      if (boundaryCountAt(v, match.index) > 1) return null
-      if (boundaryCountAt(v, match.index + match[0].length) > 1) return null
+      if (exceedsSingleBoundary(v, match.index)) return null
+      if (exceedsSingleBoundary(v, match.index + match[0].length)) return null
       v.replace(match.index, match.index + match[0].length, rendered)
       return null
     },
@@ -1216,7 +1216,7 @@ function preserveLineLeadingEmDashSpace(view: ProseView): void {
     (match, v) => {
       // One boundary is tolerated between the line start and the em-dash; two or
       // more exceed that slot and block the match.
-      if (boundaryCountAt(v, match.index) > 1) return null
+      if (exceedsSingleBoundary(v, match.index)) return null
       const groups = namedGroups<{ after: string }>(matchArgs(match))
       return `${EM_DASH} ${groups.after}`
     },
