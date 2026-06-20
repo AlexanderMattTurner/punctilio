@@ -1,0 +1,21 @@
+{
+  "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+  "packageManager": "pnpm",
+  "plugins": ["@stryker-mutator/jest-runner"],
+  "testRunner": "jest",
+  "testRunnerNodeArgs": ["--experimental-vm-modules"],
+  "coverageAnalysis": "perTest",
+  "dryRunTimeoutMinutes": 20,
+  "mutate": ["src/**/*.ts", "!src/tests/**"],
+  "jest": {
+    "configFile": "jest.stryker.config.js"
+  },
+  "reporters": ["html", "clear-text", "progress"],
+  "incremental": true,
+  "incrementalFile": "reports/stryker-incremental.json",
+  "thresholds": {
+    "high": 80,
+    "low": 60
+  },
+  "checkers": []
+}

@@ -11,6 +11,9 @@ const {
   EN_DASH,
   MINUS,
   ELLIPSIS,
+  MULTIPLICATION,
+  NBSP,
+  SUPERSCRIPT_ST,
 } = UNICODE_SYMBOLS
 
 describe("hyphenReplace", () => {
@@ -77,8 +80,29 @@ describe("hyphenReplace", () => {
       [`word ${EM_DASH} another`, `word${EM_DASH}another`],
       [`word${EM_DASH}  another`, `word${EM_DASH}another`],
       [`word  ${EM_DASH}another`, `word${EM_DASH}another`],
+      // A space whose removal would fuse two dashes into a run stays (the
+      // multiple-dash rule would collapse the run on a re-run).
+      [`"${EM_DASH} ${EN_DASH}"`, `"${EM_DASH} ${EN_DASH}"`],
+      [`"${EN_DASH} ${EM_DASH}"`, `"${EN_DASH} ${EM_DASH}"`],
     ])('removes spaces in "%s"', (input, expected) => {
       expect(hyphenReplace(input)).toBe(expected)
+    })
+  })
+
+  describe("dash runs left of a spaced dash", () => {
+    it.each([
+      // The tail dash of "x – -" stays: the head's linking space can be
+      // rewritten by the nbsp pass, so the tail must never re-link.
+      [`x ${EN_DASH} -`, `x ${EN_DASH} -`, "british"],
+      [`x ${EN_DASH} -`, `x${EM_DASH}-`, "american"],
+    ] as const)('handles "%s" (%s)', (input, expected, dashStyle) => {
+      expect(hyphenReplace(input, { dashStyle })).toBe(expected)
+    })
+  })
+
+  describe("multiple dashes consume trailing spaces", () => {
+    it("british: 'a-- b' renders one space after the en dash", () => {
+      expect(hyphenReplace("a-- b", { dashStyle: "british" })).toBe(`a ${EN_DASH} b`)
     })
   })
 
@@ -213,6 +237,26 @@ describe("enDashNumberRange", () => {
     ["1-10T", `1${EN_DASH}10T`], // uppercase T for trillion
     ["1-10X", "1-10X"], // uppercase X should NOT match (only lowercase)
     ["1-10k", "1-10k"], // lowercase k should NOT match (only uppercase)
+    // Temperature units convert with the suffix attached, so the degree
+    // pass's `5C` → `5 °C` rewrite cannot unblock the range on a re-run.
+    ["0-5C", `0${EN_DASH}5C`],
+    ["0-5F", `0${EN_DASH}5F`],
+    // The folded glyphs the symbol passes produce behave like their source
+    // word chars: `6x3` → `6×3` and `1st` → `1ˢᵗ` stay range-blocked.
+    [`0-6${MULTIPLICATION}3`, `0-6${MULTIPLICATION}3`],
+    [`1-10${MULTIPLICATION}`, `1-10${MULTIPLICATION}`],
+    [`0-1${SUPERSCRIPT_ST}`, `0-1${SUPERSCRIPT_ST}`],
+    // A dot triple before the start folds to `… ` (space-padded), so the
+    // range converts now; shorter dot runs keep blocking.
+    ["...3-5", `...3${EN_DASH}5`],
+    [". . .3-5", `. . .3${EN_DASH}5`],
+    ["..3-5", "..3-5"],
+    [".3-5", ".3-5"],
+    // A line-leading em dash gains a space from the em-dash spacing
+    // normalizer, so the range converts now; mid-text em dashes still block.
+    [`${EM_DASH}0-6`, `${EM_DASH}0${EN_DASH}6`],
+    [`x${EM_DASH}0-6`, `x${EM_DASH}0-6`],
+    [`a\n${EM_DASH}1-2`, `a\n${EM_DASH}1${EN_DASH}2`],
   ])('should convert "%s" to "%s"', (input, expected) => {
     expect(enDashNumberRange(input)).toBe(expected)
   })
@@ -301,6 +345,18 @@ describe("enDashDateRange", () => {
     expect(enDashDateRange("Mon-Fri")).toBe("Mon-Fri") // Days, not months
   })
 
+  describe("fold-stable end boundary", () => {
+    it.each([
+      // An NBSP year space (the nbsp pass glues "March 2025") still captures
+      // the year, and a folded `×` after it blocks like the `x` it folds from.
+      [`January 2024-March${NBSP}2025`, `January 2024${EN_DASH}March${NBSP}2025`],
+      [`January 2024-March 2025${MULTIPLICATION}3`, `January 2024-March 2025${MULTIPLICATION}3`],
+      [`January-March${MULTIPLICATION}3`, `January-March${MULTIPLICATION}3`],
+    ])('should convert "%s" to "%s"', (input, expected) => {
+      expect(enDashDateRange(input)).toBe(expected)
+    })
+  })
+
   describe("marker robustness", () => {
     // Tests that separators don't create false word boundaries
     const sep = DEFAULT_SEPARATOR
@@ -350,6 +406,15 @@ describe("minusReplace", () => {
   it("should handle subtraction of negative numbers", () => {
     expect(minusReplace("5 - -3")).toBe(`5 ${MINUS} ${MINUS}3`)
   })
+
+  it.each(["x", MULTIPLICATION])(
+    "boundary-led hyphen after %s stays (folded glyphs block like their source)",
+    (char) => {
+      const sep = DEFAULT_SEPARATOR
+      const input = `1${char}${sep}-0`
+      expect(viewTransform(minusReplace, input, sep)).toBe(input)
+    },
+  )
 })
 
 describe("enDashNumberRange preserves", () => {
@@ -504,6 +569,38 @@ describe("idempotency", () => {
   ])('is idempotent for: "%s"', (input) => {
     expect(hyphenReplace(input)).toBe(input)
     expect(hyphenReplace(hyphenReplace(input))).toBe(input)
+  })
+
+  // Fold-stability guards: each blocked or converted form must be the state
+  // a re-run reproduces.
+  it.each([
+    // A range one space after a multiplication sign blocks like the `x` the
+    // sign folds from (`5x8-6` reads as a dimension, not a range).
+    [`5 ${MULTIPLICATION} 8-6`, `5 ${MULTIPLICATION} 8-6`],
+    // The multiple-dash rule keeps the spaces before a following dash;
+    // consuming them would fuse the rendered em dash with it into a run.
+    [`a${EM_DASH}- ${EM_DASH}b`, `a${EM_DASH} ${EM_DASH}b`],
+  ])('fold-stable: "%s" → "%s"', (input, expected) => {
+    expect(hyphenReplace(input)).toBe(expected)
+    expect(hyphenReplace(expected)).toBe(expected)
+  })
+
+  // An en dash behind spaces reaching text start converts the range (the
+  // spaced-dash rule makes it a padded line-leading em dash); spaces that
+  // stop short of the start do not.
+  it.each([
+    [` ${EN_DASH}6-2`, ` ${EN_DASH}6${EN_DASH}2`],
+    [`x ${EN_DASH}6-2`, `x ${EN_DASH}6-2`],
+  ])('range behind leading spaces: "%s" → "%s"', (input, expected) => {
+    expect(enDashNumberRange(input)).toBe(expected)
+    expect(enDashNumberRange(expected)).toBe(expected)
+  })
+
+  // A range end one space before a multiplication sign blocks like the word
+  // char the sign folds from ("3-5X 8" renders as "3-5 × 8" and must not
+  // become a range on the re-run).
+  it("range end blocks before the multiplication pass's padded render", () => {
+    expect(enDashNumberRange(`3-5 ${MULTIPLICATION} 8`)).toBe(`3-5 ${MULTIPLICATION} 8`)
   })
 })
 
@@ -809,6 +906,10 @@ describe("ProseView boundary-tolerance edges", () => {
       // separator-led negative (Pattern 2b) fires; one leaves the digit visible.
       ["two boundaries promote to negative", `1${sep}${sep}-5`, `1${sep}${sep}${MINUS}5`],
       ["one boundary keeps the digit context", `1${sep}-5`, `1${sep}-5`],
+      // A folded terminal (or the bare `!` the `!!` normalization leaves)
+      // before the boundary blocks like the `!`/`?` run it folds from.
+      ["folded terminal blocks the negative", `${UNICODE_SYMBOLS.QUESTION_EXCLAMATION}${sep}-0`, `${UNICODE_SYMBOLS.QUESTION_EXCLAMATION}${sep}-0`],
+      ["bare bang blocks the negative", `!${sep}-0`, `!${sep}-0`],
     ])("%s", (_desc, input, expected) => {
       expect(viewTransform(minusReplace, input, sep)).toBe(expected)
     })
@@ -1219,9 +1320,24 @@ describe("ProseView boundary-tolerance edges", () => {
     })
 
     it("overlapping boundary-led runs (british)", () => {
+      // The tail run sits directly right of the converted head's dash, so it
+      // stays a hyphen: converting it would hinge on a linking space the nbsp
+      // pass may rewrite, and the blocked form is the stable one.
       expect(viewTransform((view) => hyphenReplace(view, { dashStyle: "british" }), `a---.${sep}${sep}-- - word`, sep)).toBe(
-        `a---.${sep}${sep} ${EN_DASH} ${EN_DASH} word`,
+        `a---.${sep}${sep} ${EN_DASH} - word`,
       )
+    })
+
+    it("boundary-led run keeps spaces before a same-node dash", () => {
+      // Consuming the trailing space would fuse the rendered em dash with the
+      // en dash into a run the next pass collapses.
+      const input = `#${sep}${EM_DASH} ${EN_DASH} ${sep}`
+      expect(viewTransform(hyphenReplace, input, sep)).toBe(input)
+    })
+
+    it("two boundaries inside a dot triple break the ellipsis-gap exception", () => {
+      const input = `..${sep}${sep}.5-6`
+      expect(viewTransform(hyphenReplace, input, sep)).toBe(input)
     })
   })
 })

@@ -69,6 +69,9 @@ const HTML_SNIPPETS = [
   // <a> links inside quoted text
   `<p>"Visit <a href="https://example.com">example.com</a>," he said.</p>`,
   `<p>"See <a href="#ref">here</a> for more."</p>`,
+  // Quoted link title at a node start with a later quote pair in the block:
+  // the quote after </a> must close, not open.
+  `<li><p>"<a href="#">Reward</a>" is not the optimization "target".</p></li>`,
 
   // <code> spans that must be skipped
   `<p>"Use <code>transform("hello")</code> to apply."</p>`,
