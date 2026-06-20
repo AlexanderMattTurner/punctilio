@@ -1,5 +1,5 @@
 import { cachedRegExp, FOLDED_WORD_CHARS, isWordLike, LATIN_LETTER_RE, LATIN_LETTERS, MAX_BOUNDARY_SEPARATORS, NBSP_CHARS, SPACE_CHAR_RE, UNICODE_SYMBOLS } from "./constants.js"
-import { boundaryCountAt, overInput, type ProseView, replaceAllInView, type ReplaceAllOptions } from "./prose-view.js"
+import { boundaryCountAt, makeProsePass, overInput, type ProseView, replaceAllInView, type ReplaceAllOptions } from "./prose-view.js"
 import { namedGroups } from "./utils.js"
 
 export const DASH_STYLES = ["american", "british", "none"] as const
@@ -171,14 +171,10 @@ function wordBoundaryEndOk(view: ProseView, pos: number): boolean {
 const CURRENCY_RE = /[$€£¥₹]/
 
 /** Convert number ranges to en-dash (e.g., "1-5" → "1–5"). */
-export function enDashNumberRange(input: string): string
-export function enDashNumberRange(input: ProseView): void
-export function enDashNumberRange(input: string | ProseView): string | void {
-  return overInput(input, (view) => {
-    convertPositiveRanges(view)
-    convertNegativeRanges(view)
-  })
-}
+export const enDashNumberRange = makeProsePass((view) => {
+  convertPositiveRanges(view)
+  convertNegativeRanges(view)
+})
 
 /**
  * The positive-range shape is `phoneAreaCode? \b (?:p\.?|[currency])?\d[\d.,]*
@@ -680,15 +676,11 @@ function enDashDateRangeOverView(view: ProseView, dashStyle: DashStyle): void {
 // ---------------------------------------------------------------------------
 
 /** Convert hyphens to minus signs in numeric contexts (e.g., "-5" → "−5"). */
-export function minusReplace(input: string): string
-export function minusReplace(input: ProseView): void
-export function minusReplace(input: string | ProseView): string | void {
-  return overInput(input, (view) => {
-    minusSubtractionOfNegative(view)
-    minusSpacedSubtraction(view)
-    minusDirectNegative(view)
-  })
-}
+export const minusReplace = makeProsePass((view) => {
+  minusSubtractionOfNegative(view)
+  minusSpacedSubtraction(view)
+  minusDirectNegative(view)
+})
 
 /** Pattern 1a/1b: spaced math subtraction after a digit (`5 - 3`, `5 - -3`). */
 function minusSubtractionOfNegative(view: ProseView): void {
@@ -1266,14 +1258,10 @@ const { WORD_JOINER } = UNICODE_SYMBOLS
  * `nbspTransform` (U+00A0 breaks `Fig. 1` searches). Apply only in rendered
  * HTML; do not write into Markdown source.
  */
-export function dashWordJoiner(input: string): string
-export function dashWordJoiner(input: ProseView): void
-export function dashWordJoiner(input: string | ProseView): string | void {
-  return overInput(input, (view) => {
-    const re = cachedRegExp(`(?<=[^\\s${WORD_JOINER}])[${EM_DASH}${EN_DASH}]`, "gu")
-    replaceAllInView(view, re, (match) => `${WORD_JOINER}${match[0]}`)
-  })
-}
+export const dashWordJoiner = makeProsePass((view) => {
+  const re = cachedRegExp(`(?<=[^\\s${WORD_JOINER}])[${EM_DASH}${EN_DASH}]`, "gu")
+  replaceAllInView(view, re, (match) => `${WORD_JOINER}${match[0]}`)
+})
 
 /** Reconstructs `.replace()`-style callback args from a RegExpExecArray. */
 function matchArgs(match: RegExpExecArray): unknown[] {

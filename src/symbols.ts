@@ -1,5 +1,5 @@
 import { cachedRegExp, LATIN_LETTER_RE, LATIN_LETTERS, MAX_BOUNDARY_SEPARATORS, SPACE_CHAR_RE, UNICODE_SYMBOLS, WORD_RE } from "./constants.js"
-import { boundaryCountAt, overInput, type ProseView, replaceAllInView } from "./prose-view.js"
+import { boundaryCountAt, makeProsePass, overInput, type ProseView, replaceAllInView } from "./prose-view.js"
 import { convertPrimeMarks } from "./quote-classifier.js"
 
 export interface SymbolOptions {
@@ -39,11 +39,7 @@ const {
 // pinned by the golden corpus and the migration's differential fuzz.
 
 /** Convert "..." or ". . ." to "…". */
-export function ellipsis(input: string): string
-export function ellipsis(input: ProseView): void
-export function ellipsis(input: string | ProseView): string | void {
-  return overInput(input, ellipsisOverView)
-}
+export const ellipsis = makeProsePass(ellipsisOverView)
 
 function ellipsisOverView(view: ProseView): void {
   ellipsisFoldDots(view)
@@ -104,11 +100,7 @@ function ellipsisFoldDots(view: ProseView): void {
 
 
 /** Convert "5x5" to "5×5". Skips hex (0x5F). */
-export function multiplication(input: string): string
-export function multiplication(input: ProseView): void
-export function multiplication(input: string | ProseView): string | void {
-  return overInput(input, multiplicationOverView)
-}
+export const multiplication = makeProsePass(multiplicationOverView)
 
 // After a digit run, either a prime mark (10′) or a length/size unit may
 // attach before the multiplication operator. Allowing both lets dimensions
@@ -398,11 +390,7 @@ const MATH_SYMBOL_MAP: MathSymbolRule[] = [
 ]
 
 /** Convert !=, <=, >=, +/-, ~= to Unicode equivalents. */
-export function mathSymbols(input: string): string
-export function mathSymbols(input: ProseView): void
-export function mathSymbols(input: string | ProseView): string | void {
-  return overInput(input, mathSymbolsOverView)
-}
+export const mathSymbols = makeProsePass(mathSymbolsOverView)
 
 function mathSymbolsOverView(view: ProseView): void {
   for (const [left, right, forbiddenFollow, replacement] of MATH_SYMBOL_MAP) {
@@ -534,11 +522,7 @@ const LEGAL_REGISTERED_RE = "\\(r\\)"
 const LEGAL_TRADEMARK_RE = "\\(tm\\)"
 
 /** Convert (c), (r), (tm) to ©, ®, ™. */
-export function legalSymbols(input: string): string
-export function legalSymbols(input: ProseView): void
-export function legalSymbols(input: string | ProseView): string | void {
-  return overInput(input, legalSymbolsOverView)
-}
+export const legalSymbols = makeProsePass(legalSymbolsOverView)
 
 function legalSymbolsOverView(view: ProseView): void {
   // (c) → © only with positive copyright evidence (year or "copyright"
@@ -640,11 +624,7 @@ function arrowRightContextOk(view: ProseView, text: string, end: number): boolea
 }
 
 /** Convert -> and <-> to arrows. */
-export function arrows(input: string): string
-export function arrows(input: ProseView): void
-export function arrows(input: string | ProseView): string | void {
-  return overInput(input, arrowsOverView)
-}
+export const arrows = makeProsePass(arrowsOverView)
 
 function arrowsOverView(view: ProseView): void {
   // Each arrow shape is matched by a left-to-right scan so a boundary that
@@ -664,11 +644,7 @@ function arrowsOverView(view: ProseView): void {
   }
 }
 
-export function degrees(input: string): string
-export function degrees(input: ProseView): void
-export function degrees(input: string | ProseView): string | void {
-  return overInput(input, degreesOverView)
-}
+export const degrees = makeProsePass(degreesOverView)
 
 function degreesOverView(view: ProseView): void {
   // Temperature with optional space before C or F (uppercase only). One boundary
@@ -737,11 +713,7 @@ function digitSuffixBoundaryOk(match: RegExpExecArray, view: ProseView): boolean
 }
 
 /** Convert 5'10" to 5′10″ (prime marks). Call before smart quotes. */
-export function primeMarks(input: string): string
-export function primeMarks(input: ProseView): void
-export function primeMarks(input: string | ProseView): string | void {
-  return overInput(input, convertPrimeMarks)
-}
+export const primeMarks = makeProsePass(convertPrimeMarks)
 
 type FractionRule = [string, string, string]
 
@@ -766,11 +738,7 @@ const FRACTION_TUPLES: FractionRule[] = [
 const FRACTION_MAP = Object.fromEntries(FRACTION_TUPLES.map(([n, d, u]) => [`${n}/${d}`, u]))
 
 /** Convert 1/2, 1/4, etc. to ½, ¼, etc. Single-pass using alternation. */
-export function fractions(input: string): string
-export function fractions(input: ProseView): void
-export function fractions(input: string | ProseView): string | void {
-  return overInput(input, fractionsOverView)
-}
+export const fractions = makeProsePass(fractionsOverView)
 
 function fractionsOverView(view: ProseView): void {
   // Build alternation of exact valid pairs: `1/4|1/2|...`. Only exact pairs
@@ -847,11 +815,7 @@ const ORDINAL_MAP: Record<string, string> = {
 }
 
 /** Convert 1st, 2nd, 3rd, 4th to superscript ordinals. */
-export function superscriptOrdinal(input: string): string
-export function superscriptOrdinal(input: ProseView): void
-export function superscriptOrdinal(input: string | ProseView): string | void {
-  return overInput(input, superscriptOrdinalOverView)
-}
+export const superscriptOrdinal = makeProsePass(superscriptOrdinalOverView)
 
 function superscriptOrdinalOverView(view: ProseView): void {
   // Match number + ordinal suffix at word boundary, case-insensitively. One
@@ -871,11 +835,7 @@ function superscriptOrdinalOverView(view: ProseView): void {
 }
 
 // Preserves highest-priority space type (NBSP > NNBSP > regular) and leading indentation.
-export function collapseSpaces(input: string): string
-export function collapseSpaces(input: ProseView): void
-export function collapseSpaces(input: string | ProseView): string | void {
-  return overInput(input, collapseSpacesOverView)
-}
+export const collapseSpaces = makeProsePass(collapseSpacesOverView)
 
 /**
  * Collapses each run of two or more space characters to its highest-priority
@@ -917,11 +877,7 @@ const PUNCTUATION_LIGATURE_MAP: LigatureRule[] = [
 ]
 
 /** Convert ?? to ⁇, ?! to ⁈, !? to ⁉. Disabled by default (poor font support). */
-export function punctuationLigatures(input: string): string
-export function punctuationLigatures(input: ProseView): void
-export function punctuationLigatures(input: string | ProseView): string | void {
-  return overInput(input, punctuationLigaturesOverView)
-}
+export const punctuationLigatures = makeProsePass(punctuationLigaturesOverView)
 
 function punctuationLigaturesOverView(view: ProseView): void {
   for (const [first, repeated, replacement] of PUNCTUATION_LIGATURE_MAP) {
