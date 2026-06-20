@@ -30,7 +30,7 @@ Jest enforces **100% coverage** (branches, functions, lines, statements) via `co
 
 ### Mutation testing
 
-`pnpm mutation` runs [Stryker](https://stryker-mutator.io/) over `src/` using the Jest suite (minus the regex-safety analysis gate and the randomized fuzz file — see `jest.stryker.config.js`). CI runs it on every pull request via `mutation.yml`, sharded across a matrix of size-balanced file groups with a per-shard incremental cache, so only mutants touched by your diff actually re-run; each shard publishes its HTML report as an artifact. Surviving mutants point at assertions worth strengthening; aim not to lower the score with new code.
+`pnpm mutation` runs [Stryker](https://stryker-mutator.io/) over `src/` using the Jest suite (minus the regex-safety analysis gate and the randomized fuzz file — see `jest.stryker.config.js`). CI runs it on every pull request via `mutation.yml`: a `prep` job calls `scripts/stryker-shards.mjs`, which balances the source files (range-splitting the large ones) into `SHARD_COUNT` shards by current line count and emits the job matrix. Because the ranges are recomputed from the live file sizes every run, there is nothing to hand-tune as the source grows. Each shard keeps a per-index incremental cache, so a routine PR re-tests only the mutants whose source or covering tests changed — typically seconds. A cold run (first run, or after the cache expires) is bounded by roughly one shard's share of the work; raise `SHARD_COUNT` in the workflow for more cold-run parallelism. Each shard publishes its HTML report as an artifact. Surviving mutants point at assertions worth strengthening; aim not to lower the score with new code.
 
 ## Regex safety
 

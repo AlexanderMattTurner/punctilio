@@ -7,28 +7,12 @@ on:
   workflow_dispatch:
 
 jobs:
-  mutation:
-    name: mutation (${{ matrix.shard }})
+  prep:
+    name: Prepare mutation shards
     runs-on: ubuntu-latest
-    timeout-minutes: 300
-    strategy:
-      fail-fast: false
-      # Shards are balanced by file size (≈ mutant count) so the matrix
-      # finishes in roughly the wall time of the largest single file.
-      matrix:
-        include:
-          - shard: quote-classifier
-            mutate: src/quote-classifier.ts
-          - shard: dashes
-            mutate: src/dashes.ts
-          - shard: symbols
-            mutate: src/symbols.ts,src/quotes.ts
-          - shard: cli-nbsp
-            mutate: src/cli.ts,src/nbsp.ts
-          - shard: plugins
-            mutate: src/rehype.ts,src/remark.ts,src/html.ts,src/markdown.ts,src/prettier-plugin.ts
-          - shard: core
-            mutate: src/prose-view.ts,src/index.ts,src/constants.ts,src/transform-options.ts,src/utils.ts
+    timeout-minutes: 5
+    outputs:
+      shards: ${{ steps.shards.outputs.shards }}
     steps:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -38,60 +22,70 @@ jobs:
         with:
           node-version: 22
 
-      # Cache entries are immutable, so the primary key includes the commit
-      # and restore-keys falls back to the most recent entry for the shard
-      # (Stryker revalidates incremental results against the actual code and
-      # test diffs, so a stale file is safe and still prunes unchanged work).
+      # Balance shards by current file line counts, range-splitting large files,
+      # so the matrix re-derives itself every run — no ranges to hand-tune as the
+      # source grows. SHARD_COUNT trades cold-run parallelism against runner
+      # count; steady-state PR runs lean on the incremental cache below.
+      - name: Compute shard matrix
+        id: shards
+        env:
+          SHARD_COUNT: "8"
+        run: echo "shards=$(node scripts/stryker-shards.mjs)" >> "$GITHUB_OUTPUT"
+
+  mutation:
+    name: mutation (shard ${{ matrix.index }})
+    needs: prep
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.prep.outputs.shards) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Setup
+        uses: ./.github/actions/setup
+        with:
+          node-version: 22
+
+      # The cache is what makes routine PR runs fast: Stryker re-tests only the
+      # mutants whose source or covering tests changed since the restored run.
+      # Cache entries are immutable, so the key includes the run id and
+      # restore-keys falls back to this shard index's most recent entry. Shard
+      # ranges can shift as files grow; Stryker revalidates the restored results
+      # against the actual code, so a partially-stale entry is safe.
       - name: Restore incremental mutation state
         uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
         with:
-          path: reports/stryker-incremental-${{ matrix.shard }}.json
-          key: stryker-incremental-${{ matrix.shard }}-${{ github.sha }}
+          path: reports/stryker-incremental.json
+          key: stryker-incremental-${{ matrix.index }}-${{ github.run_id }}
           restore-keys: |
-            stryker-incremental-${{ matrix.shard }}-
+            stryker-incremental-${{ matrix.index }}-
 
       - name: Run mutation tests
         # No `--` before the flags: pnpm forwards it literally and Stryker's
         # CLI rejects it as a positional argument.
-        run: pnpm run mutation --mutate "${{ matrix.mutate }}" --incrementalFile "reports/stryker-incremental-${{ matrix.shard }}.json"
+        run: pnpm run mutation --mutate "${{ matrix.mutate }}"
 
       - name: Upload HTML report
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: mutation-report-${{ matrix.shard }}
+          name: mutation-report-${{ matrix.index }}
           path: reports/mutation/
           if-no-files-found: ignore
 
-  shard-coverage:
-    name: Shards cover all source files
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-
-      - name: Every src file appears in a shard
-        run: |
-          covered="src/quote-classifier.ts src/dashes.ts src/symbols.ts src/quotes.ts \
-            src/cli.ts src/nbsp.ts src/rehype.ts src/remark.ts src/html.ts src/markdown.ts \
-            src/prettier-plugin.ts src/prose-view.ts src/index.ts src/constants.ts \
-            src/transform-options.ts src/utils.ts"
-          status=0
-          for f in src/*.ts; do
-            case " $covered " in
-              *" $f "*) ;;
-              *) echo "::error::$f is not covered by any mutation shard; add it to the matrix in mutation.yml"; status=1 ;;
-            esac
-          done
-          exit "$status"
-
   mutation-all:
     name: Mutation checks passed
-    needs: [mutation, shard-coverage]
+    needs: [prep, mutation]
     runs-on: ubuntu-latest
     if: always()
     steps:
-      - name: Fail if any job did not succeed
-        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
-        run: exit 1
+      - name: Fail unless prep and every shard succeeded
+        run: |
+          if [ "${{ needs.prep.result }}" != "success" ] || [ "${{ needs.mutation.result }}" != "success" ]; then
+            echo "prep=${{ needs.prep.result }} mutation=${{ needs.mutation.result }}"
+            exit 1
+          fi
