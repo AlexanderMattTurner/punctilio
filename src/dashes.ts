@@ -12,7 +12,14 @@ export interface DashOptions {
   dashStyle?: DashStyle
 }
 
-const { EN_DASH, EM_DASH, MINUS, MULTIPLICATION, PLUS_MINUS, LEFT_DOUBLE_QUOTE, RIGHT_DOUBLE_QUOTE, LEFT_SINGLE_QUOTE, RIGHT_SINGLE_QUOTE } = UNICODE_SYMBOLS
+const { EN_DASH, EM_DASH, MINUS, MULTIPLICATION, PLUS_MINUS, SUPERSCRIPT_ST, SUPERSCRIPT_ND, SUPERSCRIPT_RD, SUPERSCRIPT_TH, LEFT_DOUBLE_QUOTE, RIGHT_DOUBLE_QUOTE, LEFT_SINGLE_QUOTE, RIGHT_SINGLE_QUOTE } = UNICODE_SYMBOLS
+
+// Characters a later pass produces from a trailing *word* character: the symbol
+// pass turns "x" into "×", and the superscript pass turns the ordinal letters
+// "st"/"nd"/"rd"/"th" into superscripts. Before conversion those word chars block
+// a range via the trailing word boundary ("1-55x5", "5--1st"); rejecting their
+// non-word replacements keeps a second pass from en-dashing the same range.
+const SYMBOL_PASS_TRAILING = `${MULTIPLICATION}${SUPERSCRIPT_ST}${SUPERSCRIPT_ND}${SUPERSCRIPT_RD}${SUPERSCRIPT_TH}`
 
 // Prevents false-positive ranges in model names like "Llama-2-7B".
 export const numberRangeDisallowedPrefixes = ["-", EN_DASH, EM_DASH, MINUS] as const
