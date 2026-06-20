@@ -11,7 +11,14 @@ export interface DashOptions {
   dashStyle?: DashStyle
 }
 
-const { EN_DASH, EM_DASH, MINUS, MULTIPLICATION, PLUS_MINUS, LEFT_DOUBLE_QUOTE, RIGHT_DOUBLE_QUOTE, LEFT_SINGLE_QUOTE, RIGHT_SINGLE_QUOTE } = UNICODE_SYMBOLS
+const { EN_DASH, EM_DASH, MINUS, MULTIPLICATION, PLUS_MINUS, SUPERSCRIPT_ST, SUPERSCRIPT_ND, SUPERSCRIPT_RD, SUPERSCRIPT_TH, LEFT_DOUBLE_QUOTE, RIGHT_DOUBLE_QUOTE, LEFT_SINGLE_QUOTE, RIGHT_SINGLE_QUOTE } = UNICODE_SYMBOLS
+
+// Characters a later pass produces from a trailing *word* character: the symbol
+// pass turns "x" into "×", and the superscript pass turns the ordinal letters
+// "st"/"nd"/"rd"/"th" into superscripts. Before conversion those word chars block
+// a range via the trailing word boundary ("1-55x5", "5--1st"); rejecting their
+// non-word replacements keeps a second pass from en-dashing the same range.
+const SYMBOL_PASS_TRAILING = `${MULTIPLICATION}${SUPERSCRIPT_ST}${SUPERSCRIPT_ND}${SUPERSCRIPT_RD}${SUPERSCRIPT_TH}`
 
 // Prevents false-positive ranges in model names like "Llama-2-7B".
 export const numberRangeDisallowedPrefixes = ["-", EN_DASH, EM_DASH, MINUS] as const
@@ -70,6 +77,14 @@ export function enDashNumberRange(text: string, options: DashOptions = {}): stri
         suffix?: string
       }>(args)
       if (groups.following) return args[0] as string
+      // A range whose end abuts a symbol-pass replacement (× or a superscript
+      // ordinal) is an operand, not a range (e.g. "1-55×5", "5--1ˢᵗ"). This
+      // mirrors `notAfterDash` on the trailing side; done in the callback rather
+      // than as a regex lookahead to keep the composed pattern ReDoS-safe.
+      const matchEnd = (args.at(-3) as number) + (args[0] as string).length
+      if (cachedRegExp(`^${chr}?[${SYMBOL_PASS_TRAILING}]`, "").test((args.at(-2) as string).slice(matchEnd))) {
+        return args[0] as string
+      }
       const startNum = groups.start.replace(cachedRegExp(chr, "g"), "")
       const endNum = groups.end.replace(cachedRegExp(chr, "g"), "")
       if (/^(?:19|20)\d{2}$/.test(startNum) && /^(?:0[1-9]|1[0-2])$/.test(endNum)) return args[0] as string
