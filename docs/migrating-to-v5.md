@@ -32,25 +32,40 @@ underlying change and gives precise before/after recipes for each case.
 
 ## Why it changed (optional background)
 
-Punctilio often has to transform text that's split across several HTML text
-nodes — a word broken up by `<em>`, say. A rule needs to see the whole string
-to decide correctly, but then write its edits back into the right original
-pieces.
+**The problem.** Punctilio often transforms text that HTML has split across
+several text nodes — the word in `so<em>met</em>hing`, for example, is three
+separate nodes. A rule like curly-quoting or dash conversion has to read the
+whole string `something` to decide correctly, but then it has to write each
+edit back into the _right_ original node. So every rule needs two things at
+once: one combined string to read, and a way to map any position in that
+string back to the node it came from.
 
-Through v4 this used a **sentinel**: punctilio joined the text nodes into one
-string with a special marker character standing in for each node boundary, ran
-the rules over that joined string, and split back on the marker afterward.
-Putting a real character into the text was inherently fragile — the marker
-could collide with real content, leak into output, or be miscounted when a
-match spanned it.
+**The v4 answer: a marker character (the "sentinel").** Punctilio glued the
+nodes into one string, inserting a special marker character at each node
+boundary — a stand-in that means "a node edge is here." Rules ran over that
+glued string, and afterward punctilio split on the marker to hand each
+node back its share of the edited text.
 
-v5 removes the marker entirely. Rules now run over a **ProseView**: the
-combined text is still presented as one string, but node boundaries are
-tracked as numeric **offsets alongside** the string instead of as a character
-inside it. Because a boundary is a position rather than a character, it can
-never collide, leak, or be miscounted. Everything below — `applyPasses`,
-`definePass`'s boundary decisions, `PassEntry` skip sets — follows from that
-one shift.
+The trouble is that the boundary was now a real character living _inside_ the
+text, and that's fragile in three ways:
+
+- it can **collide** with a marker character that was already in the content;
+- it can **leak** into the output if a rule fails to strip it;
+- it can be **miscounted** when a rule's match spans it, throwing off the
+  split that maps text back to nodes.
+
+**The v5 answer: a ProseView.** v5 deletes the marker. A rule still reads one
+combined string, but the node boundaries now live _beside_ the string as a
+list of numeric positions (offsets), not as characters within it. The view
+answers "which node does offset _N_ belong to?" by arithmetic, and a rule
+expresses an edit as "replace characters _X_–_Y_," which the view commits onto
+the underlying nodes.
+
+Because a boundary is a position rather than a character, it simply can't
+collide, leak, or be miscounted — the three failure modes are gone by
+construction. Everything else in this guide — `applyPasses` owning the view,
+`definePass` asking what to do when a match crosses a boundary, `PassEntry`
+skip sets — follows from that one shift.
 
 ## Detailed migration reference
 

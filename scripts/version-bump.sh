@@ -240,23 +240,11 @@ log "$PUBLISH_OUTPUT"
 log "✅ Published $PACKAGE_NAME@$NEW_VERSION"
 
 # Pin the README's pre-commit `rev:` to this release so the documented version
-# never lags behind what's published. Only the line inside punctilio's own
-# pre-commit repo block is touched; a missing pattern warns rather than failing
-# the (already-published) release.
+# never lags behind what's published. The helper touches only the line inside
+# punctilio's own pre-commit repo block, and warns rather than failing the
+# (already-published) release if it can't find that block.
 if [ -f README.md ]; then
-  NEW_VERSION="$NEW_VERSION" node -e '
-const fs = require("fs");
-const path = "README.md";
-const tag = "v" + process.env.NEW_VERSION;
-const pattern = /(repo:\s*https:\/\/github\.com\/alexander-turner\/punctilio\s*\n\s*rev:\s*)v[0-9]+\.[0-9]+\.[0-9]+/;
-const before = fs.readFileSync(path, "utf8");
-if (!pattern.test(before)) {
-  console.error("⚠️ README pre-commit rev pattern not found; leaving README unchanged.");
-  process.exit(0);
-}
-const after = before.replace(pattern, "$1" + tag);
-if (after !== before) fs.writeFileSync(path, after);
-'
+  NEW_VERSION="$NEW_VERSION" pnpm exec tsx scripts/pin-readme-rev.ts
 fi
 
 # Promote "## Unreleased" to a dated version section in CHANGELOG.md, using

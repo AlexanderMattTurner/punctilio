@@ -19,7 +19,7 @@
  *   the original CHANGELOG intact.
  */
 
-import { readFileSync, writeFileSync, renameSync } from "node:fs"
+import { readFileSync, renameSync, writeFileSync } from "node:fs"
 
 const CHANGELOG_PATH = "CHANGELOG.md"
 
@@ -51,9 +51,7 @@ function readEnv(): { newVersion: string; releaseDate: string; section: string }
  * string if nothing substantive is left.
  */
 function normalizeBody(raw: string): string {
-  return raw
-    .replace(/^\s*## \[[^\]]+\][^\n]*\n+/, "")
-    .replace(/\s+$/, "")
+  return raw.replace(/^\s*## \[[^\]]+\][^\n]*\n+/, "").trimEnd()
 }
 
 /**
