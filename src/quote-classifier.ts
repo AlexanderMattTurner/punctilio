@@ -108,7 +108,8 @@ const QUOTE_CANDIDATE_RE = new RegExp(
 
 const TERMINAL_SET = new Set<string>(TERMINAL_PUNCTUATION)
 
-const CLOSING_SET = new Set<string>([RIGHT_SINGLE_QUOTE, RIGHT_DOUBLE_QUOTE])
+const CLOSING_CHARS = [RIGHT_SINGLE_QUOTE, RIGHT_DOUBLE_QUOTE] as const
+const CLOSING_SET = new Set<string>(CLOSING_CHARS)
 
 /**
  * Placement alphabet for renders that collapse apostrophes into U+2019: a
@@ -117,7 +118,7 @@ const CLOSING_SET = new Set<string>([RIGHT_SINGLE_QUOTE, RIGHT_DOUBLE_QUOTE])
  * APOSTROPHE item as part of a closing run for the transform to be a fixed
  * point.
  */
-const CLOSING_OR_APOSTROPHE_SET = new Set<string>([RIGHT_SINGLE_QUOTE, RIGHT_DOUBLE_QUOTE, MODIFIER_LETTER_APOSTROPHE])
+const CLOSING_OR_APOSTROPHE_SET = new Set<string>([...CLOSING_CHARS, MODIFIER_LETTER_APOSTROPHE])
 
 /** Chars from `'` ${LSQ} ${RSQ} ${MLA}; \w handled separately. */
 const SINGLE_QUOTE_FAMILY = new Set<string>(["'", LEFT_SINGLE_QUOTE, RIGHT_SINGLE_QUOTE, MODIFIER_LETTER_APOSTROPHE])
@@ -153,11 +154,22 @@ const DOUBLE_EMPTY_AFTER_SET = new Set<string>([")", "]", "}", ".", "!", "?", ",
 /** Ending-context chars after a closing double quote (plus any \s char). */
 const DOUBLE_CLOSE_AFTER_SET = new Set<string>(["/", ")", ".", ",", ";", EM_DASH, ":", "-", "}", "!", "?", "s", ELLIPSIS, ...FOLDED_TERMINALS])
 
-function isLetterItem(items: Item[], index: number): boolean {
-  if (index < 0 || index >= items.length) return false
-  const item = items[index]
-  return !item.boundary && LATIN_LETTER_RE.test(item.ch)
+/** Builds an `(items, index)` predicate: in range, non-boundary, and `test(ch)`. */
+function makeItemTester(test: (ch: string) => boolean): (items: Item[], index: number) => boolean {
+  return (items, index) => {
+    if (index < 0 || index >= items.length) return false
+    const item = items[index]
+    return !item.boundary && test(item.ch)
+  }
 }
+
+const isLetterItem = makeItemTester((ch) => LATIN_LETTER_RE.test(ch))
+const isDigitItem = makeItemTester((ch) => DIGIT_RE.test(ch))
+const isWordItem = makeItemTester((ch) => WORD_RE.test(ch) || FOLDED_WORD_CHARS.has(ch))
+const isLetterOrDigitItem = makeItemTester((ch) => LATIN_LETTER_RE.test(ch) || DIGIT_RE.test(ch) || FOLDED_WORD_CHARS.has(ch))
+/** Letter test that treats folded word glyphs as the letters they fold from
+ * (`X` → `×`, `st` → `ˢᵗ`); see {@link FOLDED_WORD_CHARS}. */
+const isLetterOrFoldedItem = makeItemTester((ch) => LATIN_LETTER_RE.test(ch) || FOLDED_WORD_CHARS.has(ch))
 
 function isCharItem(items: Item[], index: number, ch: string): boolean {
   if (index < 0 || index >= items.length) return false
@@ -330,16 +342,6 @@ function singleCloserBefore(items: Item[], index: number): boolean {
   return !SPACE_RE.test(prev.ch) && prev.ch !== LEFT_DOUBLE_QUOTE && prev.ch !== "'" && prev.ch !== '"'
 }
 
-/**
- * Letter test that treats folded word glyphs as the letters they fold from
- * (`X` → `×`, `st` → `ˢᵗ`); see {@link FOLDED_WORD_CHARS}.
- */
-function isLetterOrFoldedItem(items: Item[], index: number): boolean {
-  if (index < 0 || index >= items.length) return false
-  const item = items[index]
-  return !item.boundary && (LATIN_LETTER_RE.test(item.ch) || FOLDED_WORD_CHARS.has(item.ch))
-}
-
 /** Letter directly before (no boundary) and letter after (one boundary transparent). */
 function isContractionContext(items: Item[], index: number): boolean {
   return isLetterOrFoldedItem(items, index - 1) && isLetterOrFoldedItem(items, nextIndex(items, index, 1))
@@ -395,12 +397,6 @@ function classifyNAbbreviation(items: Item[]): void {
   }
 }
 
-function isWordItem(items: Item[], index: number): boolean {
-  if (index < 0 || index >= items.length) return false
-  const item = items[index]
-  return !item.boundary && (WORD_RE.test(item.ch) || FOLDED_WORD_CHARS.has(item.ch))
-}
-
 /**
  * Possessive (`dog's`) → APOSTROPHE; then closing single (`'` in ending
  * context) → CLOSE_SINGLE. Returns true when any item changed.
@@ -450,18 +446,6 @@ function isDecadeElision(items: Item[], index: number): boolean {
   // halts the closer scan, which elides the leading quote anyway.
   if (isCharItem(items, after, RIGHT_SINGLE_QUOTE)) return false
   return !isLetterOrDigitItem(items, after)
-}
-
-function isDigitItem(items: Item[], index: number): boolean {
-  if (index < 0 || index >= items.length) return false
-  const item = items[index]
-  return !item.boundary && DIGIT_RE.test(item.ch)
-}
-
-function isLetterOrDigitItem(items: Item[], index: number): boolean {
-  if (index < 0 || index >= items.length) return false
-  const item = items[index]
-  return !item.boundary && (LATIN_LETTER_RE.test(item.ch) || DIGIT_RE.test(item.ch) || FOLDED_WORD_CHARS.has(item.ch))
 }
 
 /** `nʼ ` directly after the quote — a quote leading into an already-classified 'n'. */
