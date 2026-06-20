@@ -2,6 +2,26 @@
 
 ## Unreleased
 
+## [4.3.0] - 2026-06-20
+
+### Added
+- ProseView boundary-aware edit layer with legacy pass adapter for improved view handling.
+- Quote classifier role-based system to replace the previous regex pipeline for more robust quote detection.
+
+### Changed
+- Quote processing now uses a classifier-based approach instead of regex pipelines for better accuracy.
+
+## [4.1.4] - 2026-06-17
+
+### Fixed
+
+- Closed remaining idempotency gaps in handling of ellipsis/range, fraction/legal, and German quotes.
+
+## [4.1.3] - 2026-06-17
+
+### Fixed
+- `transform()` is now idempotent when a tab sits in the whitespace around a dash, e.g. `"word \t- word"`. The dash now converts on the first pass, matching the result a fully space-padded dash already produced; previously the tab blocked conversion until `collapseSpaces` normalized the whitespace to a plain space, so a second pass changed the output.
+
 ## [4.1.1] - 2026-06-10
 
 ### Changed
@@ -47,7 +67,10 @@
 
 ### Fixed
 - Idempotency for ranges preceded by a symbol-pass operator: `transform("5x10-20")` and `transform("+/-1-5")` no longer throw. The symbol pass rewrites the range-blocking `x` to `×` and `+/-` to `±`, which are now also excluded from number-range detection.
-- Idempotency for orphan German quotes: `transform('word"', { punctuationStyle: "german" })` no longer throws. A lone German closing quote (U+201C/U+2018, which double as American openers) is no longer re-read as an opener on re-processing.
+- Idempotency for ranges followed by a symbol-pass operator: `transform("1-55x5")` and `transform("5--1st", { superscript: true })` no longer throw. The multiplication (`x` → `×`) and superscript (`st`/`nd`/`rd`/`th` → superscripts) passes turn a range-blocking trailing word character into a non-word one; the range detector now rejects those trailing forms too.
+- Idempotency for ellipses before number ranges: `transform("wait...1-5 minutes")` no longer throws. Ellipses are now folded before range detection, so the post-ellipsis space is present on the first pass.
+- Idempotency for fractions before legal symbols: `transform("1/2(tm)", { fractions: true })` no longer throws. Fractions run before `legalSymbols`, so the converted `½` no longer leaves a `/` that the path-context heuristic mistook for a URL.
+- Idempotency for orphan German quotes: `transform('word"', { punctuationStyle: "german" })` no longer throws. German normalization now collapses every German/curly quote to a straight quote and lets the pipeline re-classify by position, which also fixes lone closers adjacent to other quotes.
 
 ## [3.13.0] - 2026-06-06
 
