@@ -1,4 +1,4 @@
-import { cachedRegExp, LATIN_LETTERS, NBSP_CHARS, SPACE_CHARS, UNICODE_SYMBOLS } from "./constants.js"
+import { cachedRegExp, FOLDED_WORD_CHARS, isWordLike, LATIN_LETTER_RE, LATIN_LETTERS, MAX_BOUNDARY_SEPARATORS, NBSP_CHARS, SPACE_CHAR_RE, UNICODE_SYMBOLS } from "./constants.js"
 import { boundaryCountAt, overInput, type ProseView, replaceAllInView, type ReplaceAllOptions } from "./prose-view.js"
 import { namedGroups } from "./utils.js"
 
@@ -13,7 +13,6 @@ export interface DashOptions {
 const {
   EN_DASH, EM_DASH, MINUS, MULTIPLICATION, PLUS_MINUS,
   LEFT_DOUBLE_QUOTE, RIGHT_DOUBLE_QUOTE, LEFT_SINGLE_QUOTE, RIGHT_SINGLE_QUOTE,
-  SUPERSCRIPT_ST, SUPERSCRIPT_ND, SUPERSCRIPT_RD, SUPERSCRIPT_TH,
 } = UNICODE_SYMBOLS
 
 // Prevents false-positive ranges in model names like "Llama-2-7B".
@@ -33,26 +32,6 @@ const months: readonly string[] = [
 ]
 
 const monthPattern = months.join("|")
-
-const WORD_CHAR_RE = /\w/
-const LATIN_LETTER_RE = new RegExp(`[${LATIN_LETTERS}]`)
-
-/**
- * Glyphs the symbol passes fold word characters into (multiplication `x` →
- * `×`, ordinal suffixes → superscripts). The dash rules run before those
- * passes, so their word-character tests must treat a folded glyph like the
- * word character it folds from — otherwise a range blocked at `6x3` converts
- * once a re-run sees `6×3`.
- */
-const FOLDED_WORD_CHARS = new Set<string>([
-  MULTIPLICATION,
-  ...SUPERSCRIPT_ST, ...SUPERSCRIPT_ND, ...SUPERSCRIPT_RD, ...SUPERSCRIPT_TH,
-])
-
-/** `\w` extended with {@link FOLDED_WORD_CHARS} for fold-stable `\b` checks. */
-function isWordChar(ch: string | undefined): boolean {
-  return ch !== undefined && (WORD_CHAR_RE.test(ch) || FOLDED_WORD_CHARS.has(ch))
-}
 
 /**
  * Glyphs the math-symbol pass folds two-character operators into (`=~` → `≈`,
@@ -142,9 +121,6 @@ function interiorBoundariesAllowed(
   return true
 }
 
-/** Separators tolerated by the word-boundary helpers (mirrors constants.ts). */
-const MAX_BOUNDARY_SEPARATORS = 3
-
 /**
  * Reproduces `wordBoundaryStart` = `(?<!\w${sep}{0,3})\b` at the marked position
  * `matchStart` (the start char is a word char — a digit). The `\b` requires a
@@ -155,7 +131,7 @@ const MAX_BOUNDARY_SEPARATORS = 3
 function wordBoundaryStartOk(view: ProseView, matchStart: number): boolean {
   if (matchStart === 0) return true
   const nb = boundaryCountAt(view, matchStart)
-  const prevWord = isWordChar(view.text[matchStart - 1])
+  const prevWord = isWordLike(view.text[matchStart - 1])
   if (nb === 0) return !prevWord // `\b` needs a non-word char immediately left
   // A separator sits left (non-word) so `\b` holds; the lookbehind blocks only
   // when a word char is within ≤MAX boundaries.
@@ -172,7 +148,7 @@ function wordBoundaryEndOk(view: ProseView, pos: number): boolean {
   const text = view.text
   // `wordBoundaryEndOk` is only ever called at the end of a digit, letter, or
   // suffix run, so `pos` is always ≥ 1 and `text[pos - 1]` is a real char.
-  const leftWord = isWordChar(text[pos - 1])
+  const leftWord = isWordLike(text[pos - 1])
   // A multiplication sign one space to the right blocks like the word char
   // it folds from: the multiplication pass renders `5X 8` as `5 × 8`, and a
   // range blocked at `3-5X` must stay blocked at `3-5 ×`.
@@ -180,7 +156,7 @@ function wordBoundaryEndOk(view: ProseView, pos: number): boolean {
     return false
   }
   const nb = boundaryCountAt(view, pos)
-  const nextCleanWord = isWordChar(text[pos])
+  const nextCleanWord = isWordLike(text[pos])
   // The marked char right after pos is a separator when nb > 0 (non-word).
   const rightWord = nb > 0 ? false : nextCleanWord
   if (leftWord === rightWord) return false // no `\b`
@@ -535,8 +511,6 @@ function suffixWbeEnd(view: ProseView, pos: number, allowAmPm: boolean): number 
 }
 
 const NOT_AFTER_DASH_RE = new RegExp(`[${DISALLOWED_PREFIX_CLASS_FRAGMENT}${LATIN_LETTERS}${MULTIPLICATION}${PLUS_MINUS}.+]`)
-
-const SPACE_CHAR_RE = new RegExp(`[${SPACE_CHARS}]`)
 
 /**
  * Offset of the dot reachable backwards across one inter-dot gap ending at the

@@ -1,4 +1,4 @@
-import { cachedRegExp, LATIN_LETTERS, NBSP_CHARS, SPACE_CHARS, UNICODE_SYMBOLS } from "./constants.js"
+import { cachedRegExp, LATIN_LETTER_RE, LATIN_LETTERS, NBSP_CHARS, SPACE_CHARS, UNICODE_SYMBOLS } from "./constants.js"
 import { boundaryCountAt, overInput, type ProseView, replaceAllInView } from "./prose-view.js"
 
 const {
@@ -197,8 +197,6 @@ const MAX_LAST_WORD_LENGTH = 10
 
 // Bounded so the lookbehind stays ReDoS-safe.
 const MAX_MIDDLE_WORD_LENGTH = 15
-
-const LATIN_LETTER_RE = cachedRegExp(`[${LATIN_LETTERS}]`, "u")
 
 /**
  * The cascade lookbehind `(?<![NBSP][LATIN]{1,15})` over clean text: blocks

@@ -1,4 +1,4 @@
-import { cachedRegExp, LATIN_LETTERS, SPACE_CHARS, UNICODE_SYMBOLS } from "./constants.js"
+import { cachedRegExp, LATIN_LETTER_RE, LATIN_LETTERS, MAX_BOUNDARY_SEPARATORS, SPACE_CHAR_RE, UNICODE_SYMBOLS, WORD_RE } from "./constants.js"
 import { boundaryCountAt, overInput, type ProseView, replaceAllInView } from "./prose-view.js"
 import { convertPrimeMarks } from "./quote-classifier.js"
 
@@ -38,17 +38,12 @@ const {
 // element-boundary semantics of the pre-v5 sentinel-marked pipeline; they are
 // pinned by the golden corpus and the migration's differential fuzz.
 
-const LATIN_LETTER_RE = new RegExp(`[${LATIN_LETTERS}]`)
-const WORD_RE = /\w/
-
 /** Convert "..." or ". . ." to "…". */
 export function ellipsis(input: string): string
 export function ellipsis(input: ProseView): void
 export function ellipsis(input: string | ProseView): string | void {
   return overInput(input, ellipsisOverView)
 }
-
-const SPACE_CHAR_RE = new RegExp(`[${SPACE_CHARS}]`)
 
 function ellipsisOverView(view: ProseView): void {
   ellipsisFoldDots(view)
@@ -383,7 +378,7 @@ function multiplicationOverView(view: ProseView): void {
     if (op === "*") continue
     const afterOp = operatorOffset + 1
     const followChar = trailingText[afterOp]
-    if (boundaryCountAt(view, afterOp) <= 3 && followChar !== undefined && WORD_RE.test(followChar)) continue
+    if (boundaryCountAt(view, afterOp) <= MAX_BOUNDARY_SEPARATORS && followChar !== undefined && WORD_RE.test(followChar)) continue
     view.replace(operatorOffset, afterOp, MULTIPLICATION)
   }
   view.commit()
@@ -720,7 +715,7 @@ function degreeUnitFollowOk(text: string, view: ProseView, unitEnd: number): boo
   // also removes the `\b`. Consecutive boundaries pile at the same clean offset,
   // so count them there.
   const followChar = text[unitEnd]
-  if (boundaryCountAt(view, unitEnd) <= 3 && followChar !== undefined && WORD_RE.test(followChar)) return false
+  if (boundaryCountAt(view, unitEnd) <= MAX_BOUNDARY_SEPARATORS && followChar !== undefined && WORD_RE.test(followChar)) return false
   return true
 }
 

@@ -1,5 +1,5 @@
 import { jest } from "@jest/globals"
-import { assertKnownOptionKeys, formatErrorString, omitKeys, replaceCallbackContext, stableStringify } from "../utils.js"
+import { assertKnownOptionKeys, formatErrorString, omitKeys, stableStringify } from "../utils.js"
 import { cachedRegExp, clearRegexCache } from "../constants.js"
 
 describe("cachedRegExp", () => {
@@ -142,24 +142,5 @@ describe("omitKeys", () => {
     const result = omitKeys(original, ["z"])
     expect(result).toEqual(original)
     expect(result).not.toBe(original)
-  })
-})
-
-describe("replaceCallbackContext", () => {
-  it.each([
-    ["with a trailing named-groups object", ["match", "capture", 5, "the input", { name: "x" }], 5, "the input"],
-    ["without named groups", ["match", 0, "input"], 0, "input"],
-    ["with undefined captures", ["match", undefined, 7, "abc", {}], 7, "abc"],
-  ])("extracts offset and input %s", (_desc, args, offset, input) => {
-    expect(replaceCallbackContext(args as unknown[])).toEqual({ offset, input })
-  })
-
-  it.each([
-    ["no string argument", [42, {}]],
-    ["string without a preceding argument", ["only"]],
-    ["non-number before the input string", ["a", "b"]],
-  ])("throws on malformed arguments: %s", (_desc, args) => {
-    expect(() => replaceCallbackContext(args as unknown[]))
-      .toThrow("Could not locate offset and input in replace-callback arguments.")
   })
 })

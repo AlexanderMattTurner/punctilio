@@ -72,22 +72,3 @@ export function stableStringify(obj: object): string {
 export function namedGroups<G>(args: unknown[]): G {
   return args[args.length - 1] as G
 }
-
-/**
- * Extracts the match offset and input string from a `.replace()` callback's
- * arguments, independent of capture-group count. The trailing arguments are
- * `..., offset, input[, namedGroups]`: the input is the last string (the
- * named-groups object, when present, follows it) and the offset is the
- * number immediately before the input. @internal
- */
-export function replaceCallbackContext(args: unknown[]): { offset: number; input: string } {
-  let inputIndex = args.length - 1
-  while (inputIndex >= 0 && typeof args[inputIndex] !== "string") {
-    inputIndex--
-  }
-  const offset = args[inputIndex - 1]
-  if (inputIndex < 1 || typeof offset !== "number") {
-    throw new Error("Could not locate offset and input in replace-callback arguments.")
-  }
-  return { offset, input: args[inputIndex] as string }
-}

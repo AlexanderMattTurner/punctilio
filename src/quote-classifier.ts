@@ -1,4 +1,4 @@
-import { LATIN_LETTERS, SPACE_CHARS, TERMINAL_PUNCTUATION, UNICODE_SYMBOLS } from "./constants.js"
+import { FOLDED_WORD_CHARS, LATIN_LETTER_RE, SPACE_CHAR_RE, TERMINAL_PUNCTUATION, UNICODE_SYMBOLS, WORD_RE } from "./constants.js"
 import type { ProseView } from "./prose-view.js"
 
 const {
@@ -24,16 +24,11 @@ const {
   EXCLAMATION_QUESTION,
   DOUBLE_EXCLAMATION,
   INTERROBANG,
-  MULTIPLICATION,
   APPROXIMATE,
   GREATER_EQUAL,
   LESS_EQUAL,
   NOT_EQUAL,
   PLUS_MINUS,
-  SUPERSCRIPT_ST,
-  SUPERSCRIPT_ND,
-  SUPERSCRIPT_RD,
-  SUPERSCRIPT_TH,
 } = UNICODE_SYMBOLS
 
 /**
@@ -102,8 +97,6 @@ interface Item {
   anchorBind: "left" | "right"
 }
 
-const LETTER_RE = new RegExp(`[${LATIN_LETTERS}]`)
-const WORD_RE = /\w/
 const SPACE_RE = /\s/
 const DIGIT_RE = /\d/
 
@@ -115,8 +108,6 @@ const QUOTE_CANDIDATE_RE = new RegExp(
 
 const TERMINAL_SET = new Set<string>(TERMINAL_PUNCTUATION)
 
-/** The collapse pass's space alphabet (plain space, tab, NBSP, NNBSP). */
-const COLLAPSIBLE_SPACE_RE = new RegExp(`[${SPACE_CHARS}]`)
 const CLOSING_SET = new Set<string>([RIGHT_SINGLE_QUOTE, RIGHT_DOUBLE_QUOTE])
 
 /**
@@ -165,7 +156,7 @@ const DOUBLE_CLOSE_AFTER_SET = new Set<string>(["/", ")", ".", ",", ";", EM_DASH
 function isLetterItem(items: Item[], index: number): boolean {
   if (index < 0 || index >= items.length) return false
   const item = items[index]
-  return !item.boundary && LETTER_RE.test(item.ch)
+  return !item.boundary && LATIN_LETTER_RE.test(item.ch)
 }
 
 function isCharItem(items: Item[], index: number, ch: string): boolean {
@@ -346,7 +337,7 @@ function singleCloserBefore(items: Item[], index: number): boolean {
 function isLetterOrFoldedItem(items: Item[], index: number): boolean {
   if (index < 0 || index >= items.length) return false
   const item = items[index]
-  return !item.boundary && (LETTER_RE.test(item.ch) || FOLDED_WORD_CHARS.has(item.ch))
+  return !item.boundary && (LATIN_LETTER_RE.test(item.ch) || FOLDED_WORD_CHARS.has(item.ch))
 }
 
 /** Letter directly before (no boundary) and letter after (one boundary transparent). */
@@ -403,16 +394,6 @@ function classifyNAbbreviation(items: Item[]): void {
     i += 2
   }
 }
-
-/**
- * Glyphs the symbol passes fold word characters into (multiplication `x` →
- * `×`, ordinal suffixes → superscripts). Word-gated rules must accept them,
- * or a gate decided on `6x'` flips once a re-run sees `6×'`.
- */
-const FOLDED_WORD_CHARS = new Set<string>([
-  MULTIPLICATION,
-  ...SUPERSCRIPT_ST, ...SUPERSCRIPT_ND, ...SUPERSCRIPT_RD, ...SUPERSCRIPT_TH,
-])
 
 function isWordItem(items: Item[], index: number): boolean {
   if (index < 0 || index >= items.length) return false
@@ -480,7 +461,7 @@ function isDigitItem(items: Item[], index: number): boolean {
 function isLetterOrDigitItem(items: Item[], index: number): boolean {
   if (index < 0 || index >= items.length) return false
   const item = items[index]
-  return !item.boundary && (LETTER_RE.test(item.ch) || DIGIT_RE.test(item.ch) || FOLDED_WORD_CHARS.has(item.ch))
+  return !item.boundary && (LATIN_LETTER_RE.test(item.ch) || DIGIT_RE.test(item.ch) || FOLDED_WORD_CHARS.has(item.ch))
 }
 
 /** `nʼ ` directly after the quote — a quote leading into an already-classified 'n'. */
@@ -664,8 +645,6 @@ function doubleOpenerPrefixOk(items: Item[], index: number): boolean {
   return SPACE_RE.test(prev.ch) || DOUBLE_OPEN_BEFORE_SET.has(prev.ch)
 }
 
-const ELLIPSIS_GAP_SPACE_RE = new RegExp(`[${SPACE_CHARS}]`)
-
 /**
  * Index of the dot reachable across one inter-dot gap from the dot at
  * `dotIndex` (the ellipsis pass's gap rule: the gap is nothing, one space
@@ -680,7 +659,7 @@ function nextEllipsisDotItem(items: Item[], dotIndex: number): number {
   }
   if (j >= items.length) return -1
   if (items[j].ch === ".") return j
-  if (ELLIPSIS_GAP_SPACE_RE.test(items[j].ch) && j + 1 < items.length && !items[j + 1].boundary && items[j + 1].ch === ".") {
+  if (SPACE_CHAR_RE.test(items[j].ch) && j + 1 < items.length && !items[j + 1].boundary && items[j + 1].ch === ".") {
     return j + 1
   }
   return -1
@@ -1027,7 +1006,7 @@ function prevEllipsisDotItem(order: Item[], index: number): number {
   }
   if (j < 0) return -1
   if (order[j].ch === ".") return j
-  if (ELLIPSIS_GAP_SPACE_RE.test(order[j].ch) && isCharItem(order, j - 1, ".")) return j - 1
+  if (SPACE_CHAR_RE.test(order[j].ch) && isCharItem(order, j - 1, ".")) return j - 1
   return -1
 }
 
@@ -1208,7 +1187,7 @@ function movePunctuationOutside(order: Item[], punctChar: string, closingSet: Re
       // collapse pass merges tabs and NBSPs into the closer's NNBSP padding
       // the same way.
       if (spaceBeforePaddedCloser && k < order.length && !order[k].boundary
-        && order[k].ch.length === 1 && COLLAPSIBLE_SPACE_RE.test(order[k].ch)
+        && order[k].ch.length === 1 && SPACE_CHAR_RE.test(order[k].ch)
         && isCharItem(order, k + 1, RIGHT_DOUBLE_QUOTE)) {
         k++
       }
