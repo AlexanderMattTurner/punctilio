@@ -452,17 +452,33 @@ function followingCandidates(view: ProseView, endSpanEnd: number, allowMinus: bo
   return candidates
 }
 
+// First characters of the four superscript ordinal pairs. \w does not match these
+// Unicode chars, so wordBoundaryEndOk treats them as non-word — but they carry the
+// same blocking semantics as the plain letters they render (st/nd/rd/th).
+const SUPERSCRIPT_ORDINAL_FIRST_RE = new RegExp(
+  `[${SUPERSCRIPT_ST[0]}${SUPERSCRIPT_ND[0]}${SUPERSCRIPT_RD[0]}${SUPERSCRIPT_TH[0]}]`,
+)
+
 /**
  * v4's `(?<suffix>${chr}?(?:[AaPp][Mm]|[xKBTM]))?${wbe}` at `pos`. Returns the
  * end offset after the optional suffix when the tail completes (wbe passes), or
- * null when it does not.
+ * null when it does not. Two non-`\w` glyphs the v5 symbol passes emit
+ * (superscript ordinals, `×`) abut the digit run and must block conversion even
+ * though `wbe` would read them as a clean word boundary; both return null first.
  */
 function suffixWbeEnd(view: ProseView, pos: number, allowAmPm: boolean): number | null {
+  const text = view.text
+  // A superscript ordinal immediately following the digit run blocks conversion:
+  // `52ⁿᵈ` is an ordinal, not a range endpoint (same semantics as `52nd`).
+  if (SUPERSCRIPT_ORDINAL_FIRST_RE.test(text[pos] ?? "")) return null
+  // `×` (MULTIPLICATION) is the Unicode form of `x` produced by the symbols pass.
+  // It is non-\w so wordBoundaryEndOk would treat it as a clean boundary, but
+  // `55×5` is multiplication, not a range endpoint — block the same as `52nd`.
+  if (text[pos] === MULTIPLICATION) return null
   if (wordBoundaryEndOk(view, pos)) return pos
   // An optional suffix: one ${chr}? (zero-width, ≤1 boundary) then am/pm or one
   // of x/K/B/T/M, followed by wbe. The suffix letters sit at the clean `pos`.
   if (boundaryCountAt(view, pos) > 1) return null
-  const text = view.text
   // `[AaPp][Mm]` is contiguous in v4 — a boundary between the two letters breaks
   // the suffix.
   if (allowAmPm && /[ap]/i.test(text[pos] ?? "") && /m/i.test(text[pos + 1] ?? "") && !view.hasBoundary(pos + 1)) {
