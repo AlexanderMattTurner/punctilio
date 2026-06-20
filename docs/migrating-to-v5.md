@@ -1,9 +1,60 @@
 # Migrating to v5
 
-v5 removes the sentinel-separator architecture. Passes no longer weave a
-marker character through flattened text; they run over a _ProseView_ — a
-boundary-aware view of an element's text nodes — and commit offset edits back
-onto the source nodes. For most consumers the visible changes are:
+## Main takeaways
+
+**If you only call `transform()`, the CLI, or the `rehype`/`remark`/`markdown`
+plugins with their default options, you don't need to change anything.** v5's
+output is byte-identical to v4 except for two deliberate quote fixes (below),
+so for most consumers upgrading is just bumping the version.
+
+You only need to make changes if you touched punctilio's internals. Use this
+table to find out:
+
+| Did you… | Then in v5… |
+| --- | --- |
+| set the `separator` option anywhere? | Delete it — it no longer exists (and isn't needed). |
+| set `checkIdempotency`? | Delete it — the option is gone. |
+| call `primeMarks` (usually before `niceQuotes`)? | Delete the `primeMarks` call — `niceQuotes` now does primes itself. Pass `primes: false` to opt out. |
+| import a single rule like `ellipsis`, `fractions`, `arrows`, `minusReplace`, or an `nbspAfter…` helper? | Use the composed pass (`symbolTransform`, `nbspTransform`, `hyphenReplace`) or the matching `transform()` option instead — see the [removed-exports tables](#5-removed-symbols-and-replacements). |
+| call `transformElement(...)` to process your own HTML nodes? | Switch to [`applyPasses(element, passes, options)`](#1-sentinel--marker-character-removal). |
+| run your own regexes over punctilio's flattened text? | Wrap each one in [`definePass`](#2-site-specific-regexes--definepass). |
+
+The two intentional output changes (both restoring more correct behavior):
+
+1. A straight double quote that merely starts a text node (e.g. right after
+   `</a>`) now **closes** instead of opening, when a later quote pair follows
+   in the same block.
+2. A quoted multi-digit number like `'37'` is a **quote pair** again, not a
+   decade elision — restoring the pre-4.1.1 output.
+
+That's everything a consumer needs. The rest of this document explains the
+underlying change and gives precise before/after recipes for each case.
+
+## Why it changed (optional background)
+
+Punctilio often has to transform text that's split across several HTML text
+nodes — a word broken up by `<em>`, say. A rule needs to see the whole string
+to decide correctly, but then write its edits back into the right original
+pieces.
+
+Through v4 this used a **sentinel**: punctilio joined the text nodes into one
+string with a special marker character standing in for each node boundary, ran
+the rules over that joined string, and split back on the marker afterward.
+Putting a real character into the text was inherently fragile — the marker
+could collide with real content, leak into output, or be miscounted when a
+match spanned it.
+
+v5 removes the marker entirely. Rules now run over a **ProseView**: the
+combined text is still presented as one string, but node boundaries are
+tracked as numeric **offsets alongside** the string instead of as a character
+inside it. Because a boundary is a position rather than a character, it can
+never collide, leak, or be miscounted. Everything below — `applyPasses`,
+`definePass`'s boundary decisions, `PassEntry` skip sets — follows from that
+one shift.
+
+## Detailed migration reference
+
+The breaking changes in full:
 
 1. [`transformElement` and marker characters are gone](#1-sentinel--marker-character-removal) — use `applyPasses`.
 2. [Custom regexes become passes via `definePass`](#2-site-specific-regexes--definepass), with an explicit per-pattern boundary decision.
@@ -11,13 +62,6 @@ onto the source nodes. For most consumers the visible changes are:
 4. [`primeMarks` is folded into `niceQuotes`](#4-standalone-primemarks--nicequotes).
 5. [Several symbols and helpers were removed](#5-removed-symbols-and-replacements).
 6. [Per-rule sub-passes left the root export](#6-sub-passes-left-the-root-contract).
-
-Default-option `transform()` output is byte-identical to v4, with two
-deliberate classifier fixes: a straight double quote that merely starts a
-node (e.g. directly after `</a>`) now closes instead of opening when a later
-quote pair follows in the same block, and a quoted multi-digit number like
-`'37'` is a quote pair again rather than a decade elision (restoring the
-pre-4.1.1 output).
 
 ## 1. Sentinel / marker-character removal
 
