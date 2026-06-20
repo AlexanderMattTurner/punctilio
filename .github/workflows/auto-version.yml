@@ -30,3 +30,13 @@ jobs:
         run: bash scripts/version-bump.sh
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+  all-checks-passed:
+    name: All checks passed
+    needs: [version-and-publish]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Fail if version-and-publish did not succeed
+        if: needs.version-and-publish.result != 'success'
+        run: exit 1

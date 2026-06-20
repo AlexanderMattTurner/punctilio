@@ -47,3 +47,13 @@ jobs:
           git push --force "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" badges
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  all-checks-passed:
+    name: All checks passed
+    needs: [coverage-badge]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Fail if coverage-badge did not succeed
+        if: needs.coverage-badge.result != 'success'
+        run: exit 1
