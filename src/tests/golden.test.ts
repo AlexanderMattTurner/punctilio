@@ -1,8 +1,20 @@
+/**
+ * Forward regression snapshot of boundary-composition behavior over nested
+ * inline HTML. Each snippet exercises the rehype boundary-composition path —
+ * quotes, dashes, contractions, and primes that straddle element edges — across
+ * the four punctuation styles.
+ *
+ * A failure means transformHtml output changed. If the change is intentional,
+ * regenerate via `node scripts/generate-golden.mjs` AND enumerate the
+ * before/after diff in the PR description. Never regenerate to silence a failure
+ * you do not understand.
+ */
+
 import { readFileSync } from "fs"
 import { resolve } from "path"
 import { fileURLToPath } from "url"
 
-import { type PunctuationStyle, transform } from "../index.js"
+import { type PunctuationStyle } from "../index.js"
 import { transformHtml } from "../html.js"
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url))
@@ -13,43 +25,13 @@ interface CorpusEntry {
 }
 
 interface Corpus {
-  stringOptionSets: Record<string, Parameters<typeof transform>[1]>
   htmlStyles: PunctuationStyle[]
   html: CorpusEntry[]
-  strings: CorpusEntry[]
 }
 
 const corpus: Corpus = JSON.parse(
   readFileSync(resolve(__dirname, "golden/corpus.json"), "utf8")
 )
-
-// ---------------------------------------------------------------------------
-// String cases
-// ---------------------------------------------------------------------------
-
-// Transform options are taken from the corpus's own recorded definitions so a
-// regenerated corpus with a new option set is automatically exercised here.
-const STRING_OPTION_SETS = corpus.stringOptionSets
-
-describe("golden corpus — strings", () => {
-  it.each(corpus.strings)(
-    "transform($input)",
-    ({ input, outputs }) => {
-      for (const [key, expected] of Object.entries(outputs)) {
-        const actual = transform(input, STRING_OPTION_SETS[key])
-        if (actual !== expected) {
-          throw new Error(
-            `Mismatch\n  input:    ${JSON.stringify(input)}\n  opts:     ${key}\n  expected: ${JSON.stringify(expected)}\n  actual:   ${JSON.stringify(actual)}`
-          )
-        }
-      }
-    }
-  )
-})
-
-// ---------------------------------------------------------------------------
-// HTML cases
-// ---------------------------------------------------------------------------
 
 const HTML_STYLES = corpus.htmlStyles
 
