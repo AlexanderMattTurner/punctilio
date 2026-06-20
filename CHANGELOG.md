@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## [5.0.1] - 2026-06-20
+
+### Added
+
+- Pre-commit hook revision is now pinned in README, with a guide for migrating to v5 that highlights consumer takeaways.
+
+### Changed
+
+- README pre-commit revision pinning is now managed by a linted, typechecked script for improved maintainability.
+
 ## [5.0.0] - 2026-06-20
 
 ### Added
