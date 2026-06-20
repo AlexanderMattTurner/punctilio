@@ -2,14 +2,22 @@
 
 ## Unreleased
 
-### Fixed
-- Idempotency (`transform(transform(x)) === transform(x)`) for a long tail of inputs found by the new property-based fuzz suite, across all punctuation and dash styles and the string, view, HTML, and Markdown surfaces. The fixes share one principle — a rule's decision must survive the rewrites later passes apply — and cover: prime/quote balance disagreeing with the quote classifier (`'9'7`, `"9"7`); punctuation-placement moves changing contexts a re-run re-reads (rendered apostrophes joining closing runs, German orphan re-derivation, straight-quote and dash "walls", movable-punctuation chains, ending-context stripping across element boundaries); and earlier-pass gates flipped by later folds — ligatures (`"?!` → `"⁈`), ellipses, multiplication (`6x'` → `6×'`), superscript ordinals, fractions, degree spacing, NBSP-glued year ranges, and tab/space collapse before dashes (whitespace now also collapses at pipeline entry).
-- Number ranges with temperature units now convert (`20-30C` → `20–30C`), matching the existing multiplier suffixes.
-- Two quote-classifier misclassifications on the HTML/view path: a straight double quote that merely starts a text node (e.g. directly after `</a>`) now closes instead of opening when a later quote pair follows in the same block, and a quoted multi-digit number like `'37'` is a quote pair again rather than a decade elision (restoring the pre-4.1.1 output).
+## [5.0.0] - 2026-06-20
 
 ### Added
 - Property-based fuzz suite (`src/tests/fuzz.test.ts`, [fast-check](https://fast-check.dev/)): transform idempotence over arbitrary unicode and option combinations, multi-node `ProseView` semantics against a flat-string oracle, `definePass` template semantics against `String.replace`, and HTML/Markdown round-trips. Runs with a fresh seed in every `pnpm test`; reproduce failures with `FUZZ_SEED`/`FUZZ_PATH`, soak with `FUZZ_RUNS`.
 - Mutation testing ([Stryker](https://stryker-mutator.io/)): `pnpm mutation` locally, and a `mutation.yml` workflow that runs on every pull request, sharded across six size-balanced file groups with per-shard incremental caches and HTML report artifacts.
+- New consumer API: `definePass()` and `applyPasses()` for composing custom punctuation transforms. See the v5 migration guide for details.
+
+### Changed
+- **Breaking change:** Trimmed root module exports to focus on the primary use cases; consumer-facing API redesign with `definePass`/`applyPasses`. Consult the v5 migration guide for upgrade instructions.
+
+### Fixed
+- Idempotency (`transform(transform(x)) === transform(x)`) for a long tail of inputs found by the new property-based fuzz suite, across all punctuation and dash styles and the string, view, HTML, and Markdown surfaces. The fixes share one principle — a rule's decision must survive the rewrites later passes apply — and cover: prime/quote balance disagreeing with the quote classifier (`'9'7`, `"9"7`); punctuation-placement moves changing contexts a re-run re-reads (rendered apostrophes joining closing runs, German orphan re-derivation, straight-quote and dash "walls", movable-punctuation chains, ending-context stripping across element boundaries); and earlier-pass gates flipped by later folds — ligatures (`"?!` → `"⁈`), ellipses, multiplication (`6x'` → `6×'`), superscript ordinals, fractions, degree spacing, NBSP-glued year ranges, and tab/space collapse before dashes (whitespace now also collapses at pipeline entry).
+- Number ranges with temperature units now convert (`20-30C` → `20–30C`), matching the existing multiplier suffixes.
+- Two quote-classifier misclassifications on the HTML/view path: a straight double quote that merely starts a text node (e.g. directly after `</a>`) now closes instead of opening when a later quote pair follows in the same block, and a quoted multi-digit number like `'37'` is a quote pair again rather than a decade elision (restoring the pre-4.1.1 output).
+- Fraction glyphs are now treated as path context for fold-stable legal symbols.
+- Superscript ordinals and × no longer trigger range conversion in dash rules.
 
 ## [4.3.0] - 2026-06-20
 
