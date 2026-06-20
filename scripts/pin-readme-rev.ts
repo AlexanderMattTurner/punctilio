@@ -16,16 +16,10 @@
  *   original README intact.
  */
 
-import { readFileSync, renameSync, writeFileSync } from "node:fs"
+import { readFileSync } from "node:fs"
 
+import { atomicWrite } from "./atomic-write.js"
 import { pinReadmeRev, README_PATH } from "./pin-readme-rev.impl.js"
-
-/** Write `contents` to `path` via a temp file + rename so the replacement is atomic. */
-function atomicWrite(path: string, contents: string): void {
-  const tmpPath = `${path}.tmp`
-  writeFileSync(tmpPath, contents)
-  renameSync(tmpPath, path)
-}
 
 try {
   const outcome = pinReadmeRev(readFileSync(README_PATH, "utf8"), process.env.NEW_VERSION)
@@ -36,8 +30,6 @@ try {
     process.stderr.write(`README rev pin: ${outcome.message}\n`)
   }
 } catch (err) {
-  // Exit 0 deliberately: npm publish has already succeeded at this point in the
-  // release flow; a README hiccup must not abort the surrounding bash script.
   process.stderr.write(
     `README rev pin: failed: ${err instanceof Error ? (err.stack ?? err.message) : String(err)}\n`,
   )

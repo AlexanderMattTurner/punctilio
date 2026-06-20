@@ -51,6 +51,17 @@ describe("pinReadmeRev", () => {
     expect(outcome.message).toContain("already at v5.0.0")
   })
 
+  it.each([
+    ["trailing space after the repo URL", "/punctilio", "/punctilio  "],
+    ["tab indentation before rev", "    rev:", "\trev:"],
+    ["extra spaces after rev:", "rev: v5.0.0", "rev:   v5.0.0"],
+  ])("tolerates %s", (_name, from, to) => {
+    const outcome = pinReadmeRev(README.replace(from, to), "5.2.3")
+    expect(outcome.pinned).toBe(true)
+    if (!outcome.pinned) throw new Error("expected a pin")
+    expect(outcome.readme).toContain("v5.2.3")
+  })
+
   it("does not match a rev line under a different repo", () => {
     const other = README.replace(
       "https://github.com/alexander-turner/punctilio",

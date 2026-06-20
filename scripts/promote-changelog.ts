@@ -19,7 +19,9 @@
  *   the original CHANGELOG intact.
  */
 
-import { readFileSync, renameSync, writeFileSync } from "node:fs"
+import { readFileSync } from "node:fs"
+
+import { atomicWrite } from "./atomic-write.js"
 
 const CHANGELOG_PATH = "CHANGELOG.md"
 
@@ -74,13 +76,6 @@ function splitAroundUnreleased(
     before: source.slice(0, markerMatch.index),
     afterBlock: source.slice(bodyEnd),
   }
-}
-
-/** Write `contents` to `path` via a temp file + rename so the replacement is atomic. */
-function atomicWrite(path: string, contents: string): void {
-  const tmpPath = `${path}.tmp`
-  writeFileSync(tmpPath, contents)
-  renameSync(tmpPath, path)
 }
 
 function promoteUnreleased(): void {
