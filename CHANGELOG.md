@@ -2,6 +2,27 @@
 
 ## Unreleased
 
+## [5.0.3] - 2026-06-21
+
+### Added
+
+- New `mutation:changed` build task for diffing mutations against changed files.
+
+### Changed
+
+- Renamed "golden corpus" to "html-corpus" throughout the codebase for clarity.
+- Refactored quote-classifier item-tester factory and set composition.
+- Collapsed pass overload triples via `makeProsePass` helper function.
+- Improved stacked-boundary check naming with `exceedsSingleBoundary`.
+
+### Fixed
+
+- Fixed incremental state and flag parsing in mutate-changed script.
+
+### Removed
+
+- Deleted dead code and centralized shared regex and constants across modules.
+
 ## [5.0.1] - 2026-06-20
 
 ### Added
