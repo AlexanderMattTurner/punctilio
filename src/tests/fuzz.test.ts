@@ -4,8 +4,8 @@
  * Runs deterministically by default: a fixed seed keeps the regression suite a
  * required CI check without intermittent failures (a fresh random seed per run
  * would flake the moment it found a rare counterexample). Each property still
- * explores thousands of inputs from that seed. Widen the search locally — and
- * in the nightly soak — with `FUZZ_RUNS=<n>` (more cases) and `FUZZ_SEED=<n>`
+ * explores thousands of inputs from that seed. Widen the search locally with
+ * `FUZZ_RUNS=<n>` (more cases) and `FUZZ_SEED=<n>`
  * (a different slice); on failure fast-check prints the seed and path to
  * reproduce with `FUZZ_SEED=<seed> FUZZ_PATH=<path> pnpm test fuzz`.
  */
