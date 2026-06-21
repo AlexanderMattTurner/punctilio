@@ -1,5 +1,5 @@
-import { cachedRegExp, LATIN_LETTERS, SPACE_CHARS, UNICODE_SYMBOLS } from "./constants.js"
-import { boundaryCountAt, overInput, type ProseView, replaceAllInView } from "./prose-view.js"
+import { cachedRegExp, LATIN_LETTER_RE, LATIN_LETTERS, MAX_BOUNDARY_SEPARATORS, SPACE_CHAR_RE, UNICODE_SYMBOLS, WORD_RE } from "./constants.js"
+import { boundaryCountAt, exceedsSingleBoundary, makeProsePass, overInput, type ProseView, replaceAllInView } from "./prose-view.js"
 import { convertPrimeMarks } from "./quote-classifier.js"
 
 export interface SymbolOptions {
@@ -36,19 +36,10 @@ const {
 
 // The boundary-tolerance positions throughout this module reproduce the
 // element-boundary semantics of the pre-v5 sentinel-marked pipeline; they are
-// pinned by the golden corpus and the migration's differential fuzz.
-
-const LATIN_LETTER_RE = new RegExp(`[${LATIN_LETTERS}]`)
-const WORD_RE = /\w/
+// pinned by the HTML regression corpus and the migration's differential fuzz.
 
 /** Convert "..." or ". . ." to "…". */
-export function ellipsis(input: string): string
-export function ellipsis(input: ProseView): void
-export function ellipsis(input: string | ProseView): string | void {
-  return overInput(input, ellipsisOverView)
-}
-
-const SPACE_CHAR_RE = new RegExp(`[${SPACE_CHARS}]`)
+export const ellipsis = makeProsePass(ellipsisOverView)
 
 function ellipsisOverView(view: ProseView): void {
   ellipsisFoldDots(view)
@@ -109,11 +100,7 @@ function ellipsisFoldDots(view: ProseView): void {
 
 
 /** Convert "5x5" to "5×5". Skips hex (0x5F). */
-export function multiplication(input: string): string
-export function multiplication(input: ProseView): void
-export function multiplication(input: string | ProseView): string | void {
-  return overInput(input, multiplicationOverView)
-}
+export const multiplication = makeProsePass(multiplicationOverView)
 
 // After a digit run, either a prime mark (10′) or a length/size unit may
 // attach before the multiplication operator. Allowing both lets dimensions
@@ -257,7 +244,7 @@ function leftSuffixUnsplit(view: ProseView, text: string, digitsEnd: number, slo
   // A prime or unit suffix begins after one optional space-or-boundary slot;
   // a second boundary in that slot (before the suffix) leaves `\d+suffix`
   // matching only the digits, detaching the operator.
-  if (slotStart > digitsEnd && boundaryCountAt(view, digitsEnd) > 1) return false
+  if (slotStart > digitsEnd && exceedsSingleBoundary(view, digitsEnd)) return false
   for (let i = digitsEnd + 1; i < slotStart; i++) {
     if (LATIN_LETTER_RE.test(text[i - 1]) && LATIN_LETTER_RE.test(text[i]) && view.hasBoundary(i)) return false
   }
@@ -371,7 +358,7 @@ function multiplicationOverView(view: ProseView): void {
     const operatorOffset = match.index + num.length
     trailingScan = match.index + match[0].length
     // One optional boundary may sit between the digits and the operator.
-    if (boundaryCountAt(view, operatorOffset) > 1) continue
+    if (exceedsSingleBoundary(view, operatorOffset)) continue
     // Leading guard and hex skip, on the boundary-free digit run ending at the
     // operator (a boundary inside the digits truncates the operand).
     const runStart = leftDigitRunStart(view, trailingText, operatorOffset, 0)
@@ -383,7 +370,7 @@ function multiplicationOverView(view: ProseView): void {
     if (op === "*") continue
     const afterOp = operatorOffset + 1
     const followChar = trailingText[afterOp]
-    if (boundaryCountAt(view, afterOp) <= 3 && followChar !== undefined && WORD_RE.test(followChar)) continue
+    if (boundaryCountAt(view, afterOp) <= MAX_BOUNDARY_SEPARATORS && followChar !== undefined && WORD_RE.test(followChar)) continue
     view.replace(operatorOffset, afterOp, MULTIPLICATION)
   }
   view.commit()
@@ -403,11 +390,7 @@ const MATH_SYMBOL_MAP: MathSymbolRule[] = [
 ]
 
 /** Convert !=, <=, >=, +/-, ~= to Unicode equivalents. */
-export function mathSymbols(input: string): string
-export function mathSymbols(input: ProseView): void
-export function mathSymbols(input: string | ProseView): string | void {
-  return overInput(input, mathSymbolsOverView)
-}
+export const mathSymbols = makeProsePass(mathSymbolsOverView)
 
 function mathSymbolsOverView(view: ProseView): void {
   for (const [left, right, forbiddenFollow, replacement] of MATH_SYMBOL_MAP) {
@@ -539,11 +522,7 @@ const LEGAL_REGISTERED_RE = "\\(r\\)"
 const LEGAL_TRADEMARK_RE = "\\(tm\\)"
 
 /** Convert (c), (r), (tm) to ©, ®, ™. */
-export function legalSymbols(input: string): string
-export function legalSymbols(input: ProseView): void
-export function legalSymbols(input: string | ProseView): string | void {
-  return overInput(input, legalSymbolsOverView)
-}
+export const legalSymbols = makeProsePass(legalSymbolsOverView)
 
 function legalSymbolsOverView(view: ProseView): void {
   // (c) → © only with positive copyright evidence (year or "copyright"
@@ -645,11 +624,7 @@ function arrowRightContextOk(view: ProseView, text: string, end: number): boolea
 }
 
 /** Convert -> and <-> to arrows. */
-export function arrows(input: string): string
-export function arrows(input: ProseView): void
-export function arrows(input: string | ProseView): string | void {
-  return overInput(input, arrowsOverView)
-}
+export const arrows = makeProsePass(arrowsOverView)
 
 function arrowsOverView(view: ProseView): void {
   // Each arrow shape is matched by a left-to-right scan so a boundary that
@@ -669,11 +644,7 @@ function arrowsOverView(view: ProseView): void {
   }
 }
 
-export function degrees(input: string): string
-export function degrees(input: ProseView): void
-export function degrees(input: string | ProseView): string | void {
-  return overInput(input, degreesOverView)
-}
+export const degrees = makeProsePass(degreesOverView)
 
 function degreesOverView(view: ProseView): void {
   // Temperature with optional space before C or F (uppercase only). One boundary
@@ -720,7 +691,7 @@ function degreeUnitFollowOk(text: string, view: ProseView, unitEnd: number): boo
   // also removes the `\b`. Consecutive boundaries pile at the same clean offset,
   // so count them there.
   const followChar = text[unitEnd]
-  if (boundaryCountAt(view, unitEnd) <= 3 && followChar !== undefined && WORD_RE.test(followChar)) return false
+  if (boundaryCountAt(view, unitEnd) <= MAX_BOUNDARY_SEPARATORS && followChar !== undefined && WORD_RE.test(followChar)) return false
   return true
 }
 
@@ -742,11 +713,7 @@ function digitSuffixBoundaryOk(match: RegExpExecArray, view: ProseView): boolean
 }
 
 /** Convert 5'10" to 5′10″ (prime marks). Call before smart quotes. */
-export function primeMarks(input: string): string
-export function primeMarks(input: ProseView): void
-export function primeMarks(input: string | ProseView): string | void {
-  return overInput(input, convertPrimeMarks)
-}
+export const primeMarks = makeProsePass(convertPrimeMarks)
 
 type FractionRule = [string, string, string]
 
@@ -771,11 +738,7 @@ const FRACTION_TUPLES: FractionRule[] = [
 const FRACTION_MAP = Object.fromEntries(FRACTION_TUPLES.map(([n, d, u]) => [`${n}/${d}`, u]))
 
 /** Convert 1/2, 1/4, etc. to ½, ¼, etc. Single-pass using alternation. */
-export function fractions(input: string): string
-export function fractions(input: ProseView): void
-export function fractions(input: string | ProseView): string | void {
-  return overInput(input, fractionsOverView)
-}
+export const fractions = makeProsePass(fractionsOverView)
 
 function fractionsOverView(view: ProseView): void {
   // Build alternation of exact valid pairs: `1/4|1/2|...`. Only exact pairs
@@ -852,11 +815,7 @@ const ORDINAL_MAP: Record<string, string> = {
 }
 
 /** Convert 1st, 2nd, 3rd, 4th to superscript ordinals. */
-export function superscriptOrdinal(input: string): string
-export function superscriptOrdinal(input: ProseView): void
-export function superscriptOrdinal(input: string | ProseView): string | void {
-  return overInput(input, superscriptOrdinalOverView)
-}
+export const superscriptOrdinal = makeProsePass(superscriptOrdinalOverView)
 
 function superscriptOrdinalOverView(view: ProseView): void {
   // Match number + ordinal suffix at word boundary, case-insensitively. One
@@ -876,11 +835,7 @@ function superscriptOrdinalOverView(view: ProseView): void {
 }
 
 // Preserves highest-priority space type (NBSP > NNBSP > regular) and leading indentation.
-export function collapseSpaces(input: string): string
-export function collapseSpaces(input: ProseView): void
-export function collapseSpaces(input: string | ProseView): string | void {
-  return overInput(input, collapseSpacesOverView)
-}
+export const collapseSpaces = makeProsePass(collapseSpacesOverView)
 
 /**
  * Collapses each run of two or more space characters to its highest-priority
@@ -922,11 +877,7 @@ const PUNCTUATION_LIGATURE_MAP: LigatureRule[] = [
 ]
 
 /** Convert ?? to ⁇, ?! to ⁈, !? to ⁉. Disabled by default (poor font support). */
-export function punctuationLigatures(input: string): string
-export function punctuationLigatures(input: ProseView): void
-export function punctuationLigatures(input: string | ProseView): string | void {
-  return overInput(input, punctuationLigaturesOverView)
-}
+export const punctuationLigatures = makeProsePass(punctuationLigaturesOverView)
 
 function punctuationLigaturesOverView(view: ProseView): void {
   for (const [first, repeated, replacement] of PUNCTUATION_LIGATURE_MAP) {

@@ -1,5 +1,5 @@
-import { cachedRegExp, LATIN_LETTERS, NBSP_CHARS, SPACE_CHARS, UNICODE_SYMBOLS } from "./constants.js"
-import { boundaryCountAt, overInput, type ProseView, replaceAllInView, type ReplaceAllOptions } from "./prose-view.js"
+import { cachedRegExp, FOLDED_WORD_CHARS, isWordLike, LATIN_LETTER_RE, LATIN_LETTERS, MAX_BOUNDARY_SEPARATORS, NBSP_CHARS, SPACE_CHAR_RE, UNICODE_SYMBOLS } from "./constants.js"
+import { boundaryCountAt, exceedsSingleBoundary, makeProsePass, overInput, type ProseView, replaceAllInView, type ReplaceAllOptions } from "./prose-view.js"
 import { namedGroups } from "./utils.js"
 
 export const DASH_STYLES = ["american", "british", "none"] as const
@@ -13,7 +13,6 @@ export interface DashOptions {
 const {
   EN_DASH, EM_DASH, MINUS, MULTIPLICATION, PLUS_MINUS,
   LEFT_DOUBLE_QUOTE, RIGHT_DOUBLE_QUOTE, LEFT_SINGLE_QUOTE, RIGHT_SINGLE_QUOTE,
-  SUPERSCRIPT_ST, SUPERSCRIPT_ND, SUPERSCRIPT_RD, SUPERSCRIPT_TH,
 } = UNICODE_SYMBOLS
 
 // Prevents false-positive ranges in model names like "Llama-2-7B".
@@ -33,26 +32,6 @@ const months: readonly string[] = [
 ]
 
 const monthPattern = months.join("|")
-
-const WORD_CHAR_RE = /\w/
-const LATIN_LETTER_RE = new RegExp(`[${LATIN_LETTERS}]`)
-
-/**
- * Glyphs the symbol passes fold word characters into (multiplication `x` →
- * `×`, ordinal suffixes → superscripts). The dash rules run before those
- * passes, so their word-character tests must treat a folded glyph like the
- * word character it folds from — otherwise a range blocked at `6x3` converts
- * once a re-run sees `6×3`.
- */
-const FOLDED_WORD_CHARS = new Set<string>([
-  MULTIPLICATION,
-  ...SUPERSCRIPT_ST, ...SUPERSCRIPT_ND, ...SUPERSCRIPT_RD, ...SUPERSCRIPT_TH,
-])
-
-/** `\w` extended with {@link FOLDED_WORD_CHARS} for fold-stable `\b` checks. */
-function isWordChar(ch: string | undefined): boolean {
-  return ch !== undefined && (WORD_CHAR_RE.test(ch) || FOLDED_WORD_CHARS.has(ch))
-}
 
 /**
  * Glyphs the math-symbol pass folds two-character operators into (`=~` → `≈`,
@@ -101,7 +80,7 @@ function pass(
 //
 // The boundary-tolerance positions throughout this module reproduce the
 // element-boundary semantics of the pre-v5 sentinel-marked pipeline; they are
-// pinned by the golden corpus and the migration's differential fuzz. Over a
+// pinned by the HTML regression corpus and the migration's differential fuzz. Over a
 // clean ProseView, `replaceAllInView` skips any match with an interior boundary
 // unless `allowBoundaries` opts in. Each pass below builds an `allowBoundaries`
 // callback that admits a match only when every interior boundary sits at a
@@ -142,9 +121,6 @@ function interiorBoundariesAllowed(
   return true
 }
 
-/** Separators tolerated by the word-boundary helpers (mirrors constants.ts). */
-const MAX_BOUNDARY_SEPARATORS = 3
-
 /**
  * Reproduces `wordBoundaryStart` = `(?<!\w${sep}{0,3})\b` at the marked position
  * `matchStart` (the start char is a word char — a digit). The `\b` requires a
@@ -155,7 +131,7 @@ const MAX_BOUNDARY_SEPARATORS = 3
 function wordBoundaryStartOk(view: ProseView, matchStart: number): boolean {
   if (matchStart === 0) return true
   const nb = boundaryCountAt(view, matchStart)
-  const prevWord = isWordChar(view.text[matchStart - 1])
+  const prevWord = isWordLike(view.text[matchStart - 1])
   if (nb === 0) return !prevWord // `\b` needs a non-word char immediately left
   // A separator sits left (non-word) so `\b` holds; the lookbehind blocks only
   // when a word char is within ≤MAX boundaries.
@@ -172,7 +148,7 @@ function wordBoundaryEndOk(view: ProseView, pos: number): boolean {
   const text = view.text
   // `wordBoundaryEndOk` is only ever called at the end of a digit, letter, or
   // suffix run, so `pos` is always ≥ 1 and `text[pos - 1]` is a real char.
-  const leftWord = isWordChar(text[pos - 1])
+  const leftWord = isWordLike(text[pos - 1])
   // A multiplication sign one space to the right blocks like the word char
   // it folds from: the multiplication pass renders `5X 8` as `5 × 8`, and a
   // range blocked at `3-5X` must stay blocked at `3-5 ×`.
@@ -180,7 +156,7 @@ function wordBoundaryEndOk(view: ProseView, pos: number): boolean {
     return false
   }
   const nb = boundaryCountAt(view, pos)
-  const nextCleanWord = isWordChar(text[pos])
+  const nextCleanWord = isWordLike(text[pos])
   // The marked char right after pos is a separator when nb > 0 (non-word).
   const rightWord = nb > 0 ? false : nextCleanWord
   if (leftWord === rightWord) return false // no `\b`
@@ -195,14 +171,10 @@ function wordBoundaryEndOk(view: ProseView, pos: number): boolean {
 const CURRENCY_RE = /[$€£¥₹]/
 
 /** Convert number ranges to en-dash (e.g., "1-5" → "1–5"). */
-export function enDashNumberRange(input: string): string
-export function enDashNumberRange(input: ProseView): void
-export function enDashNumberRange(input: string | ProseView): string | void {
-  return overInput(input, (view) => {
-    convertPositiveRanges(view)
-    convertNegativeRanges(view)
-  })
-}
+export const enDashNumberRange = makeProsePass((view) => {
+  convertPositiveRanges(view)
+  convertNegativeRanges(view)
+})
 
 /**
  * The positive-range shape is `phoneAreaCode? \b (?:p\.?|[currency])?\d[\d.,]*
@@ -276,13 +248,13 @@ function matchRangeBody(view: ProseView, startStart: number): number | null {
   if (start === null) return null
   const startSpanEnd = startStart + start.length
   // One slot between start and the dash tolerates a single boundary there.
-  if (boundaryCountAt(view, startSpanEnd) > 1) return null
+  if (exceedsSingleBoundary(view, startSpanEnd)) return null
   // Dash run of 1..3 hyphens that never spans an interior boundary (a boundary
   // between two hyphens truncates the run).
   if (text[startSpanEnd] !== "-") return null
   let dashEnd = startSpanEnd + 1
   while (text[dashEnd] === "-" && dashEnd - startSpanEnd < 3 && !view.hasBoundary(dashEnd)) dashEnd++
-  if (boundaryCountAt(view, dashEnd) > 1) return null
+  if (exceedsSingleBoundary(view, dashEnd)) return null
 
   // `readStartRun` already stops at the first interior boundary, so the start
   // span is boundary-free and its clean digits are the whole run.
@@ -431,7 +403,7 @@ function matchNegativeRangeAt(view: ProseView, i: number): number | null {
   let startEnd = i + 1
   while (/[\d.,]/.test(text[startEnd] ?? "") && !view.hasBoundary(startEnd)) startEnd++
   // One slot between start and the dash tolerates a single boundary there.
-  if (boundaryCountAt(view, startEnd) > 1) return null
+  if (exceedsSingleBoundary(view, startEnd)) return null
   if (text[startEnd] !== "-") return null
 
   // `-{1,3}?` then optional `(?<neg>-)`: a 1..3 hyphen run with no interior
@@ -442,7 +414,7 @@ function matchNegativeRangeAt(view: ProseView, i: number): number | null {
   const hasNeg = dashRunLen >= 2
   const negEnd = dashRunEnd
   // The `end` head slot tolerates one boundary.
-  if (boundaryCountAt(view, negEnd) > 1) return null
+  if (exceedsSingleBoundary(view, negEnd)) return null
 
   const end = readNegEndRun(view, negEnd)
   if (end === null) return null
@@ -487,11 +459,11 @@ function followingCandidates(view: ProseView, endSpanEnd: number, allowMinus: bo
   const candidates = [endSpanEnd]
   let pos = endSpanEnd
   for (;;) {
-    if (boundaryCountAt(view, pos) > 1) break
+    if (exceedsSingleBoundary(view, pos)) break
     const dashCh = view.text[pos]
     if (dashCh !== "-" && !(allowMinus && dashCh === MINUS)) break
     const digitStart = pos + 1
-    if (boundaryCountAt(view, digitStart) > 1) break
+    if (exceedsSingleBoundary(view, digitStart)) break
     if (!/\d/.test(view.text[digitStart] ?? "")) break
     let end = digitStart + 1
     while (/\d/.test(view.text[end] ?? "") && !view.hasBoundary(end)) end++
@@ -521,7 +493,7 @@ function suffixWbeEnd(view: ProseView, pos: number, allowAmPm: boolean): number 
   // An optional suffix: one tolerated boundary then am/pm or one of
   // {@link RANGE_SUFFIX_RE}'s letters, followed by wbe. The suffix letters sit
   // at the clean `pos`.
-  if (boundaryCountAt(view, pos) > 1) return null
+  if (exceedsSingleBoundary(view, pos)) return null
   const text = view.text
   // `[AaPp][Mm]` is contiguous — a boundary between the two letters breaks the
   // suffix.
@@ -535,8 +507,6 @@ function suffixWbeEnd(view: ProseView, pos: number, allowAmPm: boolean): number 
 }
 
 const NOT_AFTER_DASH_RE = new RegExp(`[${DISALLOWED_PREFIX_CLASS_FRAGMENT}${LATIN_LETTERS}${MULTIPLICATION}${PLUS_MINUS}.+]`)
-
-const SPACE_CHAR_RE = new RegExp(`[${SPACE_CHARS}]`)
 
 /**
  * Offset of the dot reachable backwards across one inter-dot gap ending at the
@@ -706,15 +676,11 @@ function enDashDateRangeOverView(view: ProseView, dashStyle: DashStyle): void {
 // ---------------------------------------------------------------------------
 
 /** Convert hyphens to minus signs in numeric contexts (e.g., "-5" → "−5"). */
-export function minusReplace(input: string): string
-export function minusReplace(input: ProseView): void
-export function minusReplace(input: string | ProseView): string | void {
-  return overInput(input, (view) => {
-    minusSubtractionOfNegative(view)
-    minusSpacedSubtraction(view)
-    minusDirectNegative(view)
-  })
-}
+export const minusReplace = makeProsePass((view) => {
+  minusSubtractionOfNegative(view)
+  minusSpacedSubtraction(view)
+  minusDirectNegative(view)
+})
 
 /** Pattern 1a/1b: spaced math subtraction after a digit (`5 - 3`, `5 - -3`). */
 function minusSubtractionOfNegative(view: ProseView): void {
@@ -764,13 +730,13 @@ const NUM_BODY_RE = /^\d*\.?\d+/
 function minusSubtractionPrefixOk(match: RegExpExecArray, view: ProseView, prefixLen: number): boolean {
   // The slot in the lookbehind (`(?<=\d)`) sits at the match start between the
   // leading digit and the space; it tolerates at most one boundary.
-  if (boundaryCountAt(view, match.index) > 1) return false
+  if (exceedsSingleBoundary(view, match.index)) return false
   const numStart = match.index + prefixLen
   for (const b of view.boundaries) {
     if (b > match.index && b < numStart) return false
   }
   // The slot before `num` tolerates at most one boundary at the num head.
-  if (boundaryCountAt(view, numStart) > 1) return false
+  if (exceedsSingleBoundary(view, numStart)) return false
   // `num` stops at the first interior boundary; the clean run up to it must
   // still satisfy `\d*\.?\d+` (the mandatory trailing `\d+`).
   const numEnd = match.index + match[0].length
@@ -1047,8 +1013,8 @@ function spacedArrowAhead(view: ProseView, runEnd: number): boolean {
     // No hyphens: both slots fall at this offset (≤2 boundaries total).
     if (boundaryCountAt(view, runEnd) > 2) return false
   } else {
-    if (boundaryCountAt(view, runEnd) > 1) return false // first slot
-    if (boundaryCountAt(view, h) > 1) return false // second slot
+    if (exceedsSingleBoundary(view, runEnd)) return false // first slot
+    if (exceedsSingleBoundary(view, h)) return false // second slot
   }
   // `≥` guards like the `>=` it folds from: the math pass folds the `>` this
   // guard keys on, and a dash blocked before `–>=` must stay blocked at `–≥`.
@@ -1185,8 +1151,8 @@ function convertUnspacedEmDashes(view: ProseView, rendered: string): void {
     (match, v) => {
       // One boundary is tolerated on each side of the em-dash; two or more
       // exceed the slot and block the match.
-      if (boundaryCountAt(v, match.index) > 1) return null
-      if (boundaryCountAt(v, match.index + match[0].length) > 1) return null
+      if (exceedsSingleBoundary(v, match.index)) return null
+      if (exceedsSingleBoundary(v, match.index + match[0].length)) return null
       v.replace(match.index, match.index + match[0].length, rendered)
       return null
     },
@@ -1250,7 +1216,7 @@ function preserveLineLeadingEmDashSpace(view: ProseView): void {
     (match, v) => {
       // One boundary is tolerated between the line start and the em-dash; two or
       // more exceed that slot and block the match.
-      if (boundaryCountAt(v, match.index) > 1) return null
+      if (exceedsSingleBoundary(v, match.index)) return null
       const groups = namedGroups<{ after: string }>(matchArgs(match))
       return `${EM_DASH} ${groups.after}`
     },
@@ -1292,14 +1258,10 @@ const { WORD_JOINER } = UNICODE_SYMBOLS
  * `nbspTransform` (U+00A0 breaks `Fig. 1` searches). Apply only in rendered
  * HTML; do not write into Markdown source.
  */
-export function dashWordJoiner(input: string): string
-export function dashWordJoiner(input: ProseView): void
-export function dashWordJoiner(input: string | ProseView): string | void {
-  return overInput(input, (view) => {
-    const re = cachedRegExp(`(?<=[^\\s${WORD_JOINER}])[${EM_DASH}${EN_DASH}]`, "gu")
-    replaceAllInView(view, re, (match) => `${WORD_JOINER}${match[0]}`)
-  })
-}
+export const dashWordJoiner = makeProsePass((view) => {
+  const re = cachedRegExp(`(?<=[^\\s${WORD_JOINER}])[${EM_DASH}${EN_DASH}]`, "gu")
+  replaceAllInView(view, re, (match) => `${WORD_JOINER}${match[0]}`)
+})
 
 /** Reconstructs `.replace()`-style callback args from a RegExpExecArray. */
 function matchArgs(match: RegExpExecArray): unknown[] {

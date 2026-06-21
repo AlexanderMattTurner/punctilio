@@ -111,6 +111,38 @@ export const SPACE_CHARS = ` \t${UNICODE_SYMBOLS.NBSP}${UNICODE_SYMBOLS.NNBSP}`
 /** Non-breaking space chars only (NBSP, NNBSP) for regex `[...]`. */
 export const NBSP_CHARS = `${UNICODE_SYMBOLS.NBSP}${UNICODE_SYMBOLS.NNBSP}`
 
+/** Latin letters (incl. European accents) as a compiled regex; see {@link LATIN_LETTERS}. */
+export const LATIN_LETTER_RE = new RegExp(`[${LATIN_LETTERS}]`, "u")
+
+/** Single `\w` word-character matcher shared across passes. */
+export const WORD_RE = /\w/
+
+/** Matches a single {@link SPACE_CHARS} character (space, tab, NBSP, NNBSP). */
+export const SPACE_CHAR_RE = new RegExp(`[${SPACE_CHARS}]`)
+
+/**
+ * Glyphs the symbol passes fold word characters into (multiplication `x` →
+ * `×`, ordinal suffixes → superscripts). Rules that run before those passes
+ * must treat a folded glyph like the word character it folds from, or a gate
+ * decided on `6x3` flips once a re-run sees `6×3`.
+ */
+export const FOLDED_WORD_CHARS = new Set<string>([
+  UNICODE_SYMBOLS.MULTIPLICATION,
+  ...UNICODE_SYMBOLS.SUPERSCRIPT_ST, ...UNICODE_SYMBOLS.SUPERSCRIPT_ND,
+  ...UNICODE_SYMBOLS.SUPERSCRIPT_RD, ...UNICODE_SYMBOLS.SUPERSCRIPT_TH,
+])
+
+/** `\w` extended with {@link FOLDED_WORD_CHARS} for fold-stable `\b` checks. */
+export function isWordLike(ch: string | undefined): boolean {
+  return ch !== undefined && (WORD_RE.test(ch) || FOLDED_WORD_CHARS.has(ch))
+}
+
+/**
+ * Maximum stacked node boundaries tolerated within a single match before a
+ * pass treats the span as crossing a real gap rather than an editing seam.
+ */
+export const MAX_BOUNDARY_SEPARATORS = 3
+
 /** Max AST recursion depth; guards against stack overflow from deep nesting. */
 export const MAX_RECURSION_DEPTH = 1000
 

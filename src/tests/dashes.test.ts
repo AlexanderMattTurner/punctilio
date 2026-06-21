@@ -1186,8 +1186,8 @@ describe("ProseView boundary-tolerance edges", () => {
     })
   })
 
-  // Structural variants of the clean (separator-free) paths the golden corpus
-  // does not exercise: am/pm suffixes, currency-led end runs, the parenthesised
+  // Structural variants of the clean (separator-free) paths the HTML regression
+  // corpus does not exercise: am/pm suffixes, currency-led end runs, the parenthesised
   // area code, and em-dash space removal.
   describe("clean structural variants", () => {
     it.each([
@@ -1235,8 +1235,8 @@ describe("ProseView boundary-tolerance edges", () => {
 
   // Inputs that flip individual operands of the structural guards (a suffix
   // letter that is not am/pm, an area-code candidate that fails late, a tail
-  // segment with no digit, currency/end edges) — the branch halves the golden
-  // corpus leaves unevaluated.
+  // segment with no digit, currency/end edges) — the branch halves the HTML
+  // regression corpus leaves unevaluated.
   describe("structural guard branch edges", () => {
     it.each([
       // `[ap]` with no following `m`, and an over-long am/pm suffix: both stay.

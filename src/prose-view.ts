@@ -244,6 +244,15 @@ export function boundaryCountAt(view: ProseView, offset: number): number {
   return count
 }
 
+/**
+ * True when more than one node boundary is stacked at `offset` — i.e. the
+ * position exceeds the single-boundary tolerance the passes allow in an
+ * editing slot.
+ */
+export function exceedsSingleBoundary(view: ProseView, offset: number): boolean {
+  return boundaryCountAt(view, offset) > 1
+}
+
 export function replaceAllInView(
   view: ProseView,
   regex: RegExp,
@@ -517,4 +526,19 @@ export function overInput(input: string | ProseView, run: (view: ProseView) => v
   }
   run(input)
   input.commit()
+}
+
+/**
+ * Wraps a view runner as a dual-input {@link ProsePass}: the returned function
+ * transforms a string and returns it, or edits a ProseView in place. Collapses
+ * the string/ProseView overload triple that every zero-option public pass would
+ * otherwise repeat.
+ */
+export function makeProsePass(run: (view: ProseView) => void): ProsePass {
+  function pass(input: string): string
+  function pass(input: ProseView): void
+  function pass(input: string | ProseView): string | void {
+    return overInput(input, run)
+  }
+  return pass
 }
