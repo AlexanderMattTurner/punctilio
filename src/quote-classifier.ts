@@ -817,11 +817,6 @@ function classifyDoubles(items: Item[], style: ActiveQuoteStyle): void {
 // ---------------------------------------------------------------------------
 
 /**
- * Run of consecutive CLOSE_* roles (any depth) starting at `start`, with at
- * most one boundary between consecutive closers. Returns the item index just
- * past the run, or -1 when there is no run.
- */
-/**
  * True iff the item at `index` counts as a closing-run member for placement.
  * An APOSTROPHE directly after an `s` is excluded even when the placement
  * alphabet includes apostrophes: the re-run relabels that U+2019 an
@@ -836,6 +831,11 @@ function closingRunMemberAt(items: Item[], index: number, closingSet: ReadonlySe
   return !isCharItem(items, prev, "s") && !isCharItem(items, prev, "S")
 }
 
+/**
+ * Run of consecutive closing-run members (any depth) starting at `start`, with
+ * at most one boundary between consecutive closers. Returns the item index just
+ * past the run, or -1 when there is no run.
+ */
 function scanClosingRun(items: Item[], start: number, closingSet: ReadonlySet<string>): number {
   if (start >= items.length || items[start].boundary || !closingRunMemberAt(items, start, closingSet)) return -1
   let runEnd = start + 1
