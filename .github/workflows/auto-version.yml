@@ -24,6 +24,9 @@ jobs:
       - name: Setup
         uses: ./.github/actions/setup
         with:
+          # Pin the publish runtime explicitly so it doesn't ride on the setup
+          # action's shared default.
+          node-version: 24
           registry-url: https://registry.npmjs.org
 
       - name: Auto Version Bump and Publish

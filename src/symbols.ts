@@ -548,7 +548,7 @@ function legalSymbolsOverView(view: ProseView): void {
 /** Matches one arrow shape starting at `start`; returns its end offset or -1. */
 type ArrowMatcher = (view: ProseView, text: string, start: number) => number
 
-const SPACE_OR_TAB_RE = /\s/
+const WHITESPACE_RE = /\s/
 
 /**
  * One boundary is tolerated after `<`, between dash runs, and before `>`, and a
@@ -614,13 +614,13 @@ function matchLeftRightArrow(view: ProseView, text: string, start: number): numb
 /** Left context `(^|\s|${chr})`: start of text, a space, or a node boundary. */
 function arrowLeftContextOk(view: ProseView, text: string, start: number): boolean {
   if (start === 0 || view.hasBoundary(start)) return true
-  return SPACE_OR_TAB_RE.test(text[start - 1])
+  return WHITESPACE_RE.test(text[start - 1])
 }
 
 /** Right context `(?=\s|${chr}|$)`: end of text, a space, or a node boundary. */
 function arrowRightContextOk(view: ProseView, text: string, end: number): boolean {
   if (end >= text.length || view.hasBoundary(end)) return true
-  return SPACE_OR_TAB_RE.test(text[end])
+  return WHITESPACE_RE.test(text[end])
 }
 
 /** Convert -> and <-> to arrows. */

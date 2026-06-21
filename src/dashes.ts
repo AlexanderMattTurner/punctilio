@@ -1089,7 +1089,7 @@ function convertMultipleDashes(view: ProseView, rendered: string): void {
   const after = `[${LATIN_LETTERS}${QUOTE_CHARS} ]`
   // Upper bound of 50 prevents ReDoS on pathological runs of dashes.
   const pattern = `(?<=${before})[${EN_DASH}${EM_DASH}-]{2,50}(?=${after})`
-  const afterRe = new RegExp(after)
+  const afterRe = cachedRegExp(after, "")
   pass(
     view,
     cachedRegExp(pattern, "g"),

@@ -10,7 +10,7 @@ baseline, and asserts the ratio stays below 1.5×.
 This is a custom design and it's flaky in CI: shared-runner CPU contention,
 GC pauses, and per-Node-version JIT differences inflate the ratio even for
 truly linear code. Recent example: `test (22)` failed on PR #175 while
-`test (18)`, `test (20)`, and `test (24)` passed the same code.
+`test (20)` and `test (24)` passed the same code.
 
 The premise of the test is sound — we want to catch ReDoS / super-linear
 regex behaviour. But the **mechanism** (wall-clock scaling) is the wrong
@@ -98,7 +98,7 @@ If we keep the current scaling test, we can dampen its noise:
 - `jest.retryTimes(3, { logErrorsBeforeRetry: true })` for the perf
   describe block. Bandaid, not a fix.
 - Run perf tests on a single Node version in a dedicated job (not in the
-  18/20/22/24 matrix). They don't test Node-version-specific behaviour.
+  20/22/24 matrix). They don't test Node-version-specific behaviour.
 - Skip in CI entirely (`it.skipIf(process.env.CI)`) and run them in a
   separate "benchmark" workflow on a self-hosted runner.
 

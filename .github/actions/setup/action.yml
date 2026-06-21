@@ -3,9 +3,11 @@ description: Setup Node.js, pnpm, and install dependencies
 
 inputs:
   node-version:
-    description: Node.js version to install
+    description: Node.js version to install.
     required: false
-    default: "24"
+    # Keep in sync with .nvmrc so a workflow that omits node-version runs the
+    # same major as local development (`nvm use`).
+    default: "20"
   registry-url:
     description: npm registry URL (for publishing)
     required: false
