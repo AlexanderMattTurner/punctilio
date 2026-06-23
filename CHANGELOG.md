@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## [5.0.7] - 2026-06-23
+
+### Changed
+
+- ci: remove @claude workflow and pin security scan to sonnet-4-6 (#238)
+
 ## [5.0.6] - 2026-06-23
 
 ### Changed
