@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## [5.0.6] - 2026-06-23
+
+### Changed
+
+- docs(pr-creation): use pyright in the Python validation-commands example
+
 ## [5.0.3] - 2026-06-21
 
 ### Added
