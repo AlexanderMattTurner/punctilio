@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## [5.0.8] - 2026-06-23
+
+### Changed
+
+- ci: run template sync weekly instead of daily (#239)
+
 ## [5.0.7] - 2026-06-23
 
 ### Changed
