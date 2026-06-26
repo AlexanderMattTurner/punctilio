@@ -138,6 +138,19 @@ describe("rehypePunctilio", () => {
     })
   })
 
+  describe("quotes do not pair across block boundaries", () => {
+    // Whitespace text nodes between block siblings must not merge the blocks
+    // into one transform unit: an interrupted line ending in `—"` would then
+    // see the next paragraph's opening `"` and flip to an opener.
+    it("closes an interrupted line ending before a new quoted paragraph", async () => {
+      const html =
+        '<blockquote>\n<p>Riesz spoke. "We make them do analysis, because they deserve --"</p>\n<p>"Frigyes, some might do that."</p>\n</blockquote>'
+      const expected =
+        `<blockquote>\n<p>Riesz spoke. ${LDQ}We make them do analysis, because they deserve${EM_DASH}${RDQ}</p>\n<p>${LDQ}Frigyes, some might do that.${RDQ}</p>\n</blockquote>`
+      expect(await processHtml(html, { nbsp: false })).toEqual(expected)
+    })
+  })
+
   describe("dashes across element boundaries", () => {
     it.each([
       ["multi-segment number preserved", "<p>1-<em>2</em>-3</p>", "<p>1-<em>2</em>-3</p>"],
@@ -607,6 +620,27 @@ describe("rehypePunctilio", () => {
         expect(result).toHaveLength(2)
         expect(result[0].tagName).toBe("p")
         expect(result[1].tagName).toBe("p")
+      })
+
+      it("recurses past whitespace-only text between block children", () => {
+        // Parsers leave newline text nodes between block siblings. They must
+        // not make the container a leaf, or its blocks merge into one unit and
+        // quotes pair across the paragraph boundary.
+        const tree: Element = {
+          type: "element",
+          tagName: "blockquote",
+          properties: {},
+          children: [
+            { type: "text", value: "\n" },
+            h("p", "First") as ElementContent,
+            { type: "text", value: "\n" },
+            h("p", "Second") as ElementContent,
+            { type: "text", value: "\n" },
+          ],
+        }
+        const result = collectProseBlocks(tree)
+        expect(result).toHaveLength(2)
+        expect(result.map((b) => b.tagName)).toEqual(["p", "p"])
       })
 
       it("collects inline-only div as single unit", () => {
