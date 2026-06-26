@@ -76,12 +76,12 @@ describe("nbsp boundary tolerance", () => {
     expect(viewTransform(nbspAfterShortWords, "a cat")).toBe(`a${NBSP}cat`)
   })
 
-  it("a boundary breaks the NBSP cascade run, re-enabling the last-word match", () => {
-    // `x` + NBSP + `word` would normally block (cascade), but a boundary between
-    // the run and the space breaks `[NBSP][LATIN]{1,15}`.
+  it("relocates an aesthetic short-word glue so the last word binds", () => {
+    // A boundary between the run and the space stops the backward walk, so the
+    // last word binds directly without disturbing the `x`+NBSP glue.
     expect(viewTransform(nbspBeforeLastWord, `x${NBSP}word${S} end`))
       .toBe(`x${NBSP}word${S}${NBSP}end`)
-    // Without the boundary, the cascade blocks the widow protection.
-    expect(nbspBeforeLastWord(`x${NBSP}word end`)).toBe(`x${NBSP}word end`)
+    // Without the boundary, the short-word glue on `x` yields to the last word.
+    expect(nbspBeforeLastWord(`x${NBSP}word end`)).toBe(`x word${NBSP}end`)
   })
 })

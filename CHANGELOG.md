@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Changed
+
+- Last-word widow protection now wins over an aesthetic short-word glue on the second-to-last word. When the two conflict (e.g. a sentence ending "…in the head."), the short-word glue ("in"+NBSP+"the") yields so the final pair binds ("the"+NBSP+"head.") instead of orphaning the last word onto its own line. The non-breaking run stays two words, and semantic glues (honorifics, abbreviations, units) still hold.
+
 ## [5.0.9] - 2026-06-26
 
 
