@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed
+
+- `collectProseBlocks` no longer treats the whitespace text nodes a parser leaves between block siblings as direct text, so containers like `<blockquote>`/`<li>`/`<div>` recurse into their block children instead of merging them. This stops quote classification from pairing across a paragraph boundary (e.g. an interrupted line ending in `—"` no longer flips to an opening quote when the next paragraph starts with `"`).
+
 ## [5.0.8] - 2026-06-23
 
 ### Changed
