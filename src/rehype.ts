@@ -462,7 +462,14 @@ function collectProseBlocksImpl(
     return []
   }
 
-  const hasDirectText = node.children.some((child) => child.type === "text")
+  // Whitespace-only text nodes between block siblings (the newlines a parser
+  // leaves between <p>s inside a <blockquote>, <li>, or <div>) are not prose.
+  // Counting them as direct text would make a block container look like a leaf
+  // and merge its blocks into one transform unit, pairing quotes across the
+  // paragraph boundary. Real (non-whitespace) direct text still marks a leaf.
+  const hasDirectText = node.children.some(
+    (child) => child.type === "text" && child.value.trim() !== ""
+  )
   // Only check for block children and text descendants when there's no direct text
   // (short-circuit avoids unnecessary tree traversal)
   const hasBlockChildren = !hasDirectText && node.children.some(
