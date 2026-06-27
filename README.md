@@ -35,13 +35,13 @@ I tested `punctilio` against [`smartypants`](https://www.npmjs.com/package/smart
 
 My [`benchmark.mjs`](https://github.com/alexander-turner/punctilio/blob/main/benchmark.mjs) measures how well libraries handle a [wide range of scenarios](https://github.com/alexander-turner/punctilio/blob/main/benchmark_cases.json). The benchmark normalizes stylistic differences (e.g. non-breaking vs regular space, British vs American dash spacing) for fair comparison. 
 
-|              Package | Passed (of 151) |
+|              Package | Passed (of 152) |
 | -------------------: | :-------------- |
 |          `punctilio` | 150 (99%)       |
 |          `tipograph` | 89 (59%)        |
 |        `smartquotes` | 77 (51%)        |
-|        `smartypants` | 72 (48%)        |
-| `retext-smartypants` | 69 (46%)        |
+|        `smartypants` | 72 (47%)        |
+| `retext-smartypants` | 69 (45%)        |
 |           `typograf` | 64 (42%)        |
 
 _Note on benchmark construction: I assembled the initial cases myself. I then sought out cases where `punctilio` failed and competitors succeeded, and improved `punctilio` to succeed there as well. The benchmark may nonetheless remain biased towards `punctilio`._
@@ -72,6 +72,7 @@ _Note on benchmark construction: I assembled the initial cases myself. I then so
 | Input | Behavior | Why |
 | :--- | :--- | :--- |
 | `'99 but 5' clearance` | `5'` stays straight | A leading apostrophe and an opening quote are indistinguishable without semantics |
+| `Anthropic-Pentagon news cycle` | hyphen stays a hyphen | The relational en dash (“between Anthropic and the Pentagon”) is orthographically identical to a hyphenated proper-noun compound (`Merriam-Webster`, `Sarbanes-Oxley`); telling them apart needs named-entity knowledge, not typography |
 
 
 ## Test suite
