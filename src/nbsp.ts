@@ -209,22 +209,24 @@ function precedingGlueNbsp(view: ProseView, spaceOffset: number): number {
 }
 
 /**
- * True when the NBSP at `nbspIndex` glues a 1–2 letter Latin word — an
- * aesthetic short-word glue that yields to last-word protection. Semantic glues
- * (honorifics, abbreviations, units) end in "."/a digit/a symbol before the
- * NBSP and must hold, so they read as not-a-short-word-glue here.
+ * True when the word immediately before the NBSP at `nbspIndex` is a 1–2 letter
+ * Latin word whose own left edge is a word boundary — an aesthetic short-word
+ * glue that yields to last-word protection. Semantic glues (honorific `Dr.`,
+ * abbreviation, unit `12`) carry a "."/digit/symbol right before the NBSP, so
+ * the backward letter scan finds zero letters and returns false. The scan is
+ * capped at three letters so it stays bounded on a long preceding word.
  */
 function isShortWordGlue(view: ProseView, nbspIndex: number): boolean {
   const text = view.text
   let k = nbspIndex - 1
   let letters = 0
-  while (k >= 0 && !view.hasBoundary(k + 1) && LATIN_LETTER_RE.test(text[k])) {
+  while (k >= 0 && letters <= 2 && !view.hasBoundary(k + 1) && LATIN_LETTER_RE.test(text[k])) {
     k--
     letters++
   }
   if (letters === 0 || letters > 2 || view.hasBoundary(k + 1)) return false
   // The short word's left edge must be a real word boundary, matching
-  // nbspAfterShortWords' lookbehind; an NBSP there would be a longer chain.
+  // nbspAfterShortWords' lookbehind — not another NBSP.
   return !(k >= 0 && NBSP_CHARS.includes(text[k]))
 }
 
