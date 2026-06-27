@@ -72,6 +72,7 @@ _Note on benchmark construction: I assembled the initial cases myself. I then so
 | Input | Behavior | Why |
 | :--- | :--- | :--- |
 | `'99 but 5' clearance` | `5'` stays straight | A leading apostrophe and an opening quote are indistinguishable without semantics |
+| `Anthropic-Pentagon news cycle` | hyphen stays a hyphen | The relational en dash (“between Anthropic and the Pentagon”) is orthographically identical to a hyphenated proper-noun compound (`Merriam-Webster`, `Sarbanes-Oxley`); telling them apart needs named-entity knowledge, not typography |
 
 
 ## Test suite
