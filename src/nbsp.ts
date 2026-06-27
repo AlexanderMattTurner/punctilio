@@ -187,16 +187,16 @@ function nbspBetweenNumberAndUnitOverView(view: ProseView): void {
 
 const MAX_LAST_WORD_LENGTH = 10
 
-// Bounded so the lookbehind stays ReDoS-safe.
+// Bounds the backward second-to-last-word scan so it stays linear.
 const MAX_MIDDLE_WORD_LENGTH = 15
 
 /**
- * The cascade lookbehind `(?<![NBSP][LATIN]{1,15})` over clean text: blocks
- * when an NBSP/NNBSP is followed by 1..15 Latin letters ending at the space. A
- * node boundary anywhere in that backward run breaks the run, re-enabling the
- * match.
+ * Walks back over the second-to-last word to the NBSP gluing it to the word
+ * before it; returns that NBSP's index, or -1 when the word isn't glued
+ * backwards (so the last word is free to bind). A node boundary anywhere in the
+ * backward run breaks the run. Bounded so the scan stays ReDoS-safe.
  */
-function cascadeBlocksLastWord(view: ProseView, spaceOffset: number): boolean {
+function precedingGlueNbsp(view: ProseView, spaceOffset: number): number {
   const text = view.text
   let j = spaceOffset - 1
   let run = 0
@@ -204,16 +204,40 @@ function cascadeBlocksLastWord(view: ProseView, spaceOffset: number): boolean {
     j--
     run++
   }
-  if (run === 0 || view.hasBoundary(j + 1)) return false
-  return j >= 0 && NBSP_CHARS.includes(text[j])
+  if (run === 0 || view.hasBoundary(j + 1)) return -1
+  return j >= 0 && NBSP_CHARS.includes(text[j]) ? j : -1
 }
 
-// Skips when the second-to-last word is already glued backwards via NBSP.
+/**
+ * True when the word immediately before the NBSP at `nbspIndex` is a 1–2 letter
+ * Latin word whose own left edge is a word boundary — an aesthetic short-word
+ * glue that yields to last-word protection. Semantic glues (honorific `Dr.`,
+ * abbreviation, unit `12`) carry a "."/digit/symbol right before the NBSP, so
+ * the backward letter scan finds zero letters and returns false. The scan is
+ * capped at three letters so it stays bounded on a long preceding word.
+ */
+function isShortWordGlue(view: ProseView, nbspIndex: number): boolean {
+  const text = view.text
+  let k = nbspIndex - 1
+  let letters = 0
+  while (k >= 0 && letters <= 2 && !view.hasBoundary(k + 1) && LATIN_LETTER_RE.test(text[k])) {
+    k--
+    letters++
+  }
+  if (letters === 0 || letters > 2 || view.hasBoundary(k + 1)) return false
+  // The short word's left edge must be a real word boundary, matching
+  // nbspAfterShortWords' lookbehind — not another NBSP.
+  return !(k >= 0 && NBSP_CHARS.includes(text[k]))
+}
+
+// When the second-to-last word is already glued backwards, an aesthetic
+// short-word glue yields (reverts to a space) so the last word binds instead,
+// keeping the non-breaking run to two words; a semantic glue there blocks.
 export const nbspBeforeLastWord = makeProsePass(nbspBeforeLastWordOverView)
 
 function nbspBeforeLastWordOverView(view: ProseView): void {
-  // The `(?<=\w|boundary)` lookbehind and the `[NBSP][LATIN]{1,15}` cascade
-  // lookbehind are enforced in the replacer, where boundaries are visible.
+  // The `(?<=\w|boundary)` lookbehind and the preceding-glue resolution are
+  // enforced in the replacer, where boundaries are visible.
   const pattern = cachedRegExp(
     `${SPACE}(?<lastWord>(?:(?!\\s).){1,${MAX_LAST_WORD_LENGTH}})(?<ending>\\n\\n|$)`,
     "g"
@@ -229,7 +253,12 @@ function nbspBeforeLastWordOverView(view: ProseView): void {
         // `(?<=\w|sep)`: a word char before the space, or a boundary there.
         const precededByWord = start > 0 && /\w/.test(clean[start - 1])
         if (!precededByWord && !view.hasBoundary(start)) return null
-        if (cascadeBlocksLastWord(v, start)) return null
+        const glueNbsp = precedingGlueNbsp(v, start)
+        if (glueNbsp >= 0) {
+          if (!isShortWordGlue(v, glueNbsp)) return null
+          // Revert the short word's glue so the last word binds in its place.
+          v.replace(glueNbsp, glueNbsp + 1, " ")
+        }
         // The `ending` group tolerates exactly one boundary at the slot before
         // `\n\n`/end-of-text; two adjacent boundaries block the match. The
         // end-of-text slot sits at the match end (never an interior boundary),
