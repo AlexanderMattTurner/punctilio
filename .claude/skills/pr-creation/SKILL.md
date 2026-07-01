@@ -161,11 +161,11 @@ Provide the PR URL and confirm all CI checks have passed.
 11. Fixes lint issue, pushes, updates PR description again — all green
 12. Reports success with PR URL
 
-### Example 3: When Input Is Unclear
+### Example 3: Ambiguous Follow-up
 
 **User says:** "Push this up"
 
-**Claude asks:** "I see you have changes on branch `feat/user-dashboard`. Would you like me to create a pull request against `$CLAUDE_CODE_BASE_REF`, or just push the branch without creating a PR?"
+**Claude's actions:** Pushes the branch and opens a PR against `$CLAUDE_CODE_BASE_REF` by default — finishing work is the explicit ask per CLAUDE.md. Only pushes without opening a PR if the user said not to, or a PR for this branch already exists (then updates that PR instead).
 
 ## Error Handling
 
