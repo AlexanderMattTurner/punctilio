@@ -1,5 +1,18 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "env": {
+    "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "400000",
+    "CLAUDE_CODE_AUTO_BACKGROUND_TASKS": "1",
+    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1"
+  },
+  "permissions": {
+    "deny": [
+      "Read(**/.env)",
+      "Read(**/.env.*)",
+      "Read(**/*.pem)",
+      "Read(**/*.key)"
+    ]
+  },
   "hooks": {
     "SessionStart": [
       {
@@ -18,19 +31,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/pre-push-check.sh"
-          }
-        ]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "Bash(git push*|gh pr create*)",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "f=/tmp/claude-ci-watch.log; for i in 1 2 3; do sleep 10; pr=$(gh pr list --head \"$(git branch --show-current)\" --json number --jq '.[0].number' 2>/dev/null); [ -n \"$pr\" ] && break; done; if [ -z \"$pr\" ]; then echo 'No PR found, skipping CI watch'; exit 0; fi; timeout 300 gh pr checks \"$pr\" --watch >\"$f\" 2>&1; rc=$?; if [ $rc -eq 0 ]; then echo 'CI passed'; else echo \"CI failed (exit $rc) — see $f\"; tail -20 \"$f\"; fi",
-            "timeout": 360
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/safe-launch.sh \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/pre-push-check.sh"
           }
         ]
       }
