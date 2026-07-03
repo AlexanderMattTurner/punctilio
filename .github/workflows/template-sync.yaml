@@ -21,6 +21,9 @@ name: Sync from Template
 #    customizations" or "Future Claudes: Leave these customizations as-is"
 # 2. Preserve local customizations while adopting new template features
 # 3. When in doubt, keep local changes - they exist for a reason
+# 4. Check for duplicate CI: if the target repo already has test/lint/format
+#    workflows, don't add the template's versions — exclude them via
+#    EXCLUDE_PATHS instead
 # =============================================================================
 
 on:
@@ -37,11 +40,42 @@ on:
 
 env:
   TEMPLATE_REPO: "alexander-turner/claude-automation-template"
-  # Only sync core automation files that don't need customization
-  SYNC_PATHS: ".claude .hooks .github/scripts .github/workflows/template-sync.yaml .github/workflows/dependabot-auto-merge.yaml .github/workflows/claude.yaml .github/workflows/phone-home.yaml .github/workflows/security-vulnerability-scan.yaml .github/prompts/security-vulnerability-scan.md"
-  # These are excluded because they require project-specific customization
-  # (lint/test need project scripts)
-  EXCLUDE_PATHS: ""
+  # Whole directories of core automation files that are always template-owned.
+  # Every file under these paths propagates to downstream consumers; new files
+  # added to the template auto-sync without anyone having to edit this list.
+  # Downstream-added files in these directories are left alone (sync only
+  # copies files that exist in the template).
+  SYNC_PATHS: ".claude .hooks .github/actions .github/scripts .github/workflows .github/prompts"
+  # Paths to exclude from syncing. Supports both whole directories (matching
+  # entries in SYNC_PATHS) and individual files within synced directories.
+  #
+  # NOTE: If the target repo already has its own test/lint/format CI workflows,
+  # exclude the template's equivalents here to avoid duplicate CI jobs.
+  # Common candidates: .github/workflows/node-tests.yaml,
+  # .github/workflows/lint.yaml, .github/workflows/format-check.yaml
+  #
+  # VERSIONED-APP-ONLY: the release flow below only makes sense for a repo that
+  # is published to npm. auto-version.yaml runs on EVERY push to the default
+  # branch and, for a real (non-private) package, decides a Conventional-Commits
+  # semver bump and runs `pnpm publish` (OIDC provenance — no NPM_TOKEN). The
+  # template's own package.json sets "private": true, so version-bump.sh skips
+  # publishing there; a downstream repo opts in by dropping `private` and setting
+  # a real, publishable name. A repo that is not an npm package at all (e.g. a
+  # website like TurnTrout.com) should list these here to opt out entirely:
+  #   .github/workflows/auto-version.yaml
+  #   .github/scripts/version-bump.sh
+  #   .github/scripts/promote-changelog.mjs
+  #   .github/scripts/lib/retry.bash
+  # (CHANGELOG.md lives outside SYNC_PATHS and never syncs, so a versioned
+  # consumer must create it to bootstrap the flow.)
+  # The security-vulnerability-scan workflow + prompt are intentionally NOT
+  # propagated to downstream repos; each consumer owns its own security-scan
+  # cadence and model pin, so the template stops overwriting them on sync.
+  EXCLUDE_PATHS: ".github/workflows/security-vulnerability-scan.yaml .github/prompts/security-vulnerability-scan.md"
+
+concurrency:
+  group: template-sync
+  cancel-in-progress: false
 
 permissions:
   contents: write
@@ -50,338 +84,39 @@ permissions:
 jobs:
   sync:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Checkout child repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
           filter: blob:none
+          persist-credentials: false
 
       - name: Checkout template repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           repository: ${{ env.TEMPLATE_REPO }}
           path: _template
           token: ${{ secrets.TEMPLATE_SYNC_TOKEN || secrets.GITHUB_TOKEN }}
           fetch-depth: 0
           filter: blob:none
+          persist-credentials: false
 
       - name: Check token workflow scope
         env:
           TOKEN: ${{ secrets.TEMPLATE_SYNC_TOKEN || secrets.GITHUB_TOKEN }}
-        run: |
-          # Pushing changes to .github/workflows/ requires a token with workflow-edit
-          # permission. The default GITHUB_TOKEN (installation token, prefix 'ghs_')
-          # CANNOT modify workflow files regardless of the job's permissions block --
-          # GitHub blocks this for security. So TEMPLATE_SYNC_TOKEN must be set to a
-          # PAT.
-          #
-          # - Classic PAT (prefix 'ghp_'): introspect 'workflow' scope via
-          #   x-oauth-scopes header on GET /user.
-          # - Fine-grained PAT (prefix 'github_pat_'): granted permissions are not
-          #   exposed via API, so we trust the configuration and let GitHub return
-          #   the real error at push time if it's wrong. Required fine-grained
-          #   permissions: Contents: Read and write, Pull requests: Read and write,
-          #   Workflows: Read and write (equivalent of the 'workflow' scope;
-          #   'Actions' is a different permission), Metadata: Read.
-          HEADERS=$(curl -sS -I -H "Authorization: token $TOKEN" \
-            https://api.github.com/user 2>/dev/null || true)
-          SCOPES=$(echo "$HEADERS" | grep -i '^x-oauth-scopes:' | sed 's/^[^:]*: //' | tr -d '\r\n' || true)
-
-          case "$TOKEN" in
-            ghp_*)
-              if echo "$SCOPES" | tr ',' '\n' | sed 's/^ *//' | grep -qx 'workflow'; then
-                echo "Classic PAT has 'workflow' scope."
-              else
-                echo "::error::TEMPLATE_SYNC_TOKEN is a classic PAT and lacks the 'workflow' scope, which GitHub requires to push changes to .github/workflows/ files. Add the 'workflow' scope to your PAT at https://github.com/settings/tokens and update the TEMPLATE_SYNC_TOKEN repository secret."
-                exit 1
-              fi
-              ;;
-            github_pat_*)
-              echo "Fine-grained PAT detected; granted permissions are not introspectable via API. Ensure 'Workflows: Read and write' is granted at https://github.com/settings/personal-access-tokens."
-              ;;
-            ghs_*)
-              echo "::error::TEMPLATE_SYNC_TOKEN is unset and the workflow fell back to GITHUB_TOKEN, which cannot push changes to .github/workflows/ files. Create a PAT with workflow-edit permission and set it as the TEMPLATE_SYNC_TOKEN repository secret."
-              exit 1
-              ;;
-            *)
-              echo "::error::TEMPLATE_SYNC_TOKEN has an unrecognized token type. Use a classic PAT (ghp_*) with the 'workflow' scope or a fine-grained PAT (github_pat_*) with 'Workflows: Read and write'."
-              exit 1
-              ;;
-          esac
+        # Run the child repo's own copy — never execute scripts directly from
+        # the template checkout. Template script updates arrive via sync PRs
+        # and go through human review before they can execute.
+        run: bash .github/scripts/check-token-scope.sh
 
       - name: Sync template files with conflict detection
         id: sync
-        run: |
-          set -e
-
-          # Initialize tracking files
-          : > /tmp/conflict_files.txt
-          : > /tmp/conflict_report.md
-          : > /tmp/deleted_files.txt
-          : > /tmp/auto_merged_files.txt
-
-          #############################################
-          # Version tracking
-          #############################################
-
-          TEMPLATE_SHA=$(git -C _template rev-parse HEAD)
-          TEMPLATE_SHA_SHORT=$(echo "$TEMPLATE_SHA" | head -c 7)
-          echo "template_sha=$TEMPLATE_SHA" >> "$GITHUB_OUTPUT"
-          echo "template_sha_short=$TEMPLATE_SHA_SHORT" >> "$GITHUB_OUTPUT"
-
-          PREV_SHA=""
-          if [ -f .template-version ]; then
-            PREV_SHA=$(cat .template-version)
-            echo "Previous template version: $PREV_SHA"
-          else
-            echo "No previous template version found (first sync)"
-          fi
-          echo "Current template version: $TEMPLATE_SHA"
-
-          # Generate changelog between versions if we have a previous SHA
-          if [ -n "$PREV_SHA" ] && [ "$PREV_SHA" != "$TEMPLATE_SHA" ]; then
-            if git -C _template cat-file -e "$PREV_SHA" 2>/dev/null; then
-              CHANGELOG=$(git -C _template log --oneline "$PREV_SHA..$TEMPLATE_SHA")
-            else
-              echo "::warning::Previous template SHA $PREV_SHA not found in template history (likely rewritten by force-push or rebase)"
-              CHANGELOG="Previous SHA \`$PREV_SHA\` no longer exists in template history (force-push/rebase). Showing last 20 commits instead:"$'\n'
-              CHANGELOG+=$(git -C _template log --oneline -20 "$TEMPLATE_SHA")
-            fi
-            if [ -n "$CHANGELOG" ]; then
-              echo "changelog<<CHANGELOG_DELIMITER_8a2b1c" >> "$GITHUB_OUTPUT"
-              echo "$CHANGELOG" >> "$GITHUB_OUTPUT"
-              echo "CHANGELOG_DELIMITER_8a2b1c" >> "$GITHUB_OUTPUT"
-            fi
-          fi
-
-          # Update version file
-          echo "$TEMPLATE_SHA" > .template-version
-
-          #############################################
-          # File processing
-          #############################################
-
-          # Process a single file: 3-way merge when possible, else apply template
-          process_file() {
-            local rel_path="$1"
-            local template_file="_template/$rel_path"
-
-            # Create parent directory if needed
-            local parent_dir
-            parent_dir=$(dirname "$rel_path")
-            [ "$parent_dir" != "." ] && mkdir -p "$parent_dir"
-
-            if [ ! -f "$rel_path" ]; then
-              # New file from template - no conflict
-              cp "$template_file" "$rel_path"
-              echo "Added: $rel_path"
-              return
-            fi
-
-            # File exists locally - check if it differs from template
-            if diff -q "$rel_path" "$template_file" > /dev/null 2>&1; then
-              return
-            fi
-
-            # Files differ - attempt 3-way merge if we have a previous version
-            if [ -n "$PREV_SHA" ]; then
-              local safe_name
-              safe_name=$(echo "$rel_path" | tr '/' '_')
-              local base_file="/tmp/merge_base_${safe_name}"
-
-              if git -C _template show "${PREV_SHA}:${rel_path}" > "$base_file" 2>/dev/null; then
-                # Check if only the local side changed (template unchanged since last sync)
-                if diff -q "$base_file" "$template_file" > /dev/null 2>&1; then
-                  echo "Unchanged in template: $rel_path (keeping local version)"
-                  rm -f "$base_file"
-                  return
-                fi
-
-                # Check if only the template side changed (local unchanged since last sync)
-                if diff -q "$base_file" "$rel_path" > /dev/null 2>&1; then
-                  cp "$template_file" "$rel_path"
-                  echo "Updated: $rel_path (local was unmodified)"
-                  rm -f "$base_file"
-                  return
-                fi
-
-                # Both sides changed - do a proper 3-way merge
-                local merge_result="/tmp/merge_result_${safe_name}"
-                cp "$rel_path" "$merge_result"
-
-                if git merge-file -L "local" -L "base" -L "template" \
-                    "$merge_result" "$base_file" "$template_file" 2>/dev/null; then
-                  # Clean merge
-                  cp "$merge_result" "$rel_path"
-                  echo "Auto-merged: $rel_path (clean 3-way merge)"
-                  echo "$rel_path" >> /tmp/auto_merged_files.txt
-                  rm -f "$base_file" "$merge_result"
-                  return
-                else
-                  # Conflict markers produced - apply them for Claude to resolve
-                  cp "$merge_result" "$rel_path"
-                  echo "CONFLICT (merge markers): $rel_path"
-                  echo "$rel_path" >> /tmp/conflict_files.txt
-
-                  {
-                    echo "### \`$rel_path\`"
-                    echo ""
-                    echo "3-way merge produced **conflict markers** (\`<<<<<<<\`/\`=======\`/\`>>>>>>>\`)."
-                    echo "Resolve them: keep local customizations, adopt template improvements."
-                    echo ""
-                    echo "<details>"
-                    echo "<summary>View file with conflict markers</summary>"
-                    echo ""
-                    echo "\`\`\`"
-                    head -200 "$rel_path"
-                    echo "\`\`\`"
-                    echo "</details>"
-                    echo ""
-                  } >> /tmp/conflict_report.md
-
-                  rm -f "$base_file" "$merge_result"
-                  return
-                fi
-              fi
-              rm -f "$base_file"
-              # Fall through if base version not found
-            fi
-
-            # No PREV_SHA or base not found - apply template version for Claude to review
-            echo "CONFLICT (no base): $rel_path"
-            echo "$rel_path" >> /tmp/conflict_files.txt
-
-            {
-              echo "### \`$rel_path\`"
-              echo ""
-              echo "No merge base available (first sync or file history unavailable)."
-              echo "Template version has been applied. Restore any important local customizations."
-              echo ""
-              echo "<details>"
-              echo "<summary>Diff (old local \u2192 new template)</summary>"
-              echo ""
-              echo "\`\`\`diff"
-              diff -u "$rel_path" "$template_file" | head -200 || true
-              echo "\`\`\`"
-              echo "</details>"
-              echo ""
-            } >> /tmp/conflict_report.md
-
-            cp "$template_file" "$rel_path"
-          }
-
-          #############################################
-          # Detect deleted files
-          #############################################
-
-          # Only detect deletions if we have a previous version to compare against.
-          # A file is "deleted" only if it existed in the template at PREV_SHA but
-          # no longer exists at the current template HEAD. This avoids false positives
-          # for project-specific files that were never in the template.
-          if [ -n "$PREV_SHA" ]; then
-            # Get the list of files that existed in the template at the previous sync point
-            git -C _template ls-tree -r --name-only "$PREV_SHA" 2>/dev/null > /tmp/prev_template_files.txt || true
-
-            for path in $SYNC_PATHS; do
-              skip=false
-              for exclude in $EXCLUDE_PATHS; do
-                [ "$path" = "$exclude" ] && skip=true && break
-              done
-              [ "$skip" = "true" ] && continue
-
-              # Find files under this path that existed in the previous template but not in current
-              while IFS= read -r prev_file; do
-                # Only consider files under the current sync path
-                case "$prev_file" in "$path"|"$path/"*) ;; *) continue ;; esac
-
-                if [ ! -f "_template/$prev_file" ]; then
-                  echo "DELETED in template: $prev_file"
-                  echo "$prev_file" >> /tmp/deleted_files.txt
-                fi
-              done < /tmp/prev_template_files.txt
-            done
-          fi
-
-          #############################################
-          # Process sync paths
-          #############################################
-
-          for path in $SYNC_PATHS; do
-            # Skip if in exclude list
-            skip=false
-            for exclude in $EXCLUDE_PATHS; do
-              if [ "$path" = "$exclude" ]; then
-                skip=true
-                break
-              fi
-            done
-            [ "$skip" = "true" ] && continue
-
-            # Check if path exists in template
-            if [ ! -e "_template/$path" ]; then
-              echo "Warning: $path not found in template, skipping"
-              continue
-            fi
-
-            # Handle directories by processing files individually
-            # Note: Using process substitution to avoid subshell variable scope issues
-            if [ -d "_template/$path" ]; then
-              while IFS= read -r template_file; do
-                rel_path="${template_file#_template/}"
-                process_file "$rel_path"
-              done < <(find "_template/$path" -type f)
-            else
-              process_file "$path"
-            fi
-          done
-
-          # Clean up template
-          rm -rf _template
-
-          #############################################
-          # Set outputs
-          #############################################
-
-          # Auto-merged files
-          if [ -s /tmp/auto_merged_files.txt ]; then
-            auto_merged=$(tr '\n' ' ' < /tmp/auto_merged_files.txt)
-            echo "auto_merged_files=$auto_merged" >> "$GITHUB_OUTPUT"
-          fi
-
-          # Conflicts
-          if [ -s /tmp/conflict_files.txt ]; then
-            conflicts=$(tr '\n' ' ' < /tmp/conflict_files.txt)
-            echo "has_conflicts=true" >> "$GITHUB_OUTPUT"
-            echo "conflict_files=$conflicts" >> "$GITHUB_OUTPUT"
-
-            echo "conflict_report<<CONFLICT_REPORT_DELIMITER_7f3d9a" >> "$GITHUB_OUTPUT"
-            cat /tmp/conflict_report.md >> "$GITHUB_OUTPUT"
-            echo "CONFLICT_REPORT_DELIMITER_7f3d9a" >> "$GITHUB_OUTPUT"
-
-            echo "Template updates available for: $conflicts" > .template-sync-conflicts
-          else
-            echo "has_conflicts=false" >> "$GITHUB_OUTPUT"
-            rm -f .template-sync-conflicts
-          fi
-
-          # Deletions
-          if [ -s /tmp/deleted_files.txt ]; then
-            deleted=$(tr '\n' ' ' < /tmp/deleted_files.txt)
-            echo "has_deletions=true" >> "$GITHUB_OUTPUT"
-            echo "deleted_files=$deleted" >> "$GITHUB_OUTPUT"
-          else
-            echo "has_deletions=false" >> "$GITHUB_OUTPUT"
-          fi
-
-          # Changes (new files added or version file updated)
-          if git diff --quiet && [ -z "$(git ls-files --others --exclude-standard)" ]; then
-            echo "has_changes=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "has_changes=true" >> "$GITHUB_OUTPUT"
-            changed_paths=$({ git diff --name-only; git ls-files --others --exclude-standard; } | tr '\n' ' ')
-            echo "changed_paths=$changed_paths" >> "$GITHUB_OUTPUT"
-          fi
+        env:
+          SYNC_PATHS: ${{ env.SYNC_PATHS }}
+          EXCLUDE_PATHS: ${{ env.EXCLUDE_PATHS }}
+        run: bash .github/scripts/template-sync.sh
 
       - name: Show diff (dry run)
         if: inputs.dry-run == 'true' && steps.sync.outputs.has_changes == 'true'
@@ -390,24 +125,12 @@ jobs:
           HAS_DELETIONS: ${{ steps.sync.outputs.has_deletions }}
           CONFLICT_FILES: ${{ steps.sync.outputs.conflict_files }}
           DELETED_FILES: ${{ steps.sync.outputs.deleted_files }}
-        run: |
-          echo "=== Changes that would be made ==="
-          git diff
-          if [ "$HAS_CONFLICTS" = "true" ]; then
-            echo ""
-            echo "=== CONFLICTS (will need Claude resolution) ==="
-            echo "$CONFLICT_FILES"
-          fi
-          if [ "$HAS_DELETIONS" = "true" ]; then
-            echo ""
-            echo "=== FILES DELETED IN TEMPLATE ==="
-            echo "$DELETED_FILES"
-          fi
+        run: bash .github/scripts/show-sync-diff.sh
 
       - name: Create Pull Request
         if: inputs.dry-run != 'true' && (steps.sync.outputs.has_changes == 'true' || steps.sync.outputs.has_conflicts == 'true' || steps.sync.outputs.has_deletions == 'true')
         id: create-pr
-        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8
         with:
           token: ${{ secrets.TEMPLATE_SYNC_TOKEN || secrets.GITHUB_TOKEN }}
           commit-message: "chore: sync from template repository (${{ steps.sync.outputs.template_sha_short }})"
@@ -462,42 +185,4 @@ jobs:
           CONFLICT_FILES: ${{ steps.sync.outputs.conflict_files }}
           DELETED_FILES: ${{ steps.sync.outputs.deleted_files }}
           PR_NUM: ${{ steps.create-pr.outputs.pull-request-number }}
-        run: |
-          # Only @-mention Claude if a listener exists in the repo. On the very
-          # first sync that adds claude.yaml, the workflow that responds to
-          # @claude mentions doesn't exist on any branch yet, so the mention is
-          # a no-op and produces a misleading "Claude is on it" signal. Same if
-          # the project deliberately doesn't ship claude.yaml.
-          if [ -f .github/workflows/claude.yaml ]; then
-            MENTION="@claude "
-          else
-            MENTION=""
-            echo "::notice::.github/workflows/claude.yaml is not present in this repo; posting comment without @claude mention. Conflicts must be resolved manually."
-          fi
-          BODY="${MENTION}Resolve this template sync PR so it's ready to merge."
-
-          if [ "$HAS_CONFLICTS" = "true" ]; then
-            BODY="$BODY
-
-          **Resolve conflicts in:** $CONFLICT_FILES
-
-          For each file:
-          1. Open the file on this branch and resolve all \`<<<<<<<\`/\`=======\`/\`>>>>>>>\` conflict markers
-          2. Keep blocks marked with customization comments (e.g., 'project-specific', 'Future Claudes: Leave as-is')
-          3. Adopt new template features that don't conflict with local customizations
-          4. When in doubt, preserve local changes - they exist for a reason
-          5. Remove the \`.template-sync-conflicts\` tracking file once all conflicts are resolved"
-          fi
-
-          if [ "$HAS_DELETIONS" = "true" ]; then
-            BODY="$BODY
-
-          **Deleted files:** These files were removed from the template: $DELETED_FILES
-          Check if they are still used locally. If not, delete them in this PR."
-          fi
-
-          BODY="$BODY
-
-          Commit your changes and ensure the PR is ready for human review."
-
-          gh pr comment "$PR_NUM" --body "$BODY"
+        run: bash .github/scripts/request-claude-resolve.sh

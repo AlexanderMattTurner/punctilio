@@ -36,9 +36,16 @@ for file in "$@"; do
   # Only validate SKILL.md entrypoints; skip supporting files
   [[ "$grandparent" != "skills" || "$basename_file" != "SKILL.md" ]] && continue
 
-  # Check for YAML frontmatter
+  # Check for YAML frontmatter opening delimiter
   if ! head -1 "$file" | grep -q '^---$'; then
     echo "ERROR: $file missing YAML frontmatter (must start with ---)" >&2
+    errors=$((errors + 1))
+    continue
+  fi
+
+  # Check for YAML frontmatter closing delimiter
+  if ! awk '/^---$/{n++} END{exit (n<2)}' "$file"; then
+    echo "ERROR: $file missing closing '---' YAML frontmatter delimiter" >&2
     errors=$((errors + 1))
     continue
   fi
@@ -58,11 +65,13 @@ for file in "$@"; do
     errors=$((errors + 1))
   fi
 
-  # Check description is multi-sentence (at least 2 periods)
-  # Extract description from frontmatter only (not body content)
+  # Check description is multi-sentence (at least 2 periods).
+  # Extract description from frontmatter only (not body content).
+  # `tr -dc` strips everything except '.', so a description with zero periods
+  # still produces an empty (not failing) result — required under `pipefail`.
   desc_block=$(awk '/^---$/{n++; next} n==1' "$file" | sed -n '/^description:/,/^[a-z]/p')
-  period_count=$(echo "$desc_block" | grep -o '\.' | wc -l)
-  if [ "$period_count" -lt 2 ]; then
+  periods=$(printf '%s' "$desc_block" | tr -dc '.')
+  if [[ "${#periods}" -lt 2 ]]; then
     echo "ERROR: $file description too short — use 2-3 sentences with specific activation triggers" >&2
     errors=$((errors + 1))
   fi
@@ -74,4 +83,4 @@ for file in "$@"; do
   fi
 done
 
-[ "$errors" -gt 0 ] && exit 1 || exit 0
+[[ "$errors" -gt 0 ]] && exit 1 || exit 0

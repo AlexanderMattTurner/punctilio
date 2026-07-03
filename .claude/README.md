@@ -39,7 +39,7 @@ Before `git push` or `gh pr` commands, `pre-push-check.sh` runs any configured c
 - **typecheck** (`pnpm check`): Additional type checking if configured
 - **ruff**: Python linting if applicable
 
-Only runs scripts that are actually configured in `package.json` — skips placeholder scripts.
+Only runs scripts that are actually configured in `package.json`—skips placeholder scripts.
 
 ### Skills
 
@@ -59,8 +59,8 @@ Edit `hooks/session-setup.sh` to add more tools:
 # Via uv
 uv_install_if_missing mycommand mypackage
 
-# Via webi (https://webinstall.dev)
-webi_install_if_missing mytool
+# Via webi (https://webinstall.dev) — pin versions for supply-chain safety
+webi_install_if_missing mytool mytool@1
 
 # Via apt (requires root)
 if is_root; then
@@ -75,3 +75,14 @@ Create new skill directories in `skills/` following the pattern in `pr-creation/
 ### Customizing Hooks
 
 Modify `settings.json` to add more hooks. See the [Claude Code documentation](https://docs.anthropic.com/en/docs/claude-code) for available hook types.
+
+**Always wrap PreToolUse hooks with `safe-launch.sh`.** A PreToolUse hook that fails to parse (e.g. unresolved merge conflict markers) exits non-zero, which Claude Code treats as a block—locking the session out of repairing the very file that’s broken. `safe-launch.sh` detects the parse failure and degrades open: edits under `.claude/hooks/` and `.hooks/` are allowed for self-repair; all other tools get `permissionDecision: "ask"`.
+
+```json
+{
+  "type": "command",
+  "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/safe-launch.sh \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/your-new-hook.sh"
+}
+```
+
+Any script under `.claude/hooks/` or `.hooks/` is also syntax-checked at session start by `session-setup.sh`—broken hooks surface as loud warnings before they can block the first tool call.

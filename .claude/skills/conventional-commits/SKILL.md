@@ -18,7 +18,7 @@ Run in parallel: `git status`, `git diff`, `git diff --cached`, `git log --oneli
 
 ### 2. Stage Files
 
-Stage by name — never `git add -A` or `git add .`. Skip secrets (`.env`, credentials). If changes span unrelated areas, ask user whether to split into multiple commits.
+Stage by name—never `git add -A` or `git add .`. Skip secrets (`.env`, credentials). If changes span unrelated areas, ask user whether to split into multiple commits.
 
 ### 3. Commit
 
@@ -41,4 +41,4 @@ EOF
 
 ### 4. Verify
 
-If commitlint rejects the message, fix and create a **new** commit (don't amend). Confirm hash and message to the user.
+If commitlint rejects the message, fix and create a **new** commit (don’t amend). Confirm hash and message to the user.

@@ -14,7 +14,7 @@ description: >
 Wrap the markdown you want the user to copy in a single fenced code block tagged
 `markdown`. The user will see the raw source and can copy it with one click.
 
-## Fence rules — escape inner code blocks
+## Fence rules—escape inner code blocks
 
 Triple-backtick fences cannot nest. If the markdown contains its own fenced code
 blocks, the inner fences will prematurely close the outer fence and break the
@@ -34,7 +34,7 @@ one more backtick to the outer fence.
 
 ## Example
 
-User asks: "Give me a copyable markdown snippet for a README install section."
+User asks: “Give me a copyable markdown snippet for a README install section.”
 
 Respond with a 4-backtick fence because the inner content has a 3-backtick block:
 
@@ -50,8 +50,8 @@ pnpm install
 
 ## Other escaping notes
 
-- Tildes (`~~~`) are an alternate fence — apply the same "more than the longest
-  inner run" rule if you choose tildes instead of backticks.
+- Tildes (`~~~`) are an alternate fence—apply the same “more than the longest
+  inner run” rule if you choose tildes instead of backticks.
 - Indented (4-space) code blocks inside the markdown need no escaping.
 - Do not add commentary inside the fence. Put any explanation outside the block
   so the user copies clean markdown.
