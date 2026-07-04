@@ -67,19 +67,8 @@ class ProseViewImpl implements ProseView {
 
   hasBoundary(offset: number): boolean {
     const boundaries = this.cachedBoundaries
-    let low = 0
-    let high = boundaries.length - 1
-    while (low <= high) {
-      const mid = (low + high) >>> 1
-      const value = boundaries[mid]
-      if (value === offset) return true
-      if (value < offset) {
-        low = mid + 1
-      } else {
-        high = mid - 1
-      }
-    }
-    return false
+    const first = lowerBound(boundaries, offset)
+    return first < boundaries.length && boundaries[first] === offset
   }
 
   replace(start: number, end: number, text: string, opts?: { bind?: "left" | "right" }): void {

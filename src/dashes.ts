@@ -211,16 +211,27 @@ const RANGE_START_CHAR_RE = /[\dp(]/
  * run, and the area-code reading needs a `(` or a dash the run does not
  * contain — so the scan jumps to the run end. Advancing one character at a
  * time instead re-reads the run at every digit — O(n²) on inputs like
- * "1.1.1.…", a denial-of-service vector. A dash at the run end re-enables
- * start-dependent gates (`\b`, not-after-dash) for interior starts, so then
- * advance by one as usual.
+ * "1.1.1.…", a denial-of-service vector.
+ *
+ * A dash at the run end can reward an interior start two ways: a `.`/`,`-
+ * preceded digit regains the `\b` that blocked `i`, and the area-code reading
+ * restarts a fresh match past the dash. Both still need the char past the
+ * hyphens to begin an end run (digit/currency) or a start run (digit/`p`) —
+ * the dash position and end-run reads are start-independent — so when it
+ * cannot, the jump to the run end stays safe; only then fall back to one
+ * character (otherwise "111…1-x" re-reads the run at every digit, the same
+ * O(n²)).
  */
 function failedRangeStartSkip(view: ProseView, i: number): number {
   const text = view.text
   if (!/\d/.test(text[i])) return i + 1
   let runEnd = i + 1
   while (/[\d.,]/.test(text[runEnd] ?? "") && !view.hasBoundary(runEnd)) runEnd++
-  return text[runEnd] === "-" ? i + 1 : runEnd
+  if (text[runEnd] !== "-") return runEnd
+  let afterDashes = runEnd + 1
+  while (text[afterDashes] === "-") afterDashes++
+  const next = text[afterDashes] ?? ""
+  return /\d/.test(next) || next === "p" || CURRENCY_RE.test(next) ? i + 1 : runEnd
 }
 
 /**
