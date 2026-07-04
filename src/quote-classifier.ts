@@ -692,8 +692,15 @@ function foldsToNotEqual(items: Item[], index: number): boolean {
   return !isCharItem(items, nextIndex(items, eq, 1), "=")
 }
 
-/** Opening double quote by following context. */
-function classifyOpeningDoubles(items: Item[]): void {
+/**
+ * Opening double quote by following context.
+ *
+ * French: a plain space directly before a pre-labeled closer merges into the
+ * closer's rendered NNBSP padding once spaces collapse, so a re-run reads the
+ * closer itself directly after the candidate — read it that way now (the
+ * mirror of {@link classifyClosingDoubles}'s opener-side absorption).
+ */
+function classifyOpeningDoubles(items: Item[], style: ActiveQuoteStyle): void {
   for (let i = 0; i < items.length; i++) {
     const item = items[i]
     if (item.boundary || item.ch !== '"') continue
@@ -711,8 +718,10 @@ function classifyOpeningDoubles(items: Item[]): void {
       const j = nextIndex(items, i, 1)
       if (j < items.length && !items[j].boundary) {
         const ch = items[j].ch
+        const absorbedIntoCloser = style === "french" && ch === " " && isCharItem(items, j + 1, RIGHT_DOUBLE_QUOTE)
         opens = isEllipsisDots(items, j) || foldsToNotEqual(items, j)
           || (!SPACE_RE.test(ch) && !DOUBLE_OPEN_ENDING_SET.has(ch))
+          || absorbedIntoCloser
       }
     }
     if (opens) item.ch = LEFT_DOUBLE_QUOTE
@@ -840,7 +849,7 @@ function classifySinglesBeforeClosingDoubles(items: Item[]): void {
 
 function classifyDoubles(items: Item[], style: ActiveQuoteStyle): void {
   classifyEmptyDoublePairs(items)
-  classifyOpeningDoubles(items)
+  classifyOpeningDoubles(items, style)
   classifyQuotedPunctuationOpeners(items)
   classifyBraceOpeners(items)
   classifyClosingDoubles(items, style)

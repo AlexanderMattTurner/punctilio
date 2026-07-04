@@ -771,6 +771,18 @@ describe("niceQuotes", () => {
       expect(niceQuotes(input, options)).toBe(input)
     })
 
+    it("french opener before a spaced closer reaches its fixed point in one run", () => {
+      // The plain space merges into the closer's NNBSP padding when spaces
+      // collapse, so a re-run reads the closer directly after the straight
+      // quote and opens it; the first run must make the same reading.
+      // niceQuotes alone keeps the source space; the pipeline's collapse pass
+      // later merges it with the padding.
+      const input = `a " ${RIGHT_DOUBLE_QUOTE}`
+      const once = niceQuotes(input, { punctuationStyle: "french" })
+      expect(once).toBe(`a ${LEFT_GUILLEMET}${NNBSP} ${NNBSP}${RIGHT_GUILLEMET}`)
+      expect(niceQuotes(once, { punctuationStyle: "french" })).toBe(once)
+    })
+
     it("german normalizer re-classifies pre-existing RDQ", () => {
       // RDQ is not used in German — should become German closing double
       const input = `${LEFT_DOUBLE_QUOTE}Hello${RIGHT_DOUBLE_QUOTE}`
