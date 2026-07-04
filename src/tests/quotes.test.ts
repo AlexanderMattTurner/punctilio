@@ -439,6 +439,23 @@ describe("niceQuotes", () => {
     ])('handles edge quote pattern: "%s"', (input, expected) => {
       expect(classifyApostrophes(input)).toBe(expected)
     })
+
+    // A word-final quote with no opener behind it keeps its closer role
+    // (pinned above: "a'" → RIGHT_SINGLE_QUOTE) but reads as elision at least
+    // as plausibly as quotation, so American placement must not pull the
+    // following punctuation into the word ("truckin'." must not become
+    // "truckin.'"). A matched closer still attracts punctuation as usual.
+    it.each([
+      ["We keep on truckin'.", `We keep on truckin${RIGHT_SINGLE_QUOTE}.`],
+      [
+        "singin', dancin', and laughin'.",
+        `singin${RIGHT_SINGLE_QUOTE}, dancin${RIGHT_SINGLE_QUOTE}, and laughin${RIGHT_SINGLE_QUOTE}.`,
+      ],
+      ["'Keep on truckin', he said.", `${LEFT_SINGLE_QUOTE}Keep on truckin,${RIGHT_SINGLE_QUOTE} he said.`],
+    ])('word-final elision quote keeps punctuation outside: "%s"', (input, expected) => {
+      expect(niceQuotes(input)).toBe(expected)
+      expect(niceQuotes(expected)).toBe(expected)
+    })
   })
 
   describe("quotes after various punctuation", () => {

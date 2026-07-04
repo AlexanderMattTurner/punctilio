@@ -92,6 +92,14 @@ interface Item {
   end: number
   /** Set when punctuation placement relocates this item. */
   moved: boolean
+  /**
+   * Set on a CLOSE_SINGLE that has no matching opener and sits directly after
+   * a letter — a word-final quote that reads as elision ("keep on truckin'")
+   * at least as plausibly as quotation. It keeps its closer role (glyph
+   * U+2019 either way) but punctuation placement must not move around it:
+   * pulling the period into "truckin'." corrupts the word to "truckin.'".
+   */
+  unmatchedAfterLetter?: boolean
   /** Insertion anchor (clean-text offset and bind side) once moved. */
   anchorOffset: number
   anchorBind: "left" | "right"
@@ -517,7 +525,10 @@ function classifyOpeningSingles(items: Item[]): void {
 
 /**
  * Unmatched CLOSE_SINGLE after s/S → APOSTROPHE (plural possessives), via the
- * advisory open/close balance scan. Boundaries are fully transparent here.
+ * advisory open/close balance scan. An unmatched closer after any other
+ * letter keeps its closer role but is flagged {@link Item.unmatchedAfterLetter}
+ * so punctuation placement leaves it alone. Boundaries are fully transparent
+ * here.
  */
 function classifyPluralPossessives(items: Item[]): void {
   let balance = 0
@@ -537,6 +548,8 @@ function classifyPluralPossessives(items: Item[]): void {
     while (j >= 0 && items[j].boundary) j--
     if (j >= 0 && (items[j].ch === "s" || items[j].ch === "S")) {
       item.ch = MODIFIER_LETTER_APOSTROPHE
+    } else if (j >= 0 && isLetterItem(items, j)) {
+      item.unmatchedAfterLetter = true
     }
   }
 }
@@ -844,6 +857,9 @@ function classifyDoubles(items: Item[], style: ActiveQuoteStyle): void {
  */
 function closingRunMemberAt(items: Item[], index: number, closingSet: ReadonlySet<string>): boolean {
   if (index >= items.length || items[index].boundary || !closingSet.has(items[index].ch)) return false
+  // A word-final closer with no opener behind it reads as elision; moving
+  // punctuation around it corrupts the word ("truckin'." → "truckin.'").
+  if (items[index].unmatchedAfterLetter) return false
   if (items[index].ch !== MODIFIER_LETTER_APOSTROPHE) return true
   const prev = prevIndex(items, index, 1)
   return !isCharItem(items, prev, "s") && !isCharItem(items, prev, "S")
