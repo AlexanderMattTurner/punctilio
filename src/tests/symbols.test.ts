@@ -85,6 +85,11 @@ describe("multiplication", () => {
     ["5xword", "5xword"],
     ["10xbox", "10xbox"],
     ["2xLarge", "2xLarge"],
+    // Trailing uppercase X attached to the digits is a model/SKU suffix
+    ["with a Ryzen 9 5900X (12 core / 24 thread) processor.", "with a Ryzen 9 5900X (12 core / 24 thread) processor."],
+    ["faster by 4X", "faster by 4X"],
+    // ...but uppercase chains still convert
+    ["16X16", `16${UNICODE_SYMBOLS.MULTIPLICATION}16`],
     // Dimensions with prime marks already attached (post primeMarks pass)
     [`10′ x 12′`, `10′ ${UNICODE_SYMBOLS.MULTIPLICATION} 12′`],
     [`Room is 10′ x 12′`, `Room is 10′ ${UNICODE_SYMBOLS.MULTIPLICATION} 12′`],
@@ -306,6 +311,12 @@ describe("degrees", () => {
     ["20 C++", "20 C++"],
     ["20 C#", "20 C#"],
     ["100 F#", "100 F#"],
+    // Digit run preceded by a letter is an identifier, not a temperature
+    ["W3C has a spec", "W3C has a spec"],
+    ["the HTML5C variant", "the HTML5C variant"],
+    // Digit run preceded by % is a URL-encoded octet
+    ["%2C", "%2C"],
+    ["#:~:text=In%202020%2C%20the%20U.S.%20Census", "#:~:text=In%202020%2C%20the%20U.S.%20Census"],
   ])('converts "%s" to "%s"', (input, expected) => {
     expect(degrees(input)).toBe(expected)
   })
@@ -326,6 +337,10 @@ describe("degrees", () => {
       ["false boundary before word char", `20C${sep}elsius`, `20C${sep}elsius`], // "20Celsius" - should NOT convert
       ["valid boundary before space", `20C${sep} today`, `20 ${UNICODE_SYMBOLS.DEGREE}C${sep} today`], // should convert
       ["valid boundary before punctuation", `68F${sep}.`, `68 ${UNICODE_SYMBOLS.DEGREE}F${sep}.`], // should convert
+      // A boundary at the digit-run start shadows the leading-guard character
+      // (same semantics as the multiplication chain guard)
+      ["boundary shadows leading letter", `W${sep}3C today`, `W${sep}3 ${UNICODE_SYMBOLS.DEGREE}C today`],
+      ["boundary splits the digit run", `20${sep}5C today`, `20${sep}5 ${UNICODE_SYMBOLS.DEGREE}C today`],
     ])("handles %s", (_desc, input, expected) => {
       expect(viewTransform(degrees, input, sep)).toBe(expected)
     })

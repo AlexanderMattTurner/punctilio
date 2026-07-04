@@ -43,7 +43,7 @@ jobs:
           node-version: 22
 
       - name: Run benchmark
-        run: pnpm build && node benchmark.mjs --min-passes 150
+        run: pnpm build && node benchmark.mjs --min-passes 158
 
   all-checks-passed:
     name: All checks passed

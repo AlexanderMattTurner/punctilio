@@ -50,6 +50,9 @@ describe("niceQuotes", () => {
       ['"Game"/"Life"', `${LEFT_DOUBLE_QUOTE}Game${RIGHT_DOUBLE_QUOTE}/${LEFT_DOUBLE_QUOTE}Life${RIGHT_DOUBLE_QUOTE}`],
       ['"Test:".', `${LEFT_DOUBLE_QUOTE}Test:${RIGHT_DOUBLE_QUOTE}.`],
       ['"Test...".', `${LEFT_DOUBLE_QUOTE}Test...${RIGHT_DOUBLE_QUOTE}.`],
+      // Dots before the closer: the period stays outside either way.
+      ['"Test . . .".', `${LEFT_DOUBLE_QUOTE}Test . . .${RIGHT_DOUBLE_QUOTE}.`],
+      ['"Test .".', `${LEFT_DOUBLE_QUOTE}Test .${RIGHT_DOUBLE_QUOTE}.`],
       [`"To maximize reward${ELLIPSIS}".`, `${LEFT_DOUBLE_QUOTE}To maximize reward${ELLIPSIS}${RIGHT_DOUBLE_QUOTE}.`],
       ['"Test"s', `${LEFT_DOUBLE_QUOTE}Test${RIGHT_DOUBLE_QUOTE}s`],
       // End-of-line quote becomes RIGHT quote
@@ -70,6 +73,32 @@ describe("niceQuotes", () => {
       ['why not "?"', `why not ${LEFT_DOUBLE_QUOTE}?${RIGHT_DOUBLE_QUOTE}`],
       ['She asked "?" and left.', `She asked ${LEFT_DOUBLE_QUOTE}?${RIGHT_DOUBLE_QUOTE} and left.`],
       ['("?")', `(${LEFT_DOUBLE_QUOTE}?${RIGHT_DOUBLE_QUOTE})`],
+      // Inside an open double quote, an opener-prefixed quote in ending
+      // position is that quote's closer, not a quoted-punctuation opener —
+      // even with another straight quote ahead.
+      [
+        'splitting an "un-" or "non-" prefix into a separate token',
+        `splitting an ${LEFT_DOUBLE_QUOTE}un-${RIGHT_DOUBLE_QUOTE} or ${LEFT_DOUBLE_QUOTE}non-${RIGHT_DOUBLE_QUOTE} prefix into a separate token`,
+      ],
+      [
+        'tokens starting with "un-" and "non-", or cases',
+        `tokens starting with ${LEFT_DOUBLE_QUOTE}un-${RIGHT_DOUBLE_QUOTE} and ${LEFT_DOUBLE_QUOTE}non-${RIGHT_DOUBLE_QUOTE}, or cases`,
+      ],
+      // Exact-string quote with a trailing space: the quote closes and the
+      // comma stays outside instead of attaching to the verbatim space.
+      [
+        'the increment for "New ", before it sees "York".',
+        `the increment for ${LEFT_DOUBLE_QUOTE}New ${RIGHT_DOUBLE_QUOTE}, before it sees ${LEFT_DOUBLE_QUOTE}York.${RIGHT_DOUBLE_QUOTE}`,
+      ],
+      // A quoted-punctuation opener after a completed quote still opens: the
+      // completed quote's straight closer consumes the open depth.
+      ['"a" and "?" then', `${LEFT_DOUBLE_QUOTE}a${RIGHT_DOUBLE_QUOTE} and ${LEFT_DOUBLE_QUOTE}?${RIGHT_DOUBLE_QUOTE} then`],
+      ['"?" and "!" marks', `${LEFT_DOUBLE_QUOTE}?${RIGHT_DOUBLE_QUOTE} and ${LEFT_DOUBLE_QUOTE}!${RIGHT_DOUBLE_QUOTE} marks`],
+      // A stray closer before the passage does not push the depth negative.
+      [
+        `plain${RIGHT_DOUBLE_QUOTE} then "un-" or "non-", done`,
+        `plain${RIGHT_DOUBLE_QUOTE} then ${LEFT_DOUBLE_QUOTE}un-${RIGHT_DOUBLE_QUOTE} or ${LEFT_DOUBLE_QUOTE}non-${RIGHT_DOUBLE_QUOTE}, done`,
+      ],
     ])('handles quoted punctuation: "%s"', (input, expected) => {
       expect(classifyApostrophes(input)).toBe(expected)
     })
