@@ -297,6 +297,13 @@ function matchRangeBody(view: ProseView, startStart: number): number | null {
 
   // `readStartRun` already stops at the first interior boundary, so the start
   // span is boundary-free and its clean digits are the whole run.
+  //
+  // INVARIANT (load-bearing for failedRangeStartSkip): past the gates above,
+  // `startDigits` is the ONLY value derived from where the run begins, and it
+  // feeds only the conversion decision, never the null/non-null return. The
+  // skip's jump is sound precisely because every interior start shares this
+  // function's post-gate outcome; threading the start position into the
+  // end/tail logic would silently break it.
   const startDigits = text.slice(startStart, startSpanEnd)
   const end = readEndRun(view, dashEnd)
   if (end === null) return null
