@@ -81,4 +81,29 @@ describe("regex safety (runtime introspection)", () => {
       )
     }
   }, 600_000)
+
+  // recheck only analyzes individual regexes; quadratic blowup can also live
+  // in the hand-written scan loops that drive sticky regexes or run readers at
+  // successive offsets (an O(n) run re-read at each of O(n) offsets). These
+  // inputs each took multiple seconds — up to ~44 s for "1." at 80 KB — before
+  // the scanners learned to jump past a failed digit run instead of advancing
+  // one character. Linear scans finish in well under a second; the generous
+  // budget only guards against CI jitter, not against a quadratic regression,
+  // which overshoots it by an order of magnitude.
+  it.each([
+    ["digit run (multiplication scanner)", "1".repeat(80_000)],
+    ["dotted digits (range scanner)", "1.".repeat(40_000)],
+    ["comma digits (range scanner)", "1,".repeat(40_000)],
+    ["digit run ending in a dead dash (range scanner)", "1".repeat(80_000) + "-x"],
+    ["dotted digits ending in a bare dash (range scanner)", "1.".repeat(40_000) + "-"],
+    ["digit run with dash then p (range scanner)", "1".repeat(80_000) + "-p"],
+    ["dotted digits with dash then currency (range scanner)", "1.".repeat(40_000) + "-€x"],
+    ["dash-led digit run with live tail (range scanner)", "-" + "1".repeat(80_000) + "-5"],
+    ["digit run with over-long dash run (range scanner)", "1".repeat(80_000) + "----5"],
+    ["letter-anchored digit run with live tail (range scanner)", "a" + "1".repeat(80_000) + "-1"],
+  ])("scan loops stay linear on pathological input: %s", (_name, input) => {
+    const startMs = performance.now()
+    transform(input)
+    expect(performance.now() - startMs).toBeLessThan(5_000)
+  })
 })

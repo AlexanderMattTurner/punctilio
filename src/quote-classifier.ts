@@ -92,6 +92,14 @@ interface Item {
   end: number
   /** Set when punctuation placement relocates this item. */
   moved: boolean
+  /**
+   * Set on a CLOSE_SINGLE that has no matching opener and sits directly after
+   * a letter — a word-final quote that reads as elision ("keep on truckin'")
+   * at least as plausibly as quotation. It keeps its closer role (glyph
+   * U+2019 either way) but punctuation placement must not move around it:
+   * pulling the period into "truckin'." corrupts the word to "truckin.'".
+   */
+  unmatchedAfterLetter?: boolean
   /** Insertion anchor (clean-text offset and bind side) once moved. */
   anchorOffset: number
   anchorBind: "left" | "right"
@@ -278,8 +286,13 @@ function buildItems(view: ProseView, style: ActiveQuoteStyle): Item[] {
         mapped = '"'
       } else if (ch === RIGHT_SINGLE_QUOTE || ch === MODIFIER_LETTER_APOSTROPHE) {
         // U+02BC renders as U+2019, which the next run re-derives by position;
-        // re-derive it the same way now so both runs agree.
-        mapped = "'"
+        // re-derive it the same way now so both runs agree. Directly after a
+        // digit the mark is a separator (Swiss "5’000"), never a German quote
+        // glyph: keep the apostrophe role, which renders U+2019 unchanged.
+        // Re-deriving to a straight quote there hands correct typography to
+        // the next run's prime pass ("5'000" → "5′000") — a destroyed
+        // separator and a broken fixed point.
+        mapped = DIGIT_RE.test(text[i - 1] ?? "") ? MODIFIER_LETTER_APOSTROPHE : "'"
       }
       if (mapped !== null) {
         items.push(makeItem(false, mapped, i, i + 1))
@@ -517,7 +530,10 @@ function classifyOpeningSingles(items: Item[]): void {
 
 /**
  * Unmatched CLOSE_SINGLE after s/S → APOSTROPHE (plural possessives), via the
- * advisory open/close balance scan. Boundaries are fully transparent here.
+ * advisory open/close balance scan. An unmatched closer after any other
+ * letter keeps its closer role but is flagged {@link Item.unmatchedAfterLetter}
+ * so punctuation placement leaves it alone. Boundaries are fully transparent
+ * here.
  */
 function classifyPluralPossessives(items: Item[]): void {
   let balance = 0
@@ -537,6 +553,8 @@ function classifyPluralPossessives(items: Item[]): void {
     while (j >= 0 && items[j].boundary) j--
     if (j >= 0 && (items[j].ch === "s" || items[j].ch === "S")) {
       item.ch = MODIFIER_LETTER_APOSTROPHE
+    } else if (j >= 0 && isLetterItem(items, j)) {
+      item.unmatchedAfterLetter = true
     }
   }
 }
@@ -674,8 +692,15 @@ function foldsToNotEqual(items: Item[], index: number): boolean {
   return !isCharItem(items, nextIndex(items, eq, 1), "=")
 }
 
-/** Opening double quote by following context. */
-function classifyOpeningDoubles(items: Item[]): void {
+/**
+ * Opening double quote by following context.
+ *
+ * French: a plain space directly before a pre-labeled closer merges into the
+ * closer's rendered NNBSP padding once spaces collapse, so a re-run reads the
+ * closer itself directly after the candidate — read it that way now (the
+ * mirror of {@link classifyClosingDoubles}'s opener-side absorption).
+ */
+function classifyOpeningDoubles(items: Item[], style: ActiveQuoteStyle): void {
   for (let i = 0; i < items.length; i++) {
     const item = items[i]
     if (item.boundary || item.ch !== '"') continue
@@ -693,8 +718,10 @@ function classifyOpeningDoubles(items: Item[]): void {
       const j = nextIndex(items, i, 1)
       if (j < items.length && !items[j].boundary) {
         const ch = items[j].ch
+        const absorbedIntoCloser = style === "french" && ch === " " && isCharItem(items, j + 1, RIGHT_DOUBLE_QUOTE)
         opens = isEllipsisDots(items, j) || foldsToNotEqual(items, j)
           || (!SPACE_RE.test(ch) && !DOUBLE_OPEN_ENDING_SET.has(ch))
+          || absorbedIntoCloser
       }
     }
     if (opens) item.ch = LEFT_DOUBLE_QUOTE
@@ -822,7 +849,7 @@ function classifySinglesBeforeClosingDoubles(items: Item[]): void {
 
 function classifyDoubles(items: Item[], style: ActiveQuoteStyle): void {
   classifyEmptyDoublePairs(items)
-  classifyOpeningDoubles(items)
+  classifyOpeningDoubles(items, style)
   classifyQuotedPunctuationOpeners(items)
   classifyBraceOpeners(items)
   classifyClosingDoubles(items, style)
@@ -844,6 +871,9 @@ function classifyDoubles(items: Item[], style: ActiveQuoteStyle): void {
  */
 function closingRunMemberAt(items: Item[], index: number, closingSet: ReadonlySet<string>): boolean {
   if (index >= items.length || items[index].boundary || !closingSet.has(items[index].ch)) return false
+  // A word-final closer with no opener behind it reads as elision; moving
+  // punctuation around it corrupts the word ("truckin'." → "truckin.'").
+  if (items[index].unmatchedAfterLetter) return false
   if (items[index].ch !== MODIFIER_LETTER_APOSTROPHE) return true
   const prev = prevIndex(items, index, 1)
   return !isCharItem(items, prev, "s") && !isCharItem(items, prev, "S")
@@ -1451,10 +1481,18 @@ function convertPrimes(items: Item[]): void {
   }
 }
 
+/**
+ * Every conversion in {@link convertPrimes} keys on a digit item directly
+ * before the quote, and boundary items are zero-width, so clean text without
+ * a digit-quote pair can never change. Checking that up front skips the full
+ * per-character item build on the (overwhelmingly common) digit-free prose.
+ */
+const PRIME_CANDIDATE_RE = /\d['"]/
+
 /** primeMarks engine: converts `5'10"` to `5′10″` with quote-balance guards. Commits its edits. */
 export function convertPrimeMarks(view: ProseView): void {
   const text = view.text
-  if (!text.includes("'") && !text.includes('"')) return
+  if (!PRIME_CANDIDATE_RE.test(text)) return
   const items = buildItems(view, "american")
   convertPrimes(items)
   for (const item of items) {

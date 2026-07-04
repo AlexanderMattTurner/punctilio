@@ -439,6 +439,23 @@ describe("niceQuotes", () => {
     ])('handles edge quote pattern: "%s"', (input, expected) => {
       expect(classifyApostrophes(input)).toBe(expected)
     })
+
+    // A word-final quote with no opener behind it keeps its closer role
+    // (pinned above: "a'" → RIGHT_SINGLE_QUOTE) but reads as elision at least
+    // as plausibly as quotation, so American placement must not pull the
+    // following punctuation into the word ("truckin'." must not become
+    // "truckin.'"). A matched closer still attracts punctuation as usual.
+    it.each([
+      ["We keep on truckin'.", `We keep on truckin${RIGHT_SINGLE_QUOTE}.`],
+      [
+        "singin', dancin', and laughin'.",
+        `singin${RIGHT_SINGLE_QUOTE}, dancin${RIGHT_SINGLE_QUOTE}, and laughin${RIGHT_SINGLE_QUOTE}.`,
+      ],
+      ["'Keep on truckin', he said.", `${LEFT_SINGLE_QUOTE}Keep on truckin,${RIGHT_SINGLE_QUOTE} he said.`],
+    ])('word-final elision quote keeps punctuation outside: "%s"', (input, expected) => {
+      expect(niceQuotes(input)).toBe(expected)
+      expect(niceQuotes(expected)).toBe(expected)
+    })
   })
 
   describe("quotes after various punctuation", () => {
@@ -745,8 +762,25 @@ describe("niceQuotes", () => {
       [`word${LEFT_DOUBLE_QUOTE}`, { punctuationStyle: "german" as const }],
       [`x${LEFT_SINGLE_QUOTE}`, { punctuationStyle: "german" as const }],
       [LEFT_DOUBLE_QUOTE, { punctuationStyle: "german" as const }],
+      // Swiss thousands separators: a digit-adjacent U+2019 is never a German
+      // quote glyph and must survive untouched, not be re-derived to a
+      // straight quote (which the next run's prime pass would fold to U+2032).
+      [`Das kostet 5${RIGHT_SINGLE_QUOTE}000 Franken.`, { punctuationStyle: "german" as const }],
+      [`Rund 1${RIGHT_SINGLE_QUOTE}000${RIGHT_SINGLE_QUOTE}000 Einwohner.`, { punctuationStyle: "german" as const }],
     ])("locale output is idempotent: %s", (input, options) => {
       expect(niceQuotes(input, options)).toBe(input)
+    })
+
+    it("french opener before a spaced closer reaches its fixed point in one run", () => {
+      // The plain space merges into the closer's NNBSP padding when spaces
+      // collapse, so a re-run reads the closer directly after the straight
+      // quote and opens it; the first run must make the same reading.
+      // niceQuotes alone keeps the source space; the pipeline's collapse pass
+      // later merges it with the padding.
+      const input = `a " ${RIGHT_DOUBLE_QUOTE}`
+      const once = niceQuotes(input, { punctuationStyle: "french" })
+      expect(once).toBe(`a ${LEFT_GUILLEMET}${NNBSP} ${NNBSP}${RIGHT_GUILLEMET}`)
+      expect(niceQuotes(once, { punctuationStyle: "french" })).toBe(once)
     })
 
     it("german normalizer re-classifies pre-existing RDQ", () => {

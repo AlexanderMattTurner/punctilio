@@ -67,19 +67,8 @@ class ProseViewImpl implements ProseView {
 
   hasBoundary(offset: number): boolean {
     const boundaries = this.cachedBoundaries
-    let low = 0
-    let high = boundaries.length - 1
-    while (low <= high) {
-      const mid = (low + high) >>> 1
-      const value = boundaries[mid]
-      if (value === offset) return true
-      if (value < offset) {
-        low = mid + 1
-      } else {
-        high = mid - 1
-      }
-    }
-    return false
+    const first = lowerBound(boundaries, offset)
+    return first < boundaries.length && boundaries[first] === offset
   }
 
   replace(start: number, end: number, text: string, opts?: { bind?: "left" | "right" }): void {
@@ -224,22 +213,42 @@ export interface ReplaceAllOptions {
   bind?: "left" | "right"
 }
 
+/**
+ * Index of the first element in sorted `values` that is >= `target`. The
+ * boundary helpers below run per candidate offset in the pass scanners, so a
+ * linear scan here would make inline-element-heavy views O(text × nodes).
+ */
+function lowerBound(values: readonly number[], target: number): number {
+  let low = 0
+  let high = values.length
+  while (low < high) {
+    const mid = (low + high) >>> 1
+    if (values[mid] < target) low = mid + 1
+    else high = mid
+  }
+  return low
+}
+
 /** True iff some interior boundary falls strictly inside the match span. */
 function matchContainsBoundary(match: RegExpExecArray, view: ProseView): boolean {
-  const matchStart = match.index
-  const matchEnd = match.index + match[0].length
-  for (const boundary of view.boundaries) {
-    if (boundary > matchStart && boundary < matchEnd) return true
-  }
-  return false
+  return firstInteriorBoundary(view, match.index, match.index + match[0].length) >= 0
+}
+
+/** Smallest node boundary strictly inside (start, end), or -1 when none. */
+export function firstInteriorBoundary(view: ProseView, start: number, end: number): number {
+  const boundaries = view.boundaries
+  const first = lowerBound(boundaries, start + 1)
+  return first < boundaries.length && boundaries[first] < end ? boundaries[first] : -1
 }
 
 /** Count of node boundaries that fall at exactly `offset` (empty nodes stack). */
 export function boundaryCountAt(view: ProseView, offset: number): number {
+  const boundaries = view.boundaries
+  let i = lowerBound(boundaries, offset)
   let count = 0
-  for (const boundary of view.boundaries) {
-    if (boundary === offset) count++
-    else if (boundary > offset) break
+  while (i < boundaries.length && boundaries[i] === offset) {
+    count++
+    i++
   }
   return count
 }

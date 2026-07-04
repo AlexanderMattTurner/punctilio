@@ -1,6 +1,5 @@
 import { cachedRegExp, FOLDED_WORD_CHARS, isWordLike, LATIN_LETTER_RE, LATIN_LETTERS, MAX_BOUNDARY_SEPARATORS, NBSP_CHARS, SPACE_CHAR_RE, UNICODE_SYMBOLS } from "./constants.js"
-import { boundaryCountAt, exceedsSingleBoundary, makeProsePass, overInput, type ProseView, replaceAllInView, type ReplaceAllOptions } from "./prose-view.js"
-import { namedGroups } from "./utils.js"
+import { boundaryCountAt, exceedsSingleBoundary, firstInteriorBoundary, makeProsePass, overInput, type ProseView, replaceAllInView, type ReplaceAllOptions } from "./prose-view.js"
 
 export const DASH_STYLES = ["american", "british", "none"] as const
 export type DashStyle = (typeof DASH_STYLES)[number]
@@ -191,10 +190,44 @@ function convertPositiveRanges(view: ProseView): void {
   const text = view.text
   let i = 0
   while (i < text.length) {
+    // A structural match can only begin at a digit, `p`, or `(` (the area-code
+    // and start-run readers reject every other first character), so other
+    // offsets skip the match attempt entirely.
+    if (!RANGE_START_CHAR_RE.test(text[i])) { i++; continue }
     const span = matchPositiveRangeAt(view, i)
-    i = span === null ? i + 1 : Math.max(span, i + 1)
+    i = span === null ? failedRangeStartSkip(view, i) : Math.max(span, i + 1)
   }
   view.commit()
+}
+
+const RANGE_START_CHAR_RE = /[\dp(]/
+
+/**
+ * Advance past a failed candidate at `i`. Advancing one character at a time
+ * re-reads the digit run at every offset — O(n²) on inputs like "1.1.1.…" or
+ * "111…1-x", a denial-of-service vector — so the scan jumps wherever a
+ * failure at `i` provably rules out interior starts:
+ *
+ * - A start-dependent failure (`\b`, not-after-dash — checked first in
+ *   matchRangeBody, before any run read) says nothing about interior starts;
+ *   advance one character. The gate order makes each such attempt cheap.
+ * - Otherwise the failure came after the gates, and everything there depends
+ *   only on the run end, not the run start: every interior digit start reads
+ *   to the same boundary-free run end and fails the same wall, `.`/`,` cannot
+ *   start a run, and no dash-at-run-end fallback (dash extent, boundary
+ *   counts, end run, tail resolution) sees a different picture. The single
+ *   escape is the phone-area-code reading, which restarts a fresh match past
+ *   a dash at the run end and therefore only exists at `runEnd - 3` — so
+ *   jump straight there (or to the run end when no dash follows).
+ */
+function failedRangeStartSkip(view: ProseView, i: number): number {
+  const text = view.text
+  if (!/\d/.test(text[i])) return i + 1
+  if (!wordBoundaryStartOk(view, i) || !notAfterDashOk(view, i)) return i + 1
+  let runEnd = i + 1
+  while (/[\d.,]/.test(text[runEnd] ?? "") && !view.hasBoundary(runEnd)) runEnd++
+  if (text[runEnd] !== "-") return runEnd
+  return Math.max(i + 1, runEnd - 3)
 }
 
 /**
@@ -243,6 +276,12 @@ function readPhoneAreaCode(view: ProseView, i: number): number | null {
  */
 function matchRangeBody(view: ProseView, startStart: number): number | null {
   const text = view.text
+  // Start-dependent gates first: they need no run read, and their position in
+  // the conjunction lets the scanner classify a failure — everything after
+  // them depends only on where the boundary-free start run ends, not on where
+  // it begins (see failedRangeStartSkip).
+  if (!wordBoundaryStartOk(view, startStart)) return null
+  if (!notAfterDashOk(view, startStart)) return null
   // rangeStart = `(?:p\.?|[currency])?\d[\d.,]*`, anchored at a `\b`.
   const start = readStartRun(view, startStart)
   if (start === null) return null
@@ -258,15 +297,20 @@ function matchRangeBody(view: ProseView, startStart: number): number | null {
 
   // `readStartRun` already stops at the first interior boundary, so the start
   // span is boundary-free and its clean digits are the whole run.
+  //
+  // INVARIANT (load-bearing for failedRangeStartSkip): past the gates above,
+  // `startDigits` is the ONLY value derived from where the run begins, and it
+  // feeds only the conversion decision, never the null/non-null return. The
+  // skip's jump is sound precisely because every interior start shares this
+  // function's post-gate outcome; threading the start position into the
+  // end/tail logic would silently break it.
   const startDigits = text.slice(startStart, startSpanEnd)
-  if (!wordBoundaryStartOk(view, startStart)) return null
-  if (!notAfterDashOk(view, startStart)) return null
-
   const end = readEndRun(view, dashEnd)
   if (end === null) return null
   // The greedy end `[\d.,]*` and greedy `following*` backtrack together; the
-  // structural match commits at the longest end whose tail completes.
-  for (let len = end.length; len >= end.minLen; len--) {
+  // structural match commits at the longest end whose tail completes. The
+  // mandatory `\d` caps the backtrack at one digit.
+  for (let len = end.length; len >= 1; len--) {
     const endPos = end.firstDigitStart + len
     const tail = resolvePositiveTail(view, endPos)
     if (tail === null) continue
@@ -313,8 +357,6 @@ interface EndRun {
   firstDigitStart: number
   /** Length of the `[\d.,]` run from `firstDigitStart`, boundary-truncated. */
   length: number
-  /** Minimum end length: 1 digit (`\d` is required). */
-  minLen: number
 }
 
 /** The `[currency]?\d[\d.,]*` end run starting at `pos`, boundary-truncated. */
@@ -330,7 +372,7 @@ function readEndRun(view: ProseView, pos: number): EndRun | null {
   const firstDigitStart = i
   i++
   while (/[\d.,]/.test(text[i] ?? "") && !view.hasBoundary(i)) i++
-  return { firstDigitStart, length: i - firstDigitStart, minLen: 1 }
+  return { firstDigitStart, length: i - firstDigitStart }
 }
 
 interface ResolvedTail {
@@ -608,6 +650,22 @@ export function enDashDateRange(input: string | ProseView, options: DashOptions 
   return overInput(input, (view) => enDashDateRangeOverView(view, options.dashStyle ?? "american"))
 }
 
+interface DateRangeGroups {
+  startMonth: string
+  startYear?: string
+  preSpace: string
+  postSpace: string
+  endMonth: string
+  endYear?: string
+}
+
+/** Clean offsets of the `[preSpace]-[postSpace]` span inside a date-range match. */
+function dateRangeDashSpan(match: RegExpExecArray): { dashStart: number; dashEnd: number } {
+  const groups = match.groups as unknown as DateRangeGroups
+  const dashStart = match.index + groups.startMonth.length + (groups.startYear?.length ?? 0)
+  return { dashStart, dashEnd: dashStart + groups.preSpace.length + 1 + groups.postSpace.length }
+}
+
 function enDashDateRangeOverView(view: ProseView, dashStyle: DashStyle): void {
   if (dashStyle === "none") return
   const [pre, post] = dashStyle === "british" ? [" ", " "] : ["", ""]
@@ -630,37 +688,17 @@ function enDashDateRangeOverView(view: ProseView, dashStyle: DashStyle): void {
       // a word char that blocks the match ("March 2025x3"); re-check the end
       // boundary fold-stably.
       if (!wordBoundaryEndOk(v, match.index + match[0].length)) return null
-      const groups = namedGroups<{
-        startMonth: string
-        startYear?: string
-        preSpace: string
-        postSpace: string
-        endMonth: string
-        endYear?: string
-      }>(matchArgs(match))
       // Replace `[preSpace]-[postSpace]` (the dash and its spaces) with the
       // styled en-dash, leaving the months and any boundaries around them.
-      const startLen = groups.startMonth.length + (groups.startYear?.length ?? 0)
-      const dashSpan = groups.preSpace.length + 1 + groups.postSpace.length
-      const dashStart = match.index + startLen
-      v.replace(dashStart, dashStart + dashSpan, `${pre}${EN_DASH}${post}`)
+      const { dashStart, dashEnd } = dateRangeDashSpan(match)
+      v.replace(dashStart, dashEnd, `${pre}${EN_DASH}${post}`)
       return null
     },
     {
       allowBoundaries: (match, v) => {
-        const groups = namedGroups<{
-          startMonth: string
-          startYear?: string
-          preSpace: string
-          postSpace: string
-          endMonth: string
-          endYear?: string
-        }>(matchArgs(match))
-        const startLen = groups.startMonth.length + (groups.startYear?.length ?? 0)
         // One boundary is tolerated after the start year and one before the end
         // month, bracketing the dash and spaces.
-        const dashStart = match.index + startLen
-        const dashEnd = dashStart + groups.preSpace.length + 1 + groups.postSpace.length
+        const { dashStart, dashEnd } = dateRangeDashSpan(match)
         const tolerated = new Map<number, number>()
         tolerated.set(dashStart, 1)
         tolerated.set(dashEnd, 1)
@@ -732,19 +770,14 @@ function minusSubtractionPrefixOk(match: RegExpExecArray, view: ProseView, prefi
   // leading digit and the space; it tolerates at most one boundary.
   if (exceedsSingleBoundary(view, match.index)) return false
   const numStart = match.index + prefixLen
-  for (const b of view.boundaries) {
-    if (b > match.index && b < numStart) return false
-  }
+  if (firstInteriorBoundary(view, match.index, numStart) >= 0) return false
   // The slot before `num` tolerates at most one boundary at the num head.
   if (exceedsSingleBoundary(view, numStart)) return false
   // `num` stops at the first interior boundary; the clean run up to it must
   // still satisfy `\d*\.?\d+` (the mandatory trailing `\d+`).
   const numEnd = match.index + match[0].length
-  let truncatedEnd = numEnd
-  for (const b of view.boundaries) {
-    if (b > numStart && b < numEnd) { truncatedEnd = b; break }
-    if (b >= numEnd) break
-  }
+  const interior = firstInteriorBoundary(view, numStart, numEnd)
+  const truncatedEnd = interior >= 0 ? interior : numEnd
   return NUM_BODY_RE.test(view.text.slice(numStart, truncatedEnd))
 }
 
@@ -783,11 +816,8 @@ function minusDirectNegative(view: ProseView): void {
       // ("-{b}5"), and one that strips the mandatory `\d+` ("-.{b}1") breaks the
       // match, but one past a valid number ("-5{b}5") leaves it intact.
       const numEnd = start + match[0].length
-      let numTruncEnd = numEnd
-      for (const b of v.boundaries) {
-        if (b > start && b < numEnd) { numTruncEnd = b; break }
-        if (b >= numEnd) break
-      }
+      const interior = firstInteriorBoundary(v, start, numEnd)
+      const numTruncEnd = interior >= 0 ? interior : numEnd
       if (!NUM_BODY_RE.test(v.text.slice(start + 1, numTruncEnd))) return null
       // A boundary directly before the hyphen routes to Pattern 2b; otherwise
       // Pattern 2 examines the clean preceding char. (The two never overlap: a
@@ -864,7 +894,7 @@ function convertSpacedDashes(view: ProseView, rendered: string): void {
     cachedRegExp(pattern, "g"),
     (match, v) => {
       const text = v.text
-      const groups = namedGroups<{ dashStart: string }>(matchArgs(match))
+      const groups = match.groups as { dashStart: string }
       const firstDash = match.index + match[0].length - groups.dashStart.length
       // The greedy `[ ]+` starts at the leftmost position whose `(?<=[^\s]|^)`
       // holds: line/text start, a non-whitespace clean char, or a boundary. A
@@ -1217,7 +1247,7 @@ function preserveLineLeadingEmDashSpace(view: ProseView): void {
       // One boundary is tolerated between the line start and the em-dash; two or
       // more exceed that slot and block the match.
       if (exceedsSingleBoundary(v, match.index)) return null
-      const groups = namedGroups<{ after: string }>(matchArgs(match))
+      const groups = match.groups as { after: string }
       return `${EM_DASH} ${groups.after}`
     },
   )
@@ -1262,8 +1292,3 @@ export const dashWordJoiner = makeProsePass((view) => {
   const re = cachedRegExp(`(?<=[^\\s${WORD_JOINER}])[${EM_DASH}${EN_DASH}]`, "gu")
   replaceAllInView(view, re, (match) => `${WORD_JOINER}${match[0]}`)
 })
-
-/** Reconstructs `.replace()`-style callback args from a RegExpExecArray. */
-function matchArgs(match: RegExpExecArray): unknown[] {
-  return [...match, match.index, match.input, match.groups]
-}

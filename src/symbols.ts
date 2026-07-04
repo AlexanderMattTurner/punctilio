@@ -1,5 +1,5 @@
 import { cachedRegExp, LATIN_LETTER_RE, LATIN_LETTERS, MAX_BOUNDARY_SEPARATORS, SPACE_CHAR_RE, UNICODE_SYMBOLS, WORD_RE } from "./constants.js"
-import { boundaryCountAt, exceedsSingleBoundary, makeProsePass, overInput, type ProseView, replaceAllInView } from "./prose-view.js"
+import { boundaryCountAt, exceedsSingleBoundary, firstInteriorBoundary, makeProsePass, overInput, type ProseView, replaceAllInView } from "./prose-view.js"
 import { convertPrimeMarks } from "./quote-classifier.js"
 
 export interface SymbolOptions {
@@ -266,6 +266,24 @@ function runHasInteriorBoundary(view: ProseView, operandStart: number, operandEn
   return false
 }
 
+const ASCII_DIGIT_RE = /\d/
+
+/**
+ * Next offset at which a sticky `\d`-anchored pattern could match after a miss
+ * at `scan`. A miss at a digit rules out every start in the rest of its run:
+ * from a later start the pattern's leading `\d+` reaches a strict subset of
+ * the split positions the failed attempt already backtracked through. So the
+ * scan jumps past the current digit run (if any), then past non-digits to the
+ * next digit. Advancing one character at a time here instead re-reads the run
+ * at every offset — O(n²) on a long digit run, a denial-of-service vector.
+ */
+function nextDigitAnchorAfterMiss(text: string, scan: number): number {
+  let next = scan
+  while (next < text.length && ASCII_DIGIT_RE.test(text[next])) next++
+  while (next < text.length && !ASCII_DIGIT_RE.test(text[next])) next++
+  return next
+}
+
 function multiplicationOverView(view: ProseView): void {
   // The chain is matched with a sticky regex driven by a manual left-to-right
   // scan. Sticky anchoring keeps the nested `\d+(…\d+)+` quantifier ReDoS-safe
@@ -279,7 +297,7 @@ function multiplicationOverView(view: ProseView): void {
   while (scan < chainText.length) {
     chainPattern.lastIndex = scan
     const match = chainPattern.exec(chainText)
-    if (match === null) { scan++; continue }
+    if (match === null) { scan = nextDigitAnchorAfterMiss(chainText, scan); continue }
     const { firstNum, rest } = match.groups as { firstNum: string; rest: string }
     const text = chainText
     const chainStart = match.index
@@ -352,7 +370,7 @@ function multiplicationOverView(view: ProseView): void {
   while (trailingScan < trailingText.length) {
     trailingPattern.lastIndex = trailingScan
     const match = trailingPattern.exec(trailingText)
-    if (match === null) { trailingScan++; continue }
+    if (match === null) { trailingScan = nextDigitAnchorAfterMiss(trailingText, trailingScan); continue }
     const num = match.groups!.num
     const op = match.groups!.op
     const operatorOffset = match.index + num.length
@@ -638,6 +656,9 @@ function arrowsOverView(view: ProseView): void {
     const text = view.text
     let i = 0
     while (i < text.length) {
+      // Every arrow shape starts with `-` or `<`; skip other offsets before
+      // the comparatively expensive left-context/boundary check.
+      if (text[i] !== "-" && text[i] !== "<") { i++; continue }
       if (!arrowLeftContextOk(view, text, i)) { i++; continue }
       const end = matcher(view, text, i)
       if (end < 0 || !arrowRightContextOk(view, text, end)) { i++; continue }
@@ -776,10 +797,8 @@ function fractionsOverView(view: ProseView): void {
     if (!fractionLookaheadOk(text, v, end)) return null
     // Distribute interior boundaries: the first lands before the unicode char,
     // any remaining after it.
-    let firstBoundary = end
-    for (const boundary of v.boundaries) {
-      if (boundary > start && boundary < end) { firstBoundary = boundary; break }
-    }
+    const interior = firstInteriorBoundary(v, start, end)
+    const firstBoundary = interior >= 0 ? interior : end
     if (firstBoundary > start) v.replace(start, firstBoundary, "")
     v.replace(firstBoundary, end, FRACTION_MAP[match[0]])
     return null
