@@ -1,5 +1,5 @@
 import { cachedRegExp, LATIN_LETTER_RE, LATIN_LETTERS, MAX_BOUNDARY_SEPARATORS, SPACE_CHAR_RE, UNICODE_SYMBOLS, WORD_RE } from "./constants.js"
-import { boundaryCountAt, exceedsSingleBoundary, makeProsePass, overInput, type ProseView, replaceAllInView } from "./prose-view.js"
+import { boundaryCountAt, exceedsSingleBoundary, firstInteriorBoundary, makeProsePass, overInput, type ProseView, replaceAllInView } from "./prose-view.js"
 import { convertPrimeMarks } from "./quote-classifier.js"
 
 export interface SymbolOptions {
@@ -656,6 +656,9 @@ function arrowsOverView(view: ProseView): void {
     const text = view.text
     let i = 0
     while (i < text.length) {
+      // Every arrow shape starts with `-` or `<`; skip other offsets before
+      // the comparatively expensive left-context/boundary check.
+      if (text[i] !== "-" && text[i] !== "<") { i++; continue }
       if (!arrowLeftContextOk(view, text, i)) { i++; continue }
       const end = matcher(view, text, i)
       if (end < 0 || !arrowRightContextOk(view, text, end)) { i++; continue }
@@ -794,10 +797,8 @@ function fractionsOverView(view: ProseView): void {
     if (!fractionLookaheadOk(text, v, end)) return null
     // Distribute interior boundaries: the first lands before the unicode char,
     // any remaining after it.
-    let firstBoundary = end
-    for (const boundary of v.boundaries) {
-      if (boundary > start && boundary < end) { firstBoundary = boundary; break }
-    }
+    const interior = firstInteriorBoundary(v, start, end)
+    const firstBoundary = interior >= 0 ? interior : end
     if (firstBoundary > start) v.replace(start, firstBoundary, "")
     v.replace(firstBoundary, end, FRACTION_MAP[match[0]])
     return null

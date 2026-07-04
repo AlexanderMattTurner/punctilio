@@ -1481,10 +1481,18 @@ function convertPrimes(items: Item[]): void {
   }
 }
 
+/**
+ * Every conversion in {@link convertPrimes} keys on a digit item directly
+ * before the quote, and boundary items are zero-width, so clean text without
+ * a digit-quote pair can never change. Checking that up front skips the full
+ * per-character item build on the (overwhelmingly common) digit-free prose.
+ */
+const PRIME_CANDIDATE_RE = /\d['"]/
+
 /** primeMarks engine: converts `5'10"` to `5′10″` with quote-balance guards. Commits its edits. */
 export function convertPrimeMarks(view: ProseView): void {
   const text = view.text
-  if (!text.includes("'") && !text.includes('"')) return
+  if (!PRIME_CANDIDATE_RE.test(text)) return
   const items = buildItems(view, "american")
   convertPrimes(items)
   for (const item of items) {

@@ -1,5 +1,5 @@
 import { cachedRegExp, FOLDED_WORD_CHARS, isWordLike, LATIN_LETTER_RE, LATIN_LETTERS, MAX_BOUNDARY_SEPARATORS, NBSP_CHARS, SPACE_CHAR_RE, UNICODE_SYMBOLS } from "./constants.js"
-import { boundaryCountAt, exceedsSingleBoundary, makeProsePass, overInput, type ProseView, replaceAllInView, type ReplaceAllOptions } from "./prose-view.js"
+import { boundaryCountAt, exceedsSingleBoundary, firstInteriorBoundary, makeProsePass, overInput, type ProseView, replaceAllInView, type ReplaceAllOptions } from "./prose-view.js"
 import { namedGroups } from "./utils.js"
 
 export const DASH_STYLES = ["american", "british", "none"] as const
@@ -759,19 +759,14 @@ function minusSubtractionPrefixOk(match: RegExpExecArray, view: ProseView, prefi
   // leading digit and the space; it tolerates at most one boundary.
   if (exceedsSingleBoundary(view, match.index)) return false
   const numStart = match.index + prefixLen
-  for (const b of view.boundaries) {
-    if (b > match.index && b < numStart) return false
-  }
+  if (firstInteriorBoundary(view, match.index, numStart) >= 0) return false
   // The slot before `num` tolerates at most one boundary at the num head.
   if (exceedsSingleBoundary(view, numStart)) return false
   // `num` stops at the first interior boundary; the clean run up to it must
   // still satisfy `\d*\.?\d+` (the mandatory trailing `\d+`).
   const numEnd = match.index + match[0].length
-  let truncatedEnd = numEnd
-  for (const b of view.boundaries) {
-    if (b > numStart && b < numEnd) { truncatedEnd = b; break }
-    if (b >= numEnd) break
-  }
+  const interior = firstInteriorBoundary(view, numStart, numEnd)
+  const truncatedEnd = interior >= 0 ? interior : numEnd
   return NUM_BODY_RE.test(view.text.slice(numStart, truncatedEnd))
 }
 
@@ -810,11 +805,8 @@ function minusDirectNegative(view: ProseView): void {
       // ("-{b}5"), and one that strips the mandatory `\d+` ("-.{b}1") breaks the
       // match, but one past a valid number ("-5{b}5") leaves it intact.
       const numEnd = start + match[0].length
-      let numTruncEnd = numEnd
-      for (const b of v.boundaries) {
-        if (b > start && b < numEnd) { numTruncEnd = b; break }
-        if (b >= numEnd) break
-      }
+      const interior = firstInteriorBoundary(v, start, numEnd)
+      const numTruncEnd = interior >= 0 ? interior : numEnd
       if (!NUM_BODY_RE.test(v.text.slice(start + 1, numTruncEnd))) return null
       // A boundary directly before the hyphen routes to Pattern 2b; otherwise
       // Pattern 2 examines the clean preceding char. (The two never overlap: a
