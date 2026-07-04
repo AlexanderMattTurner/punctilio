@@ -762,6 +762,11 @@ describe("niceQuotes", () => {
       [`word${LEFT_DOUBLE_QUOTE}`, { punctuationStyle: "german" as const }],
       [`x${LEFT_SINGLE_QUOTE}`, { punctuationStyle: "german" as const }],
       [LEFT_DOUBLE_QUOTE, { punctuationStyle: "german" as const }],
+      // Swiss thousands separators: a digit-adjacent U+2019 is never a German
+      // quote glyph and must survive untouched, not be re-derived to a
+      // straight quote (which the next run's prime pass would fold to U+2032).
+      [`Das kostet 5${RIGHT_SINGLE_QUOTE}000 Franken.`, { punctuationStyle: "german" as const }],
+      [`Rund 1${RIGHT_SINGLE_QUOTE}000${RIGHT_SINGLE_QUOTE}000 Einwohner.`, { punctuationStyle: "german" as const }],
     ])("locale output is idempotent: %s", (input, options) => {
       expect(niceQuotes(input, options)).toBe(input)
     })

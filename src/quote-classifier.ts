@@ -286,8 +286,13 @@ function buildItems(view: ProseView, style: ActiveQuoteStyle): Item[] {
         mapped = '"'
       } else if (ch === RIGHT_SINGLE_QUOTE || ch === MODIFIER_LETTER_APOSTROPHE) {
         // U+02BC renders as U+2019, which the next run re-derives by position;
-        // re-derive it the same way now so both runs agree.
-        mapped = "'"
+        // re-derive it the same way now so both runs agree. Directly after a
+        // digit the mark is a separator (Swiss "5’000"), never a German quote
+        // glyph: keep the apostrophe role, which renders U+2019 unchanged.
+        // Re-deriving to a straight quote there hands correct typography to
+        // the next run's prime pass ("5'000" → "5′000") — a destroyed
+        // separator and a broken fixed point.
+        mapped = DIGIT_RE.test(text[i - 1] ?? "") ? MODIFIER_LETTER_APOSTROPHE : "'"
       }
       if (mapped !== null) {
         items.push(makeItem(false, mapped, i, i + 1))
