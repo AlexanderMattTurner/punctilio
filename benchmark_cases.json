@@ -405,6 +405,10 @@
     [
       "Qwen1.5-1.8B",
       "Qwen1.5-1.8B"
+    ],
+    [
+      "with a Ryzen 9 5900X (12 core / 24 thread) processor.",
+      "with a Ryzen 9 5900X (12 core / 24 thread) processor."
     ]
   ],
   "Multi-segment pattern preservation": [
@@ -729,6 +733,42 @@
     [
       "desk 120 cm x 60 cm x 75 cm",
       "desk 120 cm × 60 cm × 75 cm"
+    ]
+  ],
+  "Quoted prefixes ending in hyphen": [
+    [
+      "splitting an \"un-\" or \"non-\" prefix into a separate token",
+      "splitting an “un-” or “non-” prefix into a separate token"
+    ],
+    [
+      "hundreds of individual tokens starting with \"un-\" and \"non-\", or cases",
+      "hundreds of individual tokens starting with “un-” and “non-”, or cases"
+    ]
+  ],
+  "Quoted string with trailing space (known limitation)": [
+    [
+      "the increment for \"New \", the model needs to decide before it sees \"York\".",
+      "the increment for “New ”, the model needs to decide before it sees “York.”"
+    ]
+  ],
+  "Multiplication - realistic prose": [
+    [
+      "each sprite is usually 16x16 pixels, so processing 14x14 patches",
+      "each sprite is usually 16×16 pixels, so processing 14×14 patches"
+    ],
+    [
+      "reduces your effective context length by 4x.",
+      "reduces your effective context length by 4×."
+    ]
+  ],
+  "Identifier and URL-encoding preservation": [
+    [
+      "W3C has a way to generate URNs from the HTML5 spec",
+      "W3C has a way to generate URNs from the HTML5 spec"
+    ],
+    [
+      "#:~:text=In%202020%2C%20the%20U.S.%20Census",
+      "#:~:text=In%202020%2C%20the%20U.S.%20Census"
     ]
   ]
 }

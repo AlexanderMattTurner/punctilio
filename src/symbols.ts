@@ -368,6 +368,10 @@ function multiplicationOverView(view: ProseView): void {
     // trailing `\b`; otherwise reject when a word character follows the operator
     // through at most three boundaries.
     if (op === "*") continue
+    // An uppercase `X` directly attached to the digits is a model/SKU suffix
+    // (Ryzen 9 5900X), not a multiplier — prose multipliers write a lowercase
+    // x ("by 4x."). Chains ("16X16") convert above regardless of case.
+    if (op === "X") continue
     const afterOp = operatorOffset + 1
     const followChar = trailingText[afterOp]
     if (boundaryCountAt(view, afterOp) <= MAX_BOUNDARY_SEPARATORS && followChar !== undefined && WORD_RE.test(followChar)) continue
@@ -644,6 +648,20 @@ function arrowsOverView(view: ProseView): void {
   }
 }
 
+/**
+ * A temperature's digit run starts a word: a letter directly before the run
+ * makes it an identifier ("W3C", "HTML5C"), and a `%` makes it a URL-encoded
+ * octet ("%2C"). Mirrors {@link chainGuardOk}'s boundary handling — a node
+ * boundary at the run start shadows the prior character and the guard passes.
+ */
+function degreeLeadingGuardOk(text: string, view: ProseView, digitIndex: number): boolean {
+  let start = digitIndex
+  while (start > 0 && /\d/.test(text[start - 1]) && !view.hasBoundary(start)) start--
+  if (view.hasBoundary(start)) return true
+  const prior = text[start - 1]
+  return prior === undefined || (!LATIN_LETTER_RE.test(prior) && prior !== "%")
+}
+
 export const degrees = makeProsePass(degreesOverView)
 
 function degreesOverView(view: ProseView): void {
@@ -657,6 +675,7 @@ function degreesOverView(view: ProseView): void {
   const text = view.text
   replaceAllInView(view, pattern, (match, v) => {
     const unitEnd = match.index + match[0].length
+    if (!degreeLeadingGuardOk(text, v, match.index)) return null
     if (!degreeUnitFollowOk(text, v, unitEnd)) return null
     const { unit } = match.groups!
     // Replace everything after the leading digit (the optional space and the

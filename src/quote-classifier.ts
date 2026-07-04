@@ -721,19 +721,37 @@ function quotedPunctuationPrefixOk(items: Item[], index: number): boolean {
  * Quoted-punctuation openers like `"?"`: an opener-prefixed straight double
  * quote with a closing straight double quote anywhere ahead (at least one
  * item between them). Decisions use the pass-start set of straight quotes.
+ *
+ * Inside an already-open double quote the same shape is that quote's closer,
+ * not a new opener: in `"un-" or "non-"` the quote after `un-` is
+ * opener-prefixed (a hyphen) with a straight quote ahead, but it closes the
+ * open `“un-`. A running depth of classified doubles — updated as this pass
+ * assigns roles, so each decision sees the ones before it — picks the reading.
  */
 function classifyQuotedPunctuationOpeners(items: Item[]): void {
   const straightIndices: number[] = []
   for (let i = 0; i < items.length; i++) {
     if (isCharItem(items, i, '"')) straightIndices.push(i)
   }
-  for (let k = 0; k < straightIndices.length; k++) {
-    const i = straightIndices[k]
-    if (!quotedPunctuationPrefixOk(items, i)) continue
-    const closer = straightIndices[k + 1]
-    if (closer !== undefined && closer >= i + 2) {
-      items[i].ch = LEFT_DOUBLE_QUOTE
+  let openDepth = 0
+  let k = 0
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i]
+    if (item.boundary) continue
+    if (k < straightIndices.length && straightIndices[k] === i) {
+      // `i` is a pass-start straight quote; after k++, `straightIndices[k]`
+      // is the nearest pass-start straight quote ahead of it.
+      k++
+      const closer = straightIndices[k]
+      if (quotedPunctuationPrefixOk(items, i) && closer !== undefined && closer >= i + 2) {
+        item.ch = openDepth > 0 ? RIGHT_DOUBLE_QUOTE : LEFT_DOUBLE_QUOTE
+      }
     }
+    // Depth over classified doubles, including the role just assigned above.
+    // A still-straight double quote below an open `“` counts as its closer:
+    // the closing rules classify it that way after this pass ends.
+    if (item.ch === LEFT_DOUBLE_QUOTE) openDepth++
+    else if ((item.ch === RIGHT_DOUBLE_QUOTE || item.ch === '"') && openDepth > 0) openDepth--
   }
 }
 
@@ -957,6 +975,13 @@ function movePunctuationInside(order: Item[], isMovable: (items: Item[], index: 
       continue
     }
     if (insideMoveFlipsContext(order, runStart, punctIndex)) {
+      position++
+      continue
+    }
+    // A space directly before the run marks an exact-string quote (`"New ",`):
+    // its content ends in whitespace on purpose, and pulling the punctuation
+    // inside would attach it to that verbatim trailing space.
+    if (beforeIndex >= 0 && !order[beforeIndex].boundary && SPACE_RE.test(order[beforeIndex].ch)) {
       position++
       continue
     }
