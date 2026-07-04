@@ -191,10 +191,37 @@ function convertPositiveRanges(view: ProseView): void {
   const text = view.text
   let i = 0
   while (i < text.length) {
+    // A structural match can only begin at a digit, `p`, or `(` (the area-code
+    // and start-run readers reject every other first character), so other
+    // offsets skip the match attempt entirely.
+    if (!RANGE_START_CHAR_RE.test(text[i])) { i++; continue }
     const span = matchPositiveRangeAt(view, i)
-    i = span === null ? i + 1 : Math.max(span, i + 1)
+    i = span === null ? failedRangeStartSkip(view, i) : Math.max(span, i + 1)
   }
   view.commit()
+}
+
+const RANGE_START_CHAR_RE = /[\dp(]/
+
+/**
+ * Advance past a failed candidate at `i`. When `i` begins a digit run whose
+ * boundary-free `\d[\d.,]*` extent is not followed by a dash, no structural
+ * match can begin inside the run either: every interior digit start reads to
+ * the same run end and fails the same start-independent gate there (the dash
+ * test or the boundary-count check), interior `.`/`,` chars cannot start a
+ * run, and the area-code reading needs a `(` or a dash the run does not
+ * contain — so the scan jumps to the run end. Advancing one character at a
+ * time instead re-reads the run at every digit — O(n²) on inputs like
+ * "1.1.1.…", a denial-of-service vector. A dash at the run end re-enables
+ * start-dependent gates (`\b`, not-after-dash) for interior starts, so then
+ * advance by one as usual.
+ */
+function failedRangeStartSkip(view: ProseView, i: number): number {
+  const text = view.text
+  if (!/\d/.test(text[i])) return i + 1
+  let runEnd = i + 1
+  while (/[\d.,]/.test(text[runEnd] ?? "") && !view.hasBoundary(runEnd)) runEnd++
+  return text[runEnd] === "-" ? i + 1 : runEnd
 }
 
 /**

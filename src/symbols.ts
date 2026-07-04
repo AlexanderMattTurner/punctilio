@@ -266,6 +266,24 @@ function runHasInteriorBoundary(view: ProseView, operandStart: number, operandEn
   return false
 }
 
+const ASCII_DIGIT_RE = /\d/
+
+/**
+ * Next offset at which a sticky `\d`-anchored pattern could match after a miss
+ * at `scan`. A miss at a digit rules out every start in the rest of its run:
+ * from a later start the pattern's leading `\d+` reaches a strict subset of
+ * the split positions the failed attempt already backtracked through. So the
+ * scan jumps past the current digit run (if any), then past non-digits to the
+ * next digit. Advancing one character at a time here instead re-reads the run
+ * at every offset — O(n²) on a long digit run, a denial-of-service vector.
+ */
+function nextDigitAnchorAfterMiss(text: string, scan: number): number {
+  let next = scan
+  while (next < text.length && ASCII_DIGIT_RE.test(text[next])) next++
+  while (next < text.length && !ASCII_DIGIT_RE.test(text[next])) next++
+  return next
+}
+
 function multiplicationOverView(view: ProseView): void {
   // The chain is matched with a sticky regex driven by a manual left-to-right
   // scan. Sticky anchoring keeps the nested `\d+(…\d+)+` quantifier ReDoS-safe
@@ -279,7 +297,7 @@ function multiplicationOverView(view: ProseView): void {
   while (scan < chainText.length) {
     chainPattern.lastIndex = scan
     const match = chainPattern.exec(chainText)
-    if (match === null) { scan++; continue }
+    if (match === null) { scan = nextDigitAnchorAfterMiss(chainText, scan); continue }
     const { firstNum, rest } = match.groups as { firstNum: string; rest: string }
     const text = chainText
     const chainStart = match.index
@@ -352,7 +370,7 @@ function multiplicationOverView(view: ProseView): void {
   while (trailingScan < trailingText.length) {
     trailingPattern.lastIndex = trailingScan
     const match = trailingPattern.exec(trailingText)
-    if (match === null) { trailingScan++; continue }
+    if (match === null) { trailingScan = nextDigitAnchorAfterMiss(trailingText, trailingScan); continue }
     const num = match.groups!.num
     const op = match.groups!.op
     const operatorOffset = match.index + num.length
