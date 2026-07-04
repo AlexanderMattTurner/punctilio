@@ -203,35 +203,31 @@ function convertPositiveRanges(view: ProseView): void {
 const RANGE_START_CHAR_RE = /[\dp(]/
 
 /**
- * Advance past a failed candidate at `i`. When `i` begins a digit run whose
- * boundary-free `\d[\d.,]*` extent is not followed by a dash, no structural
- * match can begin inside the run either: every interior digit start reads to
- * the same run end and fails the same start-independent gate there (the dash
- * test or the boundary-count check), interior `.`/`,` chars cannot start a
- * run, and the area-code reading needs a `(` or a dash the run does not
- * contain — so the scan jumps to the run end. Advancing one character at a
- * time instead re-reads the run at every digit — O(n²) on inputs like
- * "1.1.1.…", a denial-of-service vector.
+ * Advance past a failed candidate at `i`. Advancing one character at a time
+ * re-reads the digit run at every offset — O(n²) on inputs like "1.1.1.…" or
+ * "111…1-x", a denial-of-service vector — so the scan jumps wherever a
+ * failure at `i` provably rules out interior starts:
  *
- * A dash at the run end can reward an interior start two ways: a `.`/`,`-
- * preceded digit regains the `\b` that blocked `i`, and the area-code reading
- * restarts a fresh match past the dash. Both still need the char past the
- * hyphens to begin an end run (digit/currency) or a start run (digit/`p`) —
- * the dash position and end-run reads are start-independent — so when it
- * cannot, the jump to the run end stays safe; only then fall back to one
- * character (otherwise "111…1-x" re-reads the run at every digit, the same
- * O(n²)).
+ * - A start-dependent failure (`\b`, not-after-dash — checked first in
+ *   matchRangeBody, before any run read) says nothing about interior starts;
+ *   advance one character. The gate order makes each such attempt cheap.
+ * - Otherwise the failure came after the gates, and everything there depends
+ *   only on the run end, not the run start: every interior digit start reads
+ *   to the same boundary-free run end and fails the same wall, `.`/`,` cannot
+ *   start a run, and no dash-at-run-end fallback (dash extent, boundary
+ *   counts, end run, tail resolution) sees a different picture. The single
+ *   escape is the phone-area-code reading, which restarts a fresh match past
+ *   a dash at the run end and therefore only exists at `runEnd - 3` — so
+ *   jump straight there (or to the run end when no dash follows).
  */
 function failedRangeStartSkip(view: ProseView, i: number): number {
   const text = view.text
   if (!/\d/.test(text[i])) return i + 1
+  if (!wordBoundaryStartOk(view, i) || !notAfterDashOk(view, i)) return i + 1
   let runEnd = i + 1
   while (/[\d.,]/.test(text[runEnd] ?? "") && !view.hasBoundary(runEnd)) runEnd++
   if (text[runEnd] !== "-") return runEnd
-  let afterDashes = runEnd + 1
-  while (text[afterDashes] === "-") afterDashes++
-  const next = text[afterDashes] ?? ""
-  return /\d/.test(next) || next === "p" || CURRENCY_RE.test(next) ? i + 1 : runEnd
+  return Math.max(i + 1, runEnd - 3)
 }
 
 /**
@@ -280,6 +276,12 @@ function readPhoneAreaCode(view: ProseView, i: number): number | null {
  */
 function matchRangeBody(view: ProseView, startStart: number): number | null {
   const text = view.text
+  // Start-dependent gates first: they need no run read, and their position in
+  // the conjunction lets the scanner classify a failure — everything after
+  // them depends only on where the boundary-free start run ends, not on where
+  // it begins (see failedRangeStartSkip).
+  if (!wordBoundaryStartOk(view, startStart)) return null
+  if (!notAfterDashOk(view, startStart)) return null
   // rangeStart = `(?:p\.?|[currency])?\d[\d.,]*`, anchored at a `\b`.
   const start = readStartRun(view, startStart)
   if (start === null) return null
@@ -296,9 +298,6 @@ function matchRangeBody(view: ProseView, startStart: number): number | null {
   // `readStartRun` already stops at the first interior boundary, so the start
   // span is boundary-free and its clean digits are the whole run.
   const startDigits = text.slice(startStart, startSpanEnd)
-  if (!wordBoundaryStartOk(view, startStart)) return null
-  if (!notAfterDashOk(view, startStart)) return null
-
   const end = readEndRun(view, dashEnd)
   if (end === null) return null
   // The greedy end `[\d.,]*` and greedy `following*` backtrack together; the
