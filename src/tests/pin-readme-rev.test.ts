@@ -7,7 +7,7 @@ const README = `# punctilio
 \`\`\`yaml
 # .pre-commit-config.yaml
 repos:
-  - repo: https://github.com/alexander-turner/punctilio
+  - repo: https://github.com/AlexanderMattTurner/punctilio
     rev: v5.0.0
     hooks:
       - id: punctilio
@@ -64,7 +64,7 @@ describe("pinReadmeRev", () => {
 
   it("does not match a rev line under a different repo", () => {
     const other = README.replace(
-      "https://github.com/alexander-turner/punctilio",
+      "https://github.com/AlexanderMattTurner/punctilio",
       "https://github.com/someone-else/other-tool",
     )
     const outcome = pinReadmeRev(other, "5.2.3")
