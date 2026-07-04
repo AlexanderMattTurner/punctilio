@@ -873,6 +873,9 @@ describe("ProseView boundary-tolerance edges", () => {
       // A boundary between `p.` and the digit severs the page prefix; the bare
       // range past the boundary still converts.
       ["boundary after the p. prefix", `p.${sep}5-10`, `p.${sep}5${EN_DASH}10`],
+      // A boundary directly after the bare `p` severs the prefix too, and the
+      // glued `p${sep}5` word blocks the bare range's leading `\b`.
+      ["boundary after the bare p prefix", `p${sep}5-10`, `p${sep}5-10`],
       ["boundary inside am/pm suffix", `2-3p${sep}m`, `2-3p${sep}m`],
     ])("%s", (_desc, input, expected) => {
       expect(viewTransform(enDashNumberRange, input, sep)).toBe(expected)
