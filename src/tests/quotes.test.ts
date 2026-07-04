@@ -717,6 +717,17 @@ describe("niceQuotes", () => {
       ['"Bonjour," dit-il.', `${LEFT_GUILLEMET}${NNBSP}Bonjour${NNBSP}${RIGHT_GUILLEMET}, dit-il.`, { punctuationStyle: "french" as const }],
       // German leading apostrophe ('Twas)
       ["'Twas the night", `${RIGHT_SINGLE_QUOTE}Twas the night`, { punctuationStyle: "german" as const }],
+      // Hyphen-ended quoted prefixes close (not re-open) in every locale
+      [
+        '"un-" or "non-", done',
+        `${DOUBLE_LOW_9_QUOTE}un-${LEFT_DOUBLE_QUOTE} or ${DOUBLE_LOW_9_QUOTE}non-${LEFT_DOUBLE_QUOTE}, done`,
+        { punctuationStyle: "german" as const },
+      ],
+      [
+        '"un-" or "non-", done',
+        `${LEFT_GUILLEMET}${NNBSP}un-${NNBSP}${RIGHT_GUILLEMET} or ${LEFT_GUILLEMET}${NNBSP}non-${NNBSP}${RIGHT_GUILLEMET}, done`,
+        { punctuationStyle: "french" as const },
+      ],
     ])("locale quotes: %s → %s", (input, expected, options) => {
       it("transforms correctly", () => {
         expect(niceQuotes(input, options)).toBe(expected)
