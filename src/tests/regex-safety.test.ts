@@ -99,6 +99,8 @@ describe("regex safety (runtime introspection)", () => {
     ["digit run with dash then p (range scanner)", "1".repeat(80_000) + "-p"],
     ["dotted digits with dash then currency (range scanner)", "1.".repeat(40_000) + "-€x"],
     ["dash-led digit run with live tail (range scanner)", "-" + "1".repeat(80_000) + "-5"],
+    ["digit run with over-long dash run (range scanner)", "1".repeat(80_000) + "----5"],
+    ["letter-anchored digit run with live tail (range scanner)", "a" + "1".repeat(80_000) + "-1"],
   ])("scan loops stay linear on pathological input: %s", (_name, input) => {
     const startMs = performance.now()
     transform(input)
