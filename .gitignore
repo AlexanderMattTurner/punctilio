@@ -6,3 +6,7 @@ reports/
 *.log
 .DS_Store
 *~
+
+# Local Claude Code settings and Python hook bytecode cache
+.claude/settings.local.json
+.claude/hooks/__pycache__/
