@@ -1,6 +1,5 @@
 import { cachedRegExp, FOLDED_WORD_CHARS, isWordLike, LATIN_LETTER_RE, LATIN_LETTERS, MAX_BOUNDARY_SEPARATORS, NBSP_CHARS, SPACE_CHAR_RE, UNICODE_SYMBOLS } from "./constants.js"
 import { boundaryCountAt, exceedsSingleBoundary, firstInteriorBoundary, makeProsePass, overInput, type ProseView, replaceAllInView, type ReplaceAllOptions } from "./prose-view.js"
-import { namedGroups } from "./utils.js"
 
 export const DASH_STYLES = ["american", "british", "none"] as const
 export type DashStyle = (typeof DASH_STYLES)[number]
@@ -292,8 +291,9 @@ function matchRangeBody(view: ProseView, startStart: number): number | null {
   const end = readEndRun(view, dashEnd)
   if (end === null) return null
   // The greedy end `[\d.,]*` and greedy `following*` backtrack together; the
-  // structural match commits at the longest end whose tail completes.
-  for (let len = end.length; len >= end.minLen; len--) {
+  // structural match commits at the longest end whose tail completes. The
+  // mandatory `\d` caps the backtrack at one digit.
+  for (let len = end.length; len >= 1; len--) {
     const endPos = end.firstDigitStart + len
     const tail = resolvePositiveTail(view, endPos)
     if (tail === null) continue
@@ -340,8 +340,6 @@ interface EndRun {
   firstDigitStart: number
   /** Length of the `[\d.,]` run from `firstDigitStart`, boundary-truncated. */
   length: number
-  /** Minimum end length: 1 digit (`\d` is required). */
-  minLen: number
 }
 
 /** The `[currency]?\d[\d.,]*` end run starting at `pos`, boundary-truncated. */
@@ -357,7 +355,7 @@ function readEndRun(view: ProseView, pos: number): EndRun | null {
   const firstDigitStart = i
   i++
   while (/[\d.,]/.test(text[i] ?? "") && !view.hasBoundary(i)) i++
-  return { firstDigitStart, length: i - firstDigitStart, minLen: 1 }
+  return { firstDigitStart, length: i - firstDigitStart }
 }
 
 interface ResolvedTail {
@@ -635,6 +633,22 @@ export function enDashDateRange(input: string | ProseView, options: DashOptions 
   return overInput(input, (view) => enDashDateRangeOverView(view, options.dashStyle ?? "american"))
 }
 
+interface DateRangeGroups {
+  startMonth: string
+  startYear?: string
+  preSpace: string
+  postSpace: string
+  endMonth: string
+  endYear?: string
+}
+
+/** Clean offsets of the `[preSpace]-[postSpace]` span inside a date-range match. */
+function dateRangeDashSpan(match: RegExpExecArray): { dashStart: number; dashEnd: number } {
+  const groups = match.groups as unknown as DateRangeGroups
+  const dashStart = match.index + groups.startMonth.length + (groups.startYear?.length ?? 0)
+  return { dashStart, dashEnd: dashStart + groups.preSpace.length + 1 + groups.postSpace.length }
+}
+
 function enDashDateRangeOverView(view: ProseView, dashStyle: DashStyle): void {
   if (dashStyle === "none") return
   const [pre, post] = dashStyle === "british" ? [" ", " "] : ["", ""]
@@ -657,37 +671,17 @@ function enDashDateRangeOverView(view: ProseView, dashStyle: DashStyle): void {
       // a word char that blocks the match ("March 2025x3"); re-check the end
       // boundary fold-stably.
       if (!wordBoundaryEndOk(v, match.index + match[0].length)) return null
-      const groups = namedGroups<{
-        startMonth: string
-        startYear?: string
-        preSpace: string
-        postSpace: string
-        endMonth: string
-        endYear?: string
-      }>(matchArgs(match))
       // Replace `[preSpace]-[postSpace]` (the dash and its spaces) with the
       // styled en-dash, leaving the months and any boundaries around them.
-      const startLen = groups.startMonth.length + (groups.startYear?.length ?? 0)
-      const dashSpan = groups.preSpace.length + 1 + groups.postSpace.length
-      const dashStart = match.index + startLen
-      v.replace(dashStart, dashStart + dashSpan, `${pre}${EN_DASH}${post}`)
+      const { dashStart, dashEnd } = dateRangeDashSpan(match)
+      v.replace(dashStart, dashEnd, `${pre}${EN_DASH}${post}`)
       return null
     },
     {
       allowBoundaries: (match, v) => {
-        const groups = namedGroups<{
-          startMonth: string
-          startYear?: string
-          preSpace: string
-          postSpace: string
-          endMonth: string
-          endYear?: string
-        }>(matchArgs(match))
-        const startLen = groups.startMonth.length + (groups.startYear?.length ?? 0)
         // One boundary is tolerated after the start year and one before the end
         // month, bracketing the dash and spaces.
-        const dashStart = match.index + startLen
-        const dashEnd = dashStart + groups.preSpace.length + 1 + groups.postSpace.length
+        const { dashStart, dashEnd } = dateRangeDashSpan(match)
         const tolerated = new Map<number, number>()
         tolerated.set(dashStart, 1)
         tolerated.set(dashEnd, 1)
@@ -883,7 +877,7 @@ function convertSpacedDashes(view: ProseView, rendered: string): void {
     cachedRegExp(pattern, "g"),
     (match, v) => {
       const text = v.text
-      const groups = namedGroups<{ dashStart: string }>(matchArgs(match))
+      const groups = match.groups as { dashStart: string }
       const firstDash = match.index + match[0].length - groups.dashStart.length
       // The greedy `[ ]+` starts at the leftmost position whose `(?<=[^\s]|^)`
       // holds: line/text start, a non-whitespace clean char, or a boundary. A
@@ -1236,7 +1230,7 @@ function preserveLineLeadingEmDashSpace(view: ProseView): void {
       // One boundary is tolerated between the line start and the em-dash; two or
       // more exceed that slot and block the match.
       if (exceedsSingleBoundary(v, match.index)) return null
-      const groups = namedGroups<{ after: string }>(matchArgs(match))
+      const groups = match.groups as { after: string }
       return `${EM_DASH} ${groups.after}`
     },
   )
@@ -1281,8 +1275,3 @@ export const dashWordJoiner = makeProsePass((view) => {
   const re = cachedRegExp(`(?<=[^\\s${WORD_JOINER}])[${EM_DASH}${EN_DASH}]`, "gu")
   replaceAllInView(view, re, (match) => `${WORD_JOINER}${match[0]}`)
 })
-
-/** Reconstructs `.replace()`-style callback args from a RegExpExecArray. */
-function matchArgs(match: RegExpExecArray): unknown[] {
-  return [...match, match.index, match.input, match.groups]
-}

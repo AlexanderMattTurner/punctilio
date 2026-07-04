@@ -67,8 +67,3 @@ export function stableStringify(obj: object): string {
     .map(([k, v]) => [k, Array.isArray(v) ? [...v].sort() : v])
   return JSON.stringify(entries)
 }
-
-/** Extracts named groups from a `.replace()` callback's arguments. @internal */
-export function namedGroups<G>(args: unknown[]): G {
-  return args[args.length - 1] as G
-}
