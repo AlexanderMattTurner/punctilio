@@ -104,6 +104,31 @@ describe("niceQuotes", () => {
     })
   })
 
+  // Known bug: a straight closing double quote sitting directly before a
+  // closing square bracket "]" is left straight instead of curled. It shows
+  // up in prose that lists quoted string literals, e.g. a tokenizer
+  // vocabulary ["A", "-lice", ..., "-athryn"], where the final entry renders
+  // as `-athryn"` instead of `-athryn`. The same position before ")" or "}"
+  // already curls correctly (see the "double quotes" cases above), so the
+  // classifier just needs to treat "]" like the other closing brackets.
+  //
+  // Written with `it.failing` so CI stays green while the bug is open; once
+  // it is fixed these will start passing and Jest will flag them for
+  // promotion to normal `it` cases.
+  describe("closing quote before a bracket (known bug)", () => {
+    it.failing('curls the closer in \'["B"]\'', () => {
+      expect(classifyApostrophes('["B"]')).toBe(
+        `[${LEFT_DOUBLE_QUOTE}B${RIGHT_DOUBLE_QUOTE}]`,
+      )
+    })
+
+    it.failing('curls the last entry of a quoted vocab list', () => {
+      expect(classifyApostrophes('["A", "-athryn"]')).toBe(
+        `[${LEFT_DOUBLE_QUOTE}A${RIGHT_DOUBLE_QUOTE}, ${LEFT_DOUBLE_QUOTE}-athryn${RIGHT_DOUBLE_QUOTE}]`,
+      )
+    })
+  })
+
   describe("single quotes and apostrophes", () => {
     it.each([
       ["He said, 'Hi'", `He said, ${LEFT_SINGLE_QUOTE}Hi${RIGHT_SINGLE_QUOTE}`],
