@@ -366,13 +366,18 @@ async function transformContent(input: string, type: FileType, opts: CliOptions)
     : transformHtml(input, omitKeys(opts, MARKDOWN_ONLY_OPTION_KEYS) as HtmlOptions)
 }
 
-// Unified pipelines unconditionally append a trailing newline; undo if original lacked one.
-function matchTrailingNewline(original: string, formatted: string): string {
-  const originalHas = original.endsWith("\n")
-  const formattedHas = formatted.endsWith("\n")
-  if (originalHas === formattedHas) return formatted
-  if (originalHas) return formatted + "\n"
-  return formatted.replace(/\n$/, "")
+// The unified pipelines emit LF-only output and unconditionally append a
+// trailing newline. Restore the source's line-ending style and trailing-newline
+// presence so a CRLF file doesn't gain mixed endings (which would make --check
+// report a change forever and --write churn on every run).
+function matchLineEndings(original: string, formatted: string): string {
+  // Normalize the LF output back to CRLF when the source used it.
+  let out = original.includes("\r\n")
+    ? formatted.replace(/\r\n/g, "\n").replace(/\n/g, "\r\n")
+    : formatted
+  // Drop the appended trailing newline if the original had none.
+  if (!/\n$/.test(original)) out = out.replace(/\r?\n$/, "")
+  return out
 }
 
 async function readStdin(stdin: AsyncIterable<string | Buffer>): Promise<string> {
@@ -456,7 +461,7 @@ async function runValidated(
       throw new UsageError("Reading from stdin requires --type md|html or --stdin-filepath <path>.")
     }
     const input = await readStdin(io.stdin)
-    const output = matchTrailingNewline(input, await transformContent(input, type, opts))
+    const output = matchLineEndings(input, await transformContent(input, type, opts))
     if (check) return input === output ? 0 : 1
     io.stdout.write(output)
     return 0
@@ -493,7 +498,7 @@ async function runValidated(
       ) continue
     }
 
-    const formatted = matchTrailingNewline(original, await transformContent(original, type, opts))
+    const formatted = matchLineEndings(original, await transformContent(original, type, opts))
     if (!write && !check) {
       io.stdout.write(formatted)
       continue
