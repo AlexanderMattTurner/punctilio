@@ -471,6 +471,23 @@ describe("niceQuotes", () => {
     })
   })
 
+  describe("quotes closing before a colon or bracket", () => {
+    // A single-quoted term before a colon must curl both marks; the colon is a
+    // closing context just like the semicolon beside it. Regression: a missing
+    // colon left the closer straight, which then relabelled the opener too.
+    it.each([
+      ["the word 'love': a definition", `the word ${LEFT_SINGLE_QUOTE}love${RIGHT_SINGLE_QUOTE}: a definition`],
+      ["She said 'yes': the answer", `She said ${LEFT_SINGLE_QUOTE}yes${RIGHT_SINGLE_QUOTE}: the answer`],
+      ['the word "love": a definition', `the word ${LEFT_DOUBLE_QUOTE}love${RIGHT_DOUBLE_QUOTE}: a definition`],
+      // A closing double quote before `]` curls, mirroring the opener after `[`.
+      ['x ["foo"] y', `x [${LEFT_DOUBLE_QUOTE}foo${RIGHT_DOUBLE_QUOTE}] y`],
+      ['a ["quoted"] item', `a [${LEFT_DOUBLE_QUOTE}quoted${RIGHT_DOUBLE_QUOTE}] item`],
+    ])('curls quotes before a closing colon/bracket: "%s"', (input, expected) => {
+      expect(niceQuotes(input)).toBe(expected)
+      expect(niceQuotes(niceQuotes(input))).toBe(expected)
+    })
+  })
+
   describe("consecutive contractions", () => {
     it.each([
       ["I'd've", `I${MODIFIER_LETTER_APOSTROPHE}d${MODIFIER_LETTER_APOSTROPHE}ve`],
