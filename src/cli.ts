@@ -2,7 +2,7 @@
 
 import { createHash } from "node:crypto"
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
-import { readFile, writeFile } from "node:fs/promises"
+import { readFile, rename, writeFile } from "node:fs/promises"
 import { dirname, extname, isAbsolute, join, relative, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 import { parseArgs } from "node:util"
@@ -261,31 +261,45 @@ function loadIgnore(cwd: string, ignorePath: string | undefined): Ignore {
   return ig
 }
 
-function isGlobPattern(pattern: string): boolean {
+function hasGlobMetacharacters(pattern: string): boolean {
   return /[*?[\]{}]/.test(pattern)
 }
 
-// Non-glob positionals pass through as literal paths so they error loudly if missing.
+// A positional is a literal path when it has no glob metacharacters, or when a
+// file with that exact name exists on disk (so a real file named `note[1].md`
+// is not mistaken for a glob).
+function isLiteralPath(pattern: string, cwd: string): boolean {
+  return !hasGlobMetacharacters(pattern) || existsSync(resolve(cwd, pattern))
+}
+
+// Literal positionals pass through untouched so they error loudly if missing and
+// bypass ignore rules (naming a file explicitly is an intent to format it).
+// Ignore rules and the zero-match warning apply only to glob-expanded paths.
 async function discoverFiles(
   patterns: string[],
   cwd: string,
   ig: Ignore,
+  stderr: NodeJS.WritableStream,
 ): Promise<string[]> {
-  const literals = patterns.filter((p) => !isGlobPattern(p))
-  const globs = patterns.filter(isGlobPattern)
+  const literals = patterns.filter((p) => isLiteralPath(p, cwd))
+  const globs = patterns.filter((p) => !isLiteralPath(p, cwd))
   const expanded = globs.length > 0
     ? await glob(globs, { cwd, absolute: true, onlyFiles: true })
     : []
-  const all = [...new Set([...literals.map((p) => resolve(cwd, p)), ...expanded])]
-  return all.filter((file) => {
+  const kept = expanded.filter((file) => {
     const rel = relative(cwd, file)
     return rel.startsWith("..") || !ig.ignores(rel)
   })
+  if (globs.length > 0 && kept.length === 0) {
+    stderr.write(`Warning: no files matched: ${globs.join(" ")}\n`)
+  }
+  return [...new Set([...literals.map((p) => resolve(cwd, p)), ...kept])]
 }
 
 interface CacheEntry {
   contentHash: string
   optionsHash: string
+  type: FileType
   version: string
 }
 
@@ -328,6 +342,14 @@ function loadCache(location: string, stderr: NodeJS.WritableStream): Cache {
 function saveCache(location: string, cache: Cache): void {
   mkdirSync(dirname(location), { recursive: true })
   writeFileSync(location, JSON.stringify(cache))
+}
+
+// Replace a file's contents atomically: write a sibling temp file, then rename
+// it over the target so an interrupted run can never leave a half-written file.
+async function atomicWriteFile(path: string, contents: string): Promise<void> {
+  const tmpPath = `${path}.${process.pid}.tmp`
+  await writeFile(tmpPath, contents)
+  await rename(tmpPath, path)
 }
 
 // cwd-relative so the cache survives directory moves and cross-machine syncs.
@@ -473,7 +495,7 @@ async function runValidated(
   }
 
   const ig = loadIgnore(cwd, flags.ignorePath)
-  const files = await discoverFiles(positionals, cwd, ig)
+  const files = await discoverFiles(positionals, cwd, ig, io.stderr)
 
   // In stdout mode every file's content must be produced, so a cache hit
   // could never skip work; only --write and --check use the cache.
@@ -494,6 +516,7 @@ async function runValidated(
         entry !== undefined &&
         entry.contentHash === hashString(original) &&
         entry.optionsHash === optionsHash &&
+        entry.type === type &&
         entry.version === version
       ) continue
     }
@@ -509,12 +532,12 @@ async function runValidated(
       if (check) {
         io.stderr.write(`Would reformat: ${path}\n`)
       } else {
-        await writeFile(path, formatted)
+        await atomicWriteFile(path, formatted)
         io.stdout.write(`Reformatted: ${path}\n`)
       }
     }
     if (cache && (unchanged || !check)) {
-      cache.files[key] = { contentHash: hashString(formatted), optionsHash, version }
+      cache.files[key] = { contentHash: hashString(formatted), optionsHash, type, version }
     }
   }
 
