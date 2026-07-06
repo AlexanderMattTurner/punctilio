@@ -151,6 +151,54 @@ describe("rehypePunctilio", () => {
     })
   })
 
+  describe("loose inline text among block children", () => {
+    // A container with both direct/inline text and block-level children must
+    // transform each maximal inline run independently of the blocks, never
+    // merging the loose text with a block child's text across the boundary.
+    it.each([
+      // Regression: the div's "5" must not pair with the paragraph's "x 3".
+      ["digit not merged with block child", "<div>5<p>x 3</p></div>", "<div>5<p>x 3</p></div>"],
+      // Regression: quotes open/close within their own block, not across it.
+      [
+        "quotes stay within their block",
+        '<div>He said "hi<p>there" she said.</p></div>',
+        `<div>He said ${LDQ}hi<p>there${RDQ} she said.</p></div>`,
+      ],
+      // The loose run spans an inline element; the range dash still converts.
+      [
+        "inline element inside a loose run",
+        "<div>a <em>1</em>-5 done<ul><li>item</li></ul></div>",
+        `<div>a <em>1</em>${EN_DASH}5 done<ul><li>item</li></ul></div>`,
+      ],
+    ])("%s", async (_name, html, expected) => {
+      expect(await processHtml(html, { nbsp: false })).toEqual(expected)
+    })
+
+    it("applies shouldSkipText within a loose run, honoring the container ancestor", async () => {
+      const skipInSpan = (_t: Text, ancestors: readonly Element[]) =>
+        ancestors.some((a) => a.tagName === "span")
+      // The loose text transforms (ancestors = [div]); the span's text is
+      // skipped (ancestors = [div, span]).
+      expect(
+        await processHtml('<div>loose "text" <span>keep"x"</span><p>"para"</p></div>', {
+          nbsp: false,
+          shouldSkipText: skipInSpan,
+        }),
+      ).toEqual(`<div>loose ${LDQ}text${RDQ} <span>keep"x"</span><p>${LDQ}para${RDQ}</p></div>`)
+    })
+
+    it("leaves a loose run untouched when shouldSkipText excludes all its text", async () => {
+      const skipInSpan = (_t: Text, ancestors: readonly Element[]) =>
+        ancestors.some((a) => a.tagName === "span")
+      expect(
+        await processHtml('<div><span>only"x"</span><p>"para"</p></div>', {
+          nbsp: false,
+          shouldSkipText: skipInSpan,
+        }),
+      ).toEqual(`<div><span>only"x"</span><p>${LDQ}para${RDQ}</p></div>`)
+    })
+  })
+
   describe("dashes across element boundaries", () => {
     it.each([
       ["multi-segment number preserved", "<p>1-<em>2</em>-3</p>", "<p>1-<em>2</em>-3</p>"],
@@ -641,6 +689,23 @@ describe("rehypePunctilio", () => {
         const result = collectProseBlocks(tree)
         expect(result).toHaveLength(2)
         expect(result.map((b) => b.tagName)).toEqual(["p", "p"])
+      })
+
+      it("returns only the block children, not loose inline text, for mixed content", () => {
+        // <div>loose<p>Hello</p></div> — the loose "loose" text is a run unit
+        // handled by the plugin, so collectProseBlocks lists only the <p>.
+        const tree: Element = {
+          type: "element",
+          tagName: "div",
+          properties: {},
+          children: [
+            { type: "text", value: "loose" },
+            h("p", "Hello") as ElementContent,
+          ],
+        }
+        const result = collectProseBlocks(tree)
+        expect(result).toHaveLength(1)
+        expect(result[0].tagName).toBe("p")
       })
 
       it("collects inline-only div as single unit", () => {

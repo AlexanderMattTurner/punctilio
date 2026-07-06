@@ -433,30 +433,46 @@ function resolveCollectOptions(options: CollectProseBlocksOptions): ResolvedColl
   }
 }
 
+// A prose unit is either a whole transformable element (an inline-only leaf) or
+// a "run" of consecutive inline siblings that sit alongside block-level
+// children. Runs let a container's loose inline text transform independently of
+// its block children instead of merging across the block boundary.
+type ProseUnit =
+  | { kind: "element"; element: Element }
+  | { kind: "run"; container: Element; children: ElementContent[] }
+
 /**
- * Collects the elements under `root` (inclusive) whose text should be
+ * Collects the leaf elements under `root` (inclusive) whose text should be
  * transformed as one prose block: transformable elements with direct text or
  * inline-only text descendants. Elements with block-level children recurse so
- * each block transforms independently.
+ * each block transforms independently. Loose inline text mixed among block
+ * children is handled by the plugin as its own run and is not represented here.
  */
 export function collectProseBlocks(root: Element, options: CollectProseBlocksOptions = {}): Element[] {
   const { shouldSkip, isTransformable } = resolveCollectOptions(options)
-  return collectProseBlocksImpl(root, shouldSkip, 0, undefined, isTransformable)
+  return collectProseUnitsImpl(root, shouldSkip, 0, undefined, isTransformable)
+    .flatMap((unit) => (unit.kind === "element" ? [unit.element] : []))
 }
 
-function collectProseBlocksImpl(
+function runHasProse(children: readonly ElementContent[], shouldSkip: ElementPredicate): boolean {
+  return children.some(
+    (child) =>
+      (child.type === "text" && child.value.trim() !== "") ||
+      (child.type === "element" && hasTextDescendant(child, shouldSkip))
+  )
+}
+
+function collectProseUnitsImpl(
   node: Element,
   shouldSkip: ElementPredicate,
   depth: number,
   alreadyTransformed: ReadonlySet<Element> | undefined,
   isTransformable: (tagName: string) => boolean
-): Element[] {
+): ProseUnit[] {
   /* istanbul ignore if -- defensive: prevents stack overflow from malicious HTML */
   if (depth > MAX_RECURSION_DEPTH) {
     return []
   }
-
-  const results: Element[] = []
 
   if (shouldSkip(node) || alreadyTransformed?.has(node)) {
     return []
@@ -470,31 +486,68 @@ function collectProseBlocksImpl(
   const hasDirectText = node.children.some(
     (child) => child.type === "text" && child.value.trim() !== ""
   )
-  // Only check for block children and text descendants when there's no direct text
-  // (short-circuit avoids unnecessary tree traversal)
-  const hasBlockChildren = !hasDirectText && node.children.some(
+  const hasBlockChildren = node.children.some(
     (child) => child.type === "element" && BLOCK_ELEMENTS.has(child.tagName)
   )
-  const hasTextDescendants = !hasDirectText && !hasBlockChildren &&
-    hasTextDescendant(node, shouldSkip)
 
+  // Inline-only transformable node: a single leaf unit. `hasTextDescendant` is
+  // only walked when there's no direct text (short-circuit avoids the traversal).
   if (
     isTransformable(node.tagName) &&
-    (hasDirectText || hasTextDescendants)
+    !hasBlockChildren &&
+    (hasDirectText || hasTextDescendant(node, shouldSkip))
   ) {
-    results.push(node)
+    return [{ kind: "element", element: node }]
+  }
+
+  const units: ProseUnit[] = []
+  if (isTransformable(node.tagName) && hasBlockChildren) {
+    // Mixed content: split each maximal run of inline siblings from the block
+    // children so loose text transforms on its own, then recurse per block.
+    let run: ElementContent[] = []
+    const flushRun = () => {
+      if (runHasProse(run, shouldSkip)) units.push({ kind: "run", container: node, children: run })
+      run = []
+    }
+    for (const child of node.children) {
+      if (child.type === "element" && BLOCK_ELEMENTS.has(child.tagName)) {
+        flushRun()
+        for (const u of collectProseUnitsImpl(child, shouldSkip, depth + 1, alreadyTransformed, isTransformable)) {
+          units.push(u)
+        }
+      } else {
+        run.push(child)
+      }
+    }
+    flushRun()
   } else {
-    // Recurse into children: either the node isn't transformable, has block
-    // children that should be independent, or has no text to transform.
+    // Non-transformable, or transformable but textless: recurse into elements.
     for (const child of node.children) {
       if (child.type === "element") {
-        const childResults = collectProseBlocksImpl(child, shouldSkip, depth + 1, alreadyTransformed, isTransformable)
-        for (const r of childResults) results.push(r)
+        for (const u of collectProseUnitsImpl(child, shouldSkip, depth + 1, alreadyTransformed, isTransformable)) {
+          units.push(u)
+        }
       }
     }
   }
 
-  return results
+  return units
+}
+
+// Flatten a run's inline siblings to their text nodes, seeding the ancestor
+// chain with `container` so `shouldSkipText` sees the same ancestors it would
+// when the whole element is flattened as a leaf.
+function flattenRunTextNodes(
+  container: Element,
+  children: readonly ElementContent[],
+  shouldSkip: ElementPredicate,
+  options: ProseViewOfOptions
+): Text[] {
+  const shouldSkipText = options.shouldSkipText
+  const ancestors: Element[] | null = shouldSkipText ? [container] : null
+  return children.flatMap((child) =>
+    flattenTextNodesImpl(child, shouldSkip, shouldSkipText, ancestors, 1)
+  )
 }
 
 function markDescendants(node: Element, set: Set<Element>, depth: number = 0): void {
@@ -547,17 +600,33 @@ export function rehypePunctilio(
         return SKIP
       }
 
-      // Collect and transform elements with text content
-      const elementsToTransform = collectProseBlocksImpl(node, shouldSkip, 0, transformed, isTransformable)
-      for (const elt of elementsToTransform) {
-        if (!transformed.has(elt)) {
-          const view = proseViewOf(elt, viewOptions)
-          if (view !== null) {
-            transformView(view, transformOptions)
+      // Collect and transform every prose unit in this subtree.
+      const units = collectProseUnitsImpl(node, shouldSkip, 0, transformed, isTransformable)
+      for (const unit of units) {
+        if (unit.kind === "element") {
+          if (!transformed.has(unit.element)) {
+            const view = proseViewOf(unit.element, viewOptions)
+            if (view !== null) {
+              transformView(view, transformOptions)
+            }
+            transformed.add(unit.element)
+            // Mark all descendants as processed since their text was included
+            markDescendants(unit.element, transformed)
           }
-          transformed.add(elt)
-          // Mark all descendants as processed since their text was included
-          markDescendants(elt, transformed)
+        } else {
+          const textNodes = flattenRunTextNodes(unit.container, unit.children, shouldSkip, viewOptions)
+          if (textNodes.length > 0) {
+            transformView(buildProseView(textNodes), transformOptions)
+          }
+          // Mark the container so a later visit doesn't re-collect its runs,
+          // and mark the run's inline-element members' subtrees.
+          transformed.add(unit.container)
+          for (const child of unit.children) {
+            if (child.type === "element") {
+              transformed.add(child)
+              markDescendants(child, transformed)
+            }
+          }
         }
       }
     })
