@@ -63,6 +63,24 @@ describe("quote classifier role-stream regressions", () => {
     expect(transform(first, { nbsp: false })).toBe(first)
   })
 
+  it.each([
+    ["5'000", `5${RIGHT_SINGLE_QUOTE}000`],
+    ["1'000'000", `1${RIGHT_SINGLE_QUOTE}000${RIGHT_SINGLE_QUOTE}000`],
+    ["CHF 5'000.50", `CHF 5${RIGHT_SINGLE_QUOTE}000.50`],
+    // Not a three-digit group, so still a foot/minute prime.
+    ["5'0", `5${PRIME}0`],
+  ])("Swiss thousands separators curl to apostrophes, not primes: %j", (input, expected) => {
+    const first = transform(input, { nbsp: false })
+    expect(first).toBe(expected)
+    expect(transform(first, { nbsp: false })).toBe(first)
+  })
+
+  it("keeps feet-inches as primes even next to a thousands-grouped number", () => {
+    expect(transform(`5'000 at 6'2" tall`, { nbsp: false })).toBe(
+      `5${RIGHT_SINGLE_QUOTE}000 at 6${PRIME}2${DOUBLE_PRIME} tall`,
+    )
+  })
+
   it("niceQuotes converts prime candidates by default and leaves them with primes: false", () => {
     expect(niceQuotes('5\'10" tall')).toBe(`5${PRIME}10${DOUBLE_PRIME} tall`)
     expect(niceQuotes('5\'10" tall', { primes: false })).toBe(`5'10${RIGHT_DOUBLE_QUOTE} tall`)

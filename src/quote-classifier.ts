@@ -1436,7 +1436,7 @@ function quotePassClosesCandidate(items: Item[], index: number, quote: string): 
  * a prime only when the running quote balance is open-free; contractions are
  * skipped and trailing apostrophes consume balance without converting.
  */
-function convertPrimes(items: Item[]): void {
+function convertPrimes(items: Item[], swissSeparators: ReadonlySet<number>): void {
   const passes: [string, string][] = [
     ["'", PRIME],
     ['"', DOUBLE_PRIME],
@@ -1446,6 +1446,12 @@ function convertPrimes(items: Item[]): void {
     for (let i = 0; i < items.length; i++) {
       const item = items[i]
       if (item.boundary || item.ch !== quote) continue
+      // A Swiss/Liechtenstein digit-group separator (5'000) is an apostrophe,
+      // not a foot/minute prime; curl it and leave the quote balance untouched.
+      if (quote === "'" && swissSeparators.has(item.start)) {
+        item.ch = RIGHT_SINGLE_QUOTE
+        continue
+      }
       const digitIndex = prevIndex(items, i, 1)
       if (isDigitItem(items, digitIndex) && !isLetterItem(items, i + 1)) {
         // Prime candidate. The after-context check is boundary-blind: a
@@ -1489,12 +1495,30 @@ function convertPrimes(items: Item[]): void {
  */
 const PRIME_CANDIDATE_RE = /\d['"]/
 
+// Swiss/Liechtenstein thousands grouping: 5'000, 1'000'000, 5'000.50. Leading
+// group of 1-3 digits, then one or more apostrophe-separated groups of exactly
+// three, not embedded in a longer digit run. Groups of exactly three rule out
+// feet-inches (5'10", 6'2"), whose inch value is one or two digits.
+const SWISS_THOUSANDS_RE = /(?<![\d'])\d{1,3}(?:'\d{3})+(?!\d)/g
+
+/** Offsets of the apostrophes that separate Swiss thousands groups in `text`. */
+function swissThousandsSeparators(text: string): ReadonlySet<number> {
+  const offsets = new Set<number>()
+  if (!text.includes("'")) return offsets
+  for (const match of text.matchAll(SWISS_THOUSANDS_RE)) {
+    for (let i = 0; i < match[0].length; i++) {
+      if (match[0][i] === "'") offsets.add(match.index + i)
+    }
+  }
+  return offsets
+}
+
 /** primeMarks engine: converts `5'10"` to `5′10″` with quote-balance guards. Commits its edits. */
 export function convertPrimeMarks(view: ProseView): void {
   const text = view.text
   if (!PRIME_CANDIDATE_RE.test(text)) return
   const items = buildItems(view, "american")
-  convertPrimes(items)
+  convertPrimes(items, swissThousandsSeparators(text))
   for (const item of items) {
     if (!item.boundary && item.ch !== text[item.start]) {
       view.replace(item.start, item.end, item.ch)
