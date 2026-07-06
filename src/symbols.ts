@@ -102,6 +102,20 @@ function ellipsisFoldDots(view: ProseView): void {
 /** Convert "5x5" to "5×5". Skips hex (0x5F). */
 export const multiplication = makeProsePass(multiplicationOverView)
 
+// A curly single-quote glyph directly after a trailing multiplier means the
+// quotes pass (which runs earlier in the pipeline) already read the `x` as a
+// letter — a word-final elision keyed on the letter. Were this pass to rewrite
+// that `x` to `×`, a re-run would re-read the quote as a closing quote after a
+// symbol and relocate a trailing comma/period, so the transform would never
+// reach a fixed point. Leave such an `x` alone. A straight `'` is not blocked:
+// it only reaches this pass on a standalone `multiplication()` call, where no
+// later quote pass can flip its classification.
+const CURLY_APOSTROPHE_FOLLOWERS = new Set<string>([
+  UNICODE_SYMBOLS.RIGHT_SINGLE_QUOTE,
+  UNICODE_SYMBOLS.LEFT_SINGLE_QUOTE,
+  UNICODE_SYMBOLS.MODIFIER_LETTER_APOSTROPHE,
+])
+
 // After a digit run, either a prime mark (10′) or a length/size unit may
 // attach before the multiplication operator. Allowing both lets dimensions
 // like "5m × 5m", "210mm × 297mm", or "1920px × 1080px" convert, matching
@@ -390,6 +404,7 @@ function multiplicationOverView(view: ProseView): void {
     if (op === "X") continue
     const afterOp = operatorOffset + 1
     const followChar = trailingText[afterOp]
+    if (followChar !== undefined && CURLY_APOSTROPHE_FOLLOWERS.has(followChar)) continue
     if (boundaryCountAt(view, afterOp) <= MAX_BOUNDARY_SEPARATORS && followChar !== undefined && WORD_RE.test(followChar)) continue
     view.replace(operatorOffset, afterOp, MULTIPLICATION)
   }
