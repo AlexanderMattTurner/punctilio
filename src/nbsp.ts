@@ -1,5 +1,5 @@
 import { cachedRegExp, LATIN_LETTER_RE, LATIN_LETTERS, NBSP_CHARS, SPACE_CHARS, UNICODE_SYMBOLS } from "./constants.js"
-import { boundaryCountAt, exceedsSingleBoundary, makeProsePass, overInput, type ProseView, replaceAllInView } from "./prose-view.js"
+import { boundaryCountAt, exceedsSingleBoundary, interiorBoundariesWithin, makeProsePass, overInput, type ProseView, replaceAllInView } from "./prose-view.js"
 
 const {
   NBSP,
@@ -105,10 +105,7 @@ const COPYRIGHT_SYMBOLS = `[${COPYRIGHT}${REGISTERED}${TRADEMARK}]`
  * allowed slot offsets.
  */
 function boundariesOnlyAtSlots(view: ProseView, start: number, end: number, slots: number[]): boolean {
-  for (const boundary of view.boundaries) {
-    if (boundary <= start || boundary >= end) continue
-    if (!slots.includes(boundary)) return false
-  }
+  if (!interiorBoundariesWithin(view, start, end, slots)) return false
   for (const slot of slots) {
     if (exceedsSingleBoundary(view, slot)) return false
   }

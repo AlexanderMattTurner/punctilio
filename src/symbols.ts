@@ -1,5 +1,5 @@
 import { cachedRegExp, LATIN_LETTER_RE, LATIN_LETTERS, MAX_BOUNDARY_SEPARATORS, SPACE_CHAR_RE, UNICODE_SYMBOLS, WORD_RE } from "./constants.js"
-import { boundaryCountAt, exceedsSingleBoundary, firstInteriorBoundary, makeProsePass, overInput, type ProseView, replaceAllInView } from "./prose-view.js"
+import { boundaryCountAt, exceedsSingleBoundary, firstInteriorBoundary, interiorBoundariesWithin, makeProsePass, overInput, type ProseView, replaceAllInView } from "./prose-view.js"
 import { convertPrimeMarks } from "./quote-classifier.js"
 
 export interface SymbolOptions {
@@ -173,9 +173,7 @@ function chainSegments(chainStart: number, firstNum: string, rest: string): Chai
  */
 function operatorSlotClean(view: ProseView, slotStart: number, slotEnd: number): boolean {
   // No boundary strictly inside the spacing-plus-operator slot.
-  for (const boundary of view.boundaries) {
-    if (boundary > slotStart && boundary < slotEnd) return false
-  }
+  if (firstInteriorBoundary(view, slotStart, slotEnd) >= 0) return false
   // At most one boundary hugging each outer edge (duplicates at an offset come
   // from empty nodes and each counts as one boundary).
   return boundaryCountAt(view, slotStart) <= 1 && boundaryCountAt(view, slotEnd) <= 1
@@ -457,9 +455,7 @@ function mathLookaheadBlocks(text: string, view: ProseView, end: number, forbidd
  */
 function mathOperatorAllowBoundary(match: RegExpExecArray, view: ProseView): boolean {
   const junction = match.index + match[0].length - 1
-  for (const boundary of view.boundaries) {
-    if (boundary > match.index && boundary < match.index + match[0].length && boundary !== junction) return false
-  }
+  if (!interiorBoundariesWithin(view, match.index, match.index + match[0].length, [junction])) return false
   return boundaryCountAt(view, junction) <= 1
 }
 
@@ -744,11 +740,9 @@ function degreeUnitFollowOk(text: string, view: ProseView, unitEnd: number): boo
 function digitSuffixBoundaryOk(match: RegExpExecArray, view: ProseView): boolean {
   const digitEnd = match.index + 1
   const matchEnd = match.index + match[0].length
-  for (const boundary of view.boundaries) {
-    // Reject any interior boundary that is not the single tolerated slot after
-    // the leading digit.
-    if (boundary > match.index && boundary < matchEnd && boundary !== digitEnd) return false
-  }
+  // Reject any interior boundary that is not the single tolerated slot after
+  // the leading digit.
+  if (!interiorBoundariesWithin(view, match.index, matchEnd, [digitEnd])) return false
   return boundaryCountAt(view, digitEnd) <= 1
 }
 
