@@ -13,6 +13,7 @@ const {
   EN_DASH,
   ELLIPSIS,
   MULTIPLICATION,
+  MINUS,
   NOT_EQUAL,
   COPYRIGHT,
   NBSP,
@@ -113,6 +114,19 @@ describe("remarkPunctilio", () => {
     it("transforms text alongside inline code", async () => {
       expect(await processMarkdown('`code` "Hello"', { nbsp: false }))
         .toEqual(`\`code\` ${LDQ}Hello${RDQ}`)
+    })
+  })
+
+  describe("opaque inline content is an impassable gap", () => {
+    // Inline code and images visually separate their neighbors, so a pass must
+    // not treat the surrounding text as adjacent across them.
+    it.each([
+      ["inline code blocks multiplication", "5`c`x 3", "5`c`x 3"],
+      ["inline code blocks a numeric range", "1`c`-5", `1\`c\`${MINUS}5`],
+      ["inline code blocks an attached multiplier", "5`c`x5", "5`c`x5"],
+      ["image blocks a numeric range", "1![x](y)-5", `1![x](y)${MINUS}5`],
+    ])("%s", async (_name, input, expected) => {
+      expect(await processMarkdown(input, { nbsp: false })).toEqual(expected)
     })
   })
 

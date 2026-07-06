@@ -10,6 +10,7 @@ import {
   getFirstTextNode,
   getTextContent,
   proseViewOf,
+  proseViewsOf,
   rehypePunctilio,
   type RehypePunctilioOptions,
 } from "../rehype.js"
@@ -148,6 +149,80 @@ describe("rehypePunctilio", () => {
       const expected =
         `<blockquote>\n<p>Riesz spoke. ${LDQ}We make them do analysis, because they deserve${EM_DASH}${RDQ}</p>\n<p>${LDQ}Frigyes, some might do that.${RDQ}</p>\n</blockquote>`
       expect(await processHtml(html, { nbsp: false })).toEqual(expected)
+    })
+  })
+
+  describe("loose inline text among block children", () => {
+    // A container with both direct/inline text and block-level children must
+    // transform each maximal inline run independently of the blocks, never
+    // merging the loose text with a block child's text across the boundary.
+    it.each([
+      // Regression: the div's "5" must not pair with the paragraph's "x 3".
+      ["digit not merged with block child", "<div>5<p>x 3</p></div>", "<div>5<p>x 3</p></div>"],
+      // Regression: quotes open/close within their own block, not across it.
+      [
+        "quotes stay within their block",
+        '<div>He said "hi<p>there" she said.</p></div>',
+        `<div>He said ${LDQ}hi<p>there${RDQ} she said.</p></div>`,
+      ],
+      // The loose run spans an inline element; the range dash still converts.
+      [
+        "inline element inside a loose run",
+        "<div>a <em>1</em>-5 done<ul><li>item</li></ul></div>",
+        `<div>a <em>1</em>${EN_DASH}5 done<ul><li>item</li></ul></div>`,
+      ],
+    ])("%s", async (_name, html, expected) => {
+      expect(await processHtml(html, { nbsp: false })).toEqual(expected)
+    })
+
+    it("applies shouldSkipText within a loose run, honoring the container ancestor", async () => {
+      const skipInSpan = (_t: Text, ancestors: readonly Element[]) =>
+        ancestors.some((a) => a.tagName === "span")
+      // The loose text transforms (ancestors = [div]); the span's text is
+      // skipped (ancestors = [div, span]).
+      expect(
+        await processHtml('<div>loose "text" <span>keep"x"</span><p>"para"</p></div>', {
+          nbsp: false,
+          shouldSkipText: skipInSpan,
+        }),
+      ).toEqual(`<div>loose ${LDQ}text${RDQ} <span>keep"x"</span><p>${LDQ}para${RDQ}</p></div>`)
+    })
+
+    it("leaves a loose run untouched when shouldSkipText excludes all its text", async () => {
+      const skipInSpan = (_t: Text, ancestors: readonly Element[]) =>
+        ancestors.some((a) => a.tagName === "span")
+      expect(
+        await processHtml('<div><span>only"x"</span><p>"para"</p></div>', {
+          nbsp: false,
+          shouldSkipText: skipInSpan,
+        }),
+      ).toEqual(`<div><span>only"x"</span><p>${LDQ}para${RDQ}</p></div>`)
+    })
+  })
+
+  describe("opaque inline content is an impassable gap", () => {
+    // Content removed from the flattened text (a skipped element with content,
+    // an image, or other atomic inline node) visually separates its neighbors,
+    // so passes must not treat the surrounding text as adjacent.
+    it.each([
+      ["skipped element blocks multiplication", "<p>5<code>c</code>x 3</p>", "<p>5<code>c</code>x 3</p>"],
+      ["image blocks multiplication", '<p>5<img src="a">x 3</p>', '<p>5<img src="a">x 3</p>'],
+      ["skipped element blocks a numeric range", "<p>1<code>c</code>-5</p>", `<p>1<code>c</code>${UNICODE_SYMBOLS.MINUS}5</p>`],
+      ["two gaps keep three independent segments", '<p>1<img src="a">5<code>c</code>x 3</p>', '<p>1<img src="a">5<code>c</code>x 3</p>'],
+      // An empty skipped element renders nothing, so its neighbors stay adjacent.
+      ["empty skipped element does not block", "<p>5<code></code>x5</p>", `<p>5<code></code>${MULTIPLICATION}5</p>`],
+      // Leading opaque content has no left neighbor, so it never splits.
+      ["leading opaque content does not split", '<p><img src="a">5x5</p>', `<p><img src="a">5${MULTIPLICATION}5</p>`],
+    ])("%s", async (_name, html, expected) => {
+      expect(await processHtml(html, { nbsp: false })).toEqual(expected)
+    })
+
+    it("skipped-text nodes act as an opaque gap between their neighbors", async () => {
+      // The skipped "MID" text separates "5" from "x5", so no × forms across it.
+      const skipMid = (t: Text) => t.value === "MID"
+      expect(
+        await processHtml("<p>5<span>MID</span>x5</p>", { nbsp: false, shouldSkipText: skipMid }),
+      ).toEqual("<p>5<span>MID</span>x5</p>")
     })
   })
 
@@ -352,6 +427,25 @@ describe("rehypePunctilio", () => {
         let deep: Element = h("span", "deep") as Element
         for (let i = 0; i < 1005; i++) deep = h("div", [deep]) as Element
         expect(flattenTextNodes(deep, ignoreNone)).toHaveLength(0)
+      })
+    })
+
+    describe("proseViewsOf", () => {
+      it("returns one view spanning the element when there is no opaque content", () => {
+        const element = h("p", ["hello ", h("em", "world")]) as Element
+        const views = proseViewsOf(element)
+        expect(views).toHaveLength(1)
+        expect(views[0].text).toBe("hello world")
+      })
+
+      it("splits into one view per opaque-delimited segment", () => {
+        const element = h("p", ["1", h("code", "c"), "-5"]) as Element
+        const views = proseViewsOf(element, { shouldSkip: ignoreCode })
+        expect(views.map((v) => v.text)).toEqual(["1", "-5"])
+      })
+
+      it("returns no views for an element with no text", () => {
+        expect(proseViewsOf(h("div", []) as Element)).toEqual([])
       })
     })
 
@@ -641,6 +735,23 @@ describe("rehypePunctilio", () => {
         const result = collectProseBlocks(tree)
         expect(result).toHaveLength(2)
         expect(result.map((b) => b.tagName)).toEqual(["p", "p"])
+      })
+
+      it("returns only the block children, not loose inline text, for mixed content", () => {
+        // <div>loose<p>Hello</p></div> — the loose "loose" text is a run unit
+        // handled by the plugin, so collectProseBlocks lists only the <p>.
+        const tree: Element = {
+          type: "element",
+          tagName: "div",
+          properties: {},
+          children: [
+            { type: "text", value: "loose" },
+            h("p", "Hello") as ElementContent,
+          ],
+        }
+        const result = collectProseBlocks(tree)
+        expect(result).toHaveLength(1)
+        expect(result[0].tagName).toBe("p")
       })
 
       it("collects inline-only div as single unit", () => {

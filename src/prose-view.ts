@@ -206,6 +206,28 @@ export function buildProseView(nodes: ProseNode[]): ProseView {
   return new ProseViewImpl(nodes)
 }
 
+/**
+ * Partitions `items` into contiguous groups, breaking before every index in
+ * `breakBefore` (indices 1..n-1). With no break indices the whole list is one
+ * group; an empty list yields no groups. Used to isolate opaque-delimited
+ * segments so a pass never sees text as adjacent across removed content.
+ */
+export function splitAtIndices<T>(items: readonly T[], breakBefore: ReadonlySet<number>): T[][] {
+  if (breakBefore.size === 0) {
+    return items.length > 0 ? [items.slice()] : []
+  }
+  const groups: T[][] = []
+  let start = 0
+  for (let i = 1; i < items.length; i++) {
+    if (breakBefore.has(i)) {
+      groups.push(items.slice(start, i))
+      start = i
+    }
+  }
+  groups.push(items.slice(start))
+  return groups
+}
+
 export interface ReplaceAllOptions {
   /** Opt-in: allow a match that contains an interior node boundary. Default: such matches are skipped. */
   allowBoundaries?: (match: RegExpExecArray, view: ProseView) => boolean

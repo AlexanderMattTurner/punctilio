@@ -93,13 +93,16 @@ interface Item {
   /** Set when punctuation placement relocates this item. */
   moved: boolean
   /**
-   * Set on a CLOSE_SINGLE that has no matching opener and sits directly after
-   * a letter — a word-final quote that reads as elision ("keep on truckin'")
-   * at least as plausibly as quotation. It keeps its closer role (glyph
-   * U+2019 either way) but punctuation placement must not move around it:
-   * pulling the period into "truckin'." corrupts the word to "truckin.'".
+   * Set on a CLOSE_SINGLE that has no matching opener, so punctuation
+   * placement must not move around it. Two cases qualify: a word-final quote
+   * directly after a letter, which reads as elision ("keep on truckin'") at
+   * least as plausibly as quotation — pulling the period into "truckin'."
+   * corrupts the word to "truckin.'" — and, in German, any orphan closer,
+   * because German re-derives its rendered glyph (U+2018) back to a straight
+   * quote by position on the next run, so relocating punctuation around it
+   * changes that re-derived shape and breaks the fixed point ("'06,'").
    */
-  unmatchedAfterLetter?: boolean
+  frozenCloser?: boolean
   /** Insertion anchor (clean-text offset and bind side) once moved. */
   anchorOffset: number
   anchorBind: "left" | "right"
@@ -530,12 +533,13 @@ function classifyOpeningSingles(items: Item[]): void {
 
 /**
  * Unmatched CLOSE_SINGLE after s/S → APOSTROPHE (plural possessives), via the
- * advisory open/close balance scan. An unmatched closer after any other
- * letter keeps its closer role but is flagged {@link Item.unmatchedAfterLetter}
- * so punctuation placement leaves it alone. Boundaries are fully transparent
- * here.
+ * advisory open/close balance scan. An unmatched closer keeps its closer role
+ * but is flagged {@link Item.frozenCloser} so punctuation placement leaves it
+ * alone: after any other letter in every style, and after any character in
+ * German (which re-derives the rendered glyph by position on re-run).
+ * Boundaries are fully transparent here.
  */
-function classifyPluralPossessives(items: Item[]): void {
+function classifyPluralPossessives(items: Item[], style: ActiveQuoteStyle): void {
   let balance = 0
   for (let i = 0; i < items.length; i++) {
     const item = items[i]
@@ -553,8 +557,8 @@ function classifyPluralPossessives(items: Item[]): void {
     while (j >= 0 && items[j].boundary) j--
     if (j >= 0 && (items[j].ch === "s" || items[j].ch === "S")) {
       item.ch = MODIFIER_LETTER_APOSTROPHE
-    } else if (j >= 0 && isLetterItem(items, j)) {
-      item.unmatchedAfterLetter = true
+    } else if (j >= 0 && (isLetterItem(items, j) || style === "german")) {
+      item.frozenCloser = true
     }
   }
 }
@@ -576,7 +580,7 @@ function classifySingles(items: Item[], style: ActiveQuoteStyle): void {
   if (style !== "german") {
     while (classifyPossessivesAndClosers(items)) { /* to fixpoint */ }
   }
-  classifyPluralPossessives(items)
+  classifyPluralPossessives(items, style)
 }
 
 // ---------------------------------------------------------------------------
@@ -873,7 +877,7 @@ function closingRunMemberAt(items: Item[], index: number, closingSet: ReadonlySe
   if (index >= items.length || items[index].boundary || !closingSet.has(items[index].ch)) return false
   // A word-final closer with no opener behind it reads as elision; moving
   // punctuation around it corrupts the word ("truckin'." → "truckin.'").
-  if (items[index].unmatchedAfterLetter) return false
+  if (items[index].frozenCloser) return false
   if (items[index].ch !== MODIFIER_LETTER_APOSTROPHE) return true
   const prev = prevIndex(items, index, 1)
   return !isCharItem(items, prev, "s") && !isCharItem(items, prev, "S")
@@ -1436,7 +1440,7 @@ function quotePassClosesCandidate(items: Item[], index: number, quote: string): 
  * a prime only when the running quote balance is open-free; contractions are
  * skipped and trailing apostrophes consume balance without converting.
  */
-function convertPrimes(items: Item[]): void {
+function convertPrimes(items: Item[], swissSeparators: ReadonlySet<number>): void {
   const passes: [string, string][] = [
     ["'", PRIME],
     ['"', DOUBLE_PRIME],
@@ -1446,6 +1450,12 @@ function convertPrimes(items: Item[]): void {
     for (let i = 0; i < items.length; i++) {
       const item = items[i]
       if (item.boundary || item.ch !== quote) continue
+      // A Swiss/Liechtenstein digit-group separator (5'000) is an apostrophe,
+      // not a foot/minute prime; curl it and leave the quote balance untouched.
+      if (quote === "'" && swissSeparators.has(item.start)) {
+        item.ch = RIGHT_SINGLE_QUOTE
+        continue
+      }
       const digitIndex = prevIndex(items, i, 1)
       if (isDigitItem(items, digitIndex) && !isLetterItem(items, i + 1)) {
         // Prime candidate. The after-context check is boundary-blind: a
@@ -1489,12 +1499,30 @@ function convertPrimes(items: Item[]): void {
  */
 const PRIME_CANDIDATE_RE = /\d['"]/
 
+// Swiss/Liechtenstein thousands grouping: 5'000, 1'000'000, 5'000.50. Leading
+// group of 1-3 digits, then one or more apostrophe-separated groups of exactly
+// three, not embedded in a longer digit run. Groups of exactly three rule out
+// feet-inches (5'10", 6'2"), whose inch value is one or two digits.
+const SWISS_THOUSANDS_RE = /(?<![\d'])\d{1,3}(?:'\d{3})+(?!\d)/g
+
+/** Offsets of the apostrophes that separate Swiss thousands groups in `text`. */
+function swissThousandsSeparators(text: string): ReadonlySet<number> {
+  const offsets = new Set<number>()
+  if (!text.includes("'")) return offsets
+  for (const match of text.matchAll(SWISS_THOUSANDS_RE)) {
+    for (let i = 0; i < match[0].length; i++) {
+      if (match[0][i] === "'") offsets.add(match.index + i)
+    }
+  }
+  return offsets
+}
+
 /** primeMarks engine: converts `5'10"` to `5′10″` with quote-balance guards. Commits its edits. */
 export function convertPrimeMarks(view: ProseView): void {
   const text = view.text
   if (!PRIME_CANDIDATE_RE.test(text)) return
   const items = buildItems(view, "american")
-  convertPrimes(items)
+  convertPrimes(items, swissThousandsSeparators(text))
   for (const item of items) {
     if (!item.boundary && item.ch !== text[item.start]) {
       view.replace(item.start, item.end, item.ch)

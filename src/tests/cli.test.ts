@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { Readable, Writable } from "node:stream"
@@ -740,6 +740,80 @@ describe("runCli", () => {
     const htmlOut = readFileSync(html, "utf8")
     expect(htmlOut).toContain(`${LDQ}a${RDQ}`)
     expect(htmlOut).toContain('"b"')
+  })
+
+  it("treats a positional with glob metacharacters as a literal when the file exists", async () => {
+    await withTempCwd("punctilio-literal-glob-", async (dir) => {
+      writeFileSync(join(dir, "note[1].md"), '"x"\n')
+      const cap = captureIO()
+      expect(await runCli(["--write", "note[1].md", "--no-nbsp"], cap.io)).toBe(0)
+      expect(readFileSync(join(dir, "note[1].md"), "utf8")).toContain(`${LDQ}x${RDQ}`)
+      expect(cap.stderr()).toBe("")
+    })
+  })
+
+  it("formats an explicitly named file even when .punctilioignore lists it", async () => {
+    await withTempCwd("punctilio-explicit-ignored-", async (dir) => {
+      writeFileSync(join(dir, "b.md"), '"b"\n')
+      writeFileSync(join(dir, ".punctilioignore"), "b.md\n")
+      const cap = captureIO()
+      expect(await runCli(["--write", "b.md", "--no-nbsp"], cap.io)).toBe(0)
+      expect(readFileSync(join(dir, "b.md"), "utf8")).toContain(`${LDQ}b${RDQ}`)
+    })
+  })
+
+  it("warns to stderr when a glob matches no files", async () => {
+    await withTempCwd("punctilio-glob-empty-", async (dir) => {
+      writeFileSync(join(dir, "a.md"), '"a"\n')
+      const cap = captureIO()
+      expect(await runCli(["--write", "*.html", "--no-nbsp"], cap.io)).toBe(0)
+      expect(cap.stderr()).toContain("no files matched: *.html")
+    })
+  })
+
+  it("warns when a glob matches only ignored files", async () => {
+    await withTempCwd("punctilio-glob-all-ignored-", async (dir) => {
+      writeFileSync(join(dir, "a.md"), '"a"\n')
+      writeFileSync(join(dir, ".punctilioignore"), "*.md\n")
+      const cap = captureIO()
+      expect(await runCli(["--write", "*.md", "--no-nbsp"], cap.io)).toBe(0)
+      expect(cap.stderr()).toContain("no files matched")
+      expect(readFileSync(join(dir, "a.md"), "utf8")).toBe('"a"\n')
+    })
+  })
+
+  it("cache invalidates when the resolved file type changes across runs", async () => {
+    await withTempCwd("punctilio-cache-type-", async (dir) => {
+      writeFileSync(join(dir, "file.txt"), '"x"\n')
+      const cacheLocation = join(dir, "cache.json")
+      const readType = () =>
+        (JSON.parse(readFileSync(cacheLocation, "utf8")) as {
+          files: Record<string, { type: string }>
+        }).files["file.txt"].type
+
+      expect(await runCli(
+        ["--write", "file.txt", "--type", "md", "--cache-location", cacheLocation, "--no-nbsp"],
+        captureIO().io,
+      )).toBe(0)
+      expect(readType()).toBe("md")
+
+      // Same content and options, only --type differs: a type-agnostic cache
+      // key would stale-hit and never re-record the entry as html.
+      expect(await runCli(
+        ["--write", "file.txt", "--type", "html", "--cache-location", cacheLocation, "--no-nbsp"],
+        captureIO().io,
+      )).toBe(0)
+      expect(readType()).toBe("html")
+    })
+  })
+
+  it("--write leaves no leftover temp file behind", async () => {
+    await withTempCwd("punctilio-atomic-", async (dir) => {
+      writeFileSync(join(dir, "doc.md"), '"Hello."\n')
+      expect(await runCli(["--write", "doc.md", "--no-nbsp"], captureIO().io)).toBe(0)
+      expect(readFileSync(join(dir, "doc.md"), "utf8")).toContain(`${LDQ}Hello.${RDQ}`)
+      expect(readdirSync(dir).some((name) => name.includes(".tmp"))).toBe(false)
+    })
   })
 
   it("--no-config skips config-file loading", async () => {

@@ -63,6 +63,24 @@ describe("quote classifier role-stream regressions", () => {
     expect(transform(first, { nbsp: false })).toBe(first)
   })
 
+  it.each([
+    ["5'000", `5${RIGHT_SINGLE_QUOTE}000`],
+    ["1'000'000", `1${RIGHT_SINGLE_QUOTE}000${RIGHT_SINGLE_QUOTE}000`],
+    ["CHF 5'000.50", `CHF 5${RIGHT_SINGLE_QUOTE}000.50`],
+    // Not a three-digit group, so still a foot/minute prime.
+    ["5'0", `5${PRIME}0`],
+  ])("Swiss thousands separators curl to apostrophes, not primes: %j", (input, expected) => {
+    const first = transform(input, { nbsp: false })
+    expect(first).toBe(expected)
+    expect(transform(first, { nbsp: false })).toBe(first)
+  })
+
+  it("keeps feet-inches as primes even next to a thousands-grouped number", () => {
+    expect(transform(`5'000 at 6'2" tall`, { nbsp: false })).toBe(
+      `5${RIGHT_SINGLE_QUOTE}000 at 6${PRIME}2${DOUBLE_PRIME} tall`,
+    )
+  })
+
   it("niceQuotes converts prime candidates by default and leaves them with primes: false", () => {
     expect(niceQuotes('5\'10" tall')).toBe(`5${PRIME}10${DOUBLE_PRIME} tall`)
     expect(niceQuotes('5\'10" tall', { primes: false })).toBe(`5'10${RIGHT_DOUBLE_QUOTE} tall`)
@@ -222,6 +240,10 @@ describe("classifier quirks carried over from v4", () => {
       [`-."`, "german", `-.${LEFT_DOUBLE_QUOTE}`],
       [`x${MODIFIER_LETTER_APOSTROPHE}y`, "german", `x${RIGHT_SINGLE_QUOTE}y`],
       [`"3${MULTIPLICATION}''`, "german", `${DOUBLE_LOW_9_QUOTE}3${MULTIPLICATION}'${RIGHT_SINGLE_QUOTE}`],
+      // An orphan single closer freezes punctuation placement in German:
+      // moving the comma outward would let a re-run read the pair as a quoted
+      // number (`'06,'` → opener) and oscillate, so the comma stays inside.
+      [`'06,'`, "german", `${RIGHT_SINGLE_QUOTE}06,${LEFT_SINGLE_QUOTE}`],
       // French NNBSP padding: adjacent NBSPs absorb into the guillemet
       // render instead of oscillating with collapseSpaces, a space after a
       // classified opener reads as the opener, and the outside mover sees
@@ -282,6 +304,26 @@ describe("fuzz: transform is a fixed point on mixed content", () => {
         )
       }
     }
+  })
+})
+
+describe("transform idempotency edges (heavy-fuzz regressions)", () => {
+  // A trailing multiplier before a curly apostrophe the quotes pass already
+  // produced: rewriting the `x` to `×` would flip the following `${RIGHT_SINGLE_QUOTE}` from an
+  // elision to a closer on re-run and relocate the trailing comma, so the
+  // multiplication pass leaves the letter alone.
+  it("american trailing multiplier before an elided apostrophe: 21707x',,", () => {
+    const first = transform("21707x',,", { punctuationStyle: "american" })
+    expect(first).toBe(`21707x${RIGHT_SINGLE_QUOTE},,`)
+    expect(transform(first, { punctuationStyle: "american" })).toBe(first)
+  })
+
+  // An orphan German single closer keeps the comma inside so the pair is not
+  // re-read as a quoted number (opener + closer) on the next run.
+  it("german decade with a trailing orphan closer: —'06,'", () => {
+    const first = transform(`${EM_DASH}'06,'`, { punctuationStyle: "german" })
+    expect(first).toBe(`${EM_DASH}${RIGHT_SINGLE_QUOTE}06,${LEFT_SINGLE_QUOTE}`)
+    expect(transform(first, { punctuationStyle: "german" })).toBe(first)
   })
 })
 

@@ -75,6 +75,10 @@ describe("multiplication", () => {
     // Test trailing multiplier before punctuation (word boundary cases)
     ['2x"', `2${UNICODE_SYMBOLS.MULTIPLICATION}"`],
     ["2x'", `2${UNICODE_SYMBOLS.MULTIPLICATION}'`],
+    // A curly apostrophe already produced by the quotes pass means that pass
+    // read the `x` as a word-final elision; converting it here would let a
+    // re-run relocate a trailing comma, so leave the `x` alone.
+    [`2x${UNICODE_SYMBOLS.RIGHT_SINGLE_QUOTE}`, `2x${UNICODE_SYMBOLS.RIGHT_SINGLE_QUOTE}`],
     ["2x.", `2${UNICODE_SYMBOLS.MULTIPLICATION}.`],
     ["2x,", `2${UNICODE_SYMBOLS.MULTIPLICATION},`],
     ["2x!", `2${UNICODE_SYMBOLS.MULTIPLICATION}!`],

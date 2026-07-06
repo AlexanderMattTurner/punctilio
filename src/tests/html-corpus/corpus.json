@@ -135,10 +135,10 @@
     {
       "input": "<blockquote><p>\"Outer quote with <blockquote><p>\"inner quote\"</p></blockquote> embedded.\"</p></blockquote>",
       "outputs": {
-        "american": "<blockquote><p>“Outer quote with </p><blockquote><p>“inner quote”</p></blockquote> embedded.”<p></p></blockquote>",
-        "british": "<blockquote><p>“Outer quote with </p><blockquote><p>“inner quote”</p></blockquote> embedded”.<p></p></blockquote>",
-        "german": "<blockquote><p>„Outer quote with </p><blockquote><p>„inner quote“</p></blockquote> embedded“.<p></p></blockquote>",
-        "french": "<blockquote><p>« Outer quote with </p><blockquote><p>« inner quote »</p></blockquote> embedded ».<p></p></blockquote>"
+        "american": "<blockquote><p>“Outer quote with </p><blockquote><p>“inner quote”</p></blockquote> embedded.”<p></p></blockquote>",
+        "british": "<blockquote><p>“Outer quote with </p><blockquote><p>“inner quote”</p></blockquote> embedded”.<p></p></blockquote>",
+        "german": "<blockquote><p>„Outer quote with </p><blockquote><p>„inner quote“</p></blockquote> embedded“.<p></p></blockquote>",
+        "french": "<blockquote><p>« Outer quote with </p><blockquote><p>« inner quote »</p></blockquote> embedded ».<p></p></blockquote>"
       }
     },
     {
