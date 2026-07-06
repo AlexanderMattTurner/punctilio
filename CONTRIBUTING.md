@@ -14,10 +14,10 @@ pnpm install
 
 ```bash
 pnpm test        # Jest test suite
-pnpm lint        # ESLint over src/
+pnpm lint        # ESLint over src/ and scripts/
 pnpm benchmark   # build, then run benchmark.mjs against competitor libraries
 pnpm build       # tsc
-pnpm mutation    # Stryker mutation testing (slow; CI runs it weekly)
+pnpm mutation    # Stryker mutation testing (slow; CI runs it on every PR)
 pnpm mutation:changed   # Stryker over only the files changed on this branch
 ```
 

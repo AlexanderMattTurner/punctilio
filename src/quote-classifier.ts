@@ -134,7 +134,7 @@ const SINGLE_QUOTE_FAMILY = new Set<string>(["'", LEFT_SINGLE_QUOTE, RIGHT_SINGL
 /** Ending-context chars for single quotes (plus any \s char). The curly
  * doubles accompany the straight one: `"` curls into one of them in this same
  * pass, and an ending decision must survive the curl. */
-const SINGLE_ENDING_SET = new Set<string>([".", "!", "?", ";", ",", ")", EM_DASH, "-", "]", '"', LEFT_DOUBLE_QUOTE, RIGHT_DOUBLE_QUOTE, ELLIPSIS, ...FOLDED_TERMINALS])
+const SINGLE_ENDING_SET = new Set<string>([".", "!", "?", ";", ":", ",", ")", EM_DASH, "-", "]", '"', LEFT_DOUBLE_QUOTE, RIGHT_DOUBLE_QUOTE, ELLIPSIS, ...FOLDED_TERMINALS])
 
 /** Boundary chars before an opening single quote (plus any \s char). A
  * straight double quote belongs with the curly pair: whichever way it curls
@@ -160,7 +160,7 @@ const DOUBLE_EMPTY_BEFORE_SET = new Set<string>(["(", "[", "{"])
 const DOUBLE_EMPTY_AFTER_SET = new Set<string>([")", "]", "}", ".", "!", "?", ",", ";", ":", "/", "-", "s", EM_DASH, ELLIPSIS, ...FOLDED_TERMINALS])
 
 /** Ending-context chars after a closing double quote (plus any \s char). */
-const DOUBLE_CLOSE_AFTER_SET = new Set<string>(["/", ")", ".", ",", ";", EM_DASH, ":", "-", "}", "!", "?", "s", ELLIPSIS, ...FOLDED_TERMINALS])
+const DOUBLE_CLOSE_AFTER_SET = new Set<string>(["/", ")", "]", ".", ",", ";", EM_DASH, ":", "-", "}", "!", "?", "s", ELLIPSIS, ...FOLDED_TERMINALS])
 
 /** Builds an `(items, index)` predicate: in range, non-boundary, and `test(ch)`. */
 function makeItemTester(test: (ch: string) => boolean): (items: Item[], index: number) => boolean {

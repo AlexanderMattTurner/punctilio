@@ -241,6 +241,32 @@ export function firstInteriorBoundary(view: ProseView, start: number, end: numbe
   return first < boundaries.length && boundaries[first] < end ? boundaries[first] : -1
 }
 
+/** Largest node boundary strictly less than `offset`, or -1 when none. O(log n). */
+export function lastBoundaryBefore(view: ProseView, offset: number): number {
+  const boundaries = view.boundaries
+  const first = lowerBound(boundaries, offset)
+  return first > 0 ? boundaries[first - 1] : -1
+}
+
+/**
+ * True when every node boundary strictly inside (start, end) is one of
+ * `allowedSlots`. Seeks to the span with binary search, so it scans only the
+ * boundaries in range rather than the whole array on every call — the linear
+ * alternative is O(matches × nodes) on inline-element-heavy views.
+ */
+export function interiorBoundariesWithin(
+  view: ProseView,
+  start: number,
+  end: number,
+  allowedSlots: readonly number[],
+): boolean {
+  const boundaries = view.boundaries
+  for (let i = lowerBound(boundaries, start + 1); i < boundaries.length && boundaries[i] < end; i++) {
+    if (!allowedSlots.includes(boundaries[i])) return false
+  }
+  return true
+}
+
 /** Count of node boundaries that fall at exactly `offset` (empty nodes stack). */
 export function boundaryCountAt(view: ProseView, offset: number): number {
   const boundaries = view.boundaries

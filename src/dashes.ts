@@ -1,5 +1,5 @@
 import { cachedRegExp, FOLDED_WORD_CHARS, isWordLike, LATIN_LETTER_RE, LATIN_LETTERS, MAX_BOUNDARY_SEPARATORS, NBSP_CHARS, SPACE_CHAR_RE, UNICODE_SYMBOLS } from "./constants.js"
-import { boundaryCountAt, exceedsSingleBoundary, firstInteriorBoundary, makeProsePass, overInput, type ProseView, replaceAllInView, type ReplaceAllOptions } from "./prose-view.js"
+import { boundaryCountAt, exceedsSingleBoundary, firstInteriorBoundary, lastBoundaryBefore, makeProsePass, overInput, type ProseView, replaceAllInView, type ReplaceAllOptions } from "./prose-view.js"
 
 export const DASH_STYLES = ["american", "british", "none"] as const
 export type DashStyle = (typeof DASH_STYLES)[number]
@@ -27,7 +27,7 @@ const months: readonly string[] = [
   "July", "August", "September", "October", "November", "December",
   // Abbreviated "May" omitted — the full name is already 3 letters
   "Jan", "Feb", "Mar", "Apr", "Jun",
-  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+  "Jul", "Aug", "Sept", "Sep", "Oct", "Nov", "Dec",
 ]
 
 const monthPattern = months.join("|")
@@ -903,10 +903,10 @@ function convertSpacedDashes(view: ProseView, rendered: string): void {
       // consumed span is also a floor: leading spaces it already consumed are not
       // re-used.
       let matchStart = Math.max(match.index, consumedThrough)
-      for (const b of view.boundaries) {
-        if (b > matchStart && b <= firstDash - 1) matchStart = b
-        else if (b > firstDash) break
-      }
+      // The greatest boundary strictly left of the dash restarts the match just
+      // after it (binary search, not a per-match scan of every boundary).
+      const boundaryBeforeDash = lastBoundaryBefore(view, firstDash)
+      if (boundaryBeforeDash > matchStart) matchStart = boundaryBeforeDash
       /* istanbul ignore if -- defensive: the previous match's trailing `(?=\S|$)`
          stops at this dash, so `consumedThrough` never reaches past `firstDash`. */
       if (matchStart >= firstDash + 1) return null
@@ -1276,8 +1276,10 @@ const { WORD_JOINER } = UNICODE_SYMBOLS
 /**
  * Insert a word joiner (U+2060) immediately before each unspaced em or en
  * dash that has preceding content, preventing the dash from appearing as the
- * first glyph on a wrapped line. Both dashes share Unicode line-break class
- * B2, which permits a break before them. Does not insert before line-leading
+ * first glyph on a wrapped line. The em dash (U+2014) is Unicode line-break
+ * class B2, which permits a break on either side; the en dash (U+2013) is
+ * class BA (break after). The word joiner glues either dash to the preceding
+ * word so it cannot start a wrapped line. Does not insert before line-leading
  * dashes (preceded by whitespace or start-of-string) or dashes already glued
  * with a word joiner — including British-style spaced en dashes ("word – word"),
  * which are already protected by the surrounding spaces.

@@ -148,6 +148,9 @@ describe("hyphenReplace", () => {
       ["October 2012 - December 2014", `October 2012${EN_DASH}December 2014`],
       ["Jan 2000 - Feb", `Jan 2000${EN_DASH}Feb`],
       ["March - April 2025", `March${EN_DASH}April 2025`],
+      // "Sept" is a common four-letter abbreviation for September, alongside "Sep".
+      ["Sept-Nov", `Sept${EN_DASH}Nov`],
+      ["Sept - Dec", `Sept${EN_DASH}Dec`],
     ])('converts "%s"', (input, expected) => {
       expect(hyphenReplace(input)).toBe(expected)
     })

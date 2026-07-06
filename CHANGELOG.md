@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+### Fixed
+
+- A single-quoted term before a colon now curls both quotes (e.g. `'love':` → `‘love’:`). The colon was missing from the single-quote ending contexts, so the closer stayed straight and the opener was then mis-labelled as an apostrophe, mangling both marks.
+- A closing double quote before `]` now curls (e.g. `["foo"]` → `[“foo”]`), matching the opener that already curls after `[`.
+- The month-range en dash now recognizes the common four-letter abbreviation `Sept` (e.g. `Sept-Nov` → `Sept–Nov`), alongside `Sep`.
+- The CLI preserves a file's CRLF line endings instead of rewriting the final line to LF. CRLF files previously gained mixed endings, which made `--check` report a change on every run and `--write` churn indefinitely.
+
+### Performance
+
+- Node-boundary checks in the dash, symbol, and non-breaking-space passes now binary-search only the boundaries inside each match span instead of scanning the entire boundary list per match, removing an O(matches × nodes) cost on inline-element-heavy HTML/Markdown views.
+
+### Changed
+
+- Dropped the unused `escape-string-regexp` runtime dependency.
+
 ## [5.0.10] - 2026-06-27
 
 ### Changed

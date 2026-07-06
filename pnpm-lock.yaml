@@ -11,9 +11,6 @@ importers:
       cosmiconfig:
         specifier: 9.0.1
         version: 9.0.1(typescript@5.9.3)
-      escape-string-regexp:
-        specifier: 5.0.0
-        version: 5.0.0
       ignore:
         specifier: 7.0.5
         version: 7.0.5

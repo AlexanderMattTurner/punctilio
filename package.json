@@ -161,7 +161,6 @@
   },
   "dependencies": {
     "cosmiconfig": "9.0.1",
-    "escape-string-regexp": "5.0.0",
     "ignore": "7.0.5",
     "quick-lru": "7.3.0",
     "tinyglobby": "0.2.16",

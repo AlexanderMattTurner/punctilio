@@ -160,6 +160,31 @@ describe("runCli", () => {
     expect(code).toBe(0)
   })
 
+  it("--write preserves CRLF line endings instead of producing mixed endings", async () => {
+    const path = tmpFile('"Hello" -- world.\r\nSecond line.\r\n', "doc.md")
+    const cap = captureIO()
+    const code = await runCli(["--write", path, "--no-nbsp"], cap.io)
+    expect(code).toBe(0)
+    const written = readFileSync(path, "utf8")
+    expect(written).toBe(`${LDQ}Hello${RDQ}${EM_DASH}world.\r\nSecond line.\r\n`)
+    expect(written).not.toMatch(/[^\r]\n/) // no lone LF
+  })
+
+  it("--check is stable on an already-formatted CRLF file (no perpetual churn)", async () => {
+    const path = tmpFile(`${LDQ}Hi${RDQ}${EM_DASH}there.\r\nDone.\r\n`, "doc.md")
+    const cap = captureIO()
+    const code = await runCli(["--check", path, "--no-nbsp"], cap.io)
+    expect(code).toBe(0)
+  })
+
+  it("--write preserves CRLF for HTML files", async () => {
+    const path = tmpFile('<p>"Hello"</p>\r\n', "page.html")
+    const cap = captureIO()
+    const code = await runCli(["--write", path, "--no-nbsp"], cap.io)
+    expect(code).toBe(0)
+    expect(readFileSync(path, "utf8")).toBe(`<p>${LDQ}Hello${RDQ}</p>\r\n`)
+  })
+
   it("handles HTML files via .html extension", async () => {
     const path = tmpFile('<p>"Hello"</p>\n', "page.html")
     const cap = captureIO()
