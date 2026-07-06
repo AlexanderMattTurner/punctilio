@@ -240,6 +240,10 @@ describe("classifier quirks carried over from v4", () => {
       [`-."`, "german", `-.${LEFT_DOUBLE_QUOTE}`],
       [`x${MODIFIER_LETTER_APOSTROPHE}y`, "german", `x${RIGHT_SINGLE_QUOTE}y`],
       [`"3${MULTIPLICATION}''`, "german", `${DOUBLE_LOW_9_QUOTE}3${MULTIPLICATION}'${RIGHT_SINGLE_QUOTE}`],
+      // An orphan single closer freezes punctuation placement in German:
+      // moving the comma outward would let a re-run read the pair as a quoted
+      // number (`'06,'` → opener) and oscillate, so the comma stays inside.
+      [`'06,'`, "german", `${RIGHT_SINGLE_QUOTE}06,${LEFT_SINGLE_QUOTE}`],
       // French NNBSP padding: adjacent NBSPs absorb into the guillemet
       // render instead of oscillating with collapseSpaces, a space after a
       // classified opener reads as the opener, and the outside mover sees
@@ -300,6 +304,26 @@ describe("fuzz: transform is a fixed point on mixed content", () => {
         )
       }
     }
+  })
+})
+
+describe("transform idempotency edges (heavy-fuzz regressions)", () => {
+  // A trailing multiplier before a curly apostrophe the quotes pass already
+  // produced: rewriting the `x` to `×` would flip the following `${RIGHT_SINGLE_QUOTE}` from an
+  // elision to a closer on re-run and relocate the trailing comma, so the
+  // multiplication pass leaves the letter alone.
+  it("american trailing multiplier before an elided apostrophe: 21707x',,", () => {
+    const first = transform("21707x',,", { punctuationStyle: "american" })
+    expect(first).toBe(`21707x${RIGHT_SINGLE_QUOTE},,`)
+    expect(transform(first, { punctuationStyle: "american" })).toBe(first)
+  })
+
+  // An orphan German single closer keeps the comma inside so the pair is not
+  // re-read as a quoted number (opener + closer) on the next run.
+  it("german decade with a trailing orphan closer: —'06,'", () => {
+    const first = transform(`${EM_DASH}'06,'`, { punctuationStyle: "german" })
+    expect(first).toBe(`${EM_DASH}${RIGHT_SINGLE_QUOTE}06,${LEFT_SINGLE_QUOTE}`)
+    expect(transform(first, { punctuationStyle: "german" })).toBe(first)
   })
 })
 

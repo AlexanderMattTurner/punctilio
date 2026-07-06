@@ -93,13 +93,16 @@ interface Item {
   /** Set when punctuation placement relocates this item. */
   moved: boolean
   /**
-   * Set on a CLOSE_SINGLE that has no matching opener and sits directly after
-   * a letter — a word-final quote that reads as elision ("keep on truckin'")
-   * at least as plausibly as quotation. It keeps its closer role (glyph
-   * U+2019 either way) but punctuation placement must not move around it:
-   * pulling the period into "truckin'." corrupts the word to "truckin.'".
+   * Set on a CLOSE_SINGLE that has no matching opener, so punctuation
+   * placement must not move around it. Two cases qualify: a word-final quote
+   * directly after a letter, which reads as elision ("keep on truckin'") at
+   * least as plausibly as quotation — pulling the period into "truckin'."
+   * corrupts the word to "truckin.'" — and, in German, any orphan closer,
+   * because German re-derives its rendered glyph (U+2018) back to a straight
+   * quote by position on the next run, so relocating punctuation around it
+   * changes that re-derived shape and breaks the fixed point ("'06,'").
    */
-  unmatchedAfterLetter?: boolean
+  frozenCloser?: boolean
   /** Insertion anchor (clean-text offset and bind side) once moved. */
   anchorOffset: number
   anchorBind: "left" | "right"
@@ -530,12 +533,13 @@ function classifyOpeningSingles(items: Item[]): void {
 
 /**
  * Unmatched CLOSE_SINGLE after s/S → APOSTROPHE (plural possessives), via the
- * advisory open/close balance scan. An unmatched closer after any other
- * letter keeps its closer role but is flagged {@link Item.unmatchedAfterLetter}
- * so punctuation placement leaves it alone. Boundaries are fully transparent
- * here.
+ * advisory open/close balance scan. An unmatched closer keeps its closer role
+ * but is flagged {@link Item.frozenCloser} so punctuation placement leaves it
+ * alone: after any other letter in every style, and after any character in
+ * German (which re-derives the rendered glyph by position on re-run).
+ * Boundaries are fully transparent here.
  */
-function classifyPluralPossessives(items: Item[]): void {
+function classifyPluralPossessives(items: Item[], style: ActiveQuoteStyle): void {
   let balance = 0
   for (let i = 0; i < items.length; i++) {
     const item = items[i]
@@ -553,8 +557,8 @@ function classifyPluralPossessives(items: Item[]): void {
     while (j >= 0 && items[j].boundary) j--
     if (j >= 0 && (items[j].ch === "s" || items[j].ch === "S")) {
       item.ch = MODIFIER_LETTER_APOSTROPHE
-    } else if (j >= 0 && isLetterItem(items, j)) {
-      item.unmatchedAfterLetter = true
+    } else if (j >= 0 && (isLetterItem(items, j) || style === "german")) {
+      item.frozenCloser = true
     }
   }
 }
@@ -576,7 +580,7 @@ function classifySingles(items: Item[], style: ActiveQuoteStyle): void {
   if (style !== "german") {
     while (classifyPossessivesAndClosers(items)) { /* to fixpoint */ }
   }
-  classifyPluralPossessives(items)
+  classifyPluralPossessives(items, style)
 }
 
 // ---------------------------------------------------------------------------
@@ -873,7 +877,7 @@ function closingRunMemberAt(items: Item[], index: number, closingSet: ReadonlySe
   if (index >= items.length || items[index].boundary || !closingSet.has(items[index].ch)) return false
   // A word-final closer with no opener behind it reads as elision; moving
   // punctuation around it corrupts the word ("truckin'." → "truckin.'").
-  if (items[index].unmatchedAfterLetter) return false
+  if (items[index].frozenCloser) return false
   if (items[index].ch !== MODIFIER_LETTER_APOSTROPHE) return true
   const prev = prevIndex(items, index, 1)
   return !isCharItem(items, prev, "s") && !isCharItem(items, prev, "S")
