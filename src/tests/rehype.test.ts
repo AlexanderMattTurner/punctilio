@@ -10,6 +10,7 @@ import {
   getFirstTextNode,
   getTextContent,
   proseViewOf,
+  proseViewsOf,
   rehypePunctilio,
   type RehypePunctilioOptions,
 } from "../rehype.js"
@@ -196,6 +197,32 @@ describe("rehypePunctilio", () => {
           shouldSkipText: skipInSpan,
         }),
       ).toEqual(`<div><span>only"x"</span><p>${LDQ}para${RDQ}</p></div>`)
+    })
+  })
+
+  describe("opaque inline content is an impassable gap", () => {
+    // Content removed from the flattened text (a skipped element with content,
+    // an image, or other atomic inline node) visually separates its neighbors,
+    // so passes must not treat the surrounding text as adjacent.
+    it.each([
+      ["skipped element blocks multiplication", "<p>5<code>c</code>x 3</p>", "<p>5<code>c</code>x 3</p>"],
+      ["image blocks multiplication", '<p>5<img src="a">x 3</p>', '<p>5<img src="a">x 3</p>'],
+      ["skipped element blocks a numeric range", "<p>1<code>c</code>-5</p>", `<p>1<code>c</code>${UNICODE_SYMBOLS.MINUS}5</p>`],
+      ["two gaps keep three independent segments", '<p>1<img src="a">5<code>c</code>x 3</p>', '<p>1<img src="a">5<code>c</code>x 3</p>'],
+      // An empty skipped element renders nothing, so its neighbors stay adjacent.
+      ["empty skipped element does not block", "<p>5<code></code>x5</p>", `<p>5<code></code>${MULTIPLICATION}5</p>`],
+      // Leading opaque content has no left neighbor, so it never splits.
+      ["leading opaque content does not split", '<p><img src="a">5x5</p>', `<p><img src="a">5${MULTIPLICATION}5</p>`],
+    ])("%s", async (_name, html, expected) => {
+      expect(await processHtml(html, { nbsp: false })).toEqual(expected)
+    })
+
+    it("skipped-text nodes act as an opaque gap between their neighbors", async () => {
+      // The skipped "MID" text separates "5" from "x5", so no × forms across it.
+      const skipMid = (t: Text) => t.value === "MID"
+      expect(
+        await processHtml("<p>5<span>MID</span>x5</p>", { nbsp: false, shouldSkipText: skipMid }),
+      ).toEqual("<p>5<span>MID</span>x5</p>")
     })
   })
 
@@ -400,6 +427,25 @@ describe("rehypePunctilio", () => {
         let deep: Element = h("span", "deep") as Element
         for (let i = 0; i < 1005; i++) deep = h("div", [deep]) as Element
         expect(flattenTextNodes(deep, ignoreNone)).toHaveLength(0)
+      })
+    })
+
+    describe("proseViewsOf", () => {
+      it("returns one view spanning the element when there is no opaque content", () => {
+        const element = h("p", ["hello ", h("em", "world")]) as Element
+        const views = proseViewsOf(element)
+        expect(views).toHaveLength(1)
+        expect(views[0].text).toBe("hello world")
+      })
+
+      it("splits into one view per opaque-delimited segment", () => {
+        const element = h("p", ["1", h("code", "c"), "-5"]) as Element
+        const views = proseViewsOf(element, { shouldSkip: ignoreCode })
+        expect(views.map((v) => v.text)).toEqual(["1", "-5"])
+      })
+
+      it("returns no views for an element with no text", () => {
+        expect(proseViewsOf(h("div", []) as Element)).toEqual([])
       })
     })
 

@@ -7,7 +7,7 @@ import { transformView } from "./index.js"
 import { TRANSFORM_OPTION_KEYS, type TransformOptions } from "./transform-options.js"
 import { MAX_RECURSION_DEPTH } from "./constants.js"
 import { assertKnownOptionKeys, formatErrorString } from "./utils.js"
-import { buildProseView, type ProsePass, type ProseView } from "./prose-view.js"
+import { buildProseView, type ProsePass, type ProseView, splitAtIndices } from "./prose-view.js"
 
 export type ElementPredicate = (node: Element) => boolean
 
@@ -80,53 +80,100 @@ export const REHYPE_ONLY_OPTION_KEYS: readonly string[] = ["skipTags", "skipClas
 /** Runtime list of valid `rehypePunctilio` option keys. */
 export const REHYPE_OPTION_KEYS: readonly string[] = [...TRANSFORM_OPTION_KEYS, ...REHYPE_ONLY_OPTION_KEYS]
 
-export function flattenTextNodes(
-  node: Element | ElementContent,
-  shouldSkip: ElementPredicate,
-  options?: ElementTransformOptions
-): Text[] {
-  const shouldSkipText = options?.shouldSkipText
-  // Only track ancestors when shouldSkipText needs them, to avoid the
-  // O(n²) allocation cost of copying the ancestor chain at every level.
-  const ancestors: Element[] | null = shouldSkipText ? [] : null
-  return flattenTextNodesImpl(node, shouldSkip, shouldSkipText, ancestors, 0)
+// Void/replaced inline elements that render atomic content (or a hard break)
+// and carry no transformable text. When one sits between two text nodes it is a
+// real visual separator, so the flattener records an opaque gap there.
+const OPAQUE_VOID_TAGS = new Set([
+  "img", "br", "wbr", "input", "hr", "embed",
+  "area", "source", "track", "col", "param", "keygen",
+])
+
+/** Flattened text nodes plus the opaque gaps that fell between adjacent ones. */
+export interface FlattenedProse {
+  nodes: Text[]
+  /** Indices into `nodes` (1..n-1) with removed opaque content immediately before them. */
+  opaqueBefore: Set<number>
 }
 
-function flattenTextNodesImpl(
-  node: Element | ElementContent,
-  shouldSkip: ElementPredicate,
-  shouldSkipText: TextNodeSkipPredicate | undefined,
-  ancestors: Element[] | null,
-  depth: number
-): Text[] {
+interface ProseCollector {
+  nodes: Text[]
+  opaqueBefore: Set<number>
+  shouldSkip: ElementPredicate
+  shouldSkipText: TextNodeSkipPredicate | undefined
+  ancestors: Element[] | null
+  // An opaque element was dropped since the last emitted text node; the next
+  // emitted node records an opaque gap before it.
+  pendingOpaque: boolean
+}
+
+function collectProse(node: Element | ElementContent, depth: number, c: ProseCollector): void {
   if (depth > MAX_RECURSION_DEPTH) {
-    return []
+    return
   }
 
-  if (node.type === "element" && shouldSkip(node)) {
-    return []
+  if (node.type === "element") {
+    if (c.shouldSkip(node)) {
+      // A skipped element with content is a visual separator; an empty one
+      // renders nothing and leaves its neighbors genuinely adjacent.
+      if (node.children.length > 0) c.pendingOpaque = true
+      return
+    }
+    if (OPAQUE_VOID_TAGS.has(node.tagName)) {
+      c.pendingOpaque = true
+      return
+    }
+    if (c.ancestors) c.ancestors.push(node)
+    for (const child of node.children) collectProse(child, depth + 1, c)
+    if (c.ancestors) c.ancestors.pop()
+    return
   }
 
   if (node.type === "text") {
     // Snapshot ancestors at the callback boundary — the walker mutates the
     // shared array as it recurses, so handing it out directly would let a
     // caller observe a stale view if they captured the reference.
-    if (shouldSkipText && ancestors && shouldSkipText(node, ancestors.slice())) {
-      return []
+    if (c.shouldSkipText && c.ancestors && c.shouldSkipText(node, c.ancestors.slice())) {
+      // Preserved-but-untransformed text is a separator between its neighbors.
+      c.pendingOpaque = true
+      return
     }
-    return [node]
+    if (c.pendingOpaque && c.nodes.length > 0) c.opaqueBefore.add(c.nodes.length)
+    c.pendingOpaque = false
+    c.nodes.push(node)
   }
+}
 
-  if (node.type === "element") {
-    if (ancestors) ancestors.push(node)
-    const result = node.children.flatMap((child) =>
-      flattenTextNodesImpl(child, shouldSkip, shouldSkipText, ancestors, depth + 1)
-    )
-    if (ancestors) ancestors.pop()
-    return result
+function newCollector(shouldSkip: ElementPredicate, options?: ElementTransformOptions): ProseCollector {
+  const shouldSkipText = options?.shouldSkipText
+  return {
+    nodes: [],
+    opaqueBefore: new Set(),
+    shouldSkip,
+    shouldSkipText,
+    // Only track ancestors when shouldSkipText needs them, to avoid the
+    // O(n²) allocation cost of copying the ancestor chain at every level.
+    ancestors: shouldSkipText ? [] : null,
+    pendingOpaque: false,
   }
+}
 
-  return []
+/** Flattens an element's transformable text nodes, tracking opaque gaps. */
+export function flattenProse(
+  node: Element | ElementContent,
+  shouldSkip: ElementPredicate,
+  options?: ElementTransformOptions
+): FlattenedProse {
+  const c = newCollector(shouldSkip, options)
+  collectProse(node, 0, c)
+  return { nodes: c.nodes, opaqueBefore: c.opaqueBefore }
+}
+
+export function flattenTextNodes(
+  node: Element | ElementContent,
+  shouldSkip: ElementPredicate,
+  options?: ElementTransformOptions
+): Text[] {
+  return flattenProse(node, shouldSkip, options).nodes
 }
 
 export function getTextContent(
@@ -191,9 +238,11 @@ export interface ProseViewOfOptions extends ElementTransformOptions {
 }
 
 /**
- * Builds a ProseView over the element's transformable text nodes, honoring
- * the element-level `shouldSkip` and per-text-node `shouldSkipText`
- * predicates. Returns null when the element holds no transformable text.
+ * Builds a single ProseView over the element's transformable text nodes,
+ * honoring the element-level `shouldSkip` and per-text-node `shouldSkipText`
+ * predicates. Returns null when the element holds no transformable text. This
+ * view spans opaque gaps; the transform pipeline uses {@link proseViewsOf},
+ * which splits on them so no pass rewrites across removed atomic content.
  */
 export function proseViewOf(element: Element, options: ProseViewOfOptions = {}): ProseView | null {
   /* istanbul ignore if -- defensive: elements should always have children array */
@@ -208,6 +257,22 @@ export function proseViewOf(element: Element, options: ProseViewOfOptions = {}):
   }
 
   return buildProseView(textNodes)
+}
+
+/**
+ * Builds one ProseView per opaque-delimited segment of the element's text.
+ * Splitting at opaque gaps (removed skipped elements, images, and other atomic
+ * inline content) keeps their surrounding text in separate views, so a pass can
+ * never treat text as adjacent across content that visually separates it.
+ */
+export function proseViewsOf(element: Element, options: ProseViewOfOptions = {}): ProseView[] {
+  /* istanbul ignore if -- defensive: elements should always have children array */
+  if (!element?.children) {
+    return []
+  }
+  const shouldSkip = options.shouldSkip ?? (() => false)
+  const { nodes, opaqueBefore } = flattenProse(element, shouldSkip, options)
+  return splitAtIndices(nodes, opaqueBefore).map((group) => buildProseView(group))
 }
 
 /**
@@ -255,7 +320,7 @@ export function applyPasses(
   passes: readonly PassEntry[],
   options: ProseViewOfOptions = {},
 ): void {
-  let currentView: ProseView | null = null
+  let currentViews: ProseView[] = []
   let currentPredicates: Pick<ResolvedPassEntry, "shouldSkip" | "shouldSkipText"> | null = null
 
   for (const entry of passes) {
@@ -266,20 +331,18 @@ export function applyPasses(
       currentPredicates.shouldSkip === shouldSkip &&
       currentPredicates.shouldSkipText === shouldSkipText
     if (!samePredicates) {
-      currentView = proseViewOf(element, {
+      currentViews = proseViewsOf(element, {
         shouldSkip: mergePredicates(options.shouldSkip, shouldSkip),
         shouldSkipText: mergePredicates(options.shouldSkipText, shouldSkipText),
       })
       currentPredicates = { shouldSkip, shouldSkipText }
     }
 
-    // No transformable text under this entry's predicates; later entries may
-    // still see text (their skip sets differ), so keep going.
-    if (currentView === null) {
-      continue
+    // Each opaque-delimited segment is transformed independently; an entry with
+    // no transformable text simply has no views to run over.
+    for (const view of currentViews) {
+      pass(view)
     }
-
-    pass(currentView)
   }
 }
 
@@ -534,20 +597,19 @@ function collectProseUnitsImpl(
   return units
 }
 
-// Flatten a run's inline siblings to their text nodes, seeding the ancestor
-// chain with `container` so `shouldSkipText` sees the same ancestors it would
-// when the whole element is flattened as a leaf.
-function flattenRunTextNodes(
+// Flatten a run's inline siblings to their text nodes (with opaque gaps),
+// seeding the ancestor chain with `container` so `shouldSkipText` sees the same
+// ancestors it would when the whole element is flattened as a leaf.
+function flattenRunProse(
   container: Element,
   children: readonly ElementContent[],
   shouldSkip: ElementPredicate,
   options: ProseViewOfOptions
-): Text[] {
-  const shouldSkipText = options.shouldSkipText
-  const ancestors: Element[] | null = shouldSkipText ? [container] : null
-  return children.flatMap((child) =>
-    flattenTextNodesImpl(child, shouldSkip, shouldSkipText, ancestors, 1)
-  )
+): FlattenedProse {
+  const c = newCollector(shouldSkip, options)
+  if (c.ancestors) c.ancestors.push(container)
+  for (const child of children) collectProse(child, 1, c)
+  return { nodes: c.nodes, opaqueBefore: c.opaqueBefore }
 }
 
 function markDescendants(node: Element, set: Set<Element>, depth: number = 0): void {
@@ -605,8 +667,7 @@ export function rehypePunctilio(
       for (const unit of units) {
         if (unit.kind === "element") {
           if (!transformed.has(unit.element)) {
-            const view = proseViewOf(unit.element, viewOptions)
-            if (view !== null) {
+            for (const view of proseViewsOf(unit.element, viewOptions)) {
               transformView(view, transformOptions)
             }
             transformed.add(unit.element)
@@ -614,9 +675,9 @@ export function rehypePunctilio(
             markDescendants(unit.element, transformed)
           }
         } else {
-          const textNodes = flattenRunTextNodes(unit.container, unit.children, shouldSkip, viewOptions)
-          if (textNodes.length > 0) {
-            transformView(buildProseView(textNodes), transformOptions)
+          const { nodes, opaqueBefore } = flattenRunProse(unit.container, unit.children, shouldSkip, viewOptions)
+          for (const group of splitAtIndices(nodes, opaqueBefore)) {
+            transformView(buildProseView(group), transformOptions)
           }
           // Mark the container so a later visit doesn't re-collect its runs,
           // and mark the run's inline-element members' subtrees.

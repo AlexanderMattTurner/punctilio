@@ -6,7 +6,7 @@ import { visitParents } from "unist-util-visit-parents"
 import { transformView } from "./index.js"
 import { TRANSFORM_OPTION_KEYS, type TransformOptions } from "./transform-options.js"
 import { MAX_RECURSION_DEPTH } from "./constants.js"
-import { buildProseView } from "./prose-view.js"
+import { buildProseView, splitAtIndices } from "./prose-view.js"
 import { assertKnownOptionKeys } from "./utils.js"
 
 /**
@@ -20,30 +20,48 @@ const PHRASING_CONTAINERS = new Set(["paragraph", "heading", "tableCell"])
 
 const SKIP_TYPES = new Set(["inlineCode", "html"])
 
-function flattenTextNodes(
-  node: PhrasingContent,
-  depth: number = 0
-): Text[] {
+// Leaf phrasing nodes that render atomic content and carry no transformable
+// text. Between two text nodes, one is a real visual separator, so the
+// flattener records an opaque gap there (mirroring skipped `inlineCode`/`html`).
+const OPAQUE_LEAF_TYPES = new Set([
+  "image", "imageReference", "break", "footnoteReference", "inlineMath",
+])
+
+interface ProseCollector {
+  nodes: Text[]
+  opaqueBefore: Set<number>
+  // An opaque node was dropped since the last emitted text node; the next
+  // emitted node records an opaque gap before it.
+  pendingOpaque: boolean
+}
+
+function collectProse(node: PhrasingContent, depth: number, c: ProseCollector): void {
   /* istanbul ignore if -- defensive: prevents stack overflow from malicious nesting */
   if (depth > MAX_RECURSION_DEPTH) {
-    return []
+    return
   }
 
-  if (SKIP_TYPES.has(node.type)) {
-    return []
+  if (SKIP_TYPES.has(node.type) || OPAQUE_LEAF_TYPES.has(node.type)) {
+    c.pendingOpaque = true
+    return
   }
 
   if (node.type === "text") {
-    return [node]
+    if (c.pendingOpaque && c.nodes.length > 0) c.opaqueBefore.add(c.nodes.length)
+    c.pendingOpaque = false
+    c.nodes.push(node)
+    return
   }
 
   if ("children" in node) {
-    return (node.children as PhrasingContent[]).flatMap((child) =>
-      flattenTextNodes(child, depth + 1)
-    )
+    for (const child of node.children as PhrasingContent[]) collectProse(child, depth + 1, c)
   }
+}
 
-  return []
+function flattenProse(children: readonly PhrasingContent[]): { nodes: Text[]; opaqueBefore: Set<number> } {
+  const c: ProseCollector = { nodes: [], opaqueBefore: new Set(), pendingOpaque: false }
+  for (const child of children) collectProse(child, 0, c)
+  return { nodes: c.nodes, opaqueBefore: c.opaqueBefore }
 }
 
 export function remarkPunctilio(
@@ -75,15 +93,13 @@ export function remarkPunctilio(
         return
       }
 
-      const textNodes = (node.children as PhrasingContent[]).flatMap((child) =>
-        flattenTextNodes(child)
-      )
+      const { nodes, opaqueBefore } = flattenProse(node.children as PhrasingContent[])
 
-      if (textNodes.length === 0) {
-        return
+      // Split at opaque gaps (inline code, images, breaks) so no pass rewrites
+      // text as adjacent across content that visually separates it.
+      for (const group of splitAtIndices(nodes, opaqueBefore)) {
+        transformView(buildProseView(group), pluginOptions)
       }
-
-      transformView(buildProseView(textNodes), pluginOptions)
     })
   }
 }
