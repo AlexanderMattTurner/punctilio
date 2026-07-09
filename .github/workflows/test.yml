@@ -30,6 +30,9 @@ jobs:
       - name: Run tests
         run: pnpm test
 
+      - name: Run script tests
+        run: pnpm test:scripts
+
   benchmark:
     runs-on: ubuntu-latest
     timeout-minutes: 25
