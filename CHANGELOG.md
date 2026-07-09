@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## [5.1.1] - 2026-07-09
+
+### Security
+
+- Hardened CI workflow scripts and triage prompt configuration.
+
+### Changed
+
+- Updated GitHub Actions pins to use node24-compatible SHAs.
+
 ## [5.1.0] - 2026-07-09
 
 ### Added
