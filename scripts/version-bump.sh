@@ -25,14 +25,19 @@ fi
 # body that happens to start with `feat:` can't inflate the bump. $2: full
 # messages (`%B`), scanned only for BREAKING CHANGE footers. Rules, per
 # Conventional Commits:
-# - any `type!:` / `type(scope)!:` subject or `BREAKING CHANGE:` footer -> major
+# - any `type!:` / `type(scope)!:` subject or `BREAKING CHANGE:` footer -> minor
+#   (capped, not major). An automated push to main must never jump a major
+#   version; a real major release is a deliberate, manual act (bump
+#   package.json + tag/publish by hand). The breaking change still ships as a
+#   minor.
 # - else any `feat:` / `feat(scope):` subject -> minor
 # - else (including commits with no conventional prefix at all) -> patch
 determine_bump() {
   local subjects="$1" full_messages="$2"
   if grep -Eq '^[a-zA-Z]+(\([^)]*\))?!:' <<< "$subjects" \
     || grep -Eq '^BREAKING[- ]CHANGE:' <<< "$full_messages"; then
-    echo "major"
+    log "Breaking-change marker detected, but automated MAJOR bumps are disabled — capping at 'minor'. Cut a major release by hand if one is intended."
+    echo "minor"
   elif grep -Eq '^feat(\([^)]*\))?:' <<< "$subjects"; then
     echo "minor"
   else
@@ -189,16 +194,19 @@ fi
 # Parse version components
 IFS='.' read -r MAJOR MINOR PATCH_NUM <<< "$CURRENT_VERSION"
 
-# Calculate new version
+# Calculate new version. determine_bump never returns "major" (automated major
+# bumps are disabled), so there is no major arm; the `*)` default fails loud
+# rather than leaving NEW_VERSION unset on an unexpected bump level.
 case $BUMP in
-  major)
-    NEW_VERSION="$((MAJOR + 1)).0.0"
-    ;;
   minor)
     NEW_VERSION="${MAJOR}.$((MINOR + 1)).0"
     ;;
   patch)
     NEW_VERSION="${MAJOR}.${MINOR}.$((PATCH_NUM + 1))"
+    ;;
+  *)
+    log "Error: unexpected bump level '$BUMP' (expected 'minor' or 'patch'). Refusing to guess a version."
+    exit 1
     ;;
 esac
 
