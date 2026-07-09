@@ -6,6 +6,10 @@ on:
     branches: [main]
   workflow_dispatch:
 
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions:
   contents: read
 
@@ -34,7 +38,7 @@ jobs:
             mutate: src/prose-view.ts,src/index.ts,src/constants.ts,src/transform-options.ts,src/utils.ts
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: Setup
         uses: ./.github/actions/setup
@@ -46,7 +50,7 @@ jobs:
       # (Stryker revalidates incremental results against the actual code and
       # test diffs, so a stale file is safe and still prunes unchanged work).
       - name: Restore incremental mutation state
-        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: reports/stryker-incremental-${{ matrix.shard }}.json
           key: stryker-incremental-${{ matrix.shard }}-${{ github.sha }}
@@ -60,7 +64,7 @@ jobs:
 
       - name: Upload HTML report
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
           name: mutation-report-${{ matrix.shard }}
           path: reports/mutation/
@@ -72,7 +76,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: Every src file appears in a shard
         run: |
