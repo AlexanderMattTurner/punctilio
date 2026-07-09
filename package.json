@@ -81,12 +81,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/alexander-turner/punctilio.git"
+    "url": "git+https://github.com/AlexanderMattTurner/punctilio.git"
   },
   "bugs": {
-    "url": "https://github.com/alexander-turner/punctilio/issues"
+    "url": "https://github.com/AlexanderMattTurner/punctilio/issues"
   },
-  "homepage": "https://github.com/alexander-turner/punctilio#readme",
+  "homepage": "https://github.com/AlexanderMattTurner/punctilio#readme",
   "engines": {
     "node": ">=20.0.0"
   },
