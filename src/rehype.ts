@@ -314,13 +314,21 @@ function mergePredicates<Args extends unknown[]>(
  * an entry with different `shouldSkip`/`shouldSkipText` predicates gets a
  * fresh view (built after the previous pass committed) over the text nodes
  * that survive both the base `options` predicates and its own.
+ *
+ * The view is a single {@link proseViewOf} spanning the whole element, with a
+ * boundary recorded at every opaque gap (removed skipped element, image, …).
+ * Caller passes stay boundary-aware via `view.hasBoundary`, so each pass
+ * decides for itself whether to act across a gap — spacing a slash between two
+ * skipped `<code>` runs, gluing a dash after a skipped element — rather than
+ * being blocked wholesale. Passes that must not cross a gap consult the same
+ * boundary marks; use {@link proseViewsOf} directly for hard per-segment views.
  */
 export function applyPasses(
   element: Element,
   passes: readonly PassEntry[],
   options: ProseViewOfOptions = {},
 ): void {
-  let currentViews: ProseView[] = []
+  let currentView: ProseView | null = null
   let currentPredicates: Pick<ResolvedPassEntry, "shouldSkip" | "shouldSkipText"> | null = null
 
   for (const entry of passes) {
@@ -331,18 +339,19 @@ export function applyPasses(
       currentPredicates.shouldSkip === shouldSkip &&
       currentPredicates.shouldSkipText === shouldSkipText
     if (!samePredicates) {
-      currentViews = proseViewsOf(element, {
+      currentView = proseViewOf(element, {
         shouldSkip: mergePredicates(options.shouldSkip, shouldSkip),
         shouldSkipText: mergePredicates(options.shouldSkipText, shouldSkipText),
       })
       currentPredicates = { shouldSkip, shouldSkipText }
     }
 
-    // Each opaque-delimited segment is transformed independently; an entry with
-    // no transformable text simply has no views to run over.
-    for (const view of currentViews) {
-      pass(view)
+    // No transformable text under this entry's predicates; a later entry may
+    // still see text (its skip set differs), so keep going.
+    if (currentView === null) {
+      continue
     }
+    pass(currentView)
   }
 }
 

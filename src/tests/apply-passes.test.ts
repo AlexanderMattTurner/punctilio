@@ -2,7 +2,7 @@ import type { Element } from "hast"
 import { h } from "hastscript"
 
 import { applyPasses, getTextContent, type PassEntry } from "../rehype.js"
-import { definePass } from "../prose-view.js"
+import { definePass, makeProsePass, type ProseView } from "../prose-view.js"
 import { hyphenReplace } from "../dashes.js"
 import { UNICODE_SYMBOLS } from "../constants.js"
 
@@ -102,5 +102,33 @@ describe("applyPasses", () => {
     const element = h("p")
     expect(() => applyPasses(element, [definePass(/a/g, "b")])).not.toThrow()
     expect(getTextContent(element)).toBe("")
+  })
+
+  // A pass receives one view spanning the whole element, with a boundary
+  // recorded at each opaque gap (a removed skipped element) — not a separate
+  // view per gap-delimited segment. This keeps boundary-aware passes able to
+  // act across an inline-element boundary instead of seeing isolated fragments.
+  const skipCode = (node: Element): boolean => node.tagName === "code"
+
+  it("hands each pass one spanning view with a boundary at an opaque gap", () => {
+    const element = h("p", ["a", h("code", "x"), "/", h("code", "y"), "b"])
+    const seen: Array<{ text: string; boundaryAtSlash: boolean }> = []
+    const capture = makeProsePass((view: ProseView) => {
+      const slash = view.text.indexOf("/")
+      seen.push({ text: view.text, boundaryAtSlash: view.hasBoundary(slash) })
+    })
+    applyPasses(element, [capture], { shouldSkip: skipCode })
+    expect(seen).toEqual([{ text: "a/b", boundaryAtSlash: true }])
+  })
+
+  it("lets a boundary-aware pass act across an opaque gap", () => {
+    const element = h("p", ["a", h("code", "x"), "/", h("code", "y"), "b"])
+    // Pads the slash only when it can see a following character — reachable
+    // only if the code-separated neighbors share one spanning view.
+    const padSlash = definePass(/\//g, (match, view) =>
+      view.text[match.index + 1] !== undefined ? " / " : "/",
+    )
+    applyPasses(element, [padSlash], { shouldSkip: skipCode })
+    expect(getTextContent(element)).toBe("ax / yb")
   })
 })
