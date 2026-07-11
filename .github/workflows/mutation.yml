@@ -36,7 +36,7 @@ jobs:
           # measured weight (~10-15 min each). SHARD_BUDGET (executions/shard) takes
           # over only if the total drops below the cap. Tune if wall times drift.
           SHARD_BUDGET: "25000"
-          MAX_SHARDS: "12"
+          MAX_SHARDS: "16"
         run: echo "shards=$(node scripts/mutation-shards.mjs)" >> "$GITHUB_OUTPUT"
 
   mutation:
