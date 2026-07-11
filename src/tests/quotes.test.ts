@@ -482,15 +482,51 @@ describe("niceQuotes", () => {
       // A closing double quote before `]` curls, mirroring the opener after `[`.
       ['x ["foo"] y', `x [${LEFT_DOUBLE_QUOTE}foo${RIGHT_DOUBLE_QUOTE}] y`],
       ['a ["quoted"] item', `a [${LEFT_DOUBLE_QUOTE}quoted${RIGHT_DOUBLE_QUOTE}] item`],
-      // A bracketed list of quoted items: the closer before `]` curls, and the
-      // separating comma moves inside its preceding closer (American style),
-      // just as it does in prose (`"A", "B"` → `“A,” “B”`).
+      // The final closer of a bracketed list curls before `]`.
       ['["B"]', `[${LEFT_DOUBLE_QUOTE}B${RIGHT_DOUBLE_QUOTE}]`],
-      [
-        '["A", "-athryn"]',
-        `[${LEFT_DOUBLE_QUOTE}A,${RIGHT_DOUBLE_QUOTE} ${LEFT_DOUBLE_QUOTE}-athryn${RIGHT_DOUBLE_QUOTE}]`,
-      ],
     ])('curls quotes before a closing colon/bracket: "%s"', (input, expected) => {
+      expect(niceQuotes(input)).toBe(expected)
+      expect(niceQuotes(niceQuotes(input))).toBe(expected)
+    })
+  })
+
+  describe("commas between quoted items in brackets", () => {
+    // A comma separating quoted items inside (), [], or {} is a list delimiter,
+    // so American placement leaves it outside the closer instead of pulling it
+    // in (which would corrupt the item's exact text, `"A,"`). Prose lists with
+    // no brackets keep the American comma-inside rule.
+    const l = LEFT_DOUBLE_QUOTE
+    const r = RIGHT_DOUBLE_QUOTE
+    it.each([
+      ['["A", "-athryn"]', `[${l}A${r}, ${l}-athryn${r}]`],
+      ['["A", "B", "C"]', `[${l}A${r}, ${l}B${r}, ${l}C${r}]`],
+      ['("abc", "def")', `(${l}abc${r}, ${l}def${r})`],
+      ['{"x", "y"}', `{${l}x${r}, ${l}y${r}}`],
+      ['a list ["A", "B"] here', `a list [${l}A${r}, ${l}B${r}] here`],
+      ['[["A", "B"], ["C", "D"]]', `[[${l}A${r}, ${l}B${r}], [${l}C${r}, ${l}D${r}]]`],
+      // A stray closer before the list (e.g. an emoticon) floors the bracket
+      // count at 0, so the list that follows is still detected as enclosed.
+      [':) ["a", "b"]', `:) [${l}a${r}, ${l}b${r}]`],
+      // Single-quoted items in brackets get the same treatment.
+      ["('a', 'b', 'c')", `(${LEFT_SINGLE_QUOTE}a${RIGHT_SINGLE_QUOTE}, ${LEFT_SINGLE_QUOTE}b${RIGHT_SINGLE_QUOTE}, ${LEFT_SINGLE_QUOTE}c${RIGHT_SINGLE_QUOTE})`],
+      // A comma before a non-quoted item is not a between-items separator, so
+      // the American rule still applies (`"A"` closes a quotation before `42`).
+      ['["A", 42]', `[${l}A,${r} 42]`],
+      // No space after the comma is likewise not a list separator.
+      ['["a",42]', `[${l}a,${r}42]`],
+      // Only commas delimit list items; a period between quoted items stays on
+      // the American rule and moves inside its closer.
+      ['("A". "B")', `(${l}A.${r} ${l}B${r})`],
+      // No brackets: running prose keeps the comma inside its closer.
+      ['"cat", "dog"', `${l}cat,${r} ${l}dog${r}`],
+      // Bracketed prose (comma followed by a word) is not a list separator.
+      ['(He said "yes", and left.)', `(He said ${l}yes,${r} and left.)`],
+      // Once a bracket closes, a following bare list is outside it again and
+      // keeps the American comma-inside rule.
+      ['("x") "a", "b"', `(${l}x${r}) ${l}a,${r} ${l}b${r}`],
+      // A dangling comma with no following item is not a separator.
+      ['("a", ', `(${l}a,${r} `],
+    ])('places list-separator commas outside: "%s"', (input, expected) => {
       expect(niceQuotes(input)).toBe(expected)
       expect(niceQuotes(niceQuotes(input))).toBe(expected)
     })
