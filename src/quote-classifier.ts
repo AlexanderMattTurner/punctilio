@@ -949,6 +949,49 @@ function applyRelocations(order: Item[], moves: Relocation[]): Item[] {
   return result
 }
 
+const OPEN_BRACKETS = new Set<string>(["(", "[", "{"])
+const CLOSE_BRACKETS = new Set<string>([")", "]", "}"])
+
+/**
+ * Unmatched open brackets (`(`, `[`, `{`) strictly before each item — a
+ * position is inside a bracket pair when its entry is > 0. Brackets never move
+ * during placement, so the depths hold across the fixpoint's rounds. Boundary
+ * items are transparent; a closer with no opener above it floors the depth at 0.
+ */
+function bracketDepths(order: Item[]): number[] {
+  const depths: number[] = []
+  let depth = 0
+  for (const item of order) {
+    depths.push(depth)
+    if (item.boundary) continue
+    if (OPEN_BRACKETS.has(item.ch)) depth++
+    else if (CLOSE_BRACKETS.has(item.ch) && depth > 0) depth--
+  }
+  return depths
+}
+
+/**
+ * True iff the comma at `punctIndex` delimits two quoted items inside a bracket
+ * pair (`["a", "b"]`, `("a", "b")`, `{"a", "b"}`). Such a comma is a list
+ * separator, not sentence punctuation, so American placement must leave it
+ * outside the closer — pulling it in would corrupt the quoted item's exact text
+ * (`"a,"`). Detected when the run sits inside a bracket (depth > 0; a stray
+ * closer floors the count at 0, so an unbalanced `depth <= 0` reads as outside)
+ * and the next item after the comma opens the following quoted item. Bare
+ * `"a", "b"` in running prose (depth 0) is left to the American rule, where a
+ * comma between quoted words correctly moves inside.
+ */
+function isBracketedListSeparator(order: Item[], runStart: number, punctIndex: number, depths: number[]): boolean {
+  if (order[punctIndex].ch !== "," || depths[runStart] <= 0) return false
+  // The next quoted item always opens after the separator's single space
+  // (`, "b"`): a comma-adjacent quote never satisfies an opener rule, so the
+  // space is invariant.
+  const space = nextIndex(order, punctIndex, 1)
+  if (!isCharItem(order, space, " ")) return false
+  const opener = order[nextIndex(order, space, 1)]
+  return opener?.ch === LEFT_DOUBLE_QUOTE || opener?.ch === LEFT_SINGLE_QUOTE
+}
+
 /**
  * American style: a period or comma directly after a closing-quote run moves
  * to just before the run, unless the character before the run is terminal
@@ -969,6 +1012,7 @@ function movePunctuationInside(order: Item[], isMovable: (items: Item[], index: 
     }
   }
   const movedFrom = new Set<number>()
+  const depths = bracketDepths(order)
   let position = 0
   while (position < order.length) {
     const runStart = order[position].boundary ? position + 1 : position
@@ -1016,6 +1060,12 @@ function movePunctuationInside(order: Item[], isMovable: (items: Item[], index: 
     // its content ends in whitespace on purpose, and pulling the punctuation
     // inside would attach it to that verbatim trailing space.
     if (beforeIndex >= 0 && !order[beforeIndex].boundary && SPACE_RE.test(order[beforeIndex].ch)) {
+      position++
+      continue
+    }
+    // A comma between two quoted items inside brackets delimits a list; keep it
+    // outside the closer instead of corrupting the item's text (`"a,"`).
+    if (isBracketedListSeparator(order, runStart, punctIndex, depths)) {
       position++
       continue
     }
