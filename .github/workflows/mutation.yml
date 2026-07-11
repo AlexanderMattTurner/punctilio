@@ -46,7 +46,7 @@ jobs:
     runs-on: ubuntu-latest
     # ~10-15 min per balanced cold shard; the headroom covers a shard that packs
     # a dense static-mutant line range that can't be split any finer.
-    timeout-minutes: 25
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -77,6 +77,18 @@ jobs:
         # No `--` before the flags: pnpm forwards it literally and Stryker's
         # CLI rejects it as a positional argument.
         run: pnpm run mutation --mutate "${{ matrix.mutate }}" --incrementalFile "reports/stryker-incremental-${{ matrix.index }}.json"
+
+      # Print this shard's measured weights between markers so the map can be
+      # harvested from the job log (Actions artifacts aren't reachable from every
+      # environment). Cheap and a useful record of what each shard measured.
+      - name: Emit measured weights
+        if: always()
+        run: |
+          if [ -f reports/mutation/mutation.json ]; then
+            echo "PUNCTILIO_WEIGHTS_BEGIN"
+            node scripts/mutation-weights.mjs report
+            echo "PUNCTILIO_WEIGHTS_END"
+          fi
 
       - name: Upload HTML report
         if: always()
