@@ -78,25 +78,41 @@ jobs:
         # CLI rejects it as a positional argument.
         run: pnpm run mutation --mutate "${{ matrix.mutate }}" --incrementalFile "reports/stryker-incremental-${{ matrix.index }}.json"
 
-      # Print this shard's measured weights between markers so the map can be
-      # harvested from the job log (Actions artifacts aren't reachable from every
-      # environment). Cheap and a useful record of what each shard measured.
-      - name: Emit measured weights
-        if: always()
-        run: |
-          if [ -f reports/mutation/mutation.json ]; then
-            echo "PUNCTILIO_WEIGHTS_BEGIN"
-            node scripts/mutation-weights.mjs report
-            echo "PUNCTILIO_WEIGHTS_END"
-          fi
-
-      - name: Upload HTML report
+      - name: Upload mutation report
         if: always()
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
           name: mutation-report-${{ matrix.index }}
           path: reports/mutation/
           if-no-files-found: ignore
+
+  # Merge every shard's measured weights and print the map between markers, so it
+  # can be read from one job log and committed to config/mutation-weights.json.
+  # The weekly refresh does the same from a clean (cache-disabled) run; this is a
+  # live view of what the current run measured and the seed source for the map.
+  weights-map:
+    name: Merged weights map
+    needs: mutation
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - name: Download shard reports
+        uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e # v4.2.1
+        with:
+          pattern: mutation-report-*
+          path: shard-reports
+      - name: Merge and print the weights map
+        run: |
+          shopt -s nullglob
+          for report in shard-reports/mutation-report-*/mutation.json; do
+            node scripts/mutation-weights.mjs report --report "$report" --out "$report.weights.json"
+          done
+          echo "PUNCTILIO_MERGED_WEIGHTS_BEGIN"
+          node scripts/mutation-weights.mjs merge shard-reports/mutation-report-*/mutation.json.weights.json
+          echo "PUNCTILIO_MERGED_WEIGHTS_END"
 
   mutation-all:
     name: Mutation checks passed
