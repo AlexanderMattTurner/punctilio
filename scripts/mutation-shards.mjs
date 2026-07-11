@@ -237,7 +237,7 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   // concurrency; for this static-mutant-heavy suite the cap binds, so the plan is
   // ~MAX_SHARDS shards balanced by measured weight. Tune if shard wall times drift.
   const budget = parseInt(process.env.SHARD_BUDGET ?? "25000", 10)
-  const maxShards = parseInt(process.env.MAX_SHARDS ?? "20", 10)
+  const maxShards = parseInt(process.env.MAX_SHARDS ?? "12", 10)
 
   const config = JSON.parse(readFileSync(STRYKER_CONFIG, "utf8"))
   const files = listSourceFiles(config.mutate)

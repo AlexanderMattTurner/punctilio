@@ -31,13 +31,12 @@ jobs:
 
       - id: plan
         env:
-          # MAX_SHARDS caps the fan-out at GitHub's practical concurrency; this
-          # static-mutant-heavy suite's cold work (~3h single-threaded) makes the
-          # cap bind, so a cold run fans out to ~20 shards of ~10-15 min each,
-          # balanced by measured weight. SHARD_BUDGET (executions/shard) takes over
-          # only if the total ever drops below the cap. Tune if wall times drift.
+          # MAX_SHARDS caps the fan-out; the committed weights make its cold work
+          # exceed the cap, so a cold run fans out to MAX_SHARDS shards balanced by
+          # measured weight (~10-15 min each). SHARD_BUDGET (executions/shard) takes
+          # over only if the total drops below the cap. Tune if wall times drift.
           SHARD_BUDGET: "25000"
-          MAX_SHARDS: "20"
+          MAX_SHARDS: "12"
         run: echo "shards=$(node scripts/mutation-shards.mjs)" >> "$GITHUB_OUTPUT"
 
   mutation:

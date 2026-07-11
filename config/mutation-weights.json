@@ -1,0 +1,18 @@
+{
+  "src/cli.ts": 40858,
+  "src/constants.ts": 39281,
+  "src/dashes.ts": 513257,
+  "src/html.ts": 2534,
+  "src/index.ts": 57114,
+  "src/markdown.ts": 6038,
+  "src/nbsp.ts": 320895,
+  "src/prettier-plugin.ts": 426,
+  "src/prose-view.ts": 58999,
+  "src/quote-classifier.ts": 526835,
+  "src/quotes.ts": 25378,
+  "src/rehype.ts": 128730,
+  "src/remark.ts": 18022,
+  "src/symbols.ts": 418411,
+  "src/transform-options.ts": 29462,
+  "src/utils.ts": 14036
+}
