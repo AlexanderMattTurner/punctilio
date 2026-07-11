@@ -43,9 +43,11 @@ jobs:
     name: mutation (shard ${{ matrix.index }})
     needs: prep
     runs-on: ubuntu-latest
-    # ~10-15 min per balanced cold shard; the headroom covers a shard that packs
-    # a dense static-mutant line range that can't be split any finer.
-    timeout-minutes: 30
+    # Steady-state a balanced cold shard is ~15-20 min; the wide headroom is a
+    # backstop for the timeout-mutant-heavy quote-classifier regex ranges and for
+    # a cache-transition run (after a MAX_SHARDS change a shard's incremental
+    # cache mismatches and it re-tests fully cold). Warm PR runs finish in minutes.
+    timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:

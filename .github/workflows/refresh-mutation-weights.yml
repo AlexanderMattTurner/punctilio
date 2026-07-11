@@ -44,7 +44,9 @@ jobs:
     name: Measure shard ${{ matrix.index }}
     needs: prep
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # Cache-disabled, so every shard runs fully cold (~15-20 min balanced); the
+    # headroom backstops the timeout-mutant-heavy quote-classifier regex ranges.
+    timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
