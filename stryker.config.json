@@ -10,7 +10,7 @@
   "jest": {
     "configFile": "jest.stryker.config.js"
   },
-  "reporters": ["html", "clear-text", "progress"],
+  "reporters": ["html", "json", "clear-text", "progress"],
   "incremental": true,
   "incrementalFile": "reports/stryker-incremental.json",
   "thresholds": {

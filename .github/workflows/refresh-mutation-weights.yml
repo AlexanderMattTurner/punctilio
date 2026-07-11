@@ -37,7 +37,7 @@ jobs:
       - id: plan
         env:
           SHARD_BUDGET: "25000"
-          MAX_SHARDS: "12"
+          MAX_SHARDS: "20"
         run: echo "shards=$(node scripts/mutation-shards.mjs)" >> "$GITHUB_OUTPUT"
 
   measure:

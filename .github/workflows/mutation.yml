@@ -31,18 +31,22 @@ jobs:
 
       - id: plan
         env:
-          # Max test executions per shard, calibrated so a shard runs in roughly
-          # the 5-minute wall-time budget on ubuntu-latest (dry-run/setup overhead
-          # plus the shard's mutation work). Tune if CI shard wall times drift.
+          # MAX_SHARDS caps the fan-out at GitHub's practical concurrency; this
+          # static-mutant-heavy suite's cold work (~3h single-threaded) makes the
+          # cap bind, so a cold run fans out to ~20 shards of ~10-15 min each,
+          # balanced by measured weight. SHARD_BUDGET (executions/shard) takes over
+          # only if the total ever drops below the cap. Tune if wall times drift.
           SHARD_BUDGET: "25000"
-          MAX_SHARDS: "12"
+          MAX_SHARDS: "20"
         run: echo "shards=$(node scripts/mutation-shards.mjs)" >> "$GITHUB_OUTPUT"
 
   mutation:
     name: mutation (shard ${{ matrix.index }})
     needs: prep
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # ~10-15 min per balanced cold shard; the headroom covers a shard that packs
+    # a dense static-mutant line range that can't be split any finer.
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
