@@ -9,7 +9,7 @@ on:
     types: [closed]
 
 env:
-  TEMPLATE_REPO: "${{ vars.TEMPLATE_SYNC_ORG || 'alexander-turner' }}/claude-automation-template"
+  TEMPLATE_REPO: "AlexanderMattTurner/claude-automation-template"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number }}

@@ -1,8 +1,8 @@
 > _punctilio_ (n.): precise observance of formalities.
 
-[![Test](https://github.com/alexander-turner/punctilio/actions/workflows/test.yml/badge.svg)](https://github.com/alexander-turner/punctilio/actions/workflows/test.yml)
-[![Lint](https://github.com/alexander-turner/punctilio/actions/workflows/lint.yml/badge.svg)](https://github.com/alexander-turner/punctilio/actions/workflows/lint.yml)
-[![Coverage](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Falexander-turner%2Fpunctilio%2Fbadges%2Fcoverage.json)](https://github.com/alexander-turner/punctilio/actions/workflows/coverage-badge.yml)
+[![Test](https://github.com/AlexanderMattTurner/punctilio/actions/workflows/test.yml/badge.svg)](https://github.com/AlexanderMattTurner/punctilio/actions/workflows/test.yml)
+[![Lint](https://github.com/AlexanderMattTurner/punctilio/actions/workflows/lint.yml/badge.svg)](https://github.com/AlexanderMattTurner/punctilio/actions/workflows/lint.yml)
+[![Coverage](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FAlexanderMattTurner%2Fpunctilio%2Fbadges%2Fcoverage.json)](https://github.com/AlexanderMattTurner/punctilio/actions/workflows/coverage-badge.yml)
 
 Pretty good at making your text pretty. The most feature-complete and reliable English typography package. `punctilio` transforms plain ASCII into typographically correct Unicode, even across HTML element boundaries. Try it live at [`turntrout.com/punctilio`](https://turntrout.com/punctilio).
 
@@ -33,7 +33,7 @@ I tested `punctilio` against [`smartypants`](https://www.npmjs.com/package/smart
 | :------------------------------------: | :----------------------------------------: | :---------: |
 | <span class="no-formatting">5x5</span> | <span class="no-formatting">5x5</span> (✗) |   5×5 (✓)   |
 
-My [`benchmark.mjs`](https://github.com/alexander-turner/punctilio/blob/main/benchmark.mjs) measures how well libraries handle a [wide range of scenarios](https://github.com/alexander-turner/punctilio/blob/main/benchmark_cases.json). The benchmark normalizes stylistic differences (e.g. non-breaking vs regular space, British vs American dash spacing) for fair comparison. 
+My [`benchmark.mjs`](https://github.com/AlexanderMattTurner/punctilio/blob/main/benchmark.mjs) measures how well libraries handle a [wide range of scenarios](https://github.com/AlexanderMattTurner/punctilio/blob/main/benchmark_cases.json). The benchmark normalizes stylistic differences (e.g. non-breaking vs regular space, British vs American dash spacing) for fair comparison. 
 
 |              Package | Passed (of 160) |
 | -------------------: | :-------------- |
@@ -230,7 +230,7 @@ A `.pre-commit-hooks.yaml` ships in the package, so [pre-commit](https://pre-com
 ```yaml
 # .pre-commit-config.yaml
 repos:
-  - repo: https://github.com/alexander-turner/punctilio
+  - repo: https://github.com/AlexanderMattTurner/punctilio
     rev: v5.2.0
     hooks:
       - id: punctilio          # rewrites *.md / *.html in place

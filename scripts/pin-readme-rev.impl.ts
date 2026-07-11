@@ -15,7 +15,7 @@ const SEMVER = /^\d+\.\d+\.\d+$/
  * could span lines) so the match can't drift onto an unrelated `rev:`.
  */
 export const REV_LINE =
-  /(?<prefix>repo:[^\S\n]*https:\/\/github\.com\/alexander-turner\/punctilio[^\S\n]*\n[^\S\n]*rev:[^\S\n]*)v\d+\.\d+\.\d+/
+  /(?<prefix>repo:[^\S\n]*https:\/\/github\.com\/AlexanderMattTurner\/punctilio[^\S\n]*\n[^\S\n]*rev:[^\S\n]*)v\d+\.\d+\.\d+/
 
 export type PinOutcome =
   | { pinned: true; readme: string; message: string }
