@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## [5.1.4] - 2026-07-11
+
+### Fixed
+
+- Keep applyPasses on one spanning view so passes cross opaque gaps in rehype processing.
+
 ## [5.1.3] - 2026-07-11
 
 ### Fixed
