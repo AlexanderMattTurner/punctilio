@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## [5.2.0] - 2026-07-11
+
+### Fixed
+
+- Quoted items in bracketed lists now keep list-separator commas outside the quoted portions.
+
 ## [5.1.4] - 2026-07-11
 
 ### Fixed
