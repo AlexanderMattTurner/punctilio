@@ -217,16 +217,37 @@ export function loadWeights(path = WEIGHTS_FILE) {
   }
 }
 
+/**
+ * The budget to plan with. With a measured map, use the execution-calibrated
+ * `budget`. Without one, the fallback weights are line counts whose scale
+ * doesn't match that budget, so ignore it and pick the budget that fills all
+ * `maxShards` — cold runs still get full parallelism (each shard ~= total wall /
+ * maxShards) until the first refresh commits real weights.
+ */
+export function effectiveBudget(weighed, hasMap, budget, maxShards) {
+  if (hasMap) return budget
+  const total = weighed.reduce((sum, { weight }) => sum + weight, 0)
+  return Math.max(1, Math.ceil(total / maxShards))
+}
+
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {
-  // Max test executions per shard, calibrated so a shard runs in roughly the
-  // 5-minute wall-time target on ubuntu-latest (dry-run/setup overhead plus the
-  // shard's mutation work). Tune if CI shard wall times drift from that.
-  const budget = parseInt(process.env.SHARD_BUDGET ?? "40000", 10)
+  // Max test executions per shard, calibrated so a shard runs within the
+  // ~10-15 minute wall-time target on ubuntu-latest (dry-run/setup overhead plus
+  // the shard's mutation work). MAX_SHARDS caps the fan-out at GitHub's practical
+  // concurrency; for this static-mutant-heavy suite the cap binds, so the plan is
+  // ~MAX_SHARDS shards balanced by measured weight. Tune if shard wall times drift.
+  const budget = parseInt(process.env.SHARD_BUDGET ?? "25000", 10)
   const maxShards = parseInt(process.env.MAX_SHARDS ?? "12", 10)
 
   const config = JSON.parse(readFileSync(STRYKER_CONFIG, "utf8"))
   const files = listSourceFiles(config.mutate)
-  const weighed = weighFiles(files, loadWeights())
-  const shards = planAutoscaled(weighed, budget, maxShards)
+  const weights = loadWeights()
+  const weighed = weighFiles(files, weights)
+  const hasMap = Object.keys(weights).length > 0
+  const shards = planAutoscaled(
+    weighed,
+    effectiveBudget(weighed, hasMap, budget, maxShards),
+    maxShards,
+  )
   process.stdout.write(JSON.stringify(shards))
 }

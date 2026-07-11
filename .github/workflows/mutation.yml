@@ -15,11 +15,10 @@ permissions:
 
 jobs:
   # Balance the shards from the committed per-file weights (measured test
-  # executions, refreshed by refresh-mutation-weights.yml). The shard count
-  # autoscales so no shard exceeds SHARD_BUDGET test executions — roughly the
-  # 5-minute wall-time target — so the matrix stays balanced as the source grows
-  # without anyone re-tuning file groups by hand. Runs on the runner's bundled
-  # node; the planner reads only source files and needs no dependencies.
+  # executions, refreshed by refresh-mutation-weights.yml). The fan-out is bounded
+  # by SHARD_BUDGET (executions per shard) and MAX_SHARDS, so the matrix stays
+  # balanced as the source grows without re-tuning file groups by hand. Runs on
+  # the runner's bundled node; the planner reads only source files, no deps.
   prep:
     name: Plan mutation shards
     runs-on: ubuntu-latest

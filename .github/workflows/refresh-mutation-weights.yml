@@ -2,12 +2,15 @@ name: Refresh mutation weights
 
 # mutation.yml balances its shards from config/mutation-weights.json — a map of
 # measured test executions per source file. That map drifts as source and tests
-# change, so weekly this job remeasures it with one full (non-incremental)
-# Stryker run and commits the result straight to main if it changed. The map is
-# derived data, not source, so no review gate is needed; an untimed newcomer is
-# over-weighted at the known p90 by the planner until the next refresh folds it
-# in, so a stale week only means slightly looser shard balance, never a broken
-# run.
+# change, so weekly this job remeasures it and commits the result to main if it
+# changed. The map is derived data, not source, so no review gate is needed; an
+# untimed newcomer is over-weighted at the known p90 by the planner until the
+# next refresh folds it in, so a stale week only means slightly looser shard
+# balance, never a broken run.
+#
+# The remeasurement runs the SAME sharded plan as mutation.yml but with the
+# incremental cache disabled, so every mutant is re-tested and its testsCompleted
+# is fresh; each shard emits its slice of the map and the merge job sums them.
 
 on:
   schedule:
@@ -22,10 +25,67 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  refresh:
-    name: Remeasure mutation weights and push to main
+  prep:
+    name: Plan mutation shards
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 5
+    outputs:
+      shards: ${{ steps.plan.outputs.shards }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - id: plan
+        env:
+          SHARD_BUDGET: "25000"
+          MAX_SHARDS: "12"
+        run: echo "shards=$(node scripts/mutation-shards.mjs)" >> "$GITHUB_OUTPUT"
+
+  measure:
+    name: Measure shard ${{ matrix.index }}
+    needs: prep
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.prep.outputs.shards) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Setup
+        uses: ./.github/actions/setup
+        with:
+          node-version: 22
+
+      # No incremental cache restore, and a per-shard incremental file that never
+      # exists, so Stryker re-tests every mutant and its testsCompleted is fresh.
+      # A below-threshold score exits non-zero but still writes the report, which
+      # is all the measurement needs; a crash leaves no report and the extract
+      # step fails loudly on its absence.
+      - name: Measure shard (full, no cache)
+        run: pnpm run mutation --mutate "${{ matrix.mutate }}" --reporters json --incrementalFile "reports/fresh-${{ matrix.index }}.json" || echo "stryker exited non-zero; checking for a report"
+
+      - name: Extract this shard's weights
+        run: |
+          test -f reports/mutation/mutation.json || {
+            echo "::error::shard ${{ matrix.index }} produced no report — the run crashed"
+            exit 1
+          }
+          node scripts/mutation-weights.mjs report --out "weights-${{ matrix.index }}.json"
+
+      - name: Upload shard weights
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: mutation-weights-${{ matrix.index }}
+          path: weights-${{ matrix.index }}.json
+          if-no-files-found: error
+
+  merge:
+    name: Merge weights and push to main
+    needs: [prep, measure]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: write # push the refreshed map to main
     steps:
@@ -34,29 +94,15 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Setup
-        uses: ./.github/actions/setup
+      - name: Download shard weights
+        uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e # v4.2.1
         with:
-          node-version: 22
+          pattern: mutation-weights-*
+          path: shard-weights
+          merge-multiple: true
 
-      # A committed incremental file would let Stryker skip re-testing unchanged
-      # mutants, leaving their testsCompleted stale; remove it so the measurement
-      # is a clean full run.
-      - name: Run full mutation measurement
-        run: |
-          rm -f reports/stryker-incremental.json
-          # A below-threshold score exits non-zero but still writes the report,
-          # which is all the measurement needs; a crash leaves no report and the
-          # next step fails loudly on its absence.
-          pnpm run mutation --reporters json || echo "stryker exited non-zero; checking for a report"
-
-      - name: Regenerate the weights map
-        run: |
-          test -f reports/mutation/mutation.json || {
-            echo "::error::no mutation report produced — the measurement run crashed"
-            exit 1
-          }
-          node scripts/mutation-weights.mjs --out config/mutation-weights.json
+      - name: Merge into the committed map
+        run: node scripts/mutation-weights.mjs merge shard-weights/*.json --out config/mutation-weights.json
 
       - name: Commit and push to main if the map changed
         env:

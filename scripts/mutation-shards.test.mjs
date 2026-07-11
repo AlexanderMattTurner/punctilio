@@ -2,6 +2,7 @@ import { strict as assert } from "node:assert";
 import { test } from "node:test";
 
 import {
+  effectiveBudget,
   globToRegExp,
   listSourceFiles,
   planAutoscaled,
@@ -9,7 +10,11 @@ import {
   splitIntoUnits,
   weighFiles,
 } from "./mutation-shards.mjs";
-import { serialize, weightsFromReport } from "./mutation-weights.mjs";
+import {
+  mergeWeights,
+  serialize,
+  weightsFromReport,
+} from "./mutation-weights.mjs";
 
 const shardFiles = (shard) => shard.mutate.split(",");
 
@@ -131,6 +136,23 @@ test("planAutoscaled splits a dominant file across shards so no shard exceeds a 
   );
 });
 
+test("effectiveBudget keeps the configured budget when a map is present", () => {
+  const weighed = [{ file: "a", weight: 100, lines: 100 }];
+  assert.equal(effectiveBudget(weighed, true, 25000, 12), 25000);
+});
+
+test("effectiveBudget without a map fills all shards (ignoring the mismatched budget)", () => {
+  const weighed = [
+    { file: "a", weight: 600, lines: 600 },
+    { file: "b", weight: 600, lines: 600 },
+  ];
+  // No map: 1200 total / 12 shards -> budget 100, so the plan uses the full cap
+  // instead of the executions-scaled 25000 (which would collapse to one shard).
+  const budget = effectiveBudget(weighed, false, 25000, 12);
+  assert.equal(budget, 100);
+  assert.equal(planAutoscaled(weighed, budget, 12).length, 12);
+});
+
 test("planAutoscaled rejects a non-integer or non-positive shard cap", () => {
   const weighed = [{ file: "a", weight: 1, lines: 1 }];
   assert.throws(() => planAutoscaled(weighed, 1, 0));
@@ -154,6 +176,15 @@ test("weightsFromReport sums testsCompleted per file, floored at the mutant coun
   const weights = weightsFromReport(report);
   assert.equal(weights["src/a.ts"], 8);
   assert.equal(weights["src/b.ts"], 2, "an all-NoCoverage file keeps a positive weight");
+});
+
+test("mergeWeights sums a range-split file's shard contributions", () => {
+  const merged = mergeWeights([
+    { "src/big.ts": 300, "src/a.ts": 10 },
+    { "src/big.ts": 250 },
+  ]);
+  assert.equal(merged["src/big.ts"], 550);
+  assert.equal(merged["src/a.ts"], 10);
 });
 
 test("serialize writes sorted keys with a trailing newline", () => {
