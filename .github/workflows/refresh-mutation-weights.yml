@@ -1,0 +1,76 @@
+name: Refresh mutation weights
+
+# mutation.yml balances its shards from config/mutation-weights.json — a map of
+# measured test executions per source file. That map drifts as source and tests
+# change, so weekly this job remeasures it with one full (non-incremental)
+# Stryker run and commits the result straight to main if it changed. The map is
+# derived data, not source, so no review gate is needed; an untimed newcomer is
+# over-weighted at the known p90 by the planner until the next refresh folds it
+# in, so a stale week only means slightly looser shard balance, never a broken
+# run.
+
+on:
+  schedule:
+    - cron: "0 8 * * 1" # Monday 08:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: refresh-mutation-weights
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    name: Remeasure mutation weights and push to main
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: write # push the refreshed map to main
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Setup
+        uses: ./.github/actions/setup
+        with:
+          node-version: 22
+
+      # A committed incremental file would let Stryker skip re-testing unchanged
+      # mutants, leaving their testsCompleted stale; remove it so the measurement
+      # is a clean full run.
+      - name: Run full mutation measurement
+        run: |
+          rm -f reports/stryker-incremental.json
+          # A below-threshold score exits non-zero but still writes the report,
+          # which is all the measurement needs; a crash leaves no report and the
+          # next step fails loudly on its absence.
+          pnpm run mutation --reporters json || echo "stryker exited non-zero; checking for a report"
+
+      - name: Regenerate the weights map
+        run: |
+          test -f reports/mutation/mutation.json || {
+            echo "::error::no mutation report produced — the measurement run crashed"
+            exit 1
+          }
+          node scripts/mutation-weights.mjs --out config/mutation-weights.json
+
+      - name: Commit and push to main if the map changed
+        env:
+          # PUSH_TOKEN (a PAT/app token allowed to push to protected main) lands
+          # the commit; without it the push falls back to GITHUB_TOKEN, which
+          # branch protection may reject.
+          TOKEN: ${{ secrets.PUSH_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          if git diff --quiet -- config/mutation-weights.json; then
+            echo "mutation weights unchanged; nothing to commit"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add config/mutation-weights.json
+          git commit -m "chore(ci): refresh mutation weights map [skip ci]"
+          git push "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:main

@@ -51,7 +51,7 @@
   "scripts": {
     "build": "tsc",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
-    "test:scripts": "node --test scripts/version-bump.test.mjs",
+    "test:scripts": "node --test scripts/*.test.mjs",
     "lint": "eslint src scripts",
     "typecheck:scripts": "tsc --noEmit -p tsconfig.scripts.json",
     "benchmark": "pnpm run build && node benchmark.mjs",
