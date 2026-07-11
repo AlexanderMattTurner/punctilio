@@ -2,12 +2,46 @@
 
 ## Unreleased
 
+## [5.1.4] - 2026-07-11
+
 ### Fixed
 
-- A single-quoted term before a colon now curls both quotes (e.g. `'love':` → `‘love’:`). The colon was missing from the single-quote ending contexts, so the closer stayed straight and the opener was then mis-labelled as an apostrophe, mangling both marks.
-- A closing double quote before `]` now curls (e.g. `["foo"]` → `[“foo”]`), matching the opener that already curls after `[`.
+- Keep applyPasses on one spanning view so passes cross opaque gaps in rehype processing.
+
+## [5.1.3] - 2026-07-11
+
+### Fixed
+
+- Permit same-offset pure insertions with opposite bind semantics.
+
+## [5.1.1] - 2026-07-09
+
+### Security
+
+- Hardened CI workflow scripts and triage prompt configuration.
+
+### Changed
+
+- Updated GitHub Actions pins to use node24-compatible SHAs.
+
+## [5.1.0] - 2026-07-09
+
+### Added
+
+- Swiss thousands separators now curl instead of prime (e.g. `1'234` → `1'234`).
+
+### Fixed
+
+- A single-quoted term before a colon now curls both quotes (e.g. `'love':` → `'love':`). The colon was missing from the single-quote ending contexts, so the closer stayed straight and the opener was then mis-labelled as an apostrophe, mangling both marks.
+- A closing double quote before `]` now curls (e.g. `["foo"]` → `["foo"]`), matching the opener that already curls after `[`.
 - The month-range en dash now recognizes the common four-letter abbreviation `Sept` (e.g. `Sept-Nov` → `Sept–Nov`), alongside `Sep`.
 - The CLI preserves a file's CRLF line endings instead of rewriting the final line to LF. CRLF files previously gained mixed endings, which made `--check` report a change on every run and `--write` churn indefinitely.
+- Orphan German single closers now freeze in place instead of curling unpredictably.
+- An `x` no longer multiplies before a curly apostrophe in compound words.
+- Removed opaque inline content is now treated as an impassable gap in view boundaries.
+- Loose inline text in prose views is now transformed as its own block-adjacent run, improving layout accuracy.
+- Range-scan failures are now classified to close all trailing-dash quadratic paths.
+- Remaining quadratic paths when a dead dash ends a digit run are now closed.
 
 ### Performance
 
