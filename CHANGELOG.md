@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## [5.1.3] - 2026-07-11
+
+### Fixed
+
+- Permit same-offset pure insertions with opposite bind semantics.
+
 ## [5.1.1] - 2026-07-09
 
 ### Security
