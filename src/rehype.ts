@@ -1,21 +1,36 @@
-import type { Element, ElementContent, Parent, Root, RootContent, Text } from "hast"
-import type { Transformer } from "unified"
+import type {
+  Element,
+  ElementContent,
+  Parent,
+  Root,
+  RootContent,
+  Text,
+} from "hast";
+import type { Transformer } from "unified";
 
-import { SKIP, visitParents } from "unist-util-visit-parents"
+import { SKIP, visitParents } from "unist-util-visit-parents";
 
-import { transformView } from "./index.js"
-import { TRANSFORM_OPTION_KEYS, type TransformOptions } from "./transform-options.js"
-import { MAX_RECURSION_DEPTH } from "./constants.js"
-import { assertKnownOptionKeys, formatErrorString } from "./utils.js"
-import { buildProseView, type ProsePass, type ProseView, splitAtIndices } from "./prose-view.js"
+import { transformView } from "./index.js";
+import {
+  TRANSFORM_OPTION_KEYS,
+  type TransformOptions,
+} from "./transform-options.js";
+import { MAX_RECURSION_DEPTH } from "./constants.js";
+import { assertKnownOptionKeys, formatErrorString } from "./utils.js";
+import {
+  buildProseView,
+  type ProsePass,
+  type ProseView,
+  splitAtIndices,
+} from "./prose-view.js";
 
-export type ElementPredicate = (node: Element) => boolean
+export type ElementPredicate = (node: Element) => boolean;
 
 /** Per-text-node skip predicate, called after element-level `shouldSkip`. */
 export type TextNodeSkipPredicate = (
   textNode: Text,
   ancestors: readonly Element[],
-) => boolean
+) => boolean;
 
 export interface ElementTransformOptions {
   /**
@@ -24,19 +39,18 @@ export interface ElementTransformOptions {
    * not passed to the transform function, and its `.value` is left
    * untouched. Applied after element-level `shouldSkip`.
    */
-  shouldSkipText?: TextNodeSkipPredicate
+  shouldSkipText?: TextNodeSkipPredicate;
 }
 
 export interface RehypePunctilioOptions
-  extends TransformOptions,
-    ElementTransformOptions {
+  extends TransformOptions, ElementTransformOptions {
   /**
    * HTML tag names to skip when applying transformations.
    * Content inside these elements won't have formatting improvements applied.
    *
    * Default: ["code", "pre", "script", "style", "kbd", "var", "samp", "template", "math", "svg"]
    */
-  skipTags?: string[]
+  skipTags?: string[];
 
   /**
    * CSS class names that indicate content should skip formatting.
@@ -45,7 +59,7 @@ export interface RehypePunctilioOptions
    *
    * Default: []
    */
-  skipClasses?: string[]
+  skipClasses?: string[];
 
   /**
    * Invert the element model: transform text inside every element except the
@@ -56,95 +70,136 @@ export interface RehypePunctilioOptions
    *
    * Default: false
    */
-  transformAllElements?: boolean
+  transformAllElements?: boolean;
 }
 
-const DEFAULT_SKIP_TAGS = ["code", "pre", "script", "style", "kbd", "var", "samp", "template", "math", "svg"]
+const DEFAULT_SKIP_TAGS = [
+  "code",
+  "pre",
+  "script",
+  "style",
+  "kbd",
+  "var",
+  "samp",
+  "template",
+  "math",
+  "svg",
+];
 
 // Form elements whose text content is a literal control value, not prose.
 // Hard-skipped (whole subtree) under `transformAllElements`, on top of the
 // user skip-list, so their values are protected even when nested inside a
 // transformable element.
-const FORM_VALUE_TAGS = ["textarea", "input"]
+const FORM_VALUE_TAGS = ["textarea", "input"];
 
 // `<select>` is not prose itself, but its `<option>` children are (and are
 // transformed under the default allowlist). Under `transformAllElements` we
 // exclude `select` as a transform *unit* while still recursing into — and
 // transforming — its options, so the inverted mode never transforms less than
 // the allowlist.
-const NON_PROSE_CONTAINER_TAGS = new Set(["select"])
+const NON_PROSE_CONTAINER_TAGS = new Set(["select"]);
 
 /** Option keys handled by `rehypePunctilio` itself rather than `transform()`. */
-export const REHYPE_ONLY_OPTION_KEYS: readonly string[] = ["skipTags", "skipClasses", "shouldSkipText", "transformAllElements"]
+export const REHYPE_ONLY_OPTION_KEYS: readonly string[] = [
+  "skipTags",
+  "skipClasses",
+  "shouldSkipText",
+  "transformAllElements",
+];
 
 /** Runtime list of valid `rehypePunctilio` option keys. */
-export const REHYPE_OPTION_KEYS: readonly string[] = [...TRANSFORM_OPTION_KEYS, ...REHYPE_ONLY_OPTION_KEYS]
+export const REHYPE_OPTION_KEYS: readonly string[] = [
+  ...TRANSFORM_OPTION_KEYS,
+  ...REHYPE_ONLY_OPTION_KEYS,
+];
 
 // Void/replaced inline elements that render atomic content (or a hard break)
 // and carry no transformable text. When one sits between two text nodes it is a
 // real visual separator, so the flattener records an opaque gap there.
 const OPAQUE_VOID_TAGS = new Set([
-  "img", "br", "wbr", "input", "hr", "embed",
-  "area", "source", "track", "col", "param", "keygen",
-])
+  "img",
+  "br",
+  "wbr",
+  "input",
+  "hr",
+  "embed",
+  "area",
+  "source",
+  "track",
+  "col",
+  "param",
+  "keygen",
+]);
 
 /** Flattened text nodes plus the opaque gaps that fell between adjacent ones. */
 export interface FlattenedProse {
-  nodes: Text[]
+  nodes: Text[];
   /** Indices into `nodes` (1..n-1) with removed opaque content immediately before them. */
-  opaqueBefore: Set<number>
+  opaqueBefore: Set<number>;
 }
 
 interface ProseCollector {
-  nodes: Text[]
-  opaqueBefore: Set<number>
-  shouldSkip: ElementPredicate
-  shouldSkipText: TextNodeSkipPredicate | undefined
-  ancestors: Element[] | null
+  nodes: Text[];
+  opaqueBefore: Set<number>;
+  shouldSkip: ElementPredicate;
+  shouldSkipText: TextNodeSkipPredicate | undefined;
+  ancestors: Element[] | null;
   // An opaque element was dropped since the last emitted text node; the next
   // emitted node records an opaque gap before it.
-  pendingOpaque: boolean
+  pendingOpaque: boolean;
 }
 
-function collectProse(node: Element | ElementContent, depth: number, c: ProseCollector): void {
+function collectProse(
+  node: Element | ElementContent,
+  depth: number,
+  c: ProseCollector,
+): void {
   if (depth > MAX_RECURSION_DEPTH) {
-    return
+    return;
   }
 
   if (node.type === "element") {
     if (c.shouldSkip(node)) {
       // A skipped element with content is a visual separator; an empty one
       // renders nothing and leaves its neighbors genuinely adjacent.
-      if (node.children.length > 0) c.pendingOpaque = true
-      return
+      if (node.children.length > 0) c.pendingOpaque = true;
+      return;
     }
     if (OPAQUE_VOID_TAGS.has(node.tagName)) {
-      c.pendingOpaque = true
-      return
+      c.pendingOpaque = true;
+      return;
     }
-    if (c.ancestors) c.ancestors.push(node)
-    for (const child of node.children) collectProse(child, depth + 1, c)
-    if (c.ancestors) c.ancestors.pop()
-    return
+    if (c.ancestors) c.ancestors.push(node);
+    for (const child of node.children) collectProse(child, depth + 1, c);
+    if (c.ancestors) c.ancestors.pop();
+    return;
   }
 
   if (node.type === "text") {
     // Snapshot ancestors at the callback boundary — the walker mutates the
     // shared array as it recurses, so handing it out directly would let a
     // caller observe a stale view if they captured the reference.
-    if (c.shouldSkipText && c.ancestors && c.shouldSkipText(node, c.ancestors.slice())) {
+    if (
+      c.shouldSkipText &&
+      c.ancestors &&
+      c.shouldSkipText(node, c.ancestors.slice())
+    ) {
       // Preserved-but-untransformed text is a separator between its neighbors.
-      c.pendingOpaque = true
-      return
+      c.pendingOpaque = true;
+      return;
     }
-    if (c.pendingOpaque && c.nodes.length > 0) c.opaqueBefore.add(c.nodes.length)
-    c.pendingOpaque = false
-    c.nodes.push(node)
+    if (c.pendingOpaque && c.nodes.length > 0)
+      c.opaqueBefore.add(c.nodes.length);
+    c.pendingOpaque = false;
+    c.nodes.push(node);
   }
 }
 
-function newCollector(shouldSkip: ElementPredicate, options?: ElementTransformOptions): ProseCollector {
-  const shouldSkipText = options?.shouldSkipText
+function newCollector(
+  shouldSkip: ElementPredicate,
+  options?: ElementTransformOptions,
+): ProseCollector {
+  const shouldSkipText = options?.shouldSkipText;
   return {
     nodes: [],
     opaqueBefore: new Set(),
@@ -154,87 +209,94 @@ function newCollector(shouldSkip: ElementPredicate, options?: ElementTransformOp
     // O(n²) allocation cost of copying the ancestor chain at every level.
     ancestors: shouldSkipText ? [] : null,
     pendingOpaque: false,
-  }
+  };
 }
 
 /** Flattens an element's transformable text nodes, tracking opaque gaps. */
 export function flattenProse(
   node: Element | ElementContent,
   shouldSkip: ElementPredicate,
-  options?: ElementTransformOptions
+  options?: ElementTransformOptions,
 ): FlattenedProse {
-  const c = newCollector(shouldSkip, options)
-  collectProse(node, 0, c)
-  return { nodes: c.nodes, opaqueBefore: c.opaqueBefore }
+  const c = newCollector(shouldSkip, options);
+  collectProse(node, 0, c);
+  return { nodes: c.nodes, opaqueBefore: c.opaqueBefore };
 }
 
 export function flattenTextNodes(
   node: Element | ElementContent,
   shouldSkip: ElementPredicate,
-  options?: ElementTransformOptions
+  options?: ElementTransformOptions,
 ): Text[] {
-  return flattenProse(node, shouldSkip, options).nodes
+  return flattenProse(node, shouldSkip, options).nodes;
 }
 
 export function getTextContent(
   node: Element,
-  shouldSkip: ElementPredicate = () => false
+  shouldSkip: ElementPredicate = () => false,
 ): string {
   return flattenTextNodes(node, shouldSkip)
     .map((n) => n.value)
-    .join("")
+    .join("");
 }
 
 export function getFirstTextNode(
   node: Parent | RootContent,
-  depth: number = 0
+  depth: number = 0,
 ): Text | null {
-  if (!node || depth > MAX_RECURSION_DEPTH) return null
+  if (!node || depth > MAX_RECURSION_DEPTH) return null;
 
   if (node.type === "text") {
-    return node as Text
+    return node as Text;
   }
 
   if ("children" in node && node.children.length > 0) {
     for (const child of node.children) {
-      const textNode = getFirstTextNode(child as Parent, depth + 1)
-      if (textNode) return textNode
+      const textNode = getFirstTextNode(child as Parent, depth + 1);
+      if (textNode) return textNode;
     }
   }
 
-  return null
+  return null;
 }
 
-const QUOTE_OPENERS = new Set(["\u201C"])
-const CLOSER_TO_OPENER: Record<string, string> = { "\u201D": "\u201C" }
+const QUOTE_OPENERS = new Set(["\u201C"]);
+const CLOSER_TO_OPENER: Record<string, string> = { "\u201D": "\u201C" };
 
 // Only checks double quotes \u2014 single quotes are excluded because
 // U+2019 doubles as an apostrophe, making balance-checking unreliable.
 export function assertSmartQuotesMatch(input: string): void {
-  if (!input) return
+  if (!input) return;
 
-  const stack: string[] = []
+  const stack: string[] = [];
 
   for (const char of input) {
     if (QUOTE_OPENERS.has(char)) {
-      stack.push(char)
+      stack.push(char);
     } else if (char in CLOSER_TO_OPENER) {
-      if (stack.length > 0 && stack[stack.length - 1] === CLOSER_TO_OPENER[char]) {
-        stack.pop()
+      if (
+        stack.length > 0 &&
+        stack[stack.length - 1] === CLOSER_TO_OPENER[char]
+      ) {
+        stack.pop();
       } else {
-        throw new Error(`Mismatched quotes in ${formatErrorString(input, "input")}`)
+        throw new Error(
+          `Mismatched quotes in ${formatErrorString(input, "input")}`,
+        );
       }
     }
   }
 
   if (stack.length > 0) {
-    throw new Error(`Mismatched quotes in ${formatErrorString(input, "input")}`)
+    throw new Error(
+      `Mismatched quotes in ${formatErrorString(input, "input")}`,
+    );
   }
 }
 
 export interface ProseViewOfOptions extends ElementTransformOptions {
   /** Element-level skip predicate; skipped subtrees contribute no text nodes. */
-  shouldSkip?: ElementPredicate
+  shouldSkip?: ElementPredicate;
 }
 
 /**
@@ -244,19 +306,22 @@ export interface ProseViewOfOptions extends ElementTransformOptions {
  * view spans opaque gaps; the transform pipeline uses {@link proseViewsOf},
  * which splits on them so no pass rewrites across removed atomic content.
  */
-export function proseViewOf(element: Element, options: ProseViewOfOptions = {}): ProseView | null {
+export function proseViewOf(
+  element: Element,
+  options: ProseViewOfOptions = {},
+): ProseView | null {
   /* istanbul ignore if -- defensive: elements should always have children array */
   if (!element?.children) {
-    return null
+    return null;
   }
 
-  const shouldSkip = options.shouldSkip ?? (() => false)
-  const textNodes = flattenTextNodes(element, shouldSkip, options)
+  const shouldSkip = options.shouldSkip ?? (() => false);
+  const textNodes = flattenTextNodes(element, shouldSkip, options);
   if (textNodes.length === 0) {
-    return null
+    return null;
   }
 
-  return buildProseView(textNodes)
+  return buildProseView(textNodes);
 }
 
 /**
@@ -265,14 +330,19 @@ export function proseViewOf(element: Element, options: ProseViewOfOptions = {}):
  * inline content) keeps their surrounding text in separate views, so a pass can
  * never treat text as adjacent across content that visually separates it.
  */
-export function proseViewsOf(element: Element, options: ProseViewOfOptions = {}): ProseView[] {
+export function proseViewsOf(
+  element: Element,
+  options: ProseViewOfOptions = {},
+): ProseView[] {
   /* istanbul ignore if -- defensive: elements should always have children array */
   if (!element?.children) {
-    return []
+    return [];
   }
-  const shouldSkip = options.shouldSkip ?? (() => false)
-  const { nodes, opaqueBefore } = flattenProse(element, shouldSkip, options)
-  return splitAtIndices(nodes, opaqueBefore).map((group) => buildProseView(group))
+  const shouldSkip = options.shouldSkip ?? (() => false);
+  const { nodes, opaqueBefore } = flattenProse(element, shouldSkip, options);
+  return splitAtIndices(nodes, opaqueBefore).map((group) =>
+    buildProseView(group),
+  );
 }
 
 /**
@@ -282,16 +352,20 @@ export function proseViewsOf(element: Element, options: ProseViewOfOptions = {})
  */
 export type PassEntry =
   | ProsePass
-  | { pass: ProsePass; shouldSkip?: ElementPredicate; shouldSkipText?: TextNodeSkipPredicate }
+  | {
+      pass: ProsePass;
+      shouldSkip?: ElementPredicate;
+      shouldSkipText?: TextNodeSkipPredicate;
+    };
 
 interface ResolvedPassEntry {
-  pass: ProsePass
-  shouldSkip?: ElementPredicate
-  shouldSkipText?: TextNodeSkipPredicate
+  pass: ProsePass;
+  shouldSkip?: ElementPredicate;
+  shouldSkipText?: TextNodeSkipPredicate;
 }
 
 function resolvePassEntry(entry: PassEntry): ResolvedPassEntry {
-  return typeof entry === "function" ? { pass: entry } : entry
+  return typeof entry === "function" ? { pass: entry } : entry;
 }
 
 /** OR-combines an optional entry predicate onto an optional base predicate. */
@@ -299,9 +373,9 @@ function mergePredicates<Args extends unknown[]>(
   base: ((...args: Args) => boolean) | undefined,
   extra: ((...args: Args) => boolean) | undefined,
 ): ((...args: Args) => boolean) | undefined {
-  if (!base) return extra
-  if (!extra) return base
-  return (...args) => base(...args) || extra(...args)
+  if (!base) return extra;
+  if (!extra) return base;
+  return (...args) => base(...args) || extra(...args);
 }
 
 /**
@@ -315,55 +389,100 @@ function mergePredicates<Args extends unknown[]>(
  * fresh view (built after the previous pass committed) over the text nodes
  * that survive both the base `options` predicates and its own.
  *
- * The view is a single {@link proseViewOf} spanning the whole element, with a
- * boundary recorded at every opaque gap (removed skipped element, image, …).
- * Caller passes stay boundary-aware via `view.hasBoundary`, so each pass
- * decides for itself whether to act across a gap — spacing a slash between two
- * skipped `<code>` runs, gluing a dash after a skipped element — rather than
- * being blocked wholesale. Passes that must not cross a gap consult the same
- * boundary marks; use {@link proseViewsOf} directly for hard per-segment views.
+ * The view is a single spanning view (over the whole element, or a run's loose
+ * inline children), with a boundary recorded at every opaque gap (removed
+ * skipped element, image, …). Caller passes stay boundary-aware via
+ * `view.hasBoundary`, so each pass decides for itself whether to act across a
+ * gap — spacing a slash between two skipped `<code>` runs, gluing a dash after a
+ * skipped element — rather than being blocked wholesale. Passes that must not
+ * cross a gap consult the same boundary marks; use {@link proseViewsOf} directly
+ * for hard per-segment views.
+ *
+ * Accepts a bare element (formatted whole) or a {@link ProseUnit} from
+ * {@link collectProseUnits}; a "run" unit formats a container's loose inline
+ * text without pulling in its block children.
  */
 export function applyPasses(
-  element: Element,
+  target: Element | ProseUnit,
   passes: readonly PassEntry[],
   options: ProseViewOfOptions = {},
 ): void {
-  let currentView: ProseView | null = null
-  let currentPredicates: Pick<ResolvedPassEntry, "shouldSkip" | "shouldSkipText"> | null = null
+  const makeView = (viewOptions: ProseViewOfOptions): ProseView | null => {
+    if ("kind" in target) {
+      return target.kind === "element"
+        ? proseViewOf(target.element, viewOptions)
+        : runViewOf(target.container, target.children, viewOptions);
+    }
+    return proseViewOf(target, viewOptions);
+  };
+
+  let currentView: ProseView | null = null;
+  let currentPredicates: Pick<
+    ResolvedPassEntry,
+    "shouldSkip" | "shouldSkipText"
+  > | null = null;
 
   for (const entry of passes) {
-    const { pass, shouldSkip, shouldSkipText } = resolvePassEntry(entry)
+    const { pass, shouldSkip, shouldSkipText } = resolvePassEntry(entry);
 
     const samePredicates =
       currentPredicates !== null &&
       currentPredicates.shouldSkip === shouldSkip &&
-      currentPredicates.shouldSkipText === shouldSkipText
+      currentPredicates.shouldSkipText === shouldSkipText;
     if (!samePredicates) {
-      currentView = proseViewOf(element, {
+      currentView = makeView({
         shouldSkip: mergePredicates(options.shouldSkip, shouldSkip),
         shouldSkipText: mergePredicates(options.shouldSkipText, shouldSkipText),
-      })
-      currentPredicates = { shouldSkip, shouldSkipText }
+      });
+      currentPredicates = { shouldSkip, shouldSkipText };
     }
 
     // No transformable text under this entry's predicates; a later entry may
     // still see text (its skip set differs), so keep going.
     if (currentView === null) {
-      continue
+      continue;
     }
-    pass(currentView)
+    pass(currentView);
   }
 }
 
 // Block children cause per-block processing to avoid merging text across
 // semantically independent blocks (e.g., separate <p>s inside a <div>).
 const BLOCK_ELEMENTS = new Set([
-  "address", "article", "aside", "blockquote", "details", "dialog",
-  "dd", "div", "dl", "dt", "fieldset", "figcaption", "figure",
-  "footer", "form", "h1", "h2", "h3", "h4", "h5", "h6",
-  "header", "hgroup", "hr", "li", "main", "nav", "ol",
-  "p", "pre", "section", "table", "ul",
-])
+  "address",
+  "article",
+  "aside",
+  "blockquote",
+  "details",
+  "dialog",
+  "dd",
+  "div",
+  "dl",
+  "dt",
+  "fieldset",
+  "figcaption",
+  "figure",
+  "footer",
+  "form",
+  "h1",
+  "h2",
+  "h3",
+  "h4",
+  "h5",
+  "h6",
+  "header",
+  "hgroup",
+  "hr",
+  "li",
+  "main",
+  "nav",
+  "ol",
+  "p",
+  "pre",
+  "section",
+  "table",
+  "ul",
+]);
 
 const TRANSFORMABLE_ELEMENTS = new Set([
   "p",
@@ -424,36 +543,38 @@ const TRANSFORMABLE_ELEMENTS = new Set([
   "button",
   "option",
   "output",
-])
+]);
 
 // A tag name containing "-" is a custom element per the HTML custom-element
 // naming rule; assume those hold transformable prose like built-in elements.
 function isTransformableElement(tagName: string): boolean {
-  return TRANSFORMABLE_ELEMENTS.has(tagName) || tagName.includes("-")
+  return TRANSFORMABLE_ELEMENTS.has(tagName) || tagName.includes("-");
 }
 
 function hasTextDescendant(
   node: Element | ElementContent,
   shouldSkip: ElementPredicate,
-  depth: number = 0
+  depth: number = 0,
 ): boolean {
   if (depth > MAX_RECURSION_DEPTH) {
-    return false
+    return false;
   }
 
   if (node.type === "element" && shouldSkip(node)) {
-    return false
+    return false;
   }
 
   if (node.type === "text") {
-    return true
+    return true;
   }
 
   if (node.type === "element") {
-    return node.children.some((child) => hasTextDescendant(child, shouldSkip, depth + 1))
+    return node.children.some((child) =>
+      hasTextDescendant(child, shouldSkip, depth + 1),
+    );
   }
 
-  return false
+  return false;
 }
 
 export interface CollectProseBlocksOptions {
@@ -461,77 +582,117 @@ export interface CollectProseBlocksOptions {
    * HTML tag names to skip. Default: the plugin's default skip list
    * ("code", "pre", "script", ...).
    */
-  skipTags?: string[]
+  skipTags?: string[];
   /** CSS class names whose elements (and their subtrees) are skipped. Default: [] */
-  skipClasses?: string[]
+  skipClasses?: string[];
   /** Additional element-level skip predicate, OR-ed with the tag/class skips. */
-  shouldSkip?: ElementPredicate
+  shouldSkip?: ElementPredicate;
   /** Invert the element model as in {@link RehypePunctilioOptions.transformAllElements}. Default: false */
-  transformAllElements?: boolean
+  transformAllElements?: boolean;
 }
 
 /** Skip predicate and transformable-tag test resolved from the options. */
 interface ResolvedCollectOptions {
-  shouldSkip: ElementPredicate
-  isTransformable: (tagName: string) => boolean
+  shouldSkip: ElementPredicate;
+  isTransformable: (tagName: string) => boolean;
 }
 
-function resolveCollectOptions(options: CollectProseBlocksOptions): ResolvedCollectOptions {
-  const { skipTags = DEFAULT_SKIP_TAGS, skipClasses = [], shouldSkip, transformAllElements = false } = options
+function resolveCollectOptions(
+  options: CollectProseBlocksOptions,
+): ResolvedCollectOptions {
+  const {
+    skipTags = DEFAULT_SKIP_TAGS,
+    skipClasses = [],
+    shouldSkip,
+    transformAllElements = false,
+  } = options;
 
   // In inverted mode, form-value elements join the skip-list so their literal
   // values are neither transformed nor flattened into a transformable ancestor.
-  const skipTagSet = new Set(transformAllElements ? [...skipTags, ...FORM_VALUE_TAGS] : skipTags)
-  const skipClassSet = new Set(skipClasses)
+  const skipTagSet = new Set(
+    transformAllElements ? [...skipTags, ...FORM_VALUE_TAGS] : skipTags,
+  );
+  const skipClassSet = new Set(skipClasses);
 
   const hasSkipClass = (node: Element): boolean => {
-    if (skipClassSet.size === 0) return false
-    const classNames = node.properties?.className
+    if (skipClassSet.size === 0) return false;
+    const classNames = node.properties?.className;
     const classes = Array.isArray(classNames)
       ? classNames.filter((c): c is string => typeof c === "string")
-      : typeof classNames === "string" ? classNames.split(/\s+/) : []
-    return classes.some((cls) => skipClassSet.has(cls))
-  }
+      : typeof classNames === "string"
+        ? classNames.split(/\s+/)
+        : [];
+    return classes.some((cls) => skipClassSet.has(cls));
+  };
 
   return {
     shouldSkip: (node) =>
-      skipTagSet.has(node.tagName) || hasSkipClass(node) || (shouldSkip?.(node) ?? false),
+      skipTagSet.has(node.tagName) ||
+      hasSkipClass(node) ||
+      (shouldSkip?.(node) ?? false),
     // Inverted mode transforms every non-skipped element except non-prose
     // containers; the default keeps the `TRANSFORMABLE_ELEMENTS` allowlist
     // (plus custom elements).
     isTransformable: transformAllElements
       ? (tagName) => !NON_PROSE_CONTAINER_TAGS.has(tagName)
       : isTransformableElement,
-  }
+  };
 }
 
 // A prose unit is either a whole transformable element (an inline-only leaf) or
 // a "run" of consecutive inline siblings that sit alongside block-level
 // children. Runs let a container's loose inline text transform independently of
 // its block children instead of merging across the block boundary.
-type ProseUnit =
+export type ProseUnit =
   | { kind: "element"; element: Element }
-  | { kind: "run"; container: Element; children: ElementContent[] }
+  | { kind: "run"; container: Element; children: ElementContent[] };
 
 /**
  * Collects the leaf elements under `root` (inclusive) whose text should be
  * transformed as one prose block: transformable elements with direct text or
  * inline-only text descendants. Elements with block-level children recurse so
  * each block transforms independently. Loose inline text mixed among block
- * children is handled by the plugin as its own run and is not represented here.
+ * children is NOT represented here — use {@link collectProseUnits} to reach it.
  */
-export function collectProseBlocks(root: Element, options: CollectProseBlocksOptions = {}): Element[] {
-  const { shouldSkip, isTransformable } = resolveCollectOptions(options)
-  return collectProseUnitsImpl(root, shouldSkip, 0, undefined, isTransformable)
-    .flatMap((unit) => (unit.kind === "element" ? [unit.element] : []))
+export function collectProseBlocks(
+  root: Element,
+  options: CollectProseBlocksOptions = {},
+): Element[] {
+  const { shouldSkip, isTransformable } = resolveCollectOptions(options);
+  return collectProseUnitsImpl(
+    root,
+    shouldSkip,
+    0,
+    undefined,
+    isTransformable,
+  ).flatMap((unit) => (unit.kind === "element" ? [unit.element] : []));
 }
 
-function runHasProse(children: readonly ElementContent[], shouldSkip: ElementPredicate): boolean {
+/**
+ * Like {@link collectProseBlocks}, but also returns "run" units — maximal groups
+ * of loose inline siblings sitting beside block children (e.g. the bare text in
+ * `<blockquote><p>…</p>loose text</blockquote>`). A consumer that walks elements
+ * cannot otherwise reach that text (it belongs to no element of its own); pass
+ * each unit to {@link applyPasses}, which formats a run without merging its
+ * container's block children.
+ */
+export function collectProseUnits(
+  root: Element,
+  options: CollectProseBlocksOptions = {},
+): ProseUnit[] {
+  const { shouldSkip, isTransformable } = resolveCollectOptions(options);
+  return collectProseUnitsImpl(root, shouldSkip, 0, undefined, isTransformable);
+}
+
+function runHasProse(
+  children: readonly ElementContent[],
+  shouldSkip: ElementPredicate,
+): boolean {
   return children.some(
     (child) =>
       (child.type === "text" && child.value.trim() !== "") ||
-      (child.type === "element" && hasTextDescendant(child, shouldSkip))
-  )
+      (child.type === "element" && hasTextDescendant(child, shouldSkip)),
+  );
 }
 
 function collectProseUnitsImpl(
@@ -539,15 +700,15 @@ function collectProseUnitsImpl(
   shouldSkip: ElementPredicate,
   depth: number,
   alreadyTransformed: ReadonlySet<Element> | undefined,
-  isTransformable: (tagName: string) => boolean
+  isTransformable: (tagName: string) => boolean,
 ): ProseUnit[] {
   /* istanbul ignore if -- defensive: prevents stack overflow from malicious HTML */
   if (depth > MAX_RECURSION_DEPTH) {
-    return []
+    return [];
   }
 
   if (shouldSkip(node) || alreadyTransformed?.has(node)) {
-    return []
+    return [];
   }
 
   // Whitespace-only text nodes between block siblings (the newlines a parser
@@ -556,11 +717,11 @@ function collectProseUnitsImpl(
   // and merge its blocks into one transform unit, pairing quotes across the
   // paragraph boundary. Real (non-whitespace) direct text still marks a leaf.
   const hasDirectText = node.children.some(
-    (child) => child.type === "text" && child.value.trim() !== ""
-  )
+    (child) => child.type === "text" && child.value.trim() !== "",
+  );
   const hasBlockChildren = node.children.some(
-    (child) => child.type === "element" && BLOCK_ELEMENTS.has(child.tagName)
-  )
+    (child) => child.type === "element" && BLOCK_ELEMENTS.has(child.tagName),
+  );
 
   // Inline-only transformable node: a single leaf unit. `hasTextDescendant` is
   // only walked when there's no direct text (short-circuit avoids the traversal).
@@ -569,41 +730,54 @@ function collectProseUnitsImpl(
     !hasBlockChildren &&
     (hasDirectText || hasTextDescendant(node, shouldSkip))
   ) {
-    return [{ kind: "element", element: node }]
+    return [{ kind: "element", element: node }];
   }
 
-  const units: ProseUnit[] = []
+  const units: ProseUnit[] = [];
   if (isTransformable(node.tagName) && hasBlockChildren) {
     // Mixed content: split each maximal run of inline siblings from the block
     // children so loose text transforms on its own, then recurse per block.
-    let run: ElementContent[] = []
+    let run: ElementContent[] = [];
     const flushRun = () => {
-      if (runHasProse(run, shouldSkip)) units.push({ kind: "run", container: node, children: run })
-      run = []
-    }
+      if (runHasProse(run, shouldSkip))
+        units.push({ kind: "run", container: node, children: run });
+      run = [];
+    };
     for (const child of node.children) {
       if (child.type === "element" && BLOCK_ELEMENTS.has(child.tagName)) {
-        flushRun()
-        for (const u of collectProseUnitsImpl(child, shouldSkip, depth + 1, alreadyTransformed, isTransformable)) {
-          units.push(u)
+        flushRun();
+        for (const u of collectProseUnitsImpl(
+          child,
+          shouldSkip,
+          depth + 1,
+          alreadyTransformed,
+          isTransformable,
+        )) {
+          units.push(u);
         }
       } else {
-        run.push(child)
+        run.push(child);
       }
     }
-    flushRun()
+    flushRun();
   } else {
     // Non-transformable, or transformable but textless: recurse into elements.
     for (const child of node.children) {
       if (child.type === "element") {
-        for (const u of collectProseUnitsImpl(child, shouldSkip, depth + 1, alreadyTransformed, isTransformable)) {
-          units.push(u)
+        for (const u of collectProseUnitsImpl(
+          child,
+          shouldSkip,
+          depth + 1,
+          alreadyTransformed,
+          isTransformable,
+        )) {
+          units.push(u);
         }
       }
     }
   }
 
-  return units
+  return units;
 }
 
 // Flatten a run's inline siblings to their text nodes (with opaque gaps),
@@ -613,32 +787,51 @@ function flattenRunProse(
   container: Element,
   children: readonly ElementContent[],
   shouldSkip: ElementPredicate,
-  options: ProseViewOfOptions
+  options: ProseViewOfOptions,
 ): FlattenedProse {
-  const c = newCollector(shouldSkip, options)
-  if (c.ancestors) c.ancestors.push(container)
-  for (const child of children) collectProse(child, 1, c)
-  return { nodes: c.nodes, opaqueBefore: c.opaqueBefore }
+  const c = newCollector(shouldSkip, options);
+  if (c.ancestors) c.ancestors.push(container);
+  for (const child of children) collectProse(child, 1, c);
+  return { nodes: c.nodes, opaqueBefore: c.opaqueBefore };
 }
 
-function markDescendants(node: Element, set: Set<Element>, depth: number = 0): void {
+/**
+ * A single spanning ProseView over a run's loose inline children, with a
+ * boundary at every opaque gap — the run analogue of {@link proseViewOf}. Null
+ * when the run holds no transformable text.
+ */
+function runViewOf(
+  container: Element,
+  children: readonly ElementContent[],
+  options: ProseViewOfOptions,
+): ProseView | null {
+  const shouldSkip = options.shouldSkip ?? (() => false);
+  const { nodes } = flattenRunProse(container, children, shouldSkip, options);
+  return nodes.length === 0 ? null : buildProseView(nodes);
+}
+
+function markDescendants(
+  node: Element,
+  set: Set<Element>,
+  depth: number = 0,
+): void {
   /* istanbul ignore if -- defensive: prevents stack overflow from malicious HTML */
   if (depth > MAX_RECURSION_DEPTH) {
-    return
+    return;
   }
 
   for (const child of node.children) {
     if (child.type === "element") {
-      set.add(child)
-      markDescendants(child, set, depth + 1)
+      set.add(child);
+      markDescendants(child, set, depth + 1);
     }
   }
 }
 
 export function rehypePunctilio(
-  options: RehypePunctilioOptions = {}
+  options: RehypePunctilioOptions = {},
 ): Transformer<Root, Root> {
-  assertKnownOptionKeys(options, REHYPE_OPTION_KEYS, "rehypePunctilio")
+  assertKnownOptionKeys(options, REHYPE_OPTION_KEYS, "rehypePunctilio");
 
   const {
     skipTags,
@@ -646,61 +839,76 @@ export function rehypePunctilio(
     shouldSkipText,
     transformAllElements,
     ...transformOptions
-  } = options
+  } = options;
 
-  const { shouldSkip, isTransformable } = resolveCollectOptions({ skipTags, skipClasses, transformAllElements })
+  const { shouldSkip, isTransformable } = resolveCollectOptions({
+    skipTags,
+    skipClasses,
+    transformAllElements,
+  });
 
   // Allocate the per-element options object once; it's read-only inside
   // proseViewOf, so sharing across calls is safe and avoids a fresh
   // allocation per transformable element.
   const viewOptions: ProseViewOfOptions = shouldSkipText
     ? { shouldSkip, shouldSkipText }
-    : { shouldSkip }
+    : { shouldSkip };
 
   return (tree: Root) => {
     // Track transformed elements to avoid double-processing
-    const transformed = new Set<Element>()
+    const transformed = new Set<Element>();
 
     visitParents(tree, "element", (node) => {
       // Skip subtree if already transformed
       if (transformed.has(node)) {
-        return SKIP
+        return SKIP;
       }
 
       if (shouldSkip(node)) {
-        return SKIP
+        return SKIP;
       }
 
       // Collect and transform every prose unit in this subtree.
-      const units = collectProseUnitsImpl(node, shouldSkip, 0, transformed, isTransformable)
+      const units = collectProseUnitsImpl(
+        node,
+        shouldSkip,
+        0,
+        transformed,
+        isTransformable,
+      );
       for (const unit of units) {
         if (unit.kind === "element") {
           if (!transformed.has(unit.element)) {
             for (const view of proseViewsOf(unit.element, viewOptions)) {
-              transformView(view, transformOptions)
+              transformView(view, transformOptions);
             }
-            transformed.add(unit.element)
+            transformed.add(unit.element);
             // Mark all descendants as processed since their text was included
-            markDescendants(unit.element, transformed)
+            markDescendants(unit.element, transformed);
           }
         } else {
-          const { nodes, opaqueBefore } = flattenRunProse(unit.container, unit.children, shouldSkip, viewOptions)
+          const { nodes, opaqueBefore } = flattenRunProse(
+            unit.container,
+            unit.children,
+            shouldSkip,
+            viewOptions,
+          );
           for (const group of splitAtIndices(nodes, opaqueBefore)) {
-            transformView(buildProseView(group), transformOptions)
+            transformView(buildProseView(group), transformOptions);
           }
           // Mark the container so a later visit doesn't re-collect its runs,
           // and mark the run's inline-element members' subtrees.
-          transformed.add(unit.container)
+          transformed.add(unit.container);
           for (const child of unit.children) {
             if (child.type === "element") {
-              transformed.add(child)
-              markDescendants(child, transformed)
+              transformed.add(child);
+              markDescendants(child, transformed);
             }
           }
         }
       }
-    })
-  }
+    });
+  };
 }
 
-export default rehypePunctilio
+export default rehypePunctilio;
