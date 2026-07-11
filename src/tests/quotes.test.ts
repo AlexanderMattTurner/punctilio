@@ -482,6 +482,14 @@ describe("niceQuotes", () => {
       // A closing double quote before `]` curls, mirroring the opener after `[`.
       ['x ["foo"] y', `x [${LEFT_DOUBLE_QUOTE}foo${RIGHT_DOUBLE_QUOTE}] y`],
       ['a ["quoted"] item', `a [${LEFT_DOUBLE_QUOTE}quoted${RIGHT_DOUBLE_QUOTE}] item`],
+      // A bracketed list of quoted items: the closer before `]` curls, and the
+      // separating comma moves inside its preceding closer (American style),
+      // just as it does in prose (`"A", "B"` → `“A,” “B”`).
+      ['["B"]', `[${LEFT_DOUBLE_QUOTE}B${RIGHT_DOUBLE_QUOTE}]`],
+      [
+        '["A", "-athryn"]',
+        `[${LEFT_DOUBLE_QUOTE}A,${RIGHT_DOUBLE_QUOTE} ${LEFT_DOUBLE_QUOTE}-athryn${RIGHT_DOUBLE_QUOTE}]`,
+      ],
     ])('curls quotes before a closing colon/bracket: "%s"', (input, expected) => {
       expect(niceQuotes(input)).toBe(expected)
       expect(niceQuotes(niceQuotes(input))).toBe(expected)
