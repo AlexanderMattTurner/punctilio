@@ -14,6 +14,13 @@ export default {
   ...baseConfig,
   collectCoverage: false,
   coverageThreshold: undefined,
+  // Transpile-only (skip type-checking) during mutation: the code is already
+  // type-checked by CI's build job, and a static mutant re-transpiles every
+  // imported module on each reload, so dropping the per-reload type-check speeds
+  // the whole run at no fidelity cost.
+  transform: {
+    "^.+\\.tsx?$": ["ts-jest", { useESM: true, isolatedModules: true }],
+  },
   testPathIgnorePatterns: [
     "/node_modules/",
     "src/tests/fuzz.test.ts",

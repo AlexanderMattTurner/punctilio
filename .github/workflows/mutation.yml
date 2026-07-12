@@ -14,28 +14,45 @@ permissions:
   contents: read
 
 jobs:
-  mutation:
-    name: mutation (${{ matrix.shard }})
+  # Balance the shards from the committed per-file weights (measured test
+  # executions, refreshed by refresh-mutation-weights.yml). The fan-out is bounded
+  # by SHARD_BUDGET (executions per shard) and MAX_SHARDS, so the matrix stays
+  # balanced as the source grows without re-tuning file groups by hand. Runs on
+  # the runner's bundled node; the planner reads only source files, no deps.
+  prep:
+    name: Plan mutation shards
     runs-on: ubuntu-latest
-    timeout-minutes: 300
+    timeout-minutes: 5
+    outputs:
+      shards: ${{ steps.plan.outputs.shards }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - id: plan
+        env:
+          # MAX_SHARDS caps the fan-out; the committed weights make its cold work
+          # exceed the cap, so a cold run fans out to MAX_SHARDS shards balanced by
+          # measured weight (~10-15 min each). SHARD_BUDGET (executions/shard) takes
+          # over only if the total drops below the cap. Tune if wall times drift.
+          SHARD_BUDGET: "25000"
+          MAX_SHARDS: "16"
+        run: echo "shards=$(node scripts/mutation-shards.mjs)" >> "$GITHUB_OUTPUT"
+
+  mutation:
+    name: mutation (shard ${{ matrix.index }})
+    needs: prep
+    runs-on: ubuntu-latest
+    # Steady-state a balanced cold shard is ~15-20 min; the wide headroom is a
+    # backstop for the dense files (quote-classifier alone is ~270 mutants per
+    # ~190 lines, each running a large covering-test set — ~30 min fully cold) and
+    # for a cache-transition run (after a MAX_SHARDS change a shard's incremental
+    # cache mismatches and it re-tests fully cold). Warm PR runs finish in minutes.
+    timeout-minutes: 40
     strategy:
       fail-fast: false
-      # Shards are balanced by file size (≈ mutant count) so the matrix
-      # finishes in roughly the wall time of the largest single file.
       matrix:
-        include:
-          - shard: quote-classifier
-            mutate: src/quote-classifier.ts
-          - shard: dashes
-            mutate: src/dashes.ts
-          - shard: symbols
-            mutate: src/symbols.ts,src/quotes.ts
-          - shard: cli-nbsp
-            mutate: src/cli.ts,src/nbsp.ts
-          - shard: plugins
-            mutate: src/rehype.ts,src/remark.ts,src/html.ts,src/markdown.ts,src/prettier-plugin.ts
-          - shard: core
-            mutate: src/prose-view.ts,src/index.ts,src/constants.ts,src/transform-options.ts,src/utils.ts
+        include: ${{ fromJSON(needs.prep.outputs.shards) }}
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -45,57 +62,63 @@ jobs:
         with:
           node-version: 22
 
-      # Cache entries are immutable, so the primary key includes the commit
-      # and restore-keys falls back to the most recent entry for the shard
-      # (Stryker revalidates incremental results against the actual code and
-      # test diffs, so a stale file is safe and still prunes unchanged work).
+      # Cache entries are immutable, so the primary key includes the commit and
+      # restore-keys falls back to the most recent entry for this shard index.
+      # Stryker revalidates incremental results against the actual code and test
+      # diffs, so a stale entry (files may pack onto a different index as the plan
+      # rebalances) is safe and still prunes unchanged work.
       - name: Restore incremental mutation state
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: reports/stryker-incremental-${{ matrix.shard }}.json
-          key: stryker-incremental-${{ matrix.shard }}-${{ github.sha }}
+          path: reports/stryker-incremental-${{ matrix.index }}.json
+          key: stryker-incremental-${{ matrix.index }}-${{ github.sha }}
           restore-keys: |
-            stryker-incremental-${{ matrix.shard }}-
+            stryker-incremental-${{ matrix.index }}-
 
       - name: Run mutation tests
         # No `--` before the flags: pnpm forwards it literally and Stryker's
         # CLI rejects it as a positional argument.
-        run: pnpm run mutation --mutate "${{ matrix.mutate }}" --incrementalFile "reports/stryker-incremental-${{ matrix.shard }}.json"
+        run: pnpm run mutation --mutate "${{ matrix.mutate }}" --incrementalFile "reports/stryker-incremental-${{ matrix.index }}.json"
 
-      - name: Upload HTML report
+      - name: Upload mutation report
         if: always()
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
-          name: mutation-report-${{ matrix.shard }}
+          name: mutation-report-${{ matrix.index }}
           path: reports/mutation/
           if-no-files-found: ignore
 
-  shard-coverage:
-    name: Shards cover all source files
+  # Merge every shard's measured weights and print the map between markers, so it
+  # can be read from one job log and committed to config/mutation-weights.json.
+  # The weekly refresh does the same from a clean (cache-disabled) run; this is a
+  # live view of what the current run measured and the seed source for the map.
+  weights-map:
+    name: Merged weights map
+    needs: mutation
+    if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-
-      - name: Every src file appears in a shard
+      - name: Download shard reports
+        uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e # v4.2.1
+        with:
+          pattern: mutation-report-*
+          path: shard-reports
+      - name: Merge and print the weights map
         run: |
-          covered="src/quote-classifier.ts src/dashes.ts src/symbols.ts src/quotes.ts \
-            src/cli.ts src/nbsp.ts src/rehype.ts src/remark.ts src/html.ts src/markdown.ts \
-            src/prettier-plugin.ts src/prose-view.ts src/index.ts src/constants.ts \
-            src/transform-options.ts src/utils.ts"
-          status=0
-          for f in src/*.ts; do
-            case " $covered " in
-              *" $f "*) ;;
-              *) echo "::error::$f is not covered by any mutation shard; add it to the matrix in mutation.yml"; status=1 ;;
-            esac
+          shopt -s nullglob
+          for report in shard-reports/mutation-report-*/mutation.json; do
+            node scripts/mutation-weights.mjs report --report "$report" --out "$report.weights.json"
           done
-          exit "$status"
+          echo "PUNCTILIO_MERGED_WEIGHTS_BEGIN"
+          node scripts/mutation-weights.mjs merge shard-reports/mutation-report-*/mutation.json.weights.json
+          echo "PUNCTILIO_MERGED_WEIGHTS_END"
 
   mutation-all:
     name: Mutation checks passed
-    needs: [mutation, shard-coverage]
+    needs: [prep, mutation]
     runs-on: ubuntu-latest
     if: always()
     steps:
