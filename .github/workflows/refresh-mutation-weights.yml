@@ -45,7 +45,8 @@ jobs:
     needs: prep
     runs-on: ubuntu-latest
     # Cache-disabled, so every shard runs fully cold (~15-20 min balanced); the
-    # headroom backstops the timeout-mutant-heavy quote-classifier regex ranges.
+    # headroom backstops the dense files (quote-classifier is ~270 mutants per
+    # ~190 lines, each running a large covering-test set).
     timeout-minutes: 40
     strategy:
       fail-fast: false

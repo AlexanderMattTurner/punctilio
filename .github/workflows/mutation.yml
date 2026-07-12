@@ -44,8 +44,9 @@ jobs:
     needs: prep
     runs-on: ubuntu-latest
     # Steady-state a balanced cold shard is ~15-20 min; the wide headroom is a
-    # backstop for the timeout-mutant-heavy quote-classifier regex ranges and for
-    # a cache-transition run (after a MAX_SHARDS change a shard's incremental
+    # backstop for the dense files (quote-classifier alone is ~270 mutants per
+    # ~190 lines, each running a large covering-test set — ~30 min fully cold) and
+    # for a cache-transition run (after a MAX_SHARDS change a shard's incremental
     # cache mismatches and it re-tests fully cold). Warm PR runs finish in minutes.
     timeout-minutes: 40
     strategy:
