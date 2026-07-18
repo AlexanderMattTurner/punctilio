@@ -1,21 +1,27 @@
 import { jest } from "@jest/globals"
 import { assertKnownOptionKeys, formatErrorString, omitKeys, stableStringify } from "../utils.js"
-import { cachedRegExp, clearRegexCache } from "../constants.js"
+import { cachedRegExp, clearRegexCache, getCachedRegExps, MAX_REGEX_CACHE_SIZE } from "../constants.js"
 
 describe("cachedRegExp", () => {
   afterEach(() => {
     clearRegexCache()
   })
 
-  it("evicts entries when cache exceeds max size", () => {
-    // Fill the cache well beyond 1000 entries with unique patterns
-    for (let i = 0; i < 1010; i++) {
-      const re = cachedRegExp(`unique-pattern-${i}`, "g")
-      expect(re).toBeInstanceOf(RegExp)
+  it("evicts the oldest entries once the cache is full", () => {
+    // Fill past the point where the LRU has purged its oldest generation. The
+    // backing QuickLRU retains up to 2×maxSize before a purge, so overshoot that.
+    const total = 2 * MAX_REGEX_CACHE_SIZE + 50
+    for (let i = 0; i < total; i++) {
+      expect(cachedRegExp(`unique-pattern-${i}`, "g")).toBeInstanceOf(RegExp)
     }
-    // Verify the cache still works correctly after eviction
-    const re = cachedRegExp("unique-pattern-1009", "g")
-    expect(re.source).toBe("unique-pattern-1009")
+
+    const cached = getCachedRegExps()
+    const sources = new Set(cached.map((re) => re.source))
+    // The cache stays bounded, the earliest patterns are gone, and the most
+    // recent one is retained — the behavior a size cap is supposed to give.
+    expect(cached.length).toBeLessThanOrEqual(2 * MAX_REGEX_CACHE_SIZE)
+    expect(sources.has("unique-pattern-0")).toBe(false)
+    expect(sources.has(`unique-pattern-${total - 1}`)).toBe(true)
   })
 })
 
