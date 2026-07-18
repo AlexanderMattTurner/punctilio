@@ -1,4 +1,4 @@
-import { cachedRegExp, FOLDED_WORD_CHARS, isWordLike, LATIN_LETTER_RE, LATIN_LETTERS, MAX_BOUNDARY_SEPARATORS, NBSP_CHARS, SPACE_CHAR_RE, UNICODE_SYMBOLS } from "./constants.js"
+import { cachedRegExp, FOLDED_WORD_CHARS, isWordLike, LATIN_LETTER_RE, LATIN_LETTERS, LATIN_OR_DIGIT, LATIN_OR_DIGIT_RE, MAX_BOUNDARY_SEPARATORS, NBSP_CHARS, SPACE_CHAR_RE, UNICODE_SYMBOLS } from "./constants.js"
 import { boundaryCountAt, exceedsSingleBoundary, firstInteriorBoundary, lastBoundaryBefore, makeProsePass, overInput, type ProseView, replaceAllInView, type ReplaceAllOptions } from "./prose-view.js"
 
 export const DASH_STYLES = ["american", "british", "none"] as const
@@ -979,9 +979,10 @@ function chooseSpacedDashRun(view: ProseView, firstDash: number, fullRunEnd: num
   for (let end = hyphenRunEnd; end > firstDash; end--) {
     if (end - firstDash === 1) {
       // Single `-(?!${sep}*[LAT\d])`: the next clean char must not be a letter or
-      // digit (the suspended-hyphen guard).
+      // digit (the suspended-hyphen guard). Latin-aware so an accented word after
+      // a bare hyphen (`over- et -être`) is held back like its ASCII counterpart.
       const next = text[end]
-      if (next !== undefined && /[a-z\d]/i.test(next)) return null
+      if (next !== undefined && LATIN_OR_DIGIT_RE.test(next)) return null
     }
     if (spacedArrowAhead(view, end)) continue
     const trailing = spacedTrailingEnd(view, end)
@@ -1115,7 +1116,7 @@ function convertBoundaryLedDashes(view: ProseView, rendered: string): void {
  * slot and block the match.
  */
 function convertMultipleDashes(view: ProseView, rendered: string): void {
-  const before = `[${LATIN_LETTERS}\\d${QUOTE_CHARS}]`
+  const before = `[${LATIN_OR_DIGIT}${QUOTE_CHARS}]`
   const after = `[${LATIN_LETTERS}${QUOTE_CHARS} ]`
   // Upper bound of 50 prevents ReDoS on pathological runs of dashes.
   const pattern = `(?<=${before})[${EN_DASH}${EM_DASH}-]{2,50}(?=${after})`

@@ -1,4 +1,4 @@
-import { cachedRegExp, LATIN_LETTER_RE, LATIN_LETTERS, MAX_BOUNDARY_SEPARATORS, SPACE_CHAR_RE, UNICODE_SYMBOLS, WORD_RE } from "./constants.js"
+import { cachedRegExp, LATIN_LETTER_RE, LATIN_OR_DIGIT, MAX_BOUNDARY_SEPARATORS, SPACE_CHAR_RE, UNICODE_SYMBOLS, WORD_RE } from "./constants.js"
 import { boundaryCountAt, exceedsSingleBoundary, firstInteriorBoundary, interiorBoundariesWithin, makeProsePass, overInput, type ProseView, replaceAllInView } from "./prose-view.js"
 import { convertPrimeMarks } from "./quote-classifier.js"
 
@@ -49,7 +49,7 @@ function ellipsisOverView(view: ProseView): void {
   // ellipsis. A node boundary between the ellipsis and the letter is a non-letter
   // for the `(?=[A-Za-z…\d])` lookahead, so it blocks the space; re-check the
   // boundary at the lookahead position.
-  const trailing = cachedRegExp(`${ELLIPSIS}(?=[${LATIN_LETTERS}\\d])`, "gu")
+  const trailing = cachedRegExp(`${ELLIPSIS}(?=[${LATIN_OR_DIGIT}])`, "gu")
   replaceAllInView(view, trailing, (match, v) => {
     if (v.hasBoundary(match.index + match[0].length)) return null
     return `${ELLIPSIS} `
@@ -869,7 +869,7 @@ function superscriptOrdinalOverView(view: ProseView): void {
   // boundary is tolerated between the digit and the suffix, with a word boundary
   // after the suffix. Only the suffix is replaced, leaving the digit and any
   // boundary between them untouched so the boundary keeps its position.
-  const pattern = cachedRegExp(`(?<num>\\d)(?<suffix>st|nd|rd|th)\\b(?![${LATIN_LETTERS}\\d])`, "gi")
+  const pattern = cachedRegExp(`(?<num>\\d)(?<suffix>st|nd|rd|th)\\b(?![${LATIN_OR_DIGIT}])`, "gi")
   replaceAllInView(view, pattern, (match, v) => {
     const { num, suffix } = match.groups!
     const suffixStart = match.index + num.length
