@@ -45,6 +45,10 @@ describe("hyphenReplace", () => {
       // Suspended/hanging hyphens: prefix shared with a preceding compound
       ["Yes-men and -women", "Yes-men and -women"],
       ["the over- and -supply of widgets", "the over- and -supply of widgets"],
+      // The guard is Latin-accent-aware: an accented word after a bare hyphen is
+      // held back exactly like the ASCII case above, not converted to an em dash.
+      ["the over- and -être of widgets", "the over- and -être of widgets"],
+      ["Yes-men and -œufs", "Yes-men and -œufs"],
       ["since--as you know", `since${EM_DASH}as you know`],
       // Arrow patterns should be preserved (not converted to em-dashes)
       ["word -> arrow", "word -> arrow"],

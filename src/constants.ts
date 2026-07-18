@@ -105,6 +105,14 @@ export const TERMINAL_PUNCTUATION = [
  */
 export const LATIN_LETTERS = "A-Za-z\\u00C0-\\u00D6\\u00D8-\\u00F6\\u00F8-\\u00FF\\u0100-\\u017F\\u0180-\\u024F\\u1E00-\\u1EFF"
 
+/**
+ * {@link LATIN_LETTERS} plus ASCII digits, for regex character classes:
+ * `[${LATIN_OR_DIGIT}]`. The shared spelling of "a word-forming char" that the
+ * dash and symbol passes gate on (a hyphen or ellipsis touching one, an ordinal
+ * suffix followed by one).
+ */
+export const LATIN_OR_DIGIT = `${LATIN_LETTERS}\\d`
+
 /** Space chars for regex `[...]`: regular space, tab, NBSP, NNBSP. */
 export const SPACE_CHARS = ` \t${UNICODE_SYMBOLS.NBSP}${UNICODE_SYMBOLS.NNBSP}`
 
@@ -113,6 +121,9 @@ export const NBSP_CHARS = `${UNICODE_SYMBOLS.NBSP}${UNICODE_SYMBOLS.NNBSP}`
 
 /** Latin letters (incl. European accents) as a compiled regex; see {@link LATIN_LETTERS}. */
 export const LATIN_LETTER_RE = new RegExp(`[${LATIN_LETTERS}]`, "u")
+
+/** A single {@link LATIN_OR_DIGIT} character as a compiled regex. */
+export const LATIN_OR_DIGIT_RE = new RegExp(`[${LATIN_OR_DIGIT}]`, "u")
 
 /** Single `\w` word-character matcher shared across passes. */
 export const WORD_RE = /\w/
