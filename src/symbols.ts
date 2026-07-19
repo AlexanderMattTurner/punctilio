@@ -496,9 +496,12 @@ const FRACTION_GLYPH_RE = new RegExp(
 const isPathContext = (before: string): boolean => {
   const parts = before.split(/\s+/)
   const trailing = parts[parts.length - 1]
-  if (FRACTION_GLYPH_RE.test(trailing)) return true
-  const slashIdx = trailing.indexOf("/")
-  return slashIdx >= 0 && slashIdx < trailing.length - 1
+  // A slash anywhere in the token that leads up to the legal marker signals a
+  // path/URL. The marker itself is excluded from `before`, so a slash sitting
+  // right before it (`foo/(tm)`, `example.com/(c)`) leaves the slash as the
+  // token's final character — still a path, so match on any slash, not only an
+  // interior one.
+  return FRACTION_GLYPH_RE.test(trailing) || trailing.includes("/")
 }
 
 function contextAwareLegalReplace(

@@ -1,5 +1,5 @@
 import { DASH_STYLES, PUNCTUATION_STYLES, type TransformOptions, transformView, transform as transformWithoutChecks } from "../index.js"
-import { TRANSFORM_OPTION_KEYS } from "../transform-options.js"
+import { resolveTransformOptions, TRANSFORM_OPTION_KEYS } from "../transform-options.js"
 import { ellipsis } from "../symbols.js"
 import { UNICODE_SYMBOLS } from "../constants.js"
 import { buildMixedContent, SEP as DEFAULT_SEPARATOR, viewTransform } from "./test-helpers.js"
@@ -725,6 +725,17 @@ describe("transform", () => {
       expect(() => transform("hello", { punctuationStyle: style as never })).toThrow(
         /Invalid punctuationStyle/
       )
+    })
+
+    it("coalesces an explicit null style to the default (Required return contract)", () => {
+      // JS callers outside the type system can pass null; it must not survive
+      // into the resolved options, which are typed Required<TransformOptions>.
+      const resolved = resolveTransformOptions({
+        punctuationStyle: null as never,
+        dashStyle: null as never,
+      })
+      expect(resolved.punctuationStyle).toBe("american")
+      expect(resolved.dashStyle).toBe("american")
     })
 
     it("includes valid values in punctuationStyle error message", () => {

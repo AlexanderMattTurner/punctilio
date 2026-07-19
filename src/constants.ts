@@ -157,9 +157,6 @@ export const MAX_BOUNDARY_SEPARATORS = 3
 /** Max AST recursion depth; guards against stack overflow from deep nesting. */
 export const MAX_RECURSION_DEPTH = 1000
 
-/** Single source of truth for issue tracker URL in error messages. */
-export const ISSUES_URL = "https://github.com/AlexanderMattTurner/punctilio/issues"
-
 export const MAX_REGEX_CACHE_SIZE = 1000
 const regexCache = new QuickLRU<string, RegExp>({ maxSize: MAX_REGEX_CACHE_SIZE })
 

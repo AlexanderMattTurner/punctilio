@@ -139,5 +139,9 @@ export function resolveTransformOptions(options: TransformOptions): ResolvedTran
     )
   }
 
-  return { ...defaultOpts, ...filterUndefined(options) }
+  // `filterUndefined` drops only `undefined`, so an explicit `null` (from JS
+  // callers outside the type system) would otherwise survive the spread and
+  // break the `Required` return contract. Re-apply the validated, null-coalesced
+  // style values last so the result always holds a real enum member.
+  return { ...defaultOpts, ...filterUndefined(options), punctuationStyle, dashStyle }
 }
