@@ -35,8 +35,8 @@ on:
         default: "false"
         type: boolean
   schedule:
-    # Run weekly on Mondays at 9am UTC
-    - cron: "0 9 * * 1"
+    # Run daily at 9am UTC
+    - cron: "0 9 * * *"
 
 env:
   TEMPLATE_REPO: "AlexanderMattTurner/claude-automation-template"
