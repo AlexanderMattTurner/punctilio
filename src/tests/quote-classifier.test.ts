@@ -176,6 +176,15 @@ describe("boundary-sensitive edges (ports of v4 sentinel behavior)", () => {
     // closer ahead keeps the elision pass away, and the opener rule requires
     // a non-space follower.
     [`x ' b${RIGHT_SINGLE_QUOTE} c`, `x ' b${RIGHT_SINGLE_QUOTE} c`],
+    // A closing double quote isolated in its own node (a boundary on each side,
+    // e.g. `"Hi<sup>"</sup>there`) closes the open quotation. The bare-boundary
+    // opener prefix must not turn it into a second opener while a quote is open.
+    [`"Hi${SEP}"${SEP}there`, `${LEFT_DOUBLE_QUOTE}Hi${SEP}${RIGHT_DOUBLE_QUOTE}${SEP}there`],
+    [`"Hi${SEP}"${SEP} there`, `${LEFT_DOUBLE_QUOTE}Hi${SEP}${RIGHT_DOUBLE_QUOTE}${SEP} there`],
+    // ...but at depth zero the same isolated position is still a valid opener.
+    [`a ${SEP}"${SEP}quote"`, `a ${SEP}${LEFT_DOUBLE_QUOTE}${SEP}quote${RIGHT_DOUBLE_QUOTE}`],
+    // A fresh pair after the first closes opens again from a boundary-isolated node.
+    [`"a" and ${SEP}"${SEP}b"`, `${LEFT_DOUBLE_QUOTE}a${RIGHT_DOUBLE_QUOTE} and ${SEP}${LEFT_DOUBLE_QUOTE}${SEP}b${RIGHT_DOUBLE_QUOTE}`],
   ])("niceQuotes(%j) === %j", (input, expected) => {
     expect(viewTransform(niceQuotes, input, SEP)).toBe(expected)
   })

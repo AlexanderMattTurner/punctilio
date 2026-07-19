@@ -705,30 +705,49 @@ function foldsToNotEqual(items: Item[], index: number): boolean {
  * mirror of {@link classifyClosingDoubles}'s opener-side absorption).
  */
 function classifyOpeningDoubles(items: Item[], style: ActiveQuoteStyle): void {
+  // `doubleOpenerPrefixOk` treats a bare node boundary as opener context, so a
+  // straight double quote isolated in its own node (a boundary on each side)
+  // reads as an opener even when it is really closing an open quotation — e.g.
+  // the `"` in `"Hi<sup>"</sup>` would become a second opener, leaving
+  // unbalanced output. Track the running opener depth, exactly as
+  // `classifyQuotedPunctuationOpeners` does, and suppress opening only when the
+  // opener context is supplied *solely* by a preceding boundary while a
+  // quotation is already open. A real opener character (space, comma, newline,
+  // `(`) still opens at any depth, so nested doubles (`'She said, "hello"'`) and
+  // multi-paragraph dialogue (each paragraph re-opens) are unaffected.
+  let openDepth = 0
   for (let i = 0; i < items.length; i++) {
     const item = items[i]
-    if (item.boundary || item.ch !== '"') continue
-    if (!doubleOpenerPrefixOk(items, i)) continue
-    // Arm 1: a boundary then space/period/comma (the boundary-start quirk).
-    const next = items[i + 1]
-    let opens = false
-    if (next?.boundary === true) {
-      const afterBoundary = items[i + 2]
-      opens = afterBoundary !== undefined && !afterBoundary.boundary
-        && (afterBoundary.ch === " " || afterBoundary.ch === "." || afterBoundary.ch === ",")
-    }
-    // Arm 2: up to one boundary, then "..." or a non-ending character.
-    if (!opens) {
-      const j = nextIndex(items, i, 1)
-      if (j < items.length && !items[j].boundary) {
-        const ch = items[j].ch
-        const absorbedIntoCloser = style === "french" && ch === " " && isCharItem(items, j + 1, RIGHT_DOUBLE_QUOTE)
-        opens = isEllipsisDots(items, j) || foldsToNotEqual(items, j)
-          || (!SPACE_RE.test(ch) && !DOUBLE_OPEN_ENDING_SET.has(ch))
-          || absorbedIntoCloser
+    if (item.boundary) continue
+    const openerContextIsBareBoundary = i > 0 && items[i - 1].boundary
+    if (
+      item.ch === '"' &&
+      !(openerContextIsBareBoundary && openDepth > 0) &&
+      doubleOpenerPrefixOk(items, i)
+    ) {
+      // Arm 1: a boundary then space/period/comma (the boundary-start quirk).
+      const next = items[i + 1]
+      let opens = false
+      if (next?.boundary === true) {
+        const afterBoundary = items[i + 2]
+        opens = afterBoundary !== undefined && !afterBoundary.boundary
+          && (afterBoundary.ch === " " || afterBoundary.ch === "." || afterBoundary.ch === ",")
       }
+      // Arm 2: up to one boundary, then "..." or a non-ending character.
+      if (!opens) {
+        const j = nextIndex(items, i, 1)
+        if (j < items.length && !items[j].boundary) {
+          const ch = items[j].ch
+          const absorbedIntoCloser = style === "french" && ch === " " && isCharItem(items, j + 1, RIGHT_DOUBLE_QUOTE)
+          opens = isEllipsisDots(items, j) || foldsToNotEqual(items, j)
+            || (!SPACE_RE.test(ch) && !DOUBLE_OPEN_ENDING_SET.has(ch))
+            || absorbedIntoCloser
+        }
+      }
+      if (opens) item.ch = LEFT_DOUBLE_QUOTE
     }
-    if (opens) item.ch = LEFT_DOUBLE_QUOTE
+    if (item.ch === LEFT_DOUBLE_QUOTE) openDepth++
+    else if ((item.ch === RIGHT_DOUBLE_QUOTE || item.ch === '"') && openDepth > 0) openDepth--
   }
 }
 
