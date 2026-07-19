@@ -20,6 +20,13 @@ jobs:
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
+          # version-bump.sh pushes the release-docs commit + vX.Y.Z tag to main,
+          # which is protected by a required-status-checks ruleset the `[skip ci]`
+          # commit can't satisfy. GITHUB_TOKEN is not a bypass actor (its push is
+          # rejected with GH013, stranding the tag); TEMPLATE_SYNC_TOKEN_ORG is
+          # the org PAT registered as a ruleset bypass actor. Falls back to
+          # GITHUB_TOKEN only when unset (a fork).
+          token: ${{ secrets.TEMPLATE_SYNC_TOKEN_ORG || secrets.GITHUB_TOKEN }}
 
       - name: Setup
         uses: ./.github/actions/setup
