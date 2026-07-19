@@ -697,6 +697,24 @@ function foldsToNotEqual(items: Item[], index: number): boolean {
 }
 
 /**
+ * True iff a straight double quote at `index` sits in opener position *only*
+ * because a node boundary precedes it: the nearest real character across the
+ * boundary run is itself a non-opener (not a space, an opener glyph, or the
+ * start of text). That boundary is an editing seam, not real opener context —
+ * so the single-node spelling of the same text would not read the quote as an
+ * opener. {@link classifyOpeningDoubles} uses this to leave such a quote for the
+ * closing pass when a quotation is already open, instead of re-opening a closer.
+ */
+function openerContextIsSolelyBoundary(items: Item[], index: number): boolean {
+  if (index === 0 || !items[index - 1].boundary) return false
+  let j = index - 1
+  while (j >= 0 && items[j].boundary) j--
+  if (j < 0) return false // start of text is real opener context
+  const ch = items[j].ch
+  return !(SPACE_RE.test(ch) || DOUBLE_OPEN_BEFORE_SET.has(ch))
+}
+
+/**
  * Opening double quote by following context.
  *
  * French: a plain space directly before a pre-labeled closer merges into the
@@ -711,18 +729,19 @@ function classifyOpeningDoubles(items: Item[], style: ActiveQuoteStyle): void {
   // the `"` in `"Hi<sup>"</sup>` would become a second opener, leaving
   // unbalanced output. Track the running opener depth, exactly as
   // `classifyQuotedPunctuationOpeners` does, and suppress opening only when the
-  // opener context is supplied *solely* by a preceding boundary while a
-  // quotation is already open. A real opener character (space, comma, newline,
-  // `(`) still opens at any depth, so nested doubles (`'She said, "hello"'`) and
-  // multi-paragraph dialogue (each paragraph re-opens) are unaffected.
+  // opener context is supplied *solely* by a preceding boundary (see
+  // {@link openerContextIsSolelyBoundary}) while a quotation is already open. A
+  // real opener character across the boundary (a space, `(`, or start of text)
+  // still opens at any depth, so nested doubles (`'She said, "hello"'`) and
+  // multi-paragraph dialogue (each paragraph re-opens) match the single-node
+  // reading whether the separator is a newline or an inline-element boundary.
   let openDepth = 0
   for (let i = 0; i < items.length; i++) {
     const item = items[i]
     if (item.boundary) continue
-    const openerContextIsBareBoundary = i > 0 && items[i - 1].boundary
     if (
       item.ch === '"' &&
-      !(openerContextIsBareBoundary && openDepth > 0) &&
+      !(openerContextIsSolelyBoundary(items, i) && openDepth > 0) &&
       doubleOpenerPrefixOk(items, i)
     ) {
       // Arm 1: a boundary then space/period/comma (the boundary-start quirk).

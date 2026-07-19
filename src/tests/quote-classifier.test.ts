@@ -183,6 +183,10 @@ describe("boundary-sensitive edges (ports of v4 sentinel behavior)", () => {
     [`"Hi${SEP}"${SEP} there`, `${LEFT_DOUBLE_QUOTE}Hi${SEP}${RIGHT_DOUBLE_QUOTE}${SEP} there`],
     // ...but at depth zero the same isolated position is still a valid opener.
     [`a ${SEP}"${SEP}quote"`, `a ${SEP}${LEFT_DOUBLE_QUOTE}${SEP}quote${RIGHT_DOUBLE_QUOTE}`],
+    // A continued opener separated from its space by an inline-element boundary
+    // (`"Para one <em>"Para two</em>`) still opens: real opener context sits
+    // across the boundary, so it matches the single-node reading, not a closer.
+    [`"Para one ${SEP}"Para two"`, `${LEFT_DOUBLE_QUOTE}Para one ${SEP}${LEFT_DOUBLE_QUOTE}Para two${RIGHT_DOUBLE_QUOTE}`],
     // A fresh pair after the first closes opens again from a boundary-isolated node.
     [`"a" and ${SEP}"${SEP}b"`, `${LEFT_DOUBLE_QUOTE}a${RIGHT_DOUBLE_QUOTE} and ${SEP}${LEFT_DOUBLE_QUOTE}${SEP}b${RIGHT_DOUBLE_QUOTE}`],
   ])("niceQuotes(%j) === %j", (input, expected) => {
