@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Fixed
+
+- A closing double quote isolated in its own node (a node boundary on each side, e.g. `"Hi<sup>"</sup>`) no longer becomes a second opening quote; it now closes the open quotation as it does in the single-node path.
+- Legal markers glued directly after a slash (`foo/(tm)`, `example.com/(c) 2024`) are recognized as path/URL context and left untouched, matching the existing `example.com/path(c)` behavior.
+- An explicit `null` passed as `punctuationStyle`/`dashStyle` from untyped callers now resolves to the default instead of surviving into the resolved options.
+
+### Removed
+
+- Dropped the unused `ISSUES_URL` constant.
+
 ## [5.2.0] - 2026-07-11
 
 ### Fixed
