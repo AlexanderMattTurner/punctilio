@@ -249,6 +249,11 @@ describe("legalSymbols", () => {
     ["example.com/path(tm)", "example.com/path(tm)"],
     ["example.com/path(r)", "example.com/path(r)"],
     ["/usr/local/bin(r)", "/usr/local/bin(r)"],
+    // The marker sitting directly after a slash is still a path: the slash is
+    // the trailing token's final character, with no character after it.
+    ["foo/(tm)", "foo/(tm)"],
+    ["docs/(r)", "docs/(r)"],
+    ["example.com/(c) 2024", "example.com/(c) 2024"],
   ])('preserves legal symbols in path context "%s"', (input, expected) => {
     expect(legalSymbols(input)).toBe(expected)
   })
