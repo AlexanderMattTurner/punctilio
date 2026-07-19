@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+## [5.2.9] - 2026-07-19
+
+
 ### Fixed
 
 - A closing double quote isolated in its own node (a node boundary on each side, e.g. `"Hi<sup>"</sup>`) no longer becomes a second opening quote; it now closes the open quotation as it does in the single-node path.
