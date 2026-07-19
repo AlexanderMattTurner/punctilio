@@ -39,4 +39,4 @@ jobs:
       - name: Auto Version Bump and Publish
         run: bash scripts/version-bump.sh
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.GH_ACTION_ANTHROPIC_API_KEY }}
