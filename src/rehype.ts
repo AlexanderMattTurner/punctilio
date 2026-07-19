@@ -795,6 +795,20 @@ function flattenRunProse(
   return { nodes: c.nodes, opaqueBefore: c.opaqueBefore };
 }
 
+// Flatten a Root-level run's inline children. `Root` is not an element, so —
+// unlike {@link flattenRunProse} — no container is seeded into the ancestor
+// chain: text sitting directly under the tree has no element ancestor, which is
+// exactly what `shouldSkipText` should observe.
+function flattenRootRunProse(
+  children: readonly ElementContent[],
+  shouldSkip: ElementPredicate,
+  options: ProseViewOfOptions,
+): FlattenedProse {
+  const c = newCollector(shouldSkip, options);
+  for (const child of children) collectProse(child, 1, c);
+  return { nodes: c.nodes, opaqueBefore: c.opaqueBefore };
+}
+
 /**
  * A single spanning ProseView over a run's loose inline children, with a
  * boundary at every opaque gap — the run analogue of {@link proseViewOf}. Null
@@ -828,6 +842,65 @@ function markDescendants(
   }
 }
 
+// Transform loose inline text sitting directly under the tree `Root`. The
+// element-only visitor never enters `Root` itself, so bare text there — the
+// whole input of `transformHtml('"hi" -- world')`, and any text mixed among
+// top-level blocks — would otherwise be dropped. Root text has no element
+// ancestor to consult, so the allowlist/`transformAllElements` distinction (a
+// property of elements) does not gate it: document-level prose is always
+// transformed. Runs split at block-level children, which the visitor handles;
+// each inline element a run consumes is marked so the visitor skips it.
+function transformRootProse(
+  tree: Root,
+  shouldSkip: ElementPredicate,
+  isTransformable: (tagName: string) => boolean,
+  viewOptions: ProseViewOfOptions,
+  transformOptions: TransformOptions,
+  transformed: Set<Element>,
+): void {
+  let run: ElementContent[] = [];
+  const flushRun = () => {
+    if (runHasProse(run, shouldSkip)) {
+      const { nodes, opaqueBefore } = flattenRootRunProse(
+        run,
+        shouldSkip,
+        viewOptions,
+      );
+      for (const group of splitAtIndices(nodes, opaqueBefore)) {
+        transformView(buildProseView(group), transformOptions);
+      }
+      for (const child of run) {
+        if (child.type === "element") {
+          transformed.add(child);
+          markDescendants(child, transformed);
+        }
+      }
+    }
+    run = [];
+  };
+
+  // Only bare text and inline prose elements merge into a run. Block elements
+  // and non-transformable structural wrappers (`<html>`/`<head>`/`<body>` under
+  // a full-document parse, or a non-allowlisted element in default mode) are
+  // boundaries left to the element visitor, so their subtrees keep the same
+  // allowlist / `transformAllElements` treatment they'd get anywhere else.
+  for (const child of tree.children) {
+    if (child.type === "doctype") continue;
+    const isRunMember =
+      child.type === "text" ||
+      child.type === "comment" ||
+      (child.type === "element" &&
+        !BLOCK_ELEMENTS.has(child.tagName) &&
+        isTransformable(child.tagName));
+    if (isRunMember) {
+      run.push(child);
+    } else {
+      flushRun();
+    }
+  }
+  flushRun();
+}
+
 export function rehypePunctilio(
   options: RehypePunctilioOptions = {},
 ): Transformer<Root, Root> {
@@ -857,6 +930,15 @@ export function rehypePunctilio(
   return (tree: Root) => {
     // Track transformed elements to avoid double-processing
     const transformed = new Set<Element>();
+
+    transformRootProse(
+      tree,
+      shouldSkip,
+      isTransformable,
+      viewOptions,
+      transformOptions,
+      transformed,
+    );
 
     visitParents(tree, "element", (node) => {
       // Skip subtree if already transformed
