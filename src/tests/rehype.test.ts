@@ -299,6 +299,92 @@ describe("rehypePunctilio", () => {
     });
   });
 
+  describe("loose text directly under the tree root", () => {
+    // Text with no element ancestor (a bare-string fragment, or loose text
+    // among top-level blocks) has no allowlist gate to consult, so it is always
+    // transformed. Inline prose siblings merge into the run; block children are
+    // boundaries handled independently.
+    it.each([
+      // Headline use case: a bare-text fragment with no wrapping element.
+      ["bare-text fragment", '"hello" -- world', `${LDQ}hello${RDQ}${EM_DASH}world`],
+      [
+        "run spans an inline element",
+        '"hello" <em>and</em> more -- ok',
+        `${LDQ}hello${RDQ} <em>and</em> more${EM_DASH}ok`,
+      ],
+      // The block child is a boundary: loose text never merges across it.
+      [
+        "loose text split by a top-level block",
+        '"a" <p>"b"</p> "c" -- d',
+        `${LDQ}a${RDQ} <p>${LDQ}b${RDQ}</p> ${LDQ}c${RDQ}${EM_DASH}d`,
+      ],
+      // Adjacent inline elements are visually contiguous prose, so the quote
+      // opened in the first closes in the second.
+      [
+        "quotes pair across adjacent root inline elements",
+        '<span>"a</span><span>b"</span>',
+        `<span>${LDQ}a</span><span>b${RDQ}</span>`,
+      ],
+    ])("%s", async (_name, html, expected) => {
+      expect(await processHtml(html, { nbsp: false })).toEqual(expected);
+    });
+
+    it("transforms root text even without transformAllElements", async () => {
+      expect(await processHtml("1-5", { nbsp: false })).toEqual(
+        `1${EN_DASH}5`,
+      );
+    });
+
+    it("still reaches root text under transformAllElements", async () => {
+      expect(
+        await processHtml('"hi" -- there', {
+          nbsp: false,
+          transformAllElements: true,
+        }),
+      ).toEqual(`${LDQ}hi${RDQ}${EM_DASH}there`);
+    });
+
+    it("passes empty ancestors to shouldSkipText for bare root text", async () => {
+      const seen: number[] = [];
+      const record = (_t: Text, ancestors: readonly Element[]) => {
+        seen.push(ancestors.length);
+        return false;
+      };
+      await processHtml('"hi"', { nbsp: false, shouldSkipText: record });
+      expect(seen).toEqual([0]);
+    });
+
+    it("honors skipTags on a root inline element", async () => {
+      expect(
+        await processHtml('"a" <code>"b"</code> "c"', {
+          nbsp: false,
+        }),
+      ).toEqual(`${LDQ}a${RDQ} <code>"b"</code> ${LDQ}c${RDQ}`);
+    });
+
+    it("leaves a non-allowlisted root container's direct text untouched by default", async () => {
+      // `<form>` is a run boundary in default mode, so its direct text keeps the
+      // allowlist treatment it gets anywhere else — untouched.
+      expect(
+        await processHtml('<form>"hi" -- there</form>', { nbsp: false }),
+      ).toEqual('<form>"hi" -- there</form>');
+    });
+
+    it("does not sweep the document wrapper under a full-document parse", async () => {
+      // Root's only child is <html>; body text keeps default allowlist behavior.
+      const process = (html: string, options?: RehypePunctilioOptions) =>
+        unified()
+          .use(rehypeParse, { fragment: false })
+          .use(rehypePunctilio, options)
+          .use(rehypeStringify)
+          .process(html)
+          .then(String);
+      expect(await process('<body>"hi" -- there</body>', { nbsp: false })).toEqual(
+        '<html><head></head><body>"hi" -- there</body></html>',
+      );
+    });
+  });
+
   describe("opaque inline content is an impassable gap", () => {
     // Content removed from the flattened text (a skipped element with content,
     // an image, or other atomic inline node) visually separates its neighbors,
