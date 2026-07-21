@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## [5.2.12] - 2026-07-21
+
+### Changed
+
+- ci: use TEMPLATE_SYNC_TOKEN_ORG as the primary template-sync token
+
 ## [5.2.11] - 2026-07-21
 
 ### Changed
