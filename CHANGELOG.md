@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## [5.2.10] - 2026-07-21
+
+### Changed
+
+- ci: re-exec template-sync from immutable copy to survive self-overwrite
+
 ## [5.2.9] - 2026-07-19
 
 
