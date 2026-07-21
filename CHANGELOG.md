@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## [5.2.11] - 2026-07-21
+
+### Changed
+
+- ci: add TEMPLATE_SYNC_TOKEN_ORG as template-sync token fallback
+
 ## [5.2.10] - 2026-07-21
 
 ### Changed
