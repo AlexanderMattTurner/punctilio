@@ -164,7 +164,7 @@ describe("transform", () => {
   describe("nbsp option", () => {
     it("inserts nbsp in typographically appropriate places", () => {
       expect(transform("Dr. Smith wrote Fig. 1 on p. 42", { nbsp: true }))
-        .toBe(`Dr.${NBSP}Smith wrote Fig.${NBSP}1 on${NBSP}p.${NBSP}42`)
+        .toBe(`Dr.${NBSP}Smith wrote Fig.${NBSP}1 on p.${NBSP}42`)
     })
 
     it("collapseSpaces cleans up after nbsp", () => {

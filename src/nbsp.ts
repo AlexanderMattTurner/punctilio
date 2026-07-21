@@ -112,8 +112,43 @@ function boundariesOnlyAtSlots(view: ProseView, start: number, end: number, slot
   return true
 }
 
-// Skips when preceded by NBSP or back-to-back with the previous match,
-// preventing 3+ words from binding into a single line-break atom.
+// Apostrophes that sit inside a word ("don’t", "Doe's") rather than quoting it.
+const APOSTROPHE_CHARS = `'${RIGHT_SINGLE_QUOTE}${UNICODE_SYMBOLS.MODIFIER_LETTER_APOSTROPHE}`
+
+// Bounds the forward next-word scan so it stays linear.
+const MAX_NEXT_WORD_LENGTH = 15
+
+/**
+ * True when the 1–2 letters at `offset` are the tail of a contraction or
+ * possessive ("don’t", "Doe’s"): an apostrophe directly before them with a
+ * letter on its far side. A quoting apostrophe follows space or punctuation,
+ * never a letter.
+ */
+function isContractionFragment(text: string, offset: number): boolean {
+  return (
+    offset >= 2 &&
+    APOSTROPHE_CHARS.includes(text[offset - 1]) &&
+    LATIN_LETTER_RE.test(text[offset - 2])
+  )
+}
+
+/**
+ * True when the word starting at `start` is already glued onward by an NBSP
+ * (a unit, initial, or honorific chain). Binding a short word to it would
+ * grow the non-breaking run past two words.
+ */
+function nextWordGluesForward(text: string, start: number): boolean {
+  for (let j = start; j < text.length && j - start < MAX_NEXT_WORD_LENGTH; j++) {
+    const char = text[j]
+    if (NBSP_CHARS.includes(char)) return true
+    if (SPACE_CHARS.includes(char) || char === "\n" || char === "\r") return false
+  }
+  return false
+}
+
+// Skips contraction fragments and any glue that would bind 3+ words into a
+// single line-break atom: preceded by NBSP, back-to-back with the previous
+// match, or followed by a word that is itself glued onward.
 export const nbspAfterShortWords = makeProsePass(nbspAfterShortWordsOverView)
 
 function nbspAfterShortWordsOverView(view: ProseView): void {
@@ -134,6 +169,8 @@ function nbspAfterShortWordsOverView(view: ProseView): void {
         // `(?<=^|space|punct|>)` lookbehind (a boundary is not one of those).
         if (view.hasBoundary(offset)) return null
         if (offset > 0 && NBSP_CHARS.includes(clean[offset - 1])) return null
+        if (isContractionFragment(clean, offset)) return null
+        if (nextWordGluesForward(clean, offset + match[0].length)) return null
         previousMatchEnd = offset + match[0].length
         // Edit only the space so any boundary keeps its side of the NBSP.
         v.replace(offset + match[0].length - 1, offset + match[0].length, NBSP)
