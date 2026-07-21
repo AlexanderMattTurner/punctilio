@@ -53,10 +53,16 @@ describe("nbspAfterShortWords", () => {
     // three-word atom.
     [`at 3${NBSP}GHz today`, `at 3${NBSP}GHz today`],
     [`by J.${NBSP}K.${NBSP}Rowling`, `by J.${NBSP}K.${NBSP}Rowling`],
+    // The forward scan stops at a line break; the next line's glue is a
+    // separate atom.
+    [`of x\n3${NBSP}kg`, `of${NBSP}x\n3${NBSP}kg`],
+    // The bounded scan never reaches an NBSP past the next-word cap.
+    [`a abcdefghijklmno${NBSP}x`, `a${NBSP}abcdefghijklmno${NBSP}x`],
     // Apostrophe-tail fragments are not short words.
     ["don’t agree", "don’t agree"],
     ["don't agree", "don't agree"],
     ["Doe’s cat", "Doe’s cat"],
+    ["I’m happy", "I’m happy"],
     // A quoting apostrophe (no letter before it) still admits the glue.
     ["give ’em a break", `give ’em${NBSP}a break`],
     ["the cat", "the cat"],
