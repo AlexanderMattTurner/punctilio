@@ -22,17 +22,17 @@ const AUTO_VERSION_YAML = join(
   "auto-version.yml",
 );
 
-test("the release checkout pushes as github-actions[bot], never a cross-account PAT", () => {
-  // punctilio's auto-version.yml checkout has no `token:` override — it rides the
-  // default GITHUB_TOKEN, which authorizes github-actions[bot] on its own repo.
-  // A cross-account PAT (TEMPLATE_SYNC_TOKEN, minted for a different owner) would
-  // be rejected 403 by this repo's remote, stranding every release. Guard that no
-  // such token ever leaks onto the checkout.
+test("the release checkout never uses the cross-account template-sync PAT", () => {
+  // auto-version.yml's checkout uses TEMPLATE_SYNC_TOKEN_ORG — the org PAT
+  // registered as a ruleset bypass actor, needed because the release commit +
+  // tag push to protected main is rejected for GITHUB_TOKEN (GH013). The bare
+  // TEMPLATE_SYNC_TOKEN is a different-owner PAT that this repo's remote rejects
+  // 403, stranding every release. Guard that only the _ORG variant appears.
   const yaml = readFileSync(AUTO_VERSION_YAML, "utf8");
   assert.doesNotMatch(
     yaml,
-    /TEMPLATE_SYNC_TOKEN/,
-    "the release checkout must not use a cross-account PAT",
+    /TEMPLATE_SYNC_TOKEN(?!_ORG)/,
+    "the release checkout must not use the bare cross-account PAT",
   );
 });
 

@@ -49,6 +49,22 @@ describe("nbspAfterShortWords", () => {
     // Pre-existing NBSP from an earlier transform: don't extend the chain.
     [`Dr.${NBSP}is here`, `Dr.${NBSP}is here`],
     [`5${NBSP}kg of items`, `5${NBSP}kg of${NBSP}items`],
+    // The next word is already glued onward: binding to it would make a
+    // three-word atom.
+    [`at 3${NBSP}GHz today`, `at 3${NBSP}GHz today`],
+    [`by J.${NBSP}K.${NBSP}Rowling`, `by J.${NBSP}K.${NBSP}Rowling`],
+    // The forward scan stops at a line break; the next line's glue is a
+    // separate atom.
+    [`of x\n3${NBSP}kg`, `of${NBSP}x\n3${NBSP}kg`],
+    // The bounded scan never reaches an NBSP past the next-word cap.
+    [`a abcdefghijklmno${NBSP}x`, `a${NBSP}abcdefghijklmno${NBSP}x`],
+    // Apostrophe-tail fragments are not short words.
+    ["don’t agree", "don’t agree"],
+    ["don't agree", "don't agree"],
+    ["Doe’s cat", "Doe’s cat"],
+    ["I’m happy", "I’m happy"],
+    // A quoting apostrophe (no letter before it) still admits the glue.
+    ["give ’em a break", `give ’em${NBSP}a break`],
     ["the cat", "the cat"],
     // Accented Latin short words
     ["à chat", `à${NBSP}chat`],
@@ -232,12 +248,12 @@ describe("nbspBetweenInitials", () => {
 describe("nbspTransform", () => {
   it("applies all nbsp transformations", () => {
     expect(nbspTransform("Dr. Smith wrote Fig. 1 on p. 42"))
-      .toBe(`Dr.${NBSP}Smith wrote Fig.${NBSP}1 on${NBSP}p.${NBSP}42`)
+      .toBe(`Dr.${NBSP}Smith wrote Fig.${NBSP}1 on p.${NBSP}42`)
   })
 
   it("handles multiple rules on the same text", () => {
     expect(nbspTransform(`${COPYRIGHT} 2024 by J. K. Rowling`))
-      .toBe(`${COPYRIGHT}${NBSP}2024 by${NBSP}J.${NBSP}K.${NBSP}Rowling`)
+      .toBe(`${COPYRIGHT}${NBSP}2024 by J.${NBSP}K.${NBSP}Rowling`)
   })
 
   it("nbspBeforeLastWord fires on plain text", () => {
