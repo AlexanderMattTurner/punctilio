@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## [5.2.13] - 2026-07-22
+
+### Changed
+
+- test(version-bump): allow the sanctioned org bypass PAT in the guard
+- test(nbsp): pin forward-scan bounds and offset-2 contraction guard
+- fix(nbsp): keep short-word glue from forming 3+ word atoms
+
 ## [5.2.12] - 2026-07-21
 
 ### Changed
