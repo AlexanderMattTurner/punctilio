@@ -1,0 +1,72 @@
+name: pre-commit
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  pre-commit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      # setup-python provides the `python3.11` on PATH that pre-commit binds
+      # every `language: python` hook to (default_language_version). uvx runs
+      # pre-commit itself; the two versions are kept in sync by
+      # tests/test_version_sync.py.
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: "3.11"
+      - uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+      # Node deps must be installed for the node-based `language: system` hooks:
+      # check-proto-pollution does `import ts from "typescript"`, which resolves
+      # from the repo's node_modules (ESM ignores NODE_PATH), so the module is
+      # absent until `pnpm install` runs.
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: ".nvmrc"
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+      - name: Install node deps
+        # No --frozen-lockfile: the repo gitignores pnpm-lock.yaml, so CI resolves
+        # from package.json against the registry.
+        run: pnpm install --no-frozen-lockfile
+      - name: Restore pre-commit cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
+          restore-keys: pre-commit-${{ runner.os }}-
+      - name: Run pre-commit
+        run: uvx pre-commit==4.6.0 run --all-files --show-diff-on-failure
+
+  # Stable Required check: runs even when `pre-commit` is cancelled/skipped, so
+  # a protected branch never gets stuck on a check that never reports.
+  pre-commit-passed: # required-check: true
+    if: always()
+    needs: [pre-commit]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          sparse-checkout: |
+            .github/actions/report-job-result
+            .github/scripts
+          persist-credentials: false
+
+      - name: Report result
+        uses: ./.github/actions/report-job-result
+        with:
+          run: "true"
+          decide-result: "success"
+          result: ${{ needs.pre-commit.result }}
