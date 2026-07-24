@@ -1,0 +1,65 @@
+name: Lint
+
+# No paths filter: lint-passed is a required status check, so the workflow must
+# always fire and report — a path-gated required check hangs at
+# "Expected — Waiting" forever when a PR doesn't touch the filtered paths. The
+# lint job no-ops when no lint/check script is configured, so it stays cheap.
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Setup base environment
+        uses: ./.github/actions/setup-base-env
+
+      - name: Check if scripts are configured
+        id: check
+        run: |
+          bash .github/scripts/script-configured-output.sh check check_configured
+          bash .github/scripts/script-configured-output.sh lint lint_configured
+
+      - name: Type check
+        if: steps.check.outputs.check_configured == 'true'
+        run: pnpm check
+
+      - name: Lint
+        if: steps.check.outputs.lint_configured == 'true'
+        run: pnpm lint
+
+  # Stable Required check: runs even when `lint` is cancelled/skipped, so a
+  # protected branch never gets stuck on a check that never reports.
+  lint-passed: # required-check: true
+    if: always()
+    needs: [lint]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          sparse-checkout: |
+            .github/actions/report-job-result
+            .github/scripts
+          persist-credentials: false
+
+      - name: Report result
+        uses: ./.github/actions/report-job-result
+        with:
+          run: "true"
+          decide-result: "success"
+          result: ${{ needs.lint.result }}
