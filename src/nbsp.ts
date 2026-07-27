@@ -1,4 +1,4 @@
-import { cachedRegExp, LATIN_LETTER_RE, LATIN_LETTERS, NBSP_CHARS, SPACE_CHARS, UNICODE_SYMBOLS } from "./constants.js"
+import { cachedRegExp, LATIN_LETTER_RE, LATIN_LETTERS, NBSP_CHARS, SPACE_CHAR_RE, SPACE_CHARS, UNICODE_SYMBOLS } from "./constants.js"
 import { boundaryCountAt, exceedsSingleBoundary, interiorBoundariesWithin, makeProsePass, overInput, type ProseView, replaceAllInView } from "./prose-view.js"
 
 const {
@@ -133,6 +133,16 @@ function isContractionFragment(text: string, offset: number): boolean {
 }
 
 /**
+ * True when the space at `index` opens a run of two or more spaces. Gluing such
+ * a space strands the NBSP next to a space that still renders, widening the gap
+ * instead of binding the two words.
+ */
+function opensSpaceRun(text: string, index: number): boolean {
+  // `slice` yields "" past the end of the text, which no space char matches.
+  return SPACE_CHAR_RE.test(text.slice(index + 1, index + 2))
+}
+
+/**
  * True when the word starting at `start` is already glued onward by an NBSP
  * (a unit, initial, or honorific chain). Binding a short word to it would
  * grow the non-breaking run past two words.
@@ -146,9 +156,10 @@ function nextWordGluesForward(text: string, start: number): boolean {
   return false
 }
 
-// Skips contraction fragments and any glue that would bind 3+ words into a
-// single line-break atom: preceded by NBSP, back-to-back with the previous
-// match, or followed by a word that is itself glued onward.
+// Skips contraction fragments, spaces opening a multi-space run, and any glue
+// that would bind 3+ words into a single line-break atom: preceded by NBSP,
+// back-to-back with the previous match, or followed by a word that is itself
+// glued onward.
 export const nbspAfterShortWords = makeProsePass(nbspAfterShortWordsOverView)
 
 function nbspAfterShortWordsOverView(view: ProseView): void {
@@ -170,6 +181,7 @@ function nbspAfterShortWordsOverView(view: ProseView): void {
         if (view.hasBoundary(offset)) return null
         if (offset > 0 && NBSP_CHARS.includes(clean[offset - 1])) return null
         if (isContractionFragment(clean, offset)) return null
+        if (opensSpaceRun(clean, offset + match[0].length - 1)) return null
         if (nextWordGluesForward(clean, offset + match[0].length)) return null
         previousMatchEnd = offset + match[0].length
         // Edit only the space so any boundary keeps its side of the NBSP.
