@@ -1,4 +1,4 @@
-import { DASH_STYLES, PUNCTUATION_STYLES, type TransformOptions, transformView, transform as transformWithoutChecks } from "../index.js"
+import { collapseSpaces, DASH_STYLES, PUNCTUATION_STYLES, type TransformOptions, transformView, transform as transformWithoutChecks } from "../index.js"
 import { resolveTransformOptions, TRANSFORM_OPTION_KEYS } from "../transform-options.js"
 import { ellipsis } from "../symbols.js"
 import { UNICODE_SYMBOLS } from "../constants.js"
@@ -158,6 +158,20 @@ describe("transform", () => {
       ["hello\t\tworld", "hello\t\tworld", "multiple tabs"],
     ])("preserves %s when disabled", (input, expected) => {
       expect(transform(input, { collapseSpaces: false, nbsp: false })).toBe(expected)
+    })
+
+    it("collapses a run before the short word glues across it", () => {
+      expect(transform("evaluated by  two senior people")).toBe(
+        `evaluated by${NBSP}two senior${NBSP}people`,
+      )
+    })
+
+    // Exported so consumers composing their own pass list (e.g. a rehype
+    // pipeline) can run it ahead of the nbsp passes, as the pipeline does.
+    it("is exported as a standalone pass", () => {
+      expect(collapseSpaces("evaluated by  two senior people")).toBe(
+        "evaluated by two senior people",
+      )
     })
   })
 

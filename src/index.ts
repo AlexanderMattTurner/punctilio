@@ -18,7 +18,7 @@ export {
   withProseView,
 } from "./prose-view.js"
 export { classifyApostrophes, niceQuotes, PUNCTUATION_STYLES, type PunctuationStyle, type QuoteOptions } from "./quotes.js"
-export { type SymbolOptions, symbolTransform } from "./symbols.js"
+export { collapseSpaces, type SymbolOptions, symbolTransform } from "./symbols.js"
 export type { TransformOptions } from "./transform-options.js"
 
 import { niceQuotes } from "./quotes.js"
