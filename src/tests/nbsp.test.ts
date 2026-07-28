@@ -66,6 +66,12 @@ describe("nbspAfterShortWords", () => {
     // A quoting apostrophe (no letter before it) still admits the glue.
     ["give ’em a break", `give ’em${NBSP}a break`],
     ["the cat", "the cat"],
+    // A space run stays untouched: an NBSP there would render as a wider gap
+    // rather than binding the words.
+    ["evaluated by  two senior people", "evaluated by  two senior people"],
+    ["a  cat", "a  cat"],
+    ["a \tcat", "a \tcat"],
+    [`a ${NBSP}cat`, `a ${NBSP}cat`],
     // Accented Latin short words
     ["à chat", `à${NBSP}chat`],
     ["où aller", `où${NBSP}aller`],

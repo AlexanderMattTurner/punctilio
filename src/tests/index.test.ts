@@ -159,6 +159,12 @@ describe("transform", () => {
     ])("preserves %s when disabled", (input, expected) => {
       expect(transform(input, { collapseSpaces: false, nbsp: false })).toBe(expected)
     })
+
+    it("collapses a run before the short word glues across it", () => {
+      expect(transform("evaluated by  two senior people")).toBe(
+        `evaluated by${NBSP}two senior${NBSP}people`,
+      )
+    })
   })
 
   describe("nbsp option", () => {
