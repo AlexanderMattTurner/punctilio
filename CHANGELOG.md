@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## [5.3.0] - 2026-07-28
+
+### Changed
+
+- Revert "feat(index): export collapseSpaces as a standalone pass"
+- feat(index): export collapseSpaces as a standalone pass
+- fix(nbsp): don't glue the first space of a multi-space run
+
 ## [5.2.13] - 2026-07-22
 
 ### Changed
