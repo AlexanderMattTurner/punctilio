@@ -1,7 +1,7 @@
-import { DASH_STYLES, PUNCTUATION_STYLES, TERMINAL_PUNCTUATION as ROOT_TERMINAL_PUNCTUATION, type TransformOptions, transformView, transform as transformWithoutChecks } from "../index.js"
+import { DASH_STYLES, PUNCTUATION_STYLES, CLOSING_BRACKETS as ROOT_CLOSING_BRACKETS, OPENING_PUNCTUATION as ROOT_OPENING_PUNCTUATION, TERMINAL_PUNCTUATION as ROOT_TERMINAL_PUNCTUATION, type TransformOptions, transformView, transform as transformWithoutChecks } from "../index.js"
 import { resolveTransformOptions, TRANSFORM_OPTION_KEYS } from "../transform-options.js"
 import { ellipsis } from "../symbols.js"
-import { TERMINAL_PUNCTUATION, UNICODE_SYMBOLS } from "../constants.js"
+import { CLOSING_BRACKETS, OPENING_PUNCTUATION, TERMINAL_PUNCTUATION, UNICODE_SYMBOLS } from "../constants.js"
 import { buildMixedContent, SEP as DEFAULT_SEPARATOR, viewTransform } from "./test-helpers.js"
 
 const {
@@ -847,6 +847,67 @@ describe("transform", () => {
 
 })
 
-it("re-exports TERMINAL_PUNCTUATION from the package root", () => {
-  expect(ROOT_TERMINAL_PUNCTUATION).toBe(TERMINAL_PUNCTUATION)
+describe("punctuation constants", () => {
+  it.each([
+    ["TERMINAL_PUNCTUATION", ROOT_TERMINAL_PUNCTUATION, TERMINAL_PUNCTUATION],
+    ["OPENING_PUNCTUATION", ROOT_OPENING_PUNCTUATION, OPENING_PUNCTUATION],
+    ["CLOSING_BRACKETS", ROOT_CLOSING_BRACKETS, CLOSING_BRACKETS],
+  ])("re-exports %s from the package root", (_name, fromRoot, fromModule) => {
+    expect(fromRoot).toBe(fromModule)
+  })
+
+  const SETS = [
+    ["TERMINAL_PUNCTUATION", TERMINAL_PUNCTUATION],
+    ["OPENING_PUNCTUATION", OPENING_PUNCTUATION],
+    ["CLOSING_BRACKETS", CLOSING_BRACKETS],
+  ] as const
+
+  // Each set is documented for use inside a regex character class and as a set
+  // of single characters, so a multi-code-point entry would silently widen the
+  // class to its constituent code points.
+  it.each(SETS)("%s holds distinct single code points", (_name, chars) => {
+    expect(new Set(chars).size).toBe(chars.length)
+    expect(chars.filter((char) => [...char].length !== 1)).toEqual([])
+  })
+
+  // A character that both opens and closes (or opens and terminates) would make
+  // any consumer's line-breaking decision ambiguous.
+  it.each([
+    ["OPENING_PUNCTUATION", "CLOSING_BRACKETS", OPENING_PUNCTUATION, CLOSING_BRACKETS],
+    ["OPENING_PUNCTUATION", "TERMINAL_PUNCTUATION", OPENING_PUNCTUATION, TERMINAL_PUNCTUATION],
+    ["CLOSING_BRACKETS", "TERMINAL_PUNCTUATION", CLOSING_BRACKETS, TERMINAL_PUNCTUATION],
+  ])("%s and %s are disjoint", (_left, _right, left, right) => {
+    const rightSet = new Set<string>(right)
+    expect(left.filter((char) => rightSet.has(char))).toEqual([])
+  })
+
+  it.each([
+    ["(", ")"],
+    ["[", "]"],
+    ["{", "}"],
+    [UNICODE_SYMBOLS.FULLWIDTH_LEFT_PAREN, UNICODE_SYMBOLS.FULLWIDTH_RIGHT_PAREN],
+    [UNICODE_SYMBOLS.LEFT_CORNER_BRACKET, UNICODE_SYMBOLS.RIGHT_CORNER_BRACKET],
+    [UNICODE_SYMBOLS.LEFT_LENTICULAR_BRACKET, UNICODE_SYMBOLS.RIGHT_LENTICULAR_BRACKET],
+  ])("pairs %s with %s at the same index", (opening, closing) => {
+    expect(OPENING_PUNCTUATION.indexOf(opening)).toBe(CLOSING_BRACKETS.indexOf(closing))
+  })
+
+  // The quote and inverted-mark openers have no bracket counterpart, so they sit
+  // past the paired prefix that CLOSING_BRACKETS mirrors.
+  it("carries opener-only marks after the bracket prefix", () => {
+    const openerOnly = [
+      UNICODE_SYMBOLS.INVERTED_EXCLAMATION,
+      UNICODE_SYMBOLS.INVERTED_QUESTION,
+      UNICODE_SYMBOLS.LEFT_DOUBLE_QUOTE,
+      UNICODE_SYMBOLS.LEFT_SINGLE_QUOTE,
+      UNICODE_SYMBOLS.LEFT_GUILLEMET,
+      UNICODE_SYMBOLS.DOUBLE_LOW_9_QUOTE,
+      UNICODE_SYMBOLS.SINGLE_LOW_9_QUOTE,
+    ]
+    expect(OPENING_PUNCTUATION.slice(CLOSING_BRACKETS.length)).toEqual(openerOnly)
+  })
+
+  it.each(['"', "'"])("excludes the shape-ambiguous straight quote %s", (quote) => {
+    expect(OPENING_PUNCTUATION).not.toContain(quote)
+  })
 })

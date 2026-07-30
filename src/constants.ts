@@ -73,6 +73,27 @@ export const UNICODE_SYMBOLS = {
   ARABIC_SEMICOLON: "\u061B", // ؛
   // Greek punctuation
   GREEK_QUESTION_MARK: "\u037E", // ; (visually identical to ASCII semicolon)
+  // Spanish inverted openers
+  INVERTED_EXCLAMATION: "\u00A1", // ¡
+  INVERTED_QUESTION: "\u00BF", // ¿
+  // CJK fullwidth brackets
+  FULLWIDTH_LEFT_PAREN: "\uFF08", // （
+  FULLWIDTH_RIGHT_PAREN: "\uFF09", // ）
+  FULLWIDTH_LEFT_BRACKET: "\uFF3B", // ［
+  FULLWIDTH_RIGHT_BRACKET: "\uFF3D", // ］
+  FULLWIDTH_LEFT_BRACE: "\uFF5B", // ｛
+  FULLWIDTH_RIGHT_BRACE: "\uFF5D", // ｝
+  // CJK ideographic brackets
+  LEFT_ANGLE_BRACKET: "\u3008", // 〈
+  RIGHT_ANGLE_BRACKET: "\u3009", // 〉
+  LEFT_DOUBLE_ANGLE_BRACKET: "\u300A", // 《
+  RIGHT_DOUBLE_ANGLE_BRACKET: "\u300B", // 》
+  LEFT_CORNER_BRACKET: "\u300C", // 「
+  RIGHT_CORNER_BRACKET: "\u300D", // 」
+  LEFT_WHITE_CORNER_BRACKET: "\u300E", // 『
+  RIGHT_WHITE_CORNER_BRACKET: "\u300F", // 』
+  LEFT_LENTICULAR_BRACKET: "\u3010", // 【
+  RIGHT_LENTICULAR_BRACKET: "\u3011", // 】
 } as const
 
 /** All terminal punctuation chars for regex character classes (ASCII through CJK/Arabic/Greek). */
@@ -89,6 +110,55 @@ export const TERMINAL_PUNCTUATION = [
   UNICODE_SYMBOLS.ARABIC_QUESTION_MARK, UNICODE_SYMBOLS.ARABIC_SEMICOLON,
   UNICODE_SYMBOLS.GREEK_QUESTION_MARK,
 ] as const
+
+/**
+ * Bracket pairs, opening first, ASCII through the fullwidth and CJK forms.
+ * {@link OPENING_PUNCTUATION} and {@link CLOSING_BRACKETS} are both projections
+ * of this list, so a bracket can never be listed on one side only.
+ */
+const BRACKET_PAIRS: readonly (readonly [string, string])[] = [
+  ["(", ")"],
+  ["[", "]"],
+  ["{", "}"],
+  [UNICODE_SYMBOLS.FULLWIDTH_LEFT_PAREN, UNICODE_SYMBOLS.FULLWIDTH_RIGHT_PAREN],
+  [UNICODE_SYMBOLS.FULLWIDTH_LEFT_BRACKET, UNICODE_SYMBOLS.FULLWIDTH_RIGHT_BRACKET],
+  [UNICODE_SYMBOLS.FULLWIDTH_LEFT_BRACE, UNICODE_SYMBOLS.FULLWIDTH_RIGHT_BRACE],
+  [UNICODE_SYMBOLS.LEFT_ANGLE_BRACKET, UNICODE_SYMBOLS.RIGHT_ANGLE_BRACKET],
+  [UNICODE_SYMBOLS.LEFT_DOUBLE_ANGLE_BRACKET, UNICODE_SYMBOLS.RIGHT_DOUBLE_ANGLE_BRACKET],
+  [UNICODE_SYMBOLS.LEFT_CORNER_BRACKET, UNICODE_SYMBOLS.RIGHT_CORNER_BRACKET],
+  [UNICODE_SYMBOLS.LEFT_WHITE_CORNER_BRACKET, UNICODE_SYMBOLS.RIGHT_WHITE_CORNER_BRACKET],
+  [UNICODE_SYMBOLS.LEFT_LENTICULAR_BRACKET, UNICODE_SYMBOLS.RIGHT_LENTICULAR_BRACKET],
+]
+
+/**
+ * Punctuation that opens a construct and so binds rightward, to the text after
+ * it rather than the text before: brackets, the Spanish inverted marks, and the
+ * opening quote forms (including the low-9 openers German and Polish use).
+ * Guillemets follow the French convention where `«` opens; German inverts them.
+ *
+ * The counterpart to {@link TERMINAL_PUNCTUATION}, and like it, spans ASCII
+ * through CJK. Straight `"` and `'` are absent: their shape is ambiguous until
+ * classified, which is what {@link niceQuotes} and {@link classifyApostrophes}
+ * settle, so a consumer that wants to treat one as an opener owns that call.
+ */
+export const OPENING_PUNCTUATION: readonly string[] = [
+  ...BRACKET_PAIRS.map(([opening]) => opening),
+  UNICODE_SYMBOLS.INVERTED_EXCLAMATION,
+  UNICODE_SYMBOLS.INVERTED_QUESTION,
+  UNICODE_SYMBOLS.LEFT_DOUBLE_QUOTE,
+  UNICODE_SYMBOLS.LEFT_SINGLE_QUOTE,
+  UNICODE_SYMBOLS.LEFT_GUILLEMET,
+  UNICODE_SYMBOLS.DOUBLE_LOW_9_QUOTE,
+  UNICODE_SYMBOLS.SINGLE_LOW_9_QUOTE,
+]
+
+/**
+ * Closing brackets, which may not begin a line. Scoped to brackets because the
+ * other marks barred from a line start are {@link TERMINAL_PUNCTUATION} and the
+ * closing quote forms in {@link UNICODE_SYMBOLS}; the three together are what a
+ * consumer keeps from stranding at a soft wrap.
+ */
+export const CLOSING_BRACKETS: readonly string[] = BRACKET_PAIRS.map(([, closing]) => closing)
 
 /**
  * Character class pattern for Latin letters including European accented characters.
