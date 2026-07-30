@@ -1,4 +1,9 @@
-export { UNICODE_SYMBOLS } from "./constants.js"
+export {
+  CLOSING_BRACKETS,
+  OPENING_PUNCTUATION,
+  TERMINAL_PUNCTUATION,
+  UNICODE_SYMBOLS,
+} from "./constants.js"
 export {
   DASH_STYLES,
   type DashOptions,
