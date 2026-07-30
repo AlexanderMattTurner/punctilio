@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+## [5.4.0] - 2026-07-30
+
+
 - feat(index): export TERMINAL_PUNCTUATION from package root
 - feat(constants): add OPENING_PUNCTUATION and CLOSING_BRACKETS
 
