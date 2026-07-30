@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- feat(index): export TERMINAL_PUNCTUATION from package root
+
 ## [5.3.0] - 2026-07-28
 
 ### Changed

@@ -1,7 +1,7 @@
-import { DASH_STYLES, PUNCTUATION_STYLES, type TransformOptions, transformView, transform as transformWithoutChecks } from "../index.js"
+import { DASH_STYLES, PUNCTUATION_STYLES, TERMINAL_PUNCTUATION as ROOT_TERMINAL_PUNCTUATION, type TransformOptions, transformView, transform as transformWithoutChecks } from "../index.js"
 import { resolveTransformOptions, TRANSFORM_OPTION_KEYS } from "../transform-options.js"
 import { ellipsis } from "../symbols.js"
-import { UNICODE_SYMBOLS } from "../constants.js"
+import { TERMINAL_PUNCTUATION, UNICODE_SYMBOLS } from "../constants.js"
 import { buildMixedContent, SEP as DEFAULT_SEPARATOR, viewTransform } from "./test-helpers.js"
 
 const {
@@ -845,4 +845,8 @@ describe("transform", () => {
     })
   })
 
+})
+
+it("re-exports TERMINAL_PUNCTUATION from the package root", () => {
+  expect(ROOT_TERMINAL_PUNCTUATION).toBe(TERMINAL_PUNCTUATION)
 })
