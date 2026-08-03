@@ -13,8 +13,12 @@
  *   node scripts/mutate-changed.mjs main --concurrency 2
  *   node scripts/mutate-changed.mjs --concurrency 2
  *
- * Mutation runs with `--incremental false` so a scoped run never overwrites the
- * shared incremental cache that the full `pnpm mutation` run relies on.
+ * Mutation writes its incremental state to a scoped, gitignored file so a
+ * scoped run never overwrites the shared incremental cache the full
+ * `pnpm mutation` run relies on. Stryker's CLI has no flag to disable
+ * incremental mode (only `--incremental` to enable it, which the config already
+ * does), so redirecting `--incrementalFile` is how the scoped run stays
+ * isolated.
  *
  * CI keeps using `pnpm run mutation` with its own per-shard `--mutate`; this
  * script is a developer convenience and is intentionally separate.
@@ -71,7 +75,12 @@ for (const file of changed) console.log(`  ${file}`)
 
 const result = spawnSync(
   "npx",
-  ["stryker", "run", "--mutate", changed.join(","), "--incremental", "false", ...strykerArgs],
+  [
+    "stryker", "run",
+    "--mutate", changed.join(","),
+    "--incrementalFile", "reports/stryker-incremental.changed.json",
+    ...strykerArgs,
+  ],
   { stdio: "inherit", env: { ...process.env, STRYKER_RUN: "1" } },
 )
 process.exit(result.status ?? 1)
