@@ -169,5 +169,17 @@
   },
   "lint-staged": {
     "*.{ts,js,mjs}": "eslint --fix"
+  },
+  "pnpm": {
+    "overrides": {
+      "brace-expansion@1": "^1.1.17",
+      "brace-expansion@5": "^5.0.8",
+      "js-yaml@3": "^3.15.0",
+      "js-yaml@4": "^4.3.0",
+      "fast-uri": "^3.1.4",
+      "esbuild": "^0.28.1",
+      "qs": "^6.15.2",
+      "@babel/core": "^7.29.6"
+    }
   }
 }
