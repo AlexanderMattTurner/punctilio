@@ -247,9 +247,12 @@ describe("nbspBetweenInitials", () => {
     ["É. Piaf", `É.${NBSP}Piaf`],
     ["A. test", "A. test"],
     // A capital ending an acronym is not an initial: "NASA." must not glue its
-    // final "A." to the next sentence's opening word.
+    // final "A." to the next sentence's opening word. The guard spans the same
+    // alphabets the rule matches (`\p{Lu}`), so non-Latin acronyms are covered.
     ["from NASA. Or maybe", "from NASA. Or maybe"],
     ["the USA. Its people", "the USA. Its people"],
+    ["СССР. Это", "СССР. Это"],
+    ["Π. Δ. Καλός", `Π.${NBSP}Δ.${NBSP}Καλός`],
   ])('"%s" → "%s"', (input, expected) => {
     expect(nbspBetweenInitials(input)).toBe(expected)
   })

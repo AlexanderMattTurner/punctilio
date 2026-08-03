@@ -1,4 +1,4 @@
-import { cachedRegExp, LATIN_LETTER_RE, LATIN_LETTERS, LATIN_OR_DIGIT_RE, NBSP_CHARS, SPACE_CHAR_RE, SPACE_CHARS, UNICODE_SYMBOLS } from "./constants.js"
+import { cachedRegExp, LATIN_LETTER_RE, LATIN_LETTERS, NBSP_CHARS, SPACE_CHAR_RE, SPACE_CHARS, UNICODE_SYMBOLS } from "./constants.js"
 import { boundaryCountAt, exceedsSingleBoundary, interiorBoundariesWithin, makeProsePass, overInput, type ProseView, replaceAllInView } from "./prose-view.js"
 
 const {
@@ -15,6 +15,12 @@ const {
 const SPACE = `[${SPACE_CHARS}]`
 
 const UNICODE_UPPERCASE = "\\p{Lu}"
+
+// A word-forming character (any Unicode letter or number). Used for the
+// abbreviation-family word-start guard, which must span the same alphabets the
+// initial/honorific rules glue on (they key off `\p{Lu}`), so a non-Latin
+// acronym like "СССР." is guarded exactly as "NASA." is.
+const WORD_CHAR_RE = /[\p{L}\p{N}]/u
 
 /** Only specific abbreviations are matched to avoid false positives. */
 export const UNITS: readonly string[] = [
@@ -365,7 +371,7 @@ function nbspBeforeContext(
         requireWordStart &&
         start > 0 &&
         !view.hasBoundary(start) &&
-        LATIN_OR_DIGIT_RE.test(clean[start - 1])
+        WORD_CHAR_RE.test(clean[start - 1])
       ) {
         pattern.lastIndex = start + 1
         continue
