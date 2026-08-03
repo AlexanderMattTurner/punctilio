@@ -154,6 +154,12 @@ describe("nbspAfterReferenceAbbreviations", () => {
   it.each([
     ...REFERENCE_ABBREVIATIONS.map((abbr, i) => [`${abbr}. ${i + 1}`, `${abbr}.${NBSP}${i + 1}`]),
     ["Fig. caption", "Fig. caption"],
+    // A word ending in an abbreviation ("p"/"pp") is not that abbreviation:
+    // the literal must start at a word edge, or it glues mid-sentence.
+    ["help. 5", "help. 5"],
+    ["top. 5", "top. 5"],
+    ["app. 5", "app. 5"],
+    ["group. 5", "group. 5"],
   ] as [string, string][])('"%s" → "%s"', (input, expected) => {
     expect(nbspAfterReferenceAbbreviations(input)).toBe(expected)
   })
@@ -240,6 +246,10 @@ describe("nbspBetweenInitials", () => {
     ["J. Smith", `J.${NBSP}Smith`],
     ["É. Piaf", `É.${NBSP}Piaf`],
     ["A. test", "A. test"],
+    // A capital ending an acronym is not an initial: "NASA." must not glue its
+    // final "A." to the next sentence's opening word.
+    ["from NASA. Or maybe", "from NASA. Or maybe"],
+    ["the USA. Its people", "the USA. Its people"],
   ])('"%s" → "%s"', (input, expected) => {
     expect(nbspBetweenInitials(input)).toBe(expected)
   })
