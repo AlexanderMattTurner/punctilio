@@ -1,0 +1,57 @@
+name: Validate config
+# No paths filter: validate-config-passed is a required status check, so the
+# workflow must always fire and report — a path-gated required check hangs at
+# "Expected — Waiting" forever when a PR doesn't touch the filtered paths.
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Setup base environment
+        uses: ./.github/actions/setup-base-env
+        with:
+          setup-python: "true"
+
+      - name: Validate configuration
+        run: bash .github/scripts/validate-config.sh
+
+      - name: Test Claude hooks
+        run: uv run --extra dev pytest tests/
+
+  # Stable Required check: runs even when `validate` is cancelled/skipped, so a
+  # protected branch never gets stuck on a check that never reports.
+  validate-config-passed: # required-check: true
+    if: always()
+    needs: [validate]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          sparse-checkout: |
+            .github/actions/report-job-result
+            .github/scripts
+          persist-credentials: false
+
+      - name: Report result
+        uses: ./.github/actions/report-job-result
+        with:
+          run: "true"
+          decide-result: "success"
+          result: ${{ needs.validate.result }}

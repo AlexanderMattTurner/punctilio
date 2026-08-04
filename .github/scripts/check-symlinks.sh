@@ -12,6 +12,9 @@ while IFS= read -r line; do
   path=$(printf '%s' "$line" | cut -f2-)
   [[ "$mode" = "120000" ]] || continue
   target=$(git cat-file blob "$hash")
+  # Filter — only an absolute-path target is a violation; a relative symlink
+  # target is portable and correctly left alone.
+  # case-default-ok: no-match is the intended no-op, not a missed case.
   case "$target" in
   /*) violations="${violations}${path} -> ${target}"$'\n' ;;
   esac

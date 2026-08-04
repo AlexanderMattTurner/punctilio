@@ -61,18 +61,22 @@ After pushing, dynamically update the PR to reflect **all** changes (not just th
 2. Check for `CONTRIBUTING.md`, `.github/PULL_REQUEST_TEMPLATE.md`, or similar PR description guidance in the repo—if found, adapt the description to follow the repository’s conventions
 3. Read `.claude/skills/pr-creation/pr-templates.md` for the PR template format and merge with any repo-specific guidance
 4. Rewrite the title and body to accurately describe the **current state** of the PR:
+
    ```bash
    gh pr edit <pr-number> --title "<type>: <updated description>" --body "$(cat <<'EOF'
    <updated body using template from pr-templates.md>
    EOF
    )"
    ```
+
 5. The title and summary should reflect the totality of the PR, not just the new changes
 
 ### 6. Verify CI (with 15-minute timeout)
 
 ```bash
-timeout 15m gh pr checks --watch || true
+timeout 15m gh pr checks --watch; rc=$?
+# 0=all green, 8=still pending, 124=our timeout. Anything else is a real failure.
+case "$rc" in 0 | 8 | 124) ;; *) exit "$rc" ;; esac
 ```
 
 If checks fail, fix issues and repeat steps 3–6.

@@ -1,0 +1,85 @@
+"""The one exponential-backoff retry loop for a CI command, in Python.
+
+PROBLEM CLASS — a flaky CI command (a ``gh`` call against a 5xx-ing API, a
+network read) must be re-run with exponential backoff, under one spelling of the
+``RETRY_MAX`` and ``RETRY_BASE_DELAY`` knobs and one wording of the two
+``ci-retry:`` log lines a human greps the job log for. ``lib-ci-retry.sh`` is the
+bash side of the same contract; import this instead of writing the loop again.
+
+The caller keeps what genuinely differs between call sites: how one attempt runs
+and what an exhausted retry means — an empty answer, or a raise. Both arguments.
+
+Standard library only: the discover job checks out ``.github/scripts`` sparsely
+and runs on the system ``python3``, with no virtual environment.
+"""
+
+import os
+import subprocess
+import sys
+import time
+from collections.abc import Callable
+from typing import TypeVar
+
+T = TypeVar("T")
+
+_RETRY_MAX_DEFAULT = "5"
+_RETRY_BASE_DELAY_DEFAULT = "2"
+
+
+def retry_max(env: dict[str, str] | None = None) -> int:
+    """How many attempts a command gets in total, including the first."""
+    return int(
+        (env if env is not None else os.environ).get("RETRY_MAX") or _RETRY_MAX_DEFAULT
+    )
+
+
+def base_delay(env: dict[str, str] | None = None) -> float:
+    """Seconds to wait after the first failure, doubled after each later one.
+
+    Read as a float, not an int: a fractional delay is a legitimate value in a
+    test that must not sleep for whole seconds, and the shell loop this mirrors
+    accepted one.
+    """
+    return float(
+        (env if env is not None else os.environ).get("RETRY_BASE_DELAY")
+        or _RETRY_BASE_DELAY_DEFAULT
+    )
+
+
+def with_retry(
+    shown: str,
+    attempt: Callable[[], subprocess.CompletedProcess],
+    exhausted: Callable[[], T],
+    *,
+    maximum: int | None = None,
+    delay: float | None = None,
+) -> subprocess.CompletedProcess | T:
+    """Run ATTEMPT until it exits 0, then return its completed process.
+
+    SHOWN is the command as a human reads it in the two log lines. When the
+    attempt cap runs out, EXHAUSTED decides the outcome — a caller that treats a
+    failed probe as "no answer" returns a value, and a caller for which a failed
+    read would degrade into a wrong answer raises. MAXIMUM and DELAY default to
+    the environment knobs above.
+    """
+    remaining = retry_max() if maximum is None else maximum
+    wait = base_delay() if delay is None else delay
+    number = 1
+    while True:
+        done = attempt()
+        if done.returncode == 0:
+            return done
+        if number >= remaining:
+            print(
+                f"ci-retry: '{shown}' still failing after {remaining} attempts — giving up",
+                file=sys.stderr,
+            )
+            return exhausted()
+        print(
+            f"ci-retry: '{shown}' failed (attempt {number}/{remaining}); "
+            f"retrying in {wait:g}s",
+            file=sys.stderr,
+        )
+        time.sleep(wait)
+        number += 1
+        wait *= 2
