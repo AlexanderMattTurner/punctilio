@@ -16,6 +16,12 @@ const SPACE = `[${SPACE_CHARS}]`
 
 const UNICODE_UPPERCASE = "\\p{Lu}"
 
+// A word-forming character (any Unicode letter or number). Used for the
+// abbreviation-family word-start guard, which must span the same alphabets the
+// initial/honorific rules glue on (they key off `\p{Lu}`), so a non-Latin
+// acronym like "СССР." is guarded exactly as "NASA." is.
+const WORD_CHAR_RE = /[\p{L}\p{N}]/u
+
 /** Only specific abbreviations are matched to avoid false positives. */
 export const UNITS: readonly string[] = [
   // Length
@@ -342,6 +348,7 @@ function nbspBeforeContext(
   contextPattern: string,
   flags: string,
   thingGroup: string,
+  requireWordStart = false,
 ): void {
   const pattern = cachedRegExp(
     `(?<${thingGroup}>${thingPattern})${SPACE}(?=${contextPattern})`,
@@ -354,6 +361,21 @@ function nbspBeforeContext(
     while ((match = pattern.exec(clean)) !== null) {
       const start = match.index
       const end = start + match[0].length
+      // Word-start guard for the letter-based rules (initials, honorifics,
+      // reference abbreviations): the literal must begin at a word edge, or it
+      // is a word-final substring — "A." inside "NASA.", "p." inside "help." —
+      // and gluing it strands a spurious NBSP across a sentence boundary. A node
+      // boundary at `start` is itself a word edge (the literal is node-initial
+      // there), so only a word char directly before it in the same node blocks.
+      if (
+        requireWordStart &&
+        start > 0 &&
+        !view.hasBoundary(start) &&
+        WORD_CHAR_RE.test(clean[start - 1])
+      ) {
+        pattern.lastIndex = start + 1
+        continue
+      }
       // Slot between the `thing` literal and the space (offset = end - 1);
       // lookahead slot at the match end. Each tolerates one boundary; the
       // literal itself must be boundary-free.
@@ -374,7 +396,7 @@ function nbspBeforeContext(
 }
 
 function nbspAfterReferenceAbbreviationsOverView(view: ProseView): void {
-  nbspBeforeContext(view, ABBREVIATION_PATTERN, "\\d", "g", "abbrev")
+  nbspBeforeContext(view, ABBREVIATION_PATTERN, "\\d", "g", "abbrev", true)
 }
 
 function nbspAfterSectionSymbolsOverView(view: ProseView): void {
@@ -382,7 +404,7 @@ function nbspAfterSectionSymbolsOverView(view: ProseView): void {
 }
 
 function nbspAfterHonorificsOverView(view: ProseView): void {
-  nbspBeforeContext(view, HONORIFIC_PATTERN, UNICODE_UPPERCASE, "gu", "honorific")
+  nbspBeforeContext(view, HONORIFIC_PATTERN, UNICODE_UPPERCASE, "gu", "honorific", true)
 }
 
 function nbspAfterCopyrightSymbolsOverView(view: ProseView): void {
@@ -390,7 +412,7 @@ function nbspAfterCopyrightSymbolsOverView(view: ProseView): void {
 }
 
 function nbspBetweenInitialsOverView(view: ProseView): void {
-  nbspBeforeContext(view, `${UNICODE_UPPERCASE}\\.`, UNICODE_UPPERCASE, "gu", "initial")
+  nbspBeforeContext(view, `${UNICODE_UPPERCASE}\\.`, UNICODE_UPPERCASE, "gu", "initial", true)
 }
 
 export const nbspAfterReferenceAbbreviations = makeProsePass(nbspAfterReferenceAbbreviationsOverView)
