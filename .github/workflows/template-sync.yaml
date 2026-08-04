@@ -103,13 +103,10 @@ jobs:
         with:
           repository: ${{ env.TEMPLATE_REPO }}
           path: _template
-<<<<<<< local
-=======
           # TEMPLATE_SYNC_TOKEN_ORG is optional — GITHUB_TOKEN has no cross-repo
           # reach, so this checkout only works without the PAT when TEMPLATE_REPO
           # is public (the default). A private template repo needs the org PAT.
           # token-fallback-ok: designed graceful degradation, not an accident.
->>>>>>> template
           token: ${{ secrets.TEMPLATE_SYNC_TOKEN_ORG || secrets.GITHUB_TOKEN }}
           fetch-depth: 0
           filter: blob:none
@@ -117,13 +114,10 @@ jobs:
 
       - name: Check token workflow scope
         env:
-<<<<<<< local
-=======
           # Mirrors the checkout step above — validates whichever token is
           # actually in play (PAT or the default token) for the 'workflow'
           # scope this sync needs to push .github/workflows/ changes.
           # token-fallback-ok: designed graceful degradation, not an accident.
->>>>>>> template
           TOKEN: ${{ secrets.TEMPLATE_SYNC_TOKEN_ORG || secrets.GITHUB_TOKEN }}
         # Run the child repo's own copy — never execute scripts directly from
         # the template checkout. Template script updates arrive via sync PRs
@@ -151,15 +145,12 @@ jobs:
         id: create-pr
         uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8
         with:
-<<<<<<< local
-=======
           # A PR authored under GITHUB_TOKEN doesn't trigger other
           # on:pull_request workflows (GitHub's recursion guard), so this sync PR
           # needs TEMPLATE_SYNC_TOKEN_ORG to get real CI; falling back to
           # GITHUB_TOKEN still opens the PR when the org PAT isn't configured,
           # just without triggering downstream checks until a human comments/pushes.
           # token-fallback-ok: designed graceful degradation, not an accident.
->>>>>>> template
           token: ${{ secrets.TEMPLATE_SYNC_TOKEN_ORG || secrets.GITHUB_TOKEN }}
           commit-message: "chore: sync from template repository (${{ steps.sync.outputs.template_sha_short }})"
           title: "chore: sync from template repository"
@@ -227,9 +218,6 @@ jobs:
         id: resolve
         if: inputs.dry-run != true && steps.sync.outputs.has_conflicts == 'true' && steps.create-pr.outputs.pull-request-number
         env:
-<<<<<<< local
-          GH_TOKEN: ${{ secrets.TEMPLATE_SYNC_TOKEN_ORG || github.token }}
-=======
           CONFLICT_FILES: ${{ steps.sync.outputs.conflict_files }}
           PR_NUMBER: ${{ steps.create-pr.outputs.pull-request-number }}
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -259,7 +247,6 @@ jobs:
           GH_TOKEN: ${{ secrets.TEMPLATE_SYNC_TOKEN_ORG || github.token }}
           GH_REPO: ${{ github.repository }}
           PR_NUMBER: ${{ steps.create-pr.outputs.pull-request-number }}
->>>>>>> template
           HAS_CONFLICTS: ${{ steps.sync.outputs.has_conflicts }}
           HAS_DELETIONS: ${{ steps.sync.outputs.has_deletions }}
           HAS_DOWNGRADES: ${{ steps.sync.outputs.has_downgrades }}

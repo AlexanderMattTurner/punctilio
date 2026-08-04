@@ -9,11 +9,7 @@ on:
     types: [closed]
 
 env:
-<<<<<<< local
-  TEMPLATE_REPO: "AlexanderMattTurner/claude-automation-template"
-=======
   TEMPLATE_REPO: "${{ vars.TEMPLATE_SYNC_ORG || 'AlexanderMattTurner' }}/claude-automation-template"
->>>>>>> template
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
