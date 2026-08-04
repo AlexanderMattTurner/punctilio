@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+## [5.4.3] - 2026-08-04
+
+### Fixed
+
+- Fixed word-start guard in the nbsp rule to properly match the rules' Unicode alphabet.
+- Fixed abbreviation-family glue to require a word edge before matching, preventing incorrect matches.
+- Fixed Stryker invocation in the mutate-changed script.
+
+### Changed
+
+- Corrected Prettier plugin scope and skipClasses default values in the README.
+
 ## [5.4.0] - 2026-07-30
 
 
