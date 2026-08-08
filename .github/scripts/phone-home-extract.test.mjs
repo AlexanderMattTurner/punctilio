@@ -6,10 +6,8 @@ import { describe, it, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { readFileSync, rmSync, existsSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
 const extractLessons = require("./phone-home-extract.js");
 
@@ -134,6 +132,20 @@ describe("phone-home-extract", () => {
     ].join("\n");
     const outputs = await run(body);
     assert.equal(outputs.has_lessons, undefined);
+  });
+
+  it("extracts a trailing section whose body ends in blank lines", async () => {
+    // The section runs to end-of-body with no heading after it — the branch of
+    // the terminating lookahead that has to hand the trailing whitespace to
+    // trim() rather than stop short of it.
+    const body =
+      "## Lessons Learned\n\n- A real, generalizable lesson.\n\n  \n";
+    const outputs = await run(body);
+    assert.equal(outputs.has_lessons, "true");
+    assert.equal(
+      readFileSync(LESSONS_FILE, "utf8").trim(),
+      "- A real, generalizable lesson.",
+    );
   });
 
   it("does not fire when the PR is the template repo itself", async () => {

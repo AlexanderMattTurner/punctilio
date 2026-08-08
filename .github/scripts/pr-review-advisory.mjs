@@ -126,7 +126,7 @@ export function parsePatch(text) {
   let current = null;
   const put = (file, line) => {
     if (file === null) return;
-    hunks.set(file, (hunks.get(file) ?? "") + line + "\n");
+    hunks.set(file, `${hunks.get(file) ?? ""}${line}\n`);
   };
   for (const line of text.split("\n")) {
     if (line.startsWith("diff --git ")) {
@@ -154,7 +154,7 @@ function isTestFile(file) {
     file.includes("/tests/") ||
     /^test_/.test(base) ||
     /_test\.[^.]+$/.test(base) ||
-    /\.(?<kind>test|spec)\.[^.]+$/.test(base)
+    /\.(?:test|spec)\.[^.]+$/.test(base)
   );
 }
 
@@ -162,7 +162,7 @@ function isTestFile(file) {
 // foo_test.py, foo.test.mjs and foo.mjs all stem to "foo".
 export function stemOf(file) {
   let stem = basename(file).replace(/\.[^.]+$/, "");
-  stem = stem.replace(/\.(?<kind>test|spec)$/, "");
+  stem = stem.replace(/\.(?:test|spec)$/, "");
   stem = stem.replace(/^test_/, "").replace(/_test$/, "");
   return stem;
 }
@@ -460,7 +460,7 @@ function main() {
   });
 
   process.stdout.write(body);
-  writeFileSync(process.env.TIER_FILE, maxTier(declared, heuristic) + "\n");
+  writeFileSync(process.env.TIER_FILE, `${maxTier(declared, heuristic)}\n`);
 }
 
 if (isMain(import.meta.url)) main();

@@ -263,10 +263,10 @@ function trackedScanFiles() {
 // smoke test as a silent false negative.
 export function isScannable(rel) {
   const name = rel.split("/").pop() ?? "";
-  if (!/\.(mjs|js|ts)$/.test(name)) return false;
+  if (!/\.(?:mjs|js|ts)$/.test(name)) return false;
   if (name.endsWith(".bundle.mjs")) return false;
-  if (/\.(test|fuzz)\.(mjs|js|cjs|ts)$/.test(name)) return false;
-  return SCAN_DIRS.some((dir) => rel === dir || rel.startsWith(dir + "/"));
+  if (/\.(?:test|fuzz)\.(?:mjs|js|cjs|ts)$/.test(name)) return false;
+  return SCAN_DIRS.some((dir) => rel === dir || rel.startsWith(`${dir}/`));
 }
 
 function main() {
@@ -283,9 +283,7 @@ function main() {
 
   if (problems.length > 0) {
     process.stderr.write(
-      "prototype-pollution violations:\n  " +
-        problems.sort().join("\n  ") +
-        "\n",
+      `prototype-pollution violations:\n  ${problems.sort().join("\n  ")}\n`,
     );
     process.exit(1);
   }

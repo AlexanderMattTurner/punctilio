@@ -25,7 +25,7 @@ const SCRIPT = join(HERE, "fanout.sh");
 const GATE = join(HERE, "..", "check-claude-execution.sh");
 
 const ARG_SEP = "\n<<<ARG>>>\n";
-const slug = (p) => p.replace(/[^A-Za-z0-9]/g, "_");
+const slug = (p) => p.replace(/[^A-Z0-9]/gi, "_");
 
 // A fake `claude` that records its full argv, brackets its run with timestamped
 // markers in a shared log (so a reader can reconstruct not just how many ran at
@@ -153,7 +153,7 @@ const readOutputs = (file) =>
     (existsSync(file) ? readFileSync(file, "utf8") : "")
       .split("\n")
       .filter(Boolean)
-      .map((l) => l.split(/=(.*)/s).slice(0, 2)),
+      .map((l) => l.split(/=(?<value>.*)/s).slice(0, 2)),
   );
 
 // Every recorded `claude` invocation, as an array of argv arrays.

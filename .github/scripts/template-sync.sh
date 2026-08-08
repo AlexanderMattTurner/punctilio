@@ -5,8 +5,13 @@
 # Inputs (env):
 #   SYNC_PATHS        Space-separated paths to sync from the template
 #                     (path names containing spaces are NOT supported)
-#   EXCLUDE_PATHS     Space-separated paths to exclude (whole SYNC_PATHS entries
-#                     or individual file paths within synced directories)
+#   EXCLUDE_PATHS     Space-separated paths to exclude. An entry names one file
+#                     or one directory, and a directory entry covers every file
+#                     under it.
+#   OPT_IN_PATHS      Space-separated paths the template only UPDATES, never
+#                     INTRODUCES: absent from the child repo, they are skipped;
+#                     present, they sync normally. Opting in is creating the file
+#                     once; opting out is deleting it.
 #   GITHUB_OUTPUT     Path to GitHub Actions output file
 #
 # Assumes a sibling `_template/` directory containing a checkout of the
@@ -16,7 +21,8 @@
 # Side effects:
 #   - Creates/updates files inside the current repo to match the template
 #   - Writes /tmp/conflict_files.txt, /tmp/conflict_report.md,
-#     /tmp/deleted_files.txt, /tmp/auto_merged_files.txt
+#     /tmp/deleted_files.txt, /tmp/auto_merged_files.txt,
+#     /tmp/declined_files.txt, /tmp/inert_entries.txt
 #   - Writes .template-sync-conflicts if there are unresolved conflicts
 #   - Appends key=value lines to $GITHUB_OUTPUT
 
@@ -50,6 +56,7 @@ main() {
 
   SYNC_PATHS="${SYNC_PATHS:-}"
   EXCLUDE_PATHS="${EXCLUDE_PATHS:-}"
+  OPT_IN_PATHS="${OPT_IN_PATHS:-}"
   : "${GITHUB_OUTPUT:?GITHUB_OUTPUT must be set}"
 
   # Allow tests to point at alternative temp dirs.
@@ -60,6 +67,8 @@ main() {
   AUTO_MERGED_FILES="$WORK_DIR/auto_merged_files.txt"
   DOWNGRADE_FILES="$WORK_DIR/downgrade_files.txt"
   DOWNGRADE_REPORT="$WORK_DIR/downgrade_report.md"
+  DECLINED_FILES="$WORK_DIR/declined_files.txt"
+  INERT_ENTRIES="$WORK_DIR/inert_entries.txt"
   PREV_TEMPLATE_FILES="$WORK_DIR/prev_template_files.txt"
 
   : >"$CONFLICT_FILES"
@@ -68,11 +77,69 @@ main() {
   : >"$AUTO_MERGED_FILES"
   : >"$DOWNGRADE_FILES"
   : >"$DOWNGRADE_REPORT"
+  : >"$DECLINED_FILES"
+  : >"$INERT_ENTRIES"
+  # WORK_DIR persists between runs, so a stale list from an earlier run would
+  # otherwise feed the deleted-in-template scan below.
+  : >"$PREV_TEMPLATE_FILES"
 
+  # An EXCLUDE_PATHS entry names one file or one directory, and a directory
+  # entry covers every file under it. The `/`* arm is what makes the directory
+  # form work: the sync tests one file path at a time, so a directory entry
+  # never equals the path of a file inside it, and an equality-only test syncs
+  # every file the entry was written to keep out.
   is_excluded() {
     local candidate="$1" exclude
     for exclude in $EXCLUDE_PATHS; do
-      [[ "$candidate" = "$exclude" ]] && return 0
+      [[ "$candidate" = "$exclude" || "$candidate" = "$exclude"/* ]] && return 0
+    done
+    return 1
+  }
+
+  # PROBLEM CLASS — a template file the adopter deleted comes back on the next
+  # sync. Case 1 copies in any template file the adopter does not have, so a
+  # deletion there survives only until the next sync run: one sync restored 44
+  # files an adopter had already removed more than once. This refusal is what
+  # makes that deletion hold.
+  #
+  # The evidence is the adopter's own history, not the template's tree. A commit
+  # that deleted the path IS the adopter saying it does not want the file. The
+  # template tree at PREV_SHA only says the file was available then, which is
+  # also true of every template file the adopter never adopted — reading that as
+  # a deletion would decline a genuinely new file forever. A path with no
+  # deletion commit was never there, so it is new and still arrives. The sync
+  # checks out with fetch-depth: 0; a shallow checkout finds no deletion and
+  # falls back to copying in.
+  was_deleted_here() {
+    [[ -n "$(git log --diff-filter=D --format=%H -1 -- "$1")" ]]
+  }
+
+  # PROBLEM CLASS — a configuration entry that is accepted and matches nothing.
+  # An EXCLUDE_PATHS or OPT_IN_PATHS entry naming a path the template does not
+  # ship covers nothing, and it fails silently: the entry sits in the list, the
+  # sync treats the file as unlisted, and the list reads as though it covers it.
+  # This warning is what makes a misspelled or stale entry visible. Read the
+  # template tree before the run deletes it.
+  report_inert_entries() {
+    local entry
+    for entry in $EXCLUDE_PATHS $OPT_IN_PATHS; do
+      [[ -e "_template/$entry" ]] && continue
+      echo "::warning::list entry names nothing in the template: $entry"
+      echo "$entry" >>"$INERT_ENTRIES"
+    done
+  }
+
+  # A file the template may update but must never introduce. Some template
+  # features are only correct in a repo that has no equivalent of its own — the
+  # release workflow is the case that motivated this: a consumer with its own
+  # publisher that also received auto-version.yaml ended up with two workflows
+  # racing the same semver bump on every push to the default branch.
+  # An OPT_IN_PATHS entry names one file or one directory, on the same terms as
+  # is_excluded above.
+  is_opt_in() {
+    local candidate="$1" opt_in
+    for opt_in in $OPT_IN_PATHS; do
+      [[ "$candidate" = "$opt_in" || "$candidate" = "$opt_in"/* ]] && return 0
     done
     return 1
   }
@@ -205,8 +272,17 @@ main() {
 
     [[ "$parent_dir" != "." ]] && mkdir -p "$parent_dir"
 
-    # Case 1: new file in template.
+    # Case 1: absent locally — a new template file, unless the adopter removed it.
     if [[ ! -f "$rel_path" ]]; then
+      if is_opt_in "$rel_path"; then
+        echo "Opt-in only, not present locally: $rel_path (skipping — copy it from the template to adopt it)"
+        return
+      fi
+      if was_deleted_here "$rel_path"; then
+        echo "Declined: $rel_path (deleted in the adopter since the last sync; not re-added)"
+        echo "$rel_path" >>"$DECLINED_FILES"
+        return
+      fi
       cp "$template_file" "$rel_path"
       echo "Added: $rel_path"
       return
@@ -374,6 +450,7 @@ main() {
     fi
   done
 
+  report_inert_entries
   rm -rf _template
 
   #############################################
@@ -383,6 +460,16 @@ main() {
   if [[ -s "$AUTO_MERGED_FILES" ]]; then
     auto_merged=$(tr '\n' ' ' <"$AUTO_MERGED_FILES")
     echo "auto_merged_files=$auto_merged" >>"$GITHUB_OUTPUT"
+  fi
+
+  if [[ -s "$INERT_ENTRIES" ]]; then
+    inert=$(tr '\n' ' ' <"$INERT_ENTRIES")
+    echo "inert_entries=$inert" >>"$GITHUB_OUTPUT"
+  fi
+
+  if [[ -s "$DECLINED_FILES" ]]; then
+    declined=$(tr '\n' ' ' <"$DECLINED_FILES")
+    echo "declined_files=$declined" >>"$GITHUB_OUTPUT"
   fi
 
   # Downgrade risk: files whose "clean" auto-merge dropped adopter content. This

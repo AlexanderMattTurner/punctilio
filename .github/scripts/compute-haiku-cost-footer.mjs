@@ -30,18 +30,22 @@ const thisCost =
 // dollar figure in the visible "This review cost **$X**" line for a review posted
 // before the marker existed. 0 if neither is present.
 function reviewerCost() {
-  const marked = body.match(/<!-- review-cost usd=([0-9]*\.?[0-9]+) -->/);
-  if (marked) return Number.parseFloat(marked[1]);
-  const text = body.match(/This review cost \*\*\$([0-9]*\.?[0-9]+)\*\*/);
-  return text ? Number.parseFloat(text[1]) : 0;
+  const marked = body.match(
+    /<!-- review-cost usd=(?<usd>\d+(?:\.\d+)?|\.\d+) -->/,
+  );
+  if (marked) return Number.parseFloat(marked.groups.usd);
+  const text = body.match(
+    /This review cost \*\*\$(?<usd>\d+(?:\.\d+)?|\.\d+)\*\*/,
+  );
+  return text ? Number.parseFloat(text.groups.usd) : 0;
 }
 
 // Prior follow-up tally from the haiku-cost marker (default 0 total / 0 runs).
 const prior = body.match(
-  /<!-- haiku-cost total=([0-9]*\.?[0-9]+) runs=([0-9]+) -->/,
+  /<!-- haiku-cost total=(?<total>\d+(?:\.\d+)?|\.\d+) runs=(?<runs>\d+) -->/,
 );
-const priorTotal = prior ? Number.parseFloat(prior[1]) : 0;
-const priorRuns = prior ? Number.parseInt(prior[2], 10) : 0;
+const priorTotal = prior ? Number.parseFloat(prior.groups.total) : 0;
+const priorRuns = prior ? Number.parseInt(prior.groups.runs, 10) : 0;
 
 const haikuTotal = priorTotal + thisCost;
 const runs = priorRuns + 1;

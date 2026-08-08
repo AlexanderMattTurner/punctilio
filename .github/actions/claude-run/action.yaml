@@ -2,60 +2,53 @@ name: "Run Claude with OAuth failover"
 description: >-
   Single source of truth for invoking anthropics/claude-code-action across this
   template's workflows: it pins the action once and walks an ordered credential
-  ladder — the primary OAuth token, then up to six fallbacks
-  (CLAUDE_CODE_OAUTH_TOKEN_FALLBACK, _2 through _6). claude-code-action exits 0
+  ladder of up to seven tiers. The caller decides which secret fills which tier;
+  the shipped workflows put CLAUDE_CODE_OAUTH_TOKEN LAST, so CI spends the tokens
+  provisioned for it before the operator's own account. claude-code-action exits 0
   even on a failed run, so a rung's verdict is read from its execution log
   (claude-run-errored.sh), never from the step outcome: a rung is attempted when
   NO earlier rung has produced a non-errored run and that rung's own token is
-  non-empty, so an unset middle tier is stepped over instead of ending the
-  ladder. Each retry waits out a short escalating backoff first, so one
-  provider-side blip cannot consume every credential at once. Between the
-  primary rung and the second tier sits one extra attempt on the PRIMARY
-  credential — taken only when the primary's failure billed nothing (zero_cost)
-  and so costs nothing to repeat, and the only retry a caller that configures no
-  fallback tokens at all can get. To add a tier, add one input plus one
+  non-empty — the FIRST tier included, so a setup that fills only the last rung
+  pays nothing for the tiers it left unset. Each retry waits out a short
+  escalating backoff first, so one provider-side blip cannot consume every
+  credential at once. After the LAST rung sits one extra attempt on that same
+  credential — taken only when its failure billed nothing (zero_cost) and so
+  costs nothing to repeat, and the only retry a caller that configures a single
+  token at all can get. To add a tier, add one input plus one
   backoff/attempt/check/state group here, chaining its state step off the last
   one — no caller changes. Callers pass their own prompt / model / claude_args /
   tool gating; the credential and retry logic live only here so no workflow
   re-implements them.
 inputs:
   oauth_token:
-    description: "Primary Claude Code OAuth token (secrets.CLAUDE_CODE_OAUTH_TOKEN)."
-    required: true
-  fallback_oauth_token:
     description: >-
-      First backup Claude Code OAuth token
-      (secrets.CLAUDE_CODE_OAUTH_TOKEN_FALLBACK). Empty skips the rung.
+      First-tier Claude Code OAuth token; the caller decides which secret fills
+      it. Empty skips the rung, like every tier below. At least one tier must be
+      non-empty — the propagate step fails the run when none produced an answer.
+    required: false
+    default: ""
+  fallback_oauth_token:
+    description: "First backup Claude Code OAuth token; empty skips the rung."
     required: false
     default: ""
   fallback_oauth_token_2:
-    description: >-
-      Second backup Claude Code OAuth token
-      (secrets.CLAUDE_CODE_OAUTH_TOKEN_FALLBACK_2). Empty skips the rung.
+    description: "Second backup Claude Code OAuth token; empty skips the rung."
     required: false
     default: ""
   fallback_oauth_token_3:
-    description: >-
-      Third backup Claude Code OAuth token
-      (secrets.CLAUDE_CODE_OAUTH_TOKEN_FALLBACK_3). Empty skips the rung.
+    description: "Third backup Claude Code OAuth token; empty skips the rung."
     required: false
     default: ""
   fallback_oauth_token_4:
-    description: >-
-      Fourth backup Claude Code OAuth token
-      (secrets.CLAUDE_CODE_OAUTH_TOKEN_FALLBACK_4). Empty skips the rung.
+    description: "Fourth backup Claude Code OAuth token; empty skips the rung."
     required: false
     default: ""
   fallback_oauth_token_5:
-    description: >-
-      Fifth backup Claude Code OAuth token
-      (secrets.CLAUDE_CODE_OAUTH_TOKEN_FALLBACK_5). Empty skips the rung.
+    description: "Fifth backup Claude Code OAuth token; empty skips the rung."
     required: false
     default: ""
   fallback_oauth_token_6:
-    description: >-
-      Sixth backup Claude Code OAuth token
-      (secrets.CLAUDE_CODE_OAUTH_TOKEN_FALLBACK_6). Empty skips the rung.
+    description: "Sixth backup Claude Code OAuth token; empty skips the rung."
     required: false
     default: ""
   github_token:
@@ -156,8 +149,12 @@ runs:
     # continue-on-error on every attempt so a credential/quota failure doesn't
     # abort the composite before a later rung can run; the propagate step below
     # turns a genuine all-rungs-failed into a hard error.
-    - name: Attempt with the primary credential
+    - name: Attempt with the first-tier credential
       id: a1
+      # Skipped when this tier is unset, exactly like every tier below it. A
+      # setup that fills only the last rung must not pay two dead invocations
+      # plus a backoff before the ladder reaches the token it did configure.
+      if: inputs.oauth_token != ''
       continue-on-error: true
       uses: anthropics/claude-code-action@428971d2ecd6e3a7cb0ee0da2a3a8b33fdb3678d # v1.0.157
       with:
@@ -169,8 +166,9 @@ runs:
           ${{ inputs.claude_args }}
         allowed_non_write_users: ${{ inputs.allowed_non_write_users }}
         allowed_bots: ${{ inputs.allowed_bots }}
-    - name: Did the primary credential run?
+    - name: Did the first-tier credential run?
       id: c1
+      if: inputs.oauth_token != ''
       shell: bash
       env:
         EXECUTION_FILE: ${{ steps.a1.outputs.execution_file }}
@@ -189,6 +187,7 @@ runs:
       shell: bash
       env:
         PRIOR: "true"
+        ANY_PRIOR: "false"
         ERRORED: ${{ steps.c1.outputs.errored }}
       run: |
         set -euo pipefail
@@ -197,65 +196,13 @@ runs:
           still="true"
         fi
         echo "still_needs_attempt=${still}" >>"$GITHUB_OUTPUT"
-    # The free retry. claude-run-errored.sh reports zero_cost=true only when the
-    # attempt billed nothing (total_cost_usd == 0, or no log at all), which
-    # proves inference was never reached — so a transient provider-side blip and
-    # a dead token look identical here, and one more attempt on the SAME
-    # credential costs nothing either way: it succeeds if the fault was the blip
-    # and fails the same way if the token is dead. Without it a blip is answered
-    # only by walking to the NEXT credential, which a caller configuring no
-    # fallback secrets does not have — the attempt is then lost with zero
-    # retries. A failure that DID bill reached inference and failed on the work
-    # itself, so zero_cost=false skips this rung rather than spend real money
-    # failing the same way twice.
-    - name: Back off before the free same-credential retry
-      if: steps.s1.outputs.still_needs_attempt == 'true' && steps.c1.outputs.zero_cost == 'true'
-      shell: bash
-      env:
-        # Straddling the blip is the entire point: the failure returns in well
-        # under a second, so a back-to-back retry hits the same broken instant.
-        BACKOFF_SECONDS: "10"
-      run: sleep "$BACKOFF_SECONDS"
-    - name: Retry on the primary credential
-      id: a1r
-      if: steps.s1.outputs.still_needs_attempt == 'true' && steps.c1.outputs.zero_cost == 'true'
-      continue-on-error: true
-      uses: anthropics/claude-code-action@428971d2ecd6e3a7cb0ee0da2a3a8b33fdb3678d # v1.0.157
-      with:
-        claude_code_oauth_token: ${{ inputs.oauth_token }}
-        github_token: ${{ inputs.github_token }}
-        prompt: ${{ steps.compose.outputs.prompt }}
-        claude_args: >-
-          --model ${{ inputs.model }}
-          ${{ inputs.claude_args }}
-        allowed_non_write_users: ${{ inputs.allowed_non_write_users }}
-        allowed_bots: ${{ inputs.allowed_bots }}
-    - name: Did the same-credential retry run?
-      id: c1r
-      if: steps.s1.outputs.still_needs_attempt == 'true' && steps.c1.outputs.zero_cost == 'true'
-      shell: bash
-      env:
-        EXECUTION_FILE: ${{ steps.a1r.outputs.execution_file }}
-      run: bash "${GITHUB_ACTION_PATH}/../../scripts/claude-run-errored.sh"
-    # The free retry joins the same cumulative state the credential rungs use,
-    # so a retry that WORKED ends the ladder and a retry that did not leaves the
-    # pending state untouched for the fallback tiers. Every rung below therefore
-    # gates on s1r, not s1; a skipped retry emits an empty errored, which is not
-    # success, so the gap handling that lets an unset tier be stepped over
-    # covers this rung too.
-    - name: Ladder state after the free same-credential retry
-      id: s1r
-      shell: bash
-      env:
-        PRIOR: ${{ steps.s1.outputs.still_needs_attempt }}
-        ERRORED: ${{ steps.c1r.outputs.errored }}
-      run: |
-        set -euo pipefail
-        still="false"
-        if [[ "$PRIOR" == "true" && "$ERRORED" != "false" ]]; then
-          still="true"
-        fi
-        echo "still_needs_attempt=${still}" >>"$GITHUB_OUTPUT"
+        # An EMPTY errored means this rung's check never ran, i.e. the rung was
+        # skipped for an unset token. `any_attempt` is what lets a backoff below
+        # wait only BETWEEN attempts: before the first one there is no blip to
+        # straddle, so the wait would only idle a runner.
+        any="$ANY_PRIOR"
+        [[ -n "$ERRORED" ]] && any="true"
+        echo "any_attempt=${any}" >>"$GITHUB_OUTPUT"
     # A dead/expired credential is rejected in roughly half a second without
     # ever reaching inference, so back-to-back rungs spend the whole ladder
     # inside a few seconds — long enough for one provider-side blip to take out
@@ -264,14 +211,16 @@ runs:
     # first and the ladder straddles a blip, while the added wall clock stays
     # under five minutes.
     - name: Back off before the second-tier attempt
-      if: steps.s1r.outputs.still_needs_attempt == 'true' && inputs.fallback_oauth_token != ''
+      if: >-
+        steps.s1.outputs.still_needs_attempt == 'true' && inputs.fallback_oauth_token != ''
+        && steps.s1.outputs.any_attempt == 'true'
       shell: bash
       env:
         BACKOFF_SECONDS: "10"
       run: sleep "$BACKOFF_SECONDS"
     - name: Retry with the second-tier credential
       id: a2
-      if: steps.s1r.outputs.still_needs_attempt == 'true' && inputs.fallback_oauth_token != ''
+      if: steps.s1.outputs.still_needs_attempt == 'true' && inputs.fallback_oauth_token != ''
       continue-on-error: true
       uses: anthropics/claude-code-action@428971d2ecd6e3a7cb0ee0da2a3a8b33fdb3678d # v1.0.157
       with:
@@ -287,7 +236,7 @@ runs:
       id: c2
       # Same gate as a2, so a skipped attempt's check emits nothing and the
       # newest-first output resolution keeps reporting the attempt that did run.
-      if: steps.s1r.outputs.still_needs_attempt == 'true' && inputs.fallback_oauth_token != ''
+      if: steps.s1.outputs.still_needs_attempt == 'true' && inputs.fallback_oauth_token != ''
       shell: bash
       env:
         EXECUTION_FILE: ${{ steps.a2.outputs.execution_file }}
@@ -296,7 +245,8 @@ runs:
       id: s2
       shell: bash
       env:
-        PRIOR: ${{ steps.s1r.outputs.still_needs_attempt }}
+        PRIOR: ${{ steps.s1.outputs.still_needs_attempt }}
+        ANY_PRIOR: ${{ steps.s1.outputs.any_attempt }}
         ERRORED: ${{ steps.c2.outputs.errored }}
       run: |
         set -euo pipefail
@@ -305,8 +255,13 @@ runs:
           still="true"
         fi
         echo "still_needs_attempt=${still}" >>"$GITHUB_OUTPUT"
+        any="$ANY_PRIOR"
+        [[ -n "$ERRORED" ]] && any="true"
+        echo "any_attempt=${any}" >>"$GITHUB_OUTPUT"
     - name: Back off before the third-tier attempt
-      if: steps.s2.outputs.still_needs_attempt == 'true' && inputs.fallback_oauth_token_2 != ''
+      if: >-
+        steps.s2.outputs.still_needs_attempt == 'true' && inputs.fallback_oauth_token_2 != ''
+        && steps.s2.outputs.any_attempt == 'true'
       shell: bash
       env:
         BACKOFF_SECONDS: "20"
@@ -337,6 +292,7 @@ runs:
       shell: bash
       env:
         PRIOR: ${{ steps.s2.outputs.still_needs_attempt }}
+        ANY_PRIOR: ${{ steps.s2.outputs.any_attempt }}
         ERRORED: ${{ steps.c3.outputs.errored }}
       run: |
         set -euo pipefail
@@ -345,8 +301,13 @@ runs:
           still="true"
         fi
         echo "still_needs_attempt=${still}" >>"$GITHUB_OUTPUT"
+        any="$ANY_PRIOR"
+        [[ -n "$ERRORED" ]] && any="true"
+        echo "any_attempt=${any}" >>"$GITHUB_OUTPUT"
     - name: Back off before the fourth-tier attempt
-      if: steps.s3.outputs.still_needs_attempt == 'true' && inputs.fallback_oauth_token_3 != ''
+      if: >-
+        steps.s3.outputs.still_needs_attempt == 'true' && inputs.fallback_oauth_token_3 != ''
+        && steps.s3.outputs.any_attempt == 'true'
       shell: bash
       env:
         BACKOFF_SECONDS: "30"
@@ -377,6 +338,7 @@ runs:
       shell: bash
       env:
         PRIOR: ${{ steps.s3.outputs.still_needs_attempt }}
+        ANY_PRIOR: ${{ steps.s3.outputs.any_attempt }}
         ERRORED: ${{ steps.c4.outputs.errored }}
       run: |
         set -euo pipefail
@@ -385,8 +347,13 @@ runs:
           still="true"
         fi
         echo "still_needs_attempt=${still}" >>"$GITHUB_OUTPUT"
+        any="$ANY_PRIOR"
+        [[ -n "$ERRORED" ]] && any="true"
+        echo "any_attempt=${any}" >>"$GITHUB_OUTPUT"
     - name: Back off before the fifth-tier attempt
-      if: steps.s4.outputs.still_needs_attempt == 'true' && inputs.fallback_oauth_token_4 != ''
+      if: >-
+        steps.s4.outputs.still_needs_attempt == 'true' && inputs.fallback_oauth_token_4 != ''
+        && steps.s4.outputs.any_attempt == 'true'
       shell: bash
       env:
         BACKOFF_SECONDS: "45"
@@ -417,6 +384,7 @@ runs:
       shell: bash
       env:
         PRIOR: ${{ steps.s4.outputs.still_needs_attempt }}
+        ANY_PRIOR: ${{ steps.s4.outputs.any_attempt }}
         ERRORED: ${{ steps.c5.outputs.errored }}
       run: |
         set -euo pipefail
@@ -425,8 +393,13 @@ runs:
           still="true"
         fi
         echo "still_needs_attempt=${still}" >>"$GITHUB_OUTPUT"
+        any="$ANY_PRIOR"
+        [[ -n "$ERRORED" ]] && any="true"
+        echo "any_attempt=${any}" >>"$GITHUB_OUTPUT"
     - name: Back off before the sixth-tier attempt
-      if: steps.s5.outputs.still_needs_attempt == 'true' && inputs.fallback_oauth_token_5 != ''
+      if: >-
+        steps.s5.outputs.still_needs_attempt == 'true' && inputs.fallback_oauth_token_5 != ''
+        && steps.s5.outputs.any_attempt == 'true'
       shell: bash
       env:
         BACKOFF_SECONDS: "60"
@@ -457,6 +430,7 @@ runs:
       shell: bash
       env:
         PRIOR: ${{ steps.s5.outputs.still_needs_attempt }}
+        ANY_PRIOR: ${{ steps.s5.outputs.any_attempt }}
         ERRORED: ${{ steps.c6.outputs.errored }}
       run: |
         set -euo pipefail
@@ -465,8 +439,13 @@ runs:
           still="true"
         fi
         echo "still_needs_attempt=${still}" >>"$GITHUB_OUTPUT"
+        any="$ANY_PRIOR"
+        [[ -n "$ERRORED" ]] && any="true"
+        echo "any_attempt=${any}" >>"$GITHUB_OUTPUT"
     - name: Back off before the seventh-tier attempt
-      if: steps.s6.outputs.still_needs_attempt == 'true' && inputs.fallback_oauth_token_6 != ''
+      if: >-
+        steps.s6.outputs.still_needs_attempt == 'true' && inputs.fallback_oauth_token_6 != ''
+        && steps.s6.outputs.any_attempt == 'true'
       shell: bash
       env:
         BACKOFF_SECONDS: "75"
@@ -497,6 +476,7 @@ runs:
       shell: bash
       env:
         PRIOR: ${{ steps.s6.outputs.still_needs_attempt }}
+        ANY_PRIOR: ${{ steps.s6.outputs.any_attempt }}
         ERRORED: ${{ steps.c7.outputs.errored }}
       run: |
         set -euo pipefail
@@ -505,6 +485,71 @@ runs:
           still="true"
         fi
         echo "still_needs_attempt=${still}" >>"$GITHUB_OUTPUT"
+        any="$ANY_PRIOR"
+        [[ -n "$ERRORED" ]] && any="true"
+        echo "any_attempt=${any}" >>"$GITHUB_OUTPUT"
+    # The free retry, on the LAST rung because that is the rung a minimal setup
+    # reaches. claude-run-errored.sh reports zero_cost=true only when the attempt
+    # billed nothing (total_cost_usd == 0, or no log at all), which proves
+    # inference was never reached — so a transient provider-side blip and a dead
+    # token look identical here, and one more attempt on the SAME credential
+    # costs nothing either way: it succeeds if the fault was the blip and fails
+    # the same way if the token is dead. Without it a blip is answered only by
+    # walking to the NEXT credential, which the last rung does not have — the
+    # attempt is then lost with zero retries. A failure that DID bill reached
+    # inference and failed on the work itself, so zero_cost=false skips this rung
+    # rather than spend real money failing the same way twice.
+    - name: Back off before the free same-credential retry
+      if: steps.s7.outputs.still_needs_attempt == 'true' && steps.c7.outputs.zero_cost == 'true'
+      shell: bash
+      env:
+        # Straddling the blip is the entire point: the failure returns in well
+        # under a second, so a back-to-back retry hits the same broken instant.
+        BACKOFF_SECONDS: "10"
+      run: sleep "$BACKOFF_SECONDS"
+    - name: Retry on the last credential
+      id: a7r
+      if: steps.s7.outputs.still_needs_attempt == 'true' && steps.c7.outputs.zero_cost == 'true'
+      continue-on-error: true
+      uses: anthropics/claude-code-action@428971d2ecd6e3a7cb0ee0da2a3a8b33fdb3678d # v1.0.157
+      with:
+        claude_code_oauth_token: ${{ inputs.fallback_oauth_token_6 }}
+        github_token: ${{ inputs.github_token }}
+        prompt: ${{ steps.compose.outputs.prompt }}
+        claude_args: >-
+          --model ${{ inputs.model }}
+          ${{ inputs.claude_args }}
+        allowed_non_write_users: ${{ inputs.allowed_non_write_users }}
+        allowed_bots: ${{ inputs.allowed_bots }}
+    - name: Did the same-credential retry run?
+      id: c7r
+      if: steps.s7.outputs.still_needs_attempt == 'true' && steps.c7.outputs.zero_cost == 'true'
+      shell: bash
+      env:
+        EXECUTION_FILE: ${{ steps.a7r.outputs.execution_file }}
+      run: bash "${GITHUB_ACTION_PATH}/../../scripts/claude-run-errored.sh"
+    # The free retry joins the same cumulative state the credential rungs use, so
+    # a retry that WORKED ends the ladder and a retry that did not leaves the
+    # pending state untouched. The propagate step below therefore reads s7r, not
+    # s7; a skipped retry emits an empty errored, which is not success, so the
+    # gap handling that lets an unset tier be stepped over covers this rung too.
+    - name: Ladder state after the free same-credential retry
+      id: s7r
+      shell: bash
+      env:
+        PRIOR: ${{ steps.s7.outputs.still_needs_attempt }}
+        ANY_PRIOR: ${{ steps.s7.outputs.any_attempt }}
+        ERRORED: ${{ steps.c7r.outputs.errored }}
+      run: |
+        set -euo pipefail
+        still="false"
+        if [[ "$PRIOR" == "true" && "$ERRORED" != "false" ]]; then
+          still="true"
+        fi
+        echo "still_needs_attempt=${still}" >>"$GITHUB_OUTPUT"
+        any="$ANY_PRIOR"
+        [[ -n "$ERRORED" ]] && any="true"
+        echo "any_attempt=${any}" >>"$GITHUB_OUTPUT"
     # Resolve the winning rung's log ONCE. Both the `execution_file` output and
     # the gate below read this step, so the coalesce has a single source rather
     # than a copy per consumer that could drift apart.
@@ -513,13 +558,13 @@ runs:
       shell: bash
       env:
         EXEC_FILE: >-
-          ${{ steps.a7.outputs.execution_file ||
+          ${{ steps.a7r.outputs.execution_file ||
+              steps.a7.outputs.execution_file ||
               steps.a6.outputs.execution_file ||
               steps.a5.outputs.execution_file ||
               steps.a4.outputs.execution_file ||
               steps.a3.outputs.execution_file ||
               steps.a2.outputs.execution_file ||
-              steps.a1r.outputs.execution_file ||
               steps.a1.outputs.execution_file }}
       run: echo "execution_file=${EXEC_FILE}" >>"$GITHUB_OUTPUT"
     # Propagate a hard failure only when NO attempt produced a non-errored run.
@@ -527,7 +572,7 @@ runs:
     # claude-code-action exits 0 even on a dead token, so an outcome-based
     # condition would report success on a run that never reached inference.
     - name: Propagate failover result
-      if: steps.s7.outputs.still_needs_attempt == 'true'
+      if: steps.s7r.outputs.still_needs_attempt == 'true'
       shell: bash
       run: |
         echo "::error::claude-run: every configured Claude credential errored (set CLAUDE_CODE_OAUTH_TOKEN and optionally CLAUDE_CODE_OAUTH_TOKEN_FALLBACK / _2 / _3 / _4 / _5 / _6)." >&2

@@ -78,6 +78,10 @@ is_unmergeable() {
 # no package.json at all (a dotfiles or shell repo), and mid-merge the one it
 # does have can itself carry conflict markers, which would make a package-manager
 # entrypoint die parsing its own manifest.
+# allow-unsynced: config/auto-resolve-regen-rules.json — the consumer owns it. It
+# declares that repo's generated artifacts, which the template cannot know, and
+# has_resolve_generated below is an explicit presence test, so a consumer without
+# one simply runs no regen pass.
 RESOLVE_GENERATED_CONFIG="config/auto-resolve-regen-rules.json"
 
 has_resolve_generated() {

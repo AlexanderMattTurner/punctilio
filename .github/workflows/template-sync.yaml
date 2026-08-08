@@ -5,6 +5,8 @@ name: Sync from Template
 # No setup required - works out of the box.
 #
 # Features:
+# - Skips entirely in the template repository itself, and fails loud when
+#   TEMPLATE_SYNC_ORG points the sync at a fork of the running repo
 # - 3-way merges local customizations with template updates automatically
 # - Falls back to template version + Claude resolution when no merge base exists
 # - Detects new files, changed files, and deleted files from the template
@@ -22,8 +24,11 @@ name: Sync from Template
 # 2. Preserve local customizations while adopting new template features
 # 3. When in doubt, keep local changes - they exist for a reason
 # 4. Check for duplicate CI: if the target repo already has test/lint/format
-#    workflows, don't add the template's versions — exclude them via
-#    EXCLUDE_PATHS instead
+#    workflows, delete the template's versions. A file the sync delivered
+#    before and the adopter deleted is reported as declined, not restored, so
+#    the deletion holds on its own and needs no EXCLUDE_PATHS entry.
+# 5. A workflow that must never be introduced into a repo that has its own
+#    equivalent (the release flow) belongs in OPT_IN_PATHS.
 # =============================================================================
 
 on:
@@ -50,45 +55,94 @@ env:
   # added to the template auto-sync without anyone having to edit this list.
   # Downstream-added files in these directories are left alone (sync only
   # copies files that exist in the template).
-  SYNC_PATHS: ".claude .hooks .github/actions .github/scripts .github/workflows .github/prompts"
-  # Paths to exclude from syncing. Supports both whole directories (matching
-  # entries in SYNC_PATHS) and individual files within synced directories.
   #
-  # NOTE: If the target repo already has its own test/lint/format CI workflows,
-  # exclude the template's equivalents here to avoid duplicate CI jobs.
+  # An entry may also be a single FILE, which is how a synced file's DATA
+  # dependency travels when it lives outside every synced directory. A synced
+  # script that reads such a file arrives downstream without it and dies on the
+  # read, so each one a synced file names by a fixed path is listed here:
+  #   .github/tool-versions.sh                 <- .github/scripts/install-mergiraf.sh
+  #   .github/claude-cli-version               <- .github/scripts/install-claude-cli.sh
+  #   config/javascript/commitlint.config.js   <- .hooks/commit-msg
+  # A consumer that maintains its own richer copy of one of these (extra tools
+  # pinned for its own CI) keeps it by adding that path to EXCLUDE_PATHS.
+  SYNC_PATHS: ".claude .hooks .github/actions .github/scripts .github/workflows .github/prompts .github/tool-versions.sh .github/claude-cli-version config/javascript/commitlint.config.js"
+  # Paths to exclude from syncing. An entry names one file or one directory, and
+  # a directory entry covers every file under it.
+  #
+  # NOTE: An adopter that already has its own test/lint/format CI workflows can
+  # simply delete the template's equivalents; the sync declines to re-add a file
+  # it delivered before. Use this list for a file the sync has NEVER delivered,
+  # or to freeze one the adopter keeps but maintains itself.
   # Common candidates: .github/workflows/node-tests.yaml,
   # .github/workflows/lint.yaml, .github/workflows/format-check.yaml
   #
-  # VERSIONED-APP-ONLY: the release flow below only makes sense for a repo that
-  # is published to npm. auto-version.yaml runs on EVERY push to the default
-  # branch and, for a real (non-private) package, decides a Conventional-Commits
-  # semver bump and runs `pnpm publish` (OIDC provenance — no NPM_TOKEN). The
-  # template's own package.json sets "private": true, so version-bump.sh skips
-  # publishing there; a downstream repo opts in by dropping `private` and setting
-  # a real, publishable name. A repo that is not an npm package at all (e.g. a
-  # website like TurnTrout.com) should list these here to opt out entirely:
-  #   .github/workflows/auto-version.yaml
-  #   .github/scripts/version-bump.sh
-  #   .github/scripts/promote-changelog.mjs
-  #   .github/scripts/lib/retry.bash
-  # (CHANGELOG.md lives outside SYNC_PATHS and never syncs, so a versioned
-  # consumer must create it to bootstrap the flow.)
   # The security-vulnerability-scan workflow + prompt are intentionally NOT
   # propagated to downstream repos; each consumer owns its own security-scan
   # cadence and model pin, so the template stops overwriting them on sync.
   EXCLUDE_PATHS: ".github/workflows/security-vulnerability-scan.yaml .github/prompts/security-vulnerability-scan.md"
+  # Files the sync UPDATES but never INTRODUCES. Absent from the child repo they
+  # are skipped; present, they sync like anything else. This is the opt-in half
+  # of EXCLUDE_PATHS: opting in is creating the file once, opting out is deleting
+  # it (and it stays deleted — no EXCLUDE_PATHS entry needed).
+  #
+  # auto-version.yaml is the release flow's entry point: it runs on EVERY push to
+  # the default branch and, for a non-private package, decides a
+  # Conventional-Commits semver bump and runs `pnpm publish` (OIDC provenance —
+  # no NPM_TOKEN). Introducing it into a repo that already publishes gives that
+  # repo TWO publishers; because the concurrency groups differ they never
+  # serialize, so both compute the same version and one loses the race with an
+  # unrecognizable `npm error code E404 ... PUT` on an already-published version.
+  # Opt in by copying it from the template:
+  #   curl -fsSL https://raw.githubusercontent.com/AlexanderMattTurner/claude-automation-template/main/.github/workflows/auto-version.yaml \
+  #     -o .github/workflows/auto-version.yaml
+  # CHANGELOG.md lives outside SYNC_PATHS and never syncs, so a versioned
+  # consumer must also create it to bootstrap the flow.
+  #
+  # A consumer that KEEPS its own release workflow instead should give it the
+  # template's workflow name — "Auto version bump and publish" — or add its own
+  # name to the `workflows:` lists in ci-failure-notify.yaml and
+  # build-publish-notify.yaml, which bind by name, not filename. Otherwise its
+  # release failures notify nobody.
+  OPT_IN_PATHS: ".github/workflows/auto-version.yaml"
 
 concurrency:
   group: template-sync
   cancel-in-progress: false
 
-permissions:
-  contents: write
-  pull-requests: write
+permissions: {}
 
 jobs:
-  sync:
+  # A repo cannot be its own upstream. This runs as a separate job because a
+  # job-level `if:` cannot read workflow `env`, and the alternative — repeating
+  # the guard on every step below — is a condition that a newly added step
+  # silently opts out of.
+  preflight:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      self_sync: ${{ steps.check.outputs.self_sync }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          sparse-checkout: .github/scripts
+          persist-credentials: false
+
+      - name: Refuse to sync this repository from itself
+        id: check
+        env:
+          # token-fallback-ok: designed graceful degradation, not an accident.
+          GH_TOKEN: ${{ secrets.TEMPLATE_SYNC_TOKEN_ORG || github.token }}
+        run: bash .github/scripts/template-sync-preflight.sh
+
+  sync:
+    needs: preflight
+    if: needs.preflight.outputs.self_sync != 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
     timeout-minutes: 30
     steps:
       - name: Checkout child repository
@@ -129,6 +183,7 @@ jobs:
         env:
           SYNC_PATHS: ${{ env.SYNC_PATHS }}
           EXCLUDE_PATHS: ${{ env.EXCLUDE_PATHS }}
+          OPT_IN_PATHS: ${{ env.OPT_IN_PATHS }}
         run: bash .github/scripts/template-sync.sh
 
       - name: Show diff (dry run)
@@ -181,7 +236,19 @@ jobs:
 
             `{0}`
 
-            ', steps.sync.outputs.auto_merged_files) || '' }}${{ steps.sync.outputs.has_deletions == 'true' && format('---
+            ', steps.sync.outputs.auto_merged_files) || '' }}${{ steps.sync.outputs.declined_files && format('### Declined files (deleted here, not re-added)
+
+            The template still ships these, and this repo deleted them after an earlier sync. The sync left them out. To adopt one, copy it from the template by hand.
+
+            `{0}`
+
+            ', steps.sync.outputs.declined_files) || '' }}${{ steps.sync.outputs.inert_entries && format('### Inert EXCLUDE_PATHS / OPT_IN_PATHS entries
+
+            These entries name nothing in the template, so they cover nothing. Correct the spelling, or delete the entry.
+
+            `{0}`
+
+            ', steps.sync.outputs.inert_entries) || '' }}${{ steps.sync.outputs.has_deletions == 'true' && format('---
 
             ## Files Removed from Template
 
@@ -220,7 +287,10 @@ jobs:
         env:
           CONFLICT_FILES: ${{ steps.sync.outputs.conflict_files }}
           PR_NUMBER: ${{ steps.create-pr.outputs.pull-request-number }}
-          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # token-fallback-ok: the dedicated CI token is preferred so a sync does not
+          # spend the operator's own account; CLAUDE_CODE_OAUTH_TOKEN is the same
+          # credential the ladder ends on, so the fallback costs nothing but order.
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN_FALLBACK || secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           TRIGGERING_ACTOR: ${{ github.triggering_actor }}
           GH_TOKEN: ${{ secrets.TEMPLATE_SYNC_TOKEN_ORG || github.token }}
           GH_REPO: ${{ github.repository }}

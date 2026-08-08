@@ -60,8 +60,9 @@ are exactly two:
    value to a single sourced file and delete the guard.
 2. **Keep the guard and mark it in the open** — only when a true single source is
    genuinely infeasible (a hard cross-language/cross-process boundary, an external
-   value you don't control): `@pytest.mark.drift_guard("why a true SSOT is
-   infeasible")`, naming the concrete boundary.
+   value you don't control): mark it
+   `@pytest.mark.drift_guard("<why a true SSOT is infeasible>")`, naming the
+   concrete boundary.
 
 **The banned move is relabeling the guard to dodge that** — calling a
 copies-agree test an "SSOT contract" / "coverage contract" / "portability check"
