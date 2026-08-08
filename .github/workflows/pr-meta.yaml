@@ -79,13 +79,17 @@ jobs:
       - name: Verify and correct the merged PR title/description
         uses: ./.github/actions/claude-run
         with:
-          oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          fallback_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN_FALLBACK }}
-          fallback_oauth_token_2: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN_FALLBACK_2 }}
-          fallback_oauth_token_3: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN_FALLBACK_3 }}
-          fallback_oauth_token_4: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN_FALLBACK_4 }}
-          fallback_oauth_token_5: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN_FALLBACK_5 }}
-          fallback_oauth_token_6: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN_FALLBACK_6 }}
+          # CLAUDE_CODE_OAUTH_TOKEN fills the LAST tier: it is the account an
+          # operator already has, so CI spends every token provisioned for CI
+          # first. A tier left unset is skipped, so a setup that configures only
+          # that one secret reaches it with no wasted attempt.
+          oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN_FALLBACK }}
+          fallback_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN_FALLBACK_2 }}
+          fallback_oauth_token_2: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN_FALLBACK_3 }}
+          fallback_oauth_token_3: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN_FALLBACK_4 }}
+          fallback_oauth_token_4: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN_FALLBACK_5 }}
+          fallback_oauth_token_5: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN_FALLBACK_6 }}
+          fallback_oauth_token_6: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           model: claude-haiku-4-5
           claude_args: >-
             --allowedTools "Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr edit:*)"

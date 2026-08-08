@@ -228,15 +228,17 @@ for (let i = 0; i < diffLines.length; i++) {
   if (raw.startsWith("--- ")) continue;
   if (raw.startsWith("+++ ")) {
     const target = raw.slice(4);
-    const m = target.match(/^b\/(.*)$/);
-    path = m ? m[1] : target;
+    const m = target.match(/^b\/(?<path>.*)$/);
+    path = m ? m.groups.path : target;
     continue;
   }
   if (raw.startsWith("@@")) {
-    const m = raw.match(/@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
+    const m = raw.match(
+      /@@ -(?<oldStart>\d+)(?:,\d+)? \+(?<newStart>\d+)(?:,\d+)? @@/,
+    );
     if (m) {
-      oldLine = Number.parseInt(m[1], 10);
-      newLine = Number.parseInt(m[2], 10);
+      oldLine = Number.parseInt(m.groups.oldStart, 10);
+      newLine = Number.parseInt(m.groups.newStart, 10);
     }
     continue;
   }

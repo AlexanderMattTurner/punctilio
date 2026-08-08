@@ -81,13 +81,13 @@ function ladder(env) {
 
 test("every rung the workflow passes is walked, member by member", () => {
   const rungs = [
-    "CLAUDE_CODE_OAUTH_TOKEN",
     "CLAUDE_CODE_OAUTH_TOKEN_FALLBACK",
     "CLAUDE_CODE_OAUTH_TOKEN_FALLBACK_2",
     "CLAUDE_CODE_OAUTH_TOKEN_FALLBACK_3",
     "CLAUDE_CODE_OAUTH_TOKEN_FALLBACK_4",
     "CLAUDE_CODE_OAUTH_TOKEN_FALLBACK_5",
     "CLAUDE_CODE_OAUTH_TOKEN_FALLBACK_6",
+    "CLAUDE_CODE_OAUTH_TOKEN",
   ];
   for (const rung of rungs)
     assert.deepEqual(ladder({ [rung]: `tok-${rung}` }), [`tok-${rung}`], rung);
@@ -101,12 +101,29 @@ test("every rung the workflow passes is walked, member by member", () => {
 test("an unset middle rung is stepped over, not treated as the end of the ladder", () => {
   assert.deepEqual(
     ladder({
-      CLAUDE_CODE_OAUTH_TOKEN: "a",
-      CLAUDE_CODE_OAUTH_TOKEN_FALLBACK: "",
-      CLAUDE_CODE_OAUTH_TOKEN_FALLBACK_2: "b",
+      CLAUDE_CODE_OAUTH_TOKEN_FALLBACK: "a",
+      CLAUDE_CODE_OAUTH_TOKEN_FALLBACK_2: "",
+      CLAUDE_CODE_OAUTH_TOKEN_FALLBACK_3: "b",
     }),
     ["a", "b"],
   );
+});
+
+test("the operator's own token is walked LAST, after every dedicated rung", () => {
+  assert.deepEqual(
+    ladder({
+      CLAUDE_CODE_OAUTH_TOKEN: "personal",
+      CLAUDE_CODE_OAUTH_TOKEN_FALLBACK: "ci-a",
+      CLAUDE_CODE_OAUTH_TOKEN_FALLBACK_6: "ci-b",
+    }),
+    ["ci-a", "ci-b", "personal"],
+  );
+});
+
+test("a setup with only the operator's own token still reaches it", () => {
+  assert.deepEqual(ladder({ CLAUDE_CODE_OAUTH_TOKEN: "personal" }), [
+    "personal",
+  ]);
 });
 
 test("a credential configured twice is only paid for once", () => {

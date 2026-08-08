@@ -37,7 +37,7 @@ function gate(log) {
       readFileSync(out, "utf8")
         .split("\n")
         .filter(Boolean)
-        .map((l) => l.split(/=(.*)/s).slice(0, 2)),
+        .map((l) => l.split(/=(?<value>.*)/s).slice(0, 2)),
     ),
   };
 }

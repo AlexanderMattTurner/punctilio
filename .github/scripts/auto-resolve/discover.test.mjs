@@ -23,7 +23,7 @@ const scratch = () => mkdtempSync(join(tmpdir(), "auto-resolve-discover-"));
 //     mergeability settling from UNKNOWN to CONFLICTING across passes.
 function fakeGh(dir, fixtureFiles) {
   const listFile = join(dir, "fixtures.txt");
-  writeFileSync(listFile, fixtureFiles.join("\n") + "\n");
+  writeFileSync(listFile, `${fixtureFiles.join("\n")}\n`);
   const countFile = join(dir, "gh-calls");
   writeFileSync(countFile, "0");
   const gh = join(dir, "gh");
