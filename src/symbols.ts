@@ -410,8 +410,8 @@ function multiplicationOverView(view: ProseView): void {
     const operand = trailingText.slice(runStart, operatorOffset)
     if (!chainGuardOk(view, runStart) || chainHexBlocked(view, runStart, operand)) continue
     // Trailing word boundary: `*` is not a word character so it never anchors a
-    // trailing `\b`; otherwise reject when a word character follows the operator
-    // through at most three boundaries.
+    // trailing `\b`; otherwise reject when a word-like character (ASCII word or
+    // accented Latin letter) follows the operator through at most three boundaries.
     if (op === "*") continue
     // An uppercase `X` directly attached to the digits is a model/SKU suffix
     // (Ryzen 9 5900X), not a multiplier — prose multipliers write a lowercase
@@ -755,10 +755,10 @@ function degreeUnitFollowOk(text: string, view: ProseView, unitEnd: number): boo
     if (next === "+" || next === "#") return false
     if (next === "-" && !view.hasBoundary(unitEnd + 1) && LATIN_LETTER_RE.test(text[unitEnd + 1] ?? "")) return false
   }
-  // Word boundary: reject when a word character follows the unit across up to
-  // three boundaries; with no boundary a word character directly after the unit
-  // also removes the `\b`. Consecutive boundaries pile at the same clean offset,
-  // so count them there.
+  // Word boundary: reject when a word-like character (ASCII word or accented
+  // Latin letter) follows the unit across up to three boundaries; with no
+  // boundary such a character directly after the unit also removes the `\b`.
+  // Consecutive boundaries pile at the same clean offset, so count them there.
   const followChar = text[unitEnd]
   if (boundaryCountAt(view, unitEnd) <= MAX_BOUNDARY_SEPARATORS && isWordLikeFollower(followChar)) return false
   return true
