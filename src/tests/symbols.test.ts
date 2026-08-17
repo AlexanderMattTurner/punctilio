@@ -120,6 +120,11 @@ describe("multiplication", () => {
     [`210mm x 297mm paper`, `210mm ${UNICODE_SYMBOLS.MULTIPLICATION} 297mm paper`],
     // Unit-like prefix of a larger word must not match (mold ≠ m)
     [`5mold x 10 mold`, `5mold x 10 mold`],
+    // An accented Latin letter after the operator is word-like and blocks
+    // conversion, mirroring the accent-aware leading guard (é5x3 → é5x3).
+    ["5xé", "5xé"],
+    ["5xñ", "5xñ"],
+    ["10xüber", "10xüber"],
   ])('converts "%s" to "%s"', (input, expected) => {
     expect(multiplication(input)).toBe(expected)
   })
@@ -326,6 +331,11 @@ describe("degrees", () => {
     // Digit run preceded by % is a URL-encoded octet
     ["%2C", "%2C"],
     ["#:~:text=In%202020%2C%20the%20U.S.%20Census", "#:~:text=In%202020%2C%20the%20U.S.%20Census"],
+    // An accented Latin letter after the unit is word-like and blocks the
+    // temperature match, mirroring the accent-aware leading guard (é20C stays).
+    ["20 Cédille", "20 Cédille"],
+    ["20Cé", "20Cé"],
+    ["100Fée", "100Fée"],
   ])('converts "%s" to "%s"', (input, expected) => {
     expect(degrees(input)).toBe(expected)
   })

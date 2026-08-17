@@ -139,11 +139,14 @@ const DIGIT_SUFFIX = `(?:${PRIME_ALT}|${UNIT_ALT})?`
 
 // Match entire multiplication chains in one pass: "5 x 5 x 5" or "5x5x5".
 // Pattern matches: digit(s), then one or more (operator, digit(s)) groups.
-// The (?<!\d[eE]) lookbehind prevents matching inside ambiguous unsigned
-// scientific notation (1e5x3 — could also be a model SKU). Signed exponents
-// (1e-5x3, 3.5E+10x2) are unambiguously scientific so the multiplication is
-// converted. The Latin-letter lookbehind blocks model-name identifiers
-// (Surface5x3, RTX3060x2).
+// The pattern carries no leading lookbehinds — they would leave the nested
+// `\d+(…\d+)+` quantifier ReDoS-prone — so the scientific-notation and
+// model-name guards run separately in `chainGuardOk` (see
+// multiplicationOverView), which rejects an operand whose preceding character
+// is a Latin letter or digit. That covers unsigned scientific notation
+// (1e5x3 — the `e` is a letter) and model SKUs (Surface5x3, RTX3060x2);
+// signed exponents (1e-5x3, 3.5E+10x2) are unambiguously scientific, their
+// operand is preceded by a sign, and they convert.
 const MULTIPLICATION_CHAIN = `(?<firstNum>\\d+${DIGIT_SUFFIX})(?<rest>(?:\\s*[xX*]\\s*\\d+${DIGIT_SUFFIX})+)`
 const MULTIPLICATION_SEGMENT = `(?<spaceBefore>\\s*)[xX*](?<spaceAfter>\\s*)(?<num>\\d+${DIGIT_SUFFIX})`
 
@@ -281,6 +284,18 @@ function runHasInteriorBoundary(view: ProseView, operandStart: number, operandEn
 const ASCII_DIGIT_RE = /\d/
 
 /**
+ * True when a character following an operator/unit is word-like and so should
+ * block conversion: an ASCII word char (`\w`, keeping digit/`_` coverage) or an
+ * accented Latin letter. The leading guards (`chainGuardOk`,
+ * `degreeLeadingGuardOk`) are already accent-aware via {@link LATIN_LETTER_RE};
+ * the trailing checks must match, or `5xé`/`5Cé` convert while `é5x3`/`é5C` do
+ * not — an asymmetry against the library's European-accent support.
+ */
+function isWordLikeFollower(ch: string | undefined): boolean {
+  return ch !== undefined && (WORD_RE.test(ch) || LATIN_LETTER_RE.test(ch))
+}
+
+/**
  * Next offset at which a sticky `\d`-anchored pattern could match after a miss
  * at `scan`. A miss at a digit rules out every start in the rest of its run:
  * from a later start the pattern's leading `\d+` reaches a strict subset of
@@ -405,7 +420,7 @@ function multiplicationOverView(view: ProseView): void {
     const afterOp = operatorOffset + 1
     const followChar = trailingText[afterOp]
     if (followChar !== undefined && CURLY_APOSTROPHE_FOLLOWERS.has(followChar)) continue
-    if (boundaryCountAt(view, afterOp) <= MAX_BOUNDARY_SEPARATORS && followChar !== undefined && WORD_RE.test(followChar)) continue
+    if (boundaryCountAt(view, afterOp) <= MAX_BOUNDARY_SEPARATORS && isWordLikeFollower(followChar)) continue
     view.replace(operatorOffset, afterOp, MULTIPLICATION)
   }
   view.commit()
@@ -745,7 +760,7 @@ function degreeUnitFollowOk(text: string, view: ProseView, unitEnd: number): boo
   // also removes the `\b`. Consecutive boundaries pile at the same clean offset,
   // so count them there.
   const followChar = text[unitEnd]
-  if (boundaryCountAt(view, unitEnd) <= MAX_BOUNDARY_SEPARATORS && followChar !== undefined && WORD_RE.test(followChar)) return false
+  if (boundaryCountAt(view, unitEnd) <= MAX_BOUNDARY_SEPARATORS && isWordLikeFollower(followChar)) return false
   return true
 }
 
