@@ -1,4 +1,10 @@
-name: Auto Version Bump and Publish
+# Carries the template's workflow name even though the file is this repo's own.
+# build-publish-notify.yaml and ci-failure-notify.yaml are template-owned and
+# select this workflow by name, so matching it keeps their `workflow_run`
+# triggers firing without patching them on every sync. The template's
+# auto-version.yaml is excluded in template-sync.yaml; see the note there for
+# why this copy is the one that publishes.
+name: Auto version bump and publish
 
 on:
   push:

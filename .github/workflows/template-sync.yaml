@@ -76,7 +76,14 @@ env:
   # The security-vulnerability-scan workflow + prompt are intentionally NOT
   # propagated to downstream repos; each consumer owns its own security-scan
   # cadence and model pin, so the template stops overwriting them on sync.
-  EXCLUDE_PATHS: ".github/workflows/security-vulnerability-scan.yaml .github/prompts/security-vulnerability-scan.md"
+  # auto-version.yaml is excluded because this repo publishes from its own
+  # .github/workflows/auto-version.yml. Syncing both leaves two workflows racing
+  # to bump and publish the same version on every push to the default branch:
+  # whichever loses re-publishes a version npm already has and fails. The local
+  # copy is the one to keep — it checks out with TEMPLATE_SYNC_TOKEN_ORG, the
+  # ruleset bypass actor whose push of the release commit and tag this protected
+  # branch accepts, where the template's plain GITHUB_TOKEN is rejected.
+  EXCLUDE_PATHS: ".github/workflows/security-vulnerability-scan.yaml .github/prompts/security-vulnerability-scan.md .github/workflows/auto-version.yaml"
 
 concurrency:
   group: template-sync
