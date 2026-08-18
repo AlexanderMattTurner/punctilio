@@ -7,9 +7,15 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 0
+    # Cooldown never actually gates anything here (open-pull-requests-limit is
+    # 0), but zizmor's dependabot-cooldown audit fails absent a cooldown block.
+    cooldown:
+      default-days: 7
 
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 0
+    cooldown:
+      default-days: 7

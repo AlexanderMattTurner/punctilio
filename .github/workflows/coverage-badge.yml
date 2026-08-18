@@ -22,6 +22,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        # The badges branch is pushed later via an explicit
+        # `https://x-access-token:${GITHUB_TOKEN}@...` URL, so persisting the
+        # checkout's credentials would only leak the token into any subsequent
+        # step, not enable the push.
+        with:
+          persist-credentials: false
 
       - name: Setup
         uses: ./.github/actions/setup

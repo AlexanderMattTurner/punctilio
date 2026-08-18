@@ -89,8 +89,17 @@ const DEFAULT_SKIP_TAGS = [
 // Form elements whose text content is a literal control value, not prose.
 // Hard-skipped (whole subtree) under `transformAllElements`, on top of the
 // user skip-list, so their values are protected even when nested inside a
-// transformable element.
+// transformable element. `textarea` is additionally skipped in the default
+// mode (see RAW_TEXT_FORM_TAG): unlike void `input`, it holds real text
+// children, so leaving it out of the default skip-list let a transformable
+// ancestor flatten and rewrite its value.
 const FORM_VALUE_TAGS = ["textarea", "input"];
+
+// Escapable-raw-text form control whose text is a literal value, never prose.
+// Skipped in BOTH modes — the allowlist default does not reach it as its own
+// unit, but a transformable ancestor would otherwise pull its text into a
+// shared view and transform it.
+const RAW_TEXT_FORM_TAG = "textarea";
 
 // `<select>` is not prose itself, but its `<option>` children are (and are
 // transformed under the default allowlist). Under `transformAllElements` we
@@ -607,10 +616,14 @@ function resolveCollectOptions(
     transformAllElements = false,
   } = options;
 
-  // In inverted mode, form-value elements join the skip-list so their literal
-  // values are neither transformed nor flattened into a transformable ancestor.
+  // `textarea` is skipped in both modes so a transformable ancestor never
+  // flattens its literal value; inverted mode additionally hard-skips the whole
+  // form-value set (void `input`, which is opaque otherwise) on top of the user
+  // skip-list.
   const skipTagSet = new Set(
-    transformAllElements ? [...skipTags, ...FORM_VALUE_TAGS] : skipTags,
+    transformAllElements
+      ? [...skipTags, ...FORM_VALUE_TAGS]
+      : [...skipTags, RAW_TEXT_FORM_TAG],
   );
   const skipClassSet = new Set(skipClasses);
 

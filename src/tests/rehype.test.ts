@@ -103,6 +103,29 @@ describe("rehypePunctilio", () => {
         }),
       ).toEqual('<my-card>"hi" -- there</my-card>');
     });
+
+    // A textarea's text is a literal control value, never prose. It must stay
+    // untouched in the default (allowlist) mode too, not only inverted mode —
+    // even when a transformable ancestor would otherwise flatten it into a
+    // shared view.
+    it.each([
+      ["bare", '<textarea>"hi" -- there</textarea>', '<textarea>"hi" -- there</textarea>'],
+      [
+        "nested in a transformable parent",
+        '<div>"hi"<textarea>"x" -- y</textarea></div>',
+        `<div>${LDQ}hi${RDQ}<textarea>"x" -- y</textarea></div>`,
+      ],
+      [
+        "flanked by transformable text",
+        '<p>go "in" -- <textarea>"raw" -- v</textarea> -- "out"</p>',
+        `<p>go ${LDQ}in${RDQ}${EM_DASH}<textarea>"raw" -- v</textarea>${EM_DASH}${LDQ}out${RDQ}</p>`,
+      ],
+    ])(
+      "leaves a %s textarea value untouched in the default mode",
+      async (_name, html, expected) => {
+        expect(await processHtml(html, { nbsp: false })).toEqual(expected);
+      },
+    );
   });
 
   describe("transformAllElements (inverted mode)", () => {

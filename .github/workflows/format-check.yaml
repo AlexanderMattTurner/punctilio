@@ -24,9 +24,17 @@ jobs:
       - name: Setup base environment
         uses: ./.github/actions/setup-base-env
 
+      # Skip when the repo has no `format` script: `pnpm format --check` dies
+      # with `Command "format" not found` otherwise, which reads as a real
+      # failure when it just means Prettier isn't wired up here.
       - name: Check formatting
         if: hashFiles('package.json') != ''
-        run: pnpm format --check
+        run: |
+          if node -e "process.exit(require('./package.json').scripts?.format ? 0 : 1)"; then
+            pnpm format --check
+          else
+            echo "No 'format' script in package.json — skipping."
+          fi
 
       - name: Check tracked symlinks are portable
         run: bash .github/scripts/check-symlinks.sh
