@@ -66,7 +66,10 @@ runs:
       env:
         PYTHON_VERSION: ${{ inputs.python-version }}
 
+    # Skip when the repo has no pyproject.toml: `uv sync --frozen` errors with
+    # `No pyproject.toml found` otherwise. Mirrors the Node steps above, which
+    # only run when `package.json` is present.
     - name: Install Python Dependencies
-      if: inputs.setup-python == 'true'
+      if: inputs.setup-python == 'true' && hashFiles('pyproject.toml') != ''
       run: uv sync --frozen
       shell: bash

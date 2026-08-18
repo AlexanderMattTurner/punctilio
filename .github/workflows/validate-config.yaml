@@ -31,7 +31,11 @@ jobs:
       - name: Validate configuration
         run: bash .github/scripts/validate-config.sh
 
+      # Skip when the repo has no top-level `tests/` directory of Python tests:
+      # `pytest tests/` errors with `path does not exist` otherwise. This repo
+      # is TypeScript-only and its JS tests live under `src/tests/`.
       - name: Test Claude hooks
+        if: hashFiles('tests/**') != ''
         run: uv run --extra dev pytest tests/
 
   # Stable Required check: runs even when `validate` is cancelled/skipped, so a
