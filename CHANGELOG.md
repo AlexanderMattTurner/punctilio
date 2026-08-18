@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## [5.4.4] - 2026-08-18
+
+### Fixed
+
+- Block accented-Latin character conversion before accented letters, fixing stale comment references.
+- Protect `<textarea>` values in the default rehype element mode to prevent unintended transformations.
+- Skip optional CI configuration steps when their config file is absent, improving workflow robustness.
+
 ## [5.4.3] - 2026-08-04
 
 ### Fixed
