@@ -76,7 +76,14 @@ env:
   # The security-vulnerability-scan workflow + prompt are intentionally NOT
   # propagated to downstream repos; each consumer owns its own security-scan
   # cadence and model pin, so the template stops overwriting them on sync.
-  EXCLUDE_PATHS: ".github/workflows/security-vulnerability-scan.yaml .github/prompts/security-vulnerability-scan.md"
+  #
+  # auto-version + lint: this repo ships its OWN publish and lint workflows
+  # (.github/workflows/auto-version.yml + scripts/version-bump.sh, which pins the
+  # README pre-commit rev on release; .github/workflows/lint.yml, which also
+  # typechecks the release scripts and enforces SHA-pinned actions). The
+  # template's generic auto-version.yaml/lint.yaml are excluded so sync doesn't
+  # re-add them and recreate the double-publish / duplicate-lint race.
+  EXCLUDE_PATHS: ".github/workflows/security-vulnerability-scan.yaml .github/prompts/security-vulnerability-scan.md .github/workflows/auto-version.yaml .github/workflows/lint.yaml .github/scripts/version-bump.sh .github/scripts/promote-changelog.mjs .github/scripts/version-bump.test.mjs"
 
 concurrency:
   group: template-sync

@@ -1493,6 +1493,12 @@ export function classifyAndRenderQuotes(
   classifySingles(items, style)
   classifyDoubles(items, style)
   const placed = applyPunctuationPlacement(items, style, apostrophe)
+  // Placement can slide a closer past punctuation until it sits directly after
+  // an s/S (british/french move the closer left, out of "dogs.'" → "dogs'."),
+  // turning it into a plural possessive the pre-placement scan couldn't see. A
+  // re-run over the final order relabels it, so the first transform matches what
+  // a re-run reads (classifyApostrophes "dogs.'" → "dogsʼ." in one pass).
+  classifyPluralPossessives(placed, style)
   if (style === "french") absorbGuillemetPadding(placed)
   queueRenderEdits(view, placed, renderTable(style, apostrophe))
   view.commit()
