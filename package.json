@@ -169,5 +169,15 @@
   },
   "lint-staged": {
     "*.{ts,js,mjs}": "eslint --fix"
+  },
+  "pnpm": {
+    "overrides": {
+      "brace-expansion@<2.0.0": "^1.1.18",
+      "brace-expansion@>=2.0.0": "^5.0.9",
+      "js-yaml@<4.0.0": "^3.15.1",
+      "js-yaml@>=4.0.0": "^4.3.1",
+      "fast-uri": "^3.1.5",
+      "qs": "^6.15.2"
+    }
   }
 }
