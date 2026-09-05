@@ -5,8 +5,13 @@
 # Inputs (env):
 #   SYNC_PATHS        Space-separated paths to sync from the template
 #                     (path names containing spaces are NOT supported)
-#   EXCLUDE_PATHS     Space-separated paths to exclude (whole SYNC_PATHS entries
-#                     or individual file paths within synced directories)
+#   EXCLUDE_PATHS     Space-separated paths to exclude. An entry names one file
+#                     or one directory, and a directory entry covers every file
+#                     under it.
+#   OPT_IN_PATHS      Space-separated paths the template only UPDATES, never
+#                     INTRODUCES: absent from the child repo, they are skipped;
+#                     present, they sync normally. Opting in is creating the file
+#                     once; opting out is deleting it.
 #   GITHUB_OUTPUT     Path to GitHub Actions output file
 #
 # Assumes a sibling `_template/` directory containing a checkout of the
@@ -16,7 +21,8 @@
 # Side effects:
 #   - Creates/updates files inside the current repo to match the template
 #   - Writes /tmp/conflict_files.txt, /tmp/conflict_report.md,
-#     /tmp/deleted_files.txt, /tmp/auto_merged_files.txt
+#     /tmp/deleted_files.txt, /tmp/auto_merged_files.txt,
+#     /tmp/declined_files.txt, /tmp/inert_entries.txt
 #   - Writes .template-sync-conflicts if there are unresolved conflicts
 #   - Appends key=value lines to $GITHUB_OUTPUT
 
@@ -50,6 +56,7 @@ main() {
 
   SYNC_PATHS="${SYNC_PATHS:-}"
   EXCLUDE_PATHS="${EXCLUDE_PATHS:-}"
+  OPT_IN_PATHS="${OPT_IN_PATHS:-}"
   : "${GITHUB_OUTPUT:?GITHUB_OUTPUT must be set}"
 
   # Allow tests to point at alternative temp dirs.
@@ -60,6 +67,8 @@ main() {
   AUTO_MERGED_FILES="$WORK_DIR/auto_merged_files.txt"
   DOWNGRADE_FILES="$WORK_DIR/downgrade_files.txt"
   DOWNGRADE_REPORT="$WORK_DIR/downgrade_report.md"
+  DECLINED_FILES="$WORK_DIR/declined_files.txt"
+  INERT_ENTRIES="$WORK_DIR/inert_entries.txt"
   PREV_TEMPLATE_FILES="$WORK_DIR/prev_template_files.txt"
 
   : >"$CONFLICT_FILES"
@@ -68,11 +77,69 @@ main() {
   : >"$AUTO_MERGED_FILES"
   : >"$DOWNGRADE_FILES"
   : >"$DOWNGRADE_REPORT"
+  : >"$DECLINED_FILES"
+  : >"$INERT_ENTRIES"
+  # WORK_DIR persists between runs, so a stale list from an earlier run would
+  # otherwise feed the deleted-in-template scan below.
+  : >"$PREV_TEMPLATE_FILES"
 
+  # An EXCLUDE_PATHS entry names one file or one directory, and a directory
+  # entry covers every file under it. The `/`* arm is what makes the directory
+  # form work: the sync tests one file path at a time, so a directory entry
+  # never equals the path of a file inside it, and an equality-only test syncs
+  # every file the entry was written to keep out.
   is_excluded() {
     local candidate="$1" exclude
     for exclude in $EXCLUDE_PATHS; do
-      [[ "$candidate" = "$exclude" ]] && return 0
+      [[ "$candidate" = "$exclude" || "$candidate" = "$exclude"/* ]] && return 0
+    done
+    return 1
+  }
+
+  # PROBLEM CLASS — a template file the adopter deleted comes back on the next
+  # sync. Case 1 copies in any template file the adopter does not have, so a
+  # deletion there survives only until the next sync run: one sync restored 44
+  # files an adopter had already removed more than once. This refusal is what
+  # makes that deletion hold.
+  #
+  # The evidence is the adopter's own history, not the template's tree. A commit
+  # that deleted the path IS the adopter saying it does not want the file. The
+  # template tree at PREV_SHA only says the file was available then, which is
+  # also true of every template file the adopter never adopted — reading that as
+  # a deletion would decline a genuinely new file forever. A path with no
+  # deletion commit was never there, so it is new and still arrives. The sync
+  # checks out with fetch-depth: 0; a shallow checkout finds no deletion and
+  # falls back to copying in.
+  was_deleted_here() {
+    [[ -n "$(git log --diff-filter=D --format=%H -1 -- "$1")" ]]
+  }
+
+  # PROBLEM CLASS — a configuration entry that is accepted and matches nothing.
+  # An EXCLUDE_PATHS or OPT_IN_PATHS entry naming a path the template does not
+  # ship covers nothing, and it fails silently: the entry sits in the list, the
+  # sync treats the file as unlisted, and the list reads as though it covers it.
+  # This warning is what makes a misspelled or stale entry visible. Read the
+  # template tree before the run deletes it.
+  report_inert_entries() {
+    local entry
+    for entry in $EXCLUDE_PATHS $OPT_IN_PATHS; do
+      [[ -e "_template/$entry" ]] && continue
+      echo "::warning::list entry names nothing in the template: $entry"
+      echo "$entry" >>"$INERT_ENTRIES"
+    done
+  }
+
+  # A file the template may update but must never introduce. Some template
+  # features are only correct in a repo that has no equivalent of its own — the
+  # release workflow is the case that motivated this: a consumer with its own
+  # publisher that also received auto-version.yaml ended up with two workflows
+  # racing the same semver bump on every push to the default branch.
+  # An OPT_IN_PATHS entry names one file or one directory, on the same terms as
+  # is_excluded above.
+  is_opt_in() {
+    local candidate="$1" opt_in
+    for opt_in in $OPT_IN_PATHS; do
+      [[ "$candidate" = "$opt_in" || "$candidate" = "$opt_in"/* ]] && return 0
     done
     return 1
   }
@@ -100,6 +167,82 @@ main() {
       printf '%s\n' "$content"
       echo "$sentinel"
     } >>"$GITHUB_OUTPUT"
+  }
+
+  # Say WHY the tree changed: name each template commit that moved a file THIS
+  # sync actually rewrote, and the files it moved. The old body pasted a raw
+  # `git log --oneline` of the whole template, most of whose commits touch paths
+  # this repo never syncs — so the reader could not tell which commit explains
+  # any given file. Runs before `rm -rf _template`, and after the worktree
+  # carries the sync, because it needs both.
+  #
+  # A file with no commit in range is listed apart rather than dropped: it is
+  # real (a path synced for the first time, or a history the template rewrote),
+  # and silence about it would read as "nothing else changed".
+  emit_attributed_changelog() {
+    local changed body="" attributed unexplained kept=0 skipped=0
+    local -a range
+    changed="$WORK_DIR/changed_here.txt"
+    attributed="$WORK_DIR/attributed.txt"
+    # `sed`, not `grep -v`: an all-filtered list makes grep exit 1 and `set -e`
+    # would kill the run. `.template-version` is rewritten above and the template
+    # ships none, so no commit can ever explain it; `_template` is this script's
+    # own untracked checkout, which `--others` reports and `rm -rf` removes a few
+    # lines below. Both would land in the unexplained list on every single sync.
+    {
+      git diff --name-only
+      git ls-files --others --exclude-standard
+    } | sed -e '/^\.template-version$/d' -e '\#^_template/\?$#d' | sort -u >"$changed"
+    [[ -s "$changed" ]] || return 0
+    local changed_list
+    changed_list="$(tr '\n' ' ' <"$changed")"
+    echo "changed_files=$changed_list" >>"$GITHUB_OUTPUT"
+
+    [[ -n "$PREV_SHA" && "$PREV_SHA" != "$TEMPLATE_SHA" ]] || return 0
+    if git -C _template cat-file -e "$PREV_SHA" 2>/dev/null; then
+      range=("${PREV_SHA}..${TEMPLATE_SHA}")
+    else
+      echo "::warning::Previous template SHA $PREV_SHA is not in template history (force-push or rebase); attributing over the last 20 commits instead"
+      range=(-20 "$TEMPLATE_SHA")
+      body+="\`$PREV_SHA\` is no longer in the template's history, so this reads the last 20 commits rather than a range."$'\n\n'
+    fi
+
+    : >"$attributed"
+    local sha subject touched
+    while IFS=$'\t' read -r sha subject; do
+      [[ -n "$sha" ]] || continue
+      # Files this commit touched that this sync also rewrote here. `comm -12`
+      # over two sorted lists, so a commit touching only unsynced paths yields
+      # nothing and is skipped.
+      touched=$(comm -12 \
+        <(git -C _template show --pretty=format: --name-only "$sha" | sed '/^$/d' | sort -u) \
+        "$changed")
+      if [[ -z "$touched" ]]; then
+        skipped=$((skipped + 1))
+        continue
+      fi
+      kept=$((kept + 1))
+      body+="- \`${sha}\` ${subject}"$'\n'
+      while IFS= read -r f; do
+        [[ -n "$f" ]] || continue
+        body+="  - \`${f}\`"$'\n'
+        echo "$f" >>"$attributed"
+      done <<<"$touched"
+      # --no-merges: `git show --name-only` prints nothing for a merge commit, so
+      # a merge would count as "touched nothing here" while being exactly the
+      # commit that carried the files. Its branch commits are already in range.
+    done < <(git -C _template log --no-merges --format='%h%x09%s' "${range[@]}")
+
+    unexplained=$(comm -23 "$changed" <(sort -u "$attributed"))
+    if [[ -n "$unexplained" ]]; then
+      body+=$'\n'"Changed here with no commit in that range — a path synced for the first time, or one whose template history moved:"$'\n'
+      while IFS= read -r f; do
+        [[ -n "$f" ]] || continue
+        body+="- \`${f}\`"$'\n'
+      done <<<"$unexplained"
+    fi
+    [[ "$skipped" -eq 0 ]] || body+=$'\n'"${skipped} other template commit(s) in that range touched nothing this repo syncs."$'\n'
+    [[ "$kept" -eq 0 && -z "$unexplained" ]] || emit_multiline_output "changelog" "$body"
   }
 
   # Count non-blank lines present in the pre-sync local file but absent from a
@@ -134,17 +277,6 @@ main() {
     echo "No previous template version found (first sync)"
   fi
   echo "Current template version: $TEMPLATE_SHA"
-
-  if [[ -n "$PREV_SHA" ]] && [[ "$PREV_SHA" != "$TEMPLATE_SHA" ]]; then
-    if git -C _template cat-file -e "$PREV_SHA" 2>/dev/null; then
-      CHANGELOG=$(git -C _template log --oneline "$PREV_SHA..$TEMPLATE_SHA")
-    else
-      echo "::warning::Previous template SHA $PREV_SHA not found in template history (likely rewritten by force-push or rebase)"
-      CHANGELOG="Previous SHA \`$PREV_SHA\` no longer exists in template history (force-push/rebase). Showing last 20 commits instead:"$'\n'
-      CHANGELOG+=$(git -C _template log --oneline -20 "$TEMPLATE_SHA")
-    fi
-    [[ -n "$CHANGELOG" ]] && emit_multiline_output "changelog" "$CHANGELOG"
-  fi
 
   echo "$TEMPLATE_SHA" >.template-version
 
@@ -203,10 +335,25 @@ main() {
       ancestor=$(dirname "$ancestor")
     done
 
-    [[ "$parent_dir" != "." ]] && mkdir -p "$parent_dir"
+    if [[ "$parent_dir" != "." ]]; then
+      mkdir -p "$parent_dir"
+      [[ -d "$parent_dir" ]] || {
+        echo "::error::could not create $parent_dir for $rel_path" >&2
+        return 1
+      }
+    fi
 
-    # Case 1: new file in template.
+    # Case 1: absent locally — a new template file, unless the adopter removed it.
     if [[ ! -f "$rel_path" ]]; then
+      if is_opt_in "$rel_path"; then
+        echo "Opt-in only, not present locally: $rel_path (skipping — copy it from the template to adopt it)"
+        return
+      fi
+      if was_deleted_here "$rel_path"; then
+        echo "Declined: $rel_path (deleted in the adopter since the last sync; not re-added)"
+        echo "$rel_path" >>"$DECLINED_FILES"
+        return
+      fi
       cp "$template_file" "$rel_path"
       echo "Added: $rel_path"
       return
@@ -374,6 +521,8 @@ main() {
     fi
   done
 
+  report_inert_entries
+  emit_attributed_changelog
   rm -rf _template
 
   #############################################
@@ -383,6 +532,16 @@ main() {
   if [[ -s "$AUTO_MERGED_FILES" ]]; then
     auto_merged=$(tr '\n' ' ' <"$AUTO_MERGED_FILES")
     echo "auto_merged_files=$auto_merged" >>"$GITHUB_OUTPUT"
+  fi
+
+  if [[ -s "$INERT_ENTRIES" ]]; then
+    inert=$(tr '\n' ' ' <"$INERT_ENTRIES")
+    echo "inert_entries=$inert" >>"$GITHUB_OUTPUT"
+  fi
+
+  if [[ -s "$DECLINED_FILES" ]]; then
+    declined=$(tr '\n' ' ' <"$DECLINED_FILES")
+    echo "declined_files=$declined" >>"$GITHUB_OUTPUT"
   fi
 
   # Downgrade risk: files whose "clean" auto-merge dropped adopter content. This
@@ -395,13 +554,18 @@ main() {
       echo "has_downgrades=true"
       echo "downgrade_files=$downgrade"
     } >>"$GITHUB_OUTPUT"
-    emit_multiline_output "downgrade_report" "$(cat "$DOWNGRADE_REPORT")"
+    downgrade_report_content="$(cat "$DOWNGRADE_REPORT")"
+    emit_multiline_output "downgrade_report" "$downgrade_report_content"
   else
     echo "has_downgrades=false" >>"$GITHUB_OUTPUT"
   fi
 
   if [[ -s "$CONFLICT_FILES" ]]; then
-    conflicts=$(tr '\n' ' ' <"$CONFLICT_FILES")
+    # paste, not `tr '\n' ' '`: the file ends in a newline, so tr leaves a
+    # TRAILING space. That space reaches .template-sync-conflicts below, where
+    # pre-commit's trailing-whitespace hook rewrites the file and fails the run —
+    # on every consumer that has a conflict.
+    conflicts=$(paste -sd' ' "$CONFLICT_FILES")
     {
       echo "has_conflicts=true"
       echo "conflict_files=$conflicts"
@@ -420,7 +584,8 @@ main() {
       printf '\n\n_Conflict report truncated at %d KB. Every conflicted file is listed in .template-sync-conflicts._\n' "$((max_report_bytes / 1000))" >>"$capped"
       mv "$capped" "$CONFLICT_REPORT"
     fi
-    emit_multiline_output "conflict_report" "$(cat "$CONFLICT_REPORT")"
+    conflict_report_content="$(cat "$CONFLICT_REPORT")"
+    emit_multiline_output "conflict_report" "$conflict_report_content"
     echo "Template updates available for: $conflicts" >.template-sync-conflicts
   else
     echo "has_conflicts=false" >>"$GITHUB_OUTPUT"

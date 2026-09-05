@@ -22,9 +22,9 @@ name: Claude
 #   trigger downstream CI, so this is the same existing requirement.
 #
 # AUTH — two credentials, both already documented in the README secrets table:
-#   - Model side: CLAUDE_CODE_OAUTH_TOKEN authenticates the Claude Code action
-#     (with CLAUDE_CODE_OAUTH_TOKEN_FALLBACK retried on a primary failure). The
-#     same tokens the other Claude workflows use; the GitHub App does not cover them.
+#   - Model side: the CLAUDE_CODE_OAUTH_TOKEN_FALLBACK rungs authenticate the
+#     Claude Code action, with CLAUDE_CODE_OAUTH_TOKEN as the ladder's last rung.
+#     The same tokens the other Claude workflows use; the GitHub App does not cover them.
 #   - GitHub side: github_token is TEMPLATE_SYNC_TOKEN (a fine-grained PAT) when
 #     set, falling back to GITHUB_TOKEN. The PAT matters because commits pushed
 #     under GITHUB_TOKEN are suppressed by the recursion guard above and will NOT
@@ -73,13 +73,17 @@ jobs:
       - name: Respond to @claude
         uses: ./.github/actions/claude-run
         with:
-          oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          fallback_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN_FALLBACK }}
-          fallback_oauth_token_2: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN_FALLBACK_2 }}
-          fallback_oauth_token_3: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN_FALLBACK_3 }}
-          fallback_oauth_token_4: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN_FALLBACK_4 }}
-          fallback_oauth_token_5: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN_FALLBACK_5 }}
-          fallback_oauth_token_6: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN_FALLBACK_6 }}
+          # CLAUDE_CODE_OAUTH_TOKEN fills the LAST tier: it is the account an
+          # operator already has, so CI spends every token provisioned for CI
+          # first. A tier left unset is skipped, so a setup that configures only
+          # that one secret reaches it with no wasted attempt.
+          oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN_FALLBACK }}
+          fallback_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN_FALLBACK_2 }}
+          fallback_oauth_token_2: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN_FALLBACK_3 }}
+          fallback_oauth_token_3: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN_FALLBACK_4 }}
+          fallback_oauth_token_4: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN_FALLBACK_5 }}
+          fallback_oauth_token_5: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN_FALLBACK_6 }}
+          fallback_oauth_token_6: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           model: claude-sonnet-4-6
           # TEMPLATE_SYNC_TOKEN is optional (see the AUTH note above) — repos
           # that haven't configured it still get a working responder under

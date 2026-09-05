@@ -1,6 +1,6 @@
 ---
 name: writing-tests
-description: How to write, change, or review tests — the load-bearing rule is test real behavior, not source text. Also covers non-vacuity (prove the test can fail), e2e tests that secretly stub the component they name, drift guards as a design smell to name rather than launder, SSOT contract tests that must move with their data, stubs that must drain stdin, and the Python test idioms (repo-root discovery, `exec()`-ing a module's `__main__`, `from __future__ import annotations`) that bite under pytest-xdist. Activate whenever the user asks to write, add, fix, refactor, strengthen, or review tests ("write a test", "add tests", "test this", "regression test", "cover this", "why didn't this test catch it"), or when a coding task's last step is testing the change you just made.
+description: How to write, change, or review tests — the load-bearing rule is test real behavior, not source text. Also covers non-vacuity (prove the test can fail), e2e tests that secretly stub the component they name, drift guards as a design smell to name rather than launder, SSOT contract tests that must move with their data, stubs that must drain stdin, checks that must prove the subject ran before judging its output, probes that must not perturb the state they read, failure-signature lists that must carve out your own guards' refusals, and the Python test idioms (repo-root discovery, `exec()`-ing a module's `__main__`, `from __future__ import annotations`) that bite under pytest-xdist. Activate whenever the user asks to write, add, fix, refactor, strengthen, or review tests ("write a test", "add tests", "test this", "regression test", "cover this", "why didn't this test catch it"), or when a coding task's last step is testing the change you just made.
 ---
 
 # Writing tests
@@ -32,6 +32,14 @@ and drive cases from that claim rather than the single input that first triggere
 the bug. "Comment promises more generality than the test exercises" is the
 cheapest reviewer tell for a hollow regression test.
 
+## An accusation needs evidence from the subject, never an absence
+
+**A check that concludes from a missing artifact reads a dead environment as a violation.** An absent log, an unreadable output file, a process that exited before it wrote anything — each is evidence-shaped and proves nothing. Assert that the subject ran and produced the artifact, then judge what the artifact says. A check that skips the first step goes red loudest exactly when its own harness broke. It is the twin of the vacuous green: one missing input, reported as a false accusation instead of a false pass.
+
+**Read the subject's state before its output, and read it without touching it.** Ask the runtime's own inventory — `docker ps -a`, a job list, a status endpoint — rather than entering the thing. Entering a stopped container starts it, so the probe destroys the ending it exists to observe.
+
+**Exclude your own guards' words from any failure-signature list.** A defense usually refuses in the operating system's wording, so `Permission denied` from a root-owned file is the guard working. A crash-signature or error-string match that does not carve those out scores a correct refusal as a failure.
+
 ## Never skip or weaken a test unless asked
 
 Including silently dropping an assertion while refactoring, and including
@@ -60,8 +68,9 @@ are exactly two:
    value to a single sourced file and delete the guard.
 2. **Keep the guard and mark it in the open** — only when a true single source is
    genuinely infeasible (a hard cross-language/cross-process boundary, an external
-   value you don't control): `@pytest.mark.drift_guard("why a true SSOT is
-   infeasible")`, naming the concrete boundary.
+   value you don't control): mark it
+   `@pytest.mark.drift_guard("<why a true SSOT is infeasible>")`, naming the
+   concrete boundary.
 
 **The banned move is relabeling the guard to dodge that** — calling a
 copies-agree test an "SSOT contract" / "coverage contract" / "portability check"
@@ -90,11 +99,8 @@ defense; widen the check.
 
 ## Stubs
 
-- **A stub replacing a pipe-consuming command must drain stdin.** Under
-  `set -o pipefail`, a stub that exits without reading causes the writer's
-  `write()` to get EPIPE (rc 141) intermittently — independent of pipe-buffer
-  size. Add `cat >/dev/null` in the stub body so it consumes its input before
-  exiting.
+- **Don't write a stub. Drive the real thing.** A stub encodes your reading of a dependency; the real dependency encodes its own — and the two drift the moment the real tool changes a flag, an exit code, or an error format. The stub then silently greens invocations the real tool would reject. Use the real binary against a fixture directory, a recorded interaction, or a container image pinned in CI. **A stub is licensed only when the real thing genuinely cannot run in the test** (a paid API, hardware, a wall-clock boundary you cannot fake) — and the stub definition site says which of those applies. "Faster to write" is not a reason.
+- **When a stub is licensed, it must reject what the real tool rejects and consume what it consumes.** A stub that accepts every flag pair certifies only your reading of the interface; one that exits without draining stdin under `set -o pipefail` causes the writer's `write()` to get EPIPE (rc 141) intermittently, independent of pipe-buffer size. Reproduce the argv/stdin/env behavior the caller depends on, and add `cat >/dev/null` in the body when it stands in for a pipe consumer.
 
 ## Python test idioms
 

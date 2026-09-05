@@ -191,6 +191,7 @@ describe("review order", () => {
   for (const f of [
     ".claude/hooks/gate.mjs",
     ".github/scripts/foo.sh",
+    ".github/actions/claude-run/claude-run-errored.sh",
     ".github/workflows/ci.yaml",
     "config/settings.json",
     "setup.sh",
@@ -204,7 +205,7 @@ describe("review order", () => {
         "docs/guide.md",
         "tests/test_x.py",
         "package.json",
-        ".github/actions/setup/action.yml",
+        ".github/dependabot.yml",
         "scripts/gen.mjs",
         "bin/tool",
         ".claude/hooks/gate.mjs",
@@ -217,7 +218,7 @@ describe("review order", () => {
         ".claude/hooks/gate.mjs",
         "bin/tool",
         "scripts/gen.mjs",
-        ".github/actions/setup/action.yml",
+        ".github/dependabot.yml",
         "package.json",
         "tests/test_x.py",
         "docs/guide.md",
@@ -279,6 +280,7 @@ describe("heuristicTier", () => {
   for (const f of [
     ".claude/hooks/gate.mjs",
     ".github/scripts/foo.sh",
+    ".github/actions/claude-run/check-claude-execution.sh",
     ".github/workflows/ci.yaml",
     "setup.sh",
     "config/settings.json",
@@ -303,18 +305,26 @@ describe("path-tier config (adopter-overridable)", () => {
   // The shipped generic defaults must always cover this template's own CI
   // enforcement surfaces — a regression that dropped these would silently
   // downgrade workflow/script edits to a low risk tier.
-  it("ships defaults covering .github/scripts and .github/workflows", () => {
-    assert.ok(DEFAULT_PATHS.highRiskPrefixes.includes(".github/scripts/"));
-    assert.ok(DEFAULT_PATHS.highRiskPrefixes.includes(".github/workflows/"));
-    assert.ok(DEFAULT_PATHS.securityPrefixes.includes(".github/scripts/"));
-    assert.ok(DEFAULT_PATHS.securityPrefixes.includes(".github/workflows/"));
-  });
+  // .github/actions carries a composite action's own scripts, so it holds the
+  // same code .github/scripts does and must not tier lower.
+  for (const p of [
+    ".github/scripts/",
+    ".github/actions/",
+    ".github/workflows/",
+  ]) {
+    it(`ships defaults covering ${p}`, () => {
+      assert.ok(DEFAULT_PATHS.highRiskPrefixes.includes(p));
+      assert.ok(DEFAULT_PATHS.securityPrefixes.includes(p));
+    });
+  }
 
-  it("the committed config/pr-review-paths.json parses and keeps those surfaces", () => {
+  it("this repo's live config tiers an action's own scripts as high risk", () => {
     const cfg = loadPathConfig();
-    assert.ok(cfg.highRiskPrefixes.includes(".github/scripts/"));
-    assert.ok(cfg.highRiskPrefixes.includes(".github/workflows/"));
     assert.equal(isHighRiskPath(".github/workflows/ci.yaml", cfg), true);
+    assert.equal(
+      isHighRiskPath(".github/actions/claude-run/claude-run-errored.sh", cfg),
+      true,
+    );
   });
 
   it("falls back to defaults when no override file exists", () => {
@@ -376,6 +386,22 @@ describe("fenceFile", () => {
     ]) {
       assert.equal(fenceFile(hostile), "*(unrenderable filename)*");
     }
+  });
+  // One case per conjunct of the guard, each driven false while the others
+  // hold. A chain of `&&` reports fully covered the moment a single
+  // all-satisfying input runs it, so only per-conjunct cases prove each term is
+  // load-bearing — without these, deleting a term leaves the suite green.
+  it("rejects on each guard term independently", () => {
+    assert.equal(fenceFile("a".repeat(600)), "*(unrenderable filename)*");
+    assert.equal(
+      fenceFile(`${"a".repeat(500)}\``),
+      "*(unrenderable filename)*",
+    );
+    assert.equal(fenceFile(`${"a".repeat(500)}é`), "*(unrenderable filename)*");
+  });
+  it("admits the longest allowed name and refuses one character more", () => {
+    assert.equal(fenceFile("a".repeat(512)), `\`${"a".repeat(512)}\``);
+    assert.equal(fenceFile("a".repeat(513)), "*(unrenderable filename)*");
   });
 });
 

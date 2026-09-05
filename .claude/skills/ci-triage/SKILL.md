@@ -80,7 +80,12 @@ waiting turn after turn. Reproduce that layer locally and iterate there until it
 green, then let CI confirm once. Two traps make "dispatched and waiting" a false
 signal: a faked-input unit test can enshrine a wrong assumption the real
 dependency would refute, and a run tied to a branch/PR is **cancelled on merge**
-so it may never reach the assertion.
+so it may never reach the assertion. Let the PR-head run finish before the merge
+when the confirmation is meant to gate it — a post-merge run cannot block what
+already landed. Dispatch against the **default branch** only for a confirmation
+that must outlive the PR, and name its reader first: a run with no PR
+association is never cancelled, and has no PR surface either, so either watch it
+to completion or check the workflow reaches `ci-failure-notify.yaml`.
 
 ## Before claiming green
 

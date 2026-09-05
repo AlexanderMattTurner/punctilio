@@ -28,5 +28,5 @@ echo "Installing @anthropic-ai/claude-code@${version}"
 # connection (intermittent on GitHub egress) would stall here until the whole
 # job's timeout cancels it. `timeout` caps a stuck attempt; retry_cmd rides out a
 # transient blip rather than failing the run.
-retry_cmd 3 10 timeout 180 npm install -g "@anthropic-ai/claude-code@${version}"
+retry_cmd 3 10 timeout --kill-after=10 180 npm install -g "@anthropic-ai/claude-code@${version}"
 claude --version

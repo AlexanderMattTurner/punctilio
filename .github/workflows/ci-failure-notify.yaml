@@ -8,7 +8,9 @@ name: CI failure notify
 # `workflow_run` has no wildcard, so `workflows:` below must name every
 # workflow in this repo with a `push:` or `schedule:` trigger (matched by the
 # workflow's `name:`). A ci-truth-serum hook (check-failure-notifier-coverage)
-# keeps this list in sync with the tree.
+# keeps this list in sync with the tree. Binding is by NAME, not filename: a
+# repo that keeps its own release workflow instead of the template's
+# auto-version.yaml must give it the name listed here or add its own.
 # The dangerous-triggers finding targets workflows that check out or execute
 # the triggering ref's code with write credentials; this one checks out only
 # the default branch (credential-less) and gates on default-branch runs.
@@ -33,6 +35,11 @@ on: # zizmor: ignore[dangerous-triggers]
       - Sync from Template
       - Validate config
       - zizmor
+    # This notifier only alerts on a push/schedule failure of the default
+    # branch (see the job's own `if:` below); narrowing the trigger itself
+    # stops a PR-branch completion of a shared workflow (pre-commit, zizmor,
+    # …) from creating a run that the `if:` would only then discard.
+    branches: [main, master]
 
 concurrency:
   # Keyed per triggering workflow so failures of different workflows never
@@ -51,7 +58,7 @@ jobs:
     # push/schedule runs on the default branch go unnoticed. Skipped/cancelled
     # conclusions are not failures.
     if: >-
-      github.event.workflow_run.conclusion == 'failure' &&
+      contains(fromJSON('["action_required", "failure", "startup_failure", "timed_out"]'), github.event.workflow_run.conclusion) &&
       (github.event.workflow_run.event == 'push' ||
        github.event.workflow_run.event == 'schedule') &&
       github.event.workflow_run.head_branch == github.event.repository.default_branch
