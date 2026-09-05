@@ -13,6 +13,12 @@ permissions:
   contents: read
 
 jobs:
+  # Every step is gated on the root file it needs, so the whole job is a no-op —
+  # not a hard failure — in a consumer that has none of them. template-sync
+  # delivers this workflow but delivers no .pre-commit-config.yaml, package.json
+  # or .nvmrc, so a repo that never had them would otherwise go red on every PR
+  # from its first sync onwards. An absent .pre-commit-config.yaml means there
+  # are no hooks to run, which is not-applicable rather than unverifiable.
   pre-commit:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -25,22 +31,23 @@ jobs:
       # pre-commit itself; the two versions are kept in sync by
       # tests/test_version_sync.py.
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        if: hashFiles('.pre-commit-config.yaml') != ''
         with:
           python-version: "3.11"
       - uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
-      # Node deps must be installed for the node-based `language: system` hooks:
-      # check-proto-pollution does `import ts from "typescript"`, which resolves
-      # from the repo's node_modules (ESM ignores NODE_PATH), so the module is
-      # absent until `pnpm install` runs.
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        if: hashFiles('.pre-commit-config.yaml') != ''
+      # check-proto-pollution does `import ts from "typescript"`, resolved from
+      # node_modules (ESM ignores NODE_PATH) — absent until `pnpm install` runs.
+      # The composite no-ops its Node half when package.json is absent.
+      # node-version-file errors if the file is missing, so .nvmrc is passed
+      # only when it exists.
+      - name: Setup base environment
+        if: hashFiles('.pre-commit-config.yaml') != ''
+        uses: ./.github/actions/setup-base-env
         with:
-          node-version-file: ".nvmrc"
-      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
-      - name: Install node deps
-        # No --frozen-lockfile: the repo gitignores pnpm-lock.yaml, so CI resolves
-        # from package.json against the registry.
-        run: pnpm install --no-frozen-lockfile
+          node-version-file: ${{ hashFiles('.nvmrc') != '' && '.nvmrc' || '' }}
       - name: Restore pre-commit cache
+        if: hashFiles('.pre-commit-config.yaml') != ''
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/pre-commit
@@ -65,7 +72,6 @@ jobs:
         with:
           sparse-checkout: |
             .github/actions/report-job-result
-            .github/scripts
           persist-credentials: false
 
       - name: Report result

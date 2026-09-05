@@ -24,8 +24,7 @@ _SHARED_NAMES_JSON="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/shared-names.j
 # string "null" reaching a gh command.
 _LABEL_MERGE_CONFLICT="$(jq -re '.pr_labels.merge_conflict' "$_SHARED_NAMES_JSON")"
 _LABEL_AUTO_RESOLVE_BLOCKED="$(jq -re '.pr_labels.auto_resolve_blocked' "$_SHARED_NAMES_JSON")"
-_COMMIT_STATUS_AUTO_RESOLVE_ATTEMPT="$(jq -re '.commit_status_marks.auto_resolve_attempt' "$_SHARED_NAMES_JSON")"
-_COMMIT_STATUS_RELEASED_SUFFIX="$(jq -re '.commit_status_marks.released_suffix' "$_SHARED_NAMES_JSON")"
+_CONFLICT_MARKER_RE="$(jq -re '.template_sync.conflict_marker_re' "$_SHARED_NAMES_JSON")"
 
 export _LABEL_MERGE_CONFLICT _LABEL_AUTO_RESOLVE_BLOCKED
-export _COMMIT_STATUS_AUTO_RESOLVE_ATTEMPT _COMMIT_STATUS_RELEASED_SUFFIX
+export _CONFLICT_MARKER_RE

@@ -31,12 +31,30 @@ jobs:
       - name: Validate configuration
         run: bash .github/scripts/validate-config.sh
 
+<<<<<<< local
       # Skip when the repo has no top-level `tests/` directory of Python tests:
       # `pytest tests/` errors with `path does not exist` otherwise. This repo
       # is TypeScript-only and its JS tests live under `src/tests/`.
+||||||| base
+=======
+      # `uv run` needs a pyproject.toml to run in, and `pytest tests/` exits 4 on
+      # a missing directory. template-sync delivers neither file, so a consumer
+      # with no Python project runs nothing here instead of failing.
+      # validate-config.sh above stays ungated — it needs only the .claude/ tree
+      # the sync delivers.
+>>>>>>> template
       - name: Test Claude hooks
+<<<<<<< local
         if: hashFiles('tests/**') != ''
         run: uv run --extra dev pytest tests/
+||||||| base
+        run: uv run --extra dev pytest tests/
+=======
+        if: hashFiles('pyproject.toml') != ''
+        run: |
+          [[ -d tests ]] || { echo "No tests/ directory; nothing to run."; exit 0; }
+          uv run --extra dev pytest tests/
+>>>>>>> template
 
   # Stable Required check: runs even when `validate` is cancelled/skipped, so a
   # protected branch never gets stuck on a check that never reports.
@@ -50,7 +68,6 @@ jobs:
         with:
           sparse-checkout: |
             .github/actions/report-job-result
-            .github/scripts
           persist-credentials: false
 
       - name: Report result

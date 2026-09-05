@@ -56,7 +56,7 @@ webi_install_if_missing() {
     # stable digest to pin; we harden with HTTPS-only (--proto =https), the
     # shebang check below, and a version-pinned $pkg instead.
     # pin-exempt: webi.sh bootstrap is generated per-request, no stable digest
-    if curl --proto '=https' -fsSL "https://webi.sh/$pkg" -o "$installer" 2>/dev/null; then
+    if curl --proto '=https' -fsSL --retry 3 --retry-delay 2 "https://webi.sh/$pkg" -o "$installer" 2>/dev/null; then
       first_line="$(head -n 1 "$installer")"
       if grep -q '^#!' <<<"$first_line"; then
         sh "$installer" >/dev/null 2>&1 || warn "Failed to install $cmd"
@@ -122,6 +122,9 @@ webi_install_if_missing shfmt shfmt@3
 webi_install_if_missing gh gh@2
 webi_install_if_missing jq jq@1.7
 if ! command -v shellcheck &>/dev/null && is_root; then
+  # pin-exempt: last-resort session-bootstrap fallback; apt's shellcheck version
+  # varies by base image, and the authoritative pin is the shellcheck-py
+  # pre-commit hook's rev, not this fallback binary.
   { apt-get update -qq && apt-get install -y -qq shellcheck; } || warn "Failed to install shellcheck"
 fi
 
@@ -146,9 +149,73 @@ git config core.hooksPath .hooks
 # Pre-fetch the base branch so diffs against $CLAUDE_CODE_BASE_REF work
 # immediately (e.g. when creating PRs). Failure is non-fatal.
 if [[ -n "${CLAUDE_CODE_BASE_REF:-}" ]]; then
-  git fetch origin "$CLAUDE_CODE_BASE_REF" --quiet 2>/dev/null ||
+  timeout --kill-after=10 60 git fetch origin "$CLAUDE_CODE_BASE_REF" --quiet 2>/dev/null ||
     warn "Failed to fetch base branch $CLAUDE_CODE_BASE_REF"
 fi
+
+#######################################
+# Syntax-aware merges (mergiraf)
+#######################################
+
+# .gitattributes marks file types `merge=mergiraf`, and every one of those
+# attributes is INERT until this checkout has the binary on PATH and
+# merge.mergiraf.driver in its git config. Git says nothing when either is
+# missing — it falls back to its built-in line merge — so a session resolving a
+# conflict by hand silently got the line merge. CI registers the driver in
+# template-sync's checkout and nowhere else; this is the session's half.
+#
+# .github/scripts/install-mergiraf.sh owns the pinned download, the sha256
+# refusal, the `solve -p` contract probe, the `git config` pair, and the skip
+# when all of them already hold, so this only calls it and reports.
+install_mergiraf() {
+  local installer="$PROJECT_DIR/.github/scripts/install-mergiraf.sh"
+  [[ -f "$installer" ]] || return 0
+
+  # The installer downloads a linux_amd64 asset and reads it with sha256sum, so
+  # on any other host it would install a binary that cannot run. Say so rather
+  # than warn about a download that was never going to work.
+  if [[ "$(uname -s) $(uname -m)" != "Linux x86_64" ]]; then
+    echo "mergiraf: no pinned asset for $(uname -s)/$(uname -m) — this checkout keeps git's line merge" >&2
+    return 0
+  fi
+
+  local bindir="$HOME/.local/bin"
+  mkdir -p "$bindir" # bare-mkdir-ok: the post-condition is checked on the next line
+  [[ -d "$bindir" ]] || {
+    warn "mergiraf: $bindir is not a directory — merges use git's line merge"
+    return 0
+  }
+
+  # A warn, not an exit: every other tool here is optional, and a session with no
+  # mergiraf must still start. It merges as it did before the attributes existed.
+  # The bound is on the whole install because curl's --connect-timeout does not
+  # cap an established transfer, so a stalled download would hang session start.
+  local rc=0
+  (cd "$PROJECT_DIR" && timeout --kill-after=10 300 bash "$installer" "$bindir") >/dev/null || rc=$?
+  # --local because that is the only scope install-mergiraf.sh writes: a global
+  # driver, which mergiraf's own setup docs tell users to register, would
+  # otherwise answer here and silence both warns.
+  local bound
+  bound="$(git -C "$PROJECT_DIR" config --local --get merge.mergiraf.driver)" || bound=""
+
+  if [[ "$rc" -eq 0 ]]; then
+    # The post-condition, not the exit status: install-mergiraf.sh exits 0 after
+    # installing the binary when git refuses the checkout (dubious ownership),
+    # which leaves every merge=mergiraf attribute inert and says nothing.
+    [[ -n "$bound" ]] ||
+      warn "mergiraf installed but merge.mergiraf.driver is unset — merges use git's line merge"
+  elif [[ -n "$bound" ]]; then
+    # A download or digest refusal aborts BEFORE the binary is replaced, so an
+    # earlier run's driver is still bound and still merging — through a version
+    # this run did not verify. Saying "line merge" here would name the one
+    # outcome that is not happening.
+    warn "Failed to install mergiraf — merges keep using the already-bound driver, not git's line merge"
+  else
+    warn "Failed to install mergiraf — merges in this checkout use git's line merge"
+  fi
+}
+
+install_mergiraf
 
 #######################################
 # GitHub CLI auth
