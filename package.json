@@ -91,6 +91,18 @@
     "node": ">=20.0.0"
   },
   "packageManager": "pnpm@10.28.1",
+  "pnpm": {
+    "overrides": {
+      "brace-expansion@1": "1.1.21",
+      "brace-expansion@>=2": "5.0.12",
+      "js-yaml@3": "3.15.2",
+      "js-yaml@4": "4.3.2",
+      "fast-uri": "3.1.8",
+      "browserslist": "4.29.0",
+      "qs": "6.16.0",
+      "@humanfs/node": "0.16.8"
+    }
+  },
   "devDependencies": {
     "@eslint/js": "9.39.4",
     "@stryker-mutator/core": "9.6.1",
