@@ -169,5 +169,18 @@
   },
   "lint-staged": {
     "*.{ts,js,mjs}": "eslint --fix"
+  },
+  "pnpm": {
+    "overrides": {
+      "brace-expansion@1": "1.1.21",
+      "brace-expansion@5": "5.0.12",
+      "js-yaml@3": "3.15.2",
+      "js-yaml@4": "4.3.2",
+      "fast-uri@3": "3.1.8",
+      "browserslist": "4.29.3",
+      "baseline-browser-mapping": "2.11.27",
+      "@humanfs/node": "0.16.8",
+      "qs": "6.16.0"
+    }
   }
 }
