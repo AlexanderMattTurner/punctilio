@@ -37,4 +37,4 @@ if (found.length > 0)
   report.unshift(`Neutralized categories: ${found.join(", ")}`);
 if (exfilReasons.length > 0)
   report.push(`Exfil-shaped URLs detected: ${exfilReasons.join("; ")}`);
-if (report.length > 0) process.stderr.write(report.join("\n") + "\n");
+if (report.length > 0) process.stderr.write(`${report.join("\n")}\n`);

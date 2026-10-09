@@ -46,4 +46,4 @@ runs:
         PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
         PR_HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
         GH_TOKEN: ${{ github.token }}
-      run: bash "${GITHUB_ACTION_PATH}/../../scripts/report-job-result.sh"
+      run: bash "${GITHUB_ACTION_PATH}/report-job-result.sh"

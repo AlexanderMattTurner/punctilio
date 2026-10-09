@@ -24,7 +24,15 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      - name: Restore cached gitleaks binary
+        id: gitleaks-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: gitleaks
+          key: gitleaks-${{ runner.os }}-${{ env.GITLEAKS_VERSION }}
+
       - name: Download pinned gitleaks
+        if: steps.gitleaks-cache.outputs.cache-hit != 'true'
         run: |
           curl -fsSL --retry 6 --retry-all-errors --retry-delay 15 --connect-timeout 30 \
             -O "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
@@ -47,7 +55,6 @@ jobs:
         with:
           sparse-checkout: |
             .github/actions/report-job-result
-            .github/scripts
           persist-credentials: false
 
       - name: Report result

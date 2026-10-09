@@ -94,8 +94,7 @@ verdict written, and the review step then fails as if you never reviewed. Write
 
 7. Also surface, where it genuinely improves the change (usually `nit`, at most
    `warning`). **Severity decides what the reader sees and what holds the merge**
-   — `config/review-severities.json` says which severities hold, and in this repo
-   that is all three, so even a 🔵 `nit` opens a thread the merge waits on. Choose
+   — all three hold here, so even a 🔵 `nit` opens a thread the merge waits on. Choose
    severity by consequence, and leave out anything too trivial to be worth the
    author's read:
    - reductions in lines of code the reader would thank you for — dead code,
@@ -157,8 +156,8 @@ this reviewer IS the approval or the hold:
   comparable cost (step 6's escalation case).
 - **Any finding whose severity gates escalates the posted event to
   REQUEST_CHANGES, whatever your verdict says.** A `looks_good` carrying one 🔵
-  `nit` still holds the merge, because `nit` is in `config/review-severities.json`'s
-  `gating` list here. So a finding is never a free aside: file one when you want
+  `nit` still holds the merge, because `nit` gates here too. So a finding is
+  never a free aside: file one when you want
   the author to act, and leave it out when you do not.
 
 Approval is the default outcome only in the sense that most PRs are fine — not a

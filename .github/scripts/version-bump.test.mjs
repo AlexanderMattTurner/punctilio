@@ -22,20 +22,35 @@ const AUTO_VERSION_YAML = join(
   "workflows",
   "auto-version.yaml",
 );
+const TEMPLATE_SYNC_YAML = join(
+  REPO_ROOT,
+  ".github",
+  "workflows",
+  "template-sync.yaml",
+);
 
-// --- Bug B: the release push rides GITHUB_TOKEN, never a cross-account PAT ---
+/**
+ * Render a GitHub Actions `${{ … }}` expression. Written as a template literal
+ * with an escaped `${` so the literal never reads as a JS interpolation.
+ */
+const expr = (inner) => `$\{{ ${inner} }}`;
+
+// --- Bug B: the release push rides an own-repo credential, never a
+// cross-account PAT --------------------------------------------------------
 // The release-docs commit and vX.Y.Z tag are pushed with the credentials the
 // checkout persists. A cross-account PAT (TEMPLATE_SYNC_TOKEN, minted for a
 // different owner) is rejected 403 by this repo's remote, stranding every
 // release: npm publishes but the tag never lands, so the next run re-reads the
-// climbing npm version and bumps again. The push MUST ride GITHUB_TOKEN, whose
-// `contents: write` authorizes github-actions[bot] on its own repo.
+// climbing npm version and bumps again. GITHUB_TOKEN's `contents: write`
+// authorizes github-actions[bot] on its own repo and is the default; the only
+// permitted override is RELEASE_BYPASS_TOKEN, an own-owner PAT registered as a
+// bypass actor for a protected default branch.
 
 test("auto-version.yaml runs the .github/scripts release script", () => {
   const yaml = readFileSync(AUTO_VERSION_YAML, "utf8");
-  const invocations = [...yaml.matchAll(/bash\s+(\S*version-bump\.sh)/g)].map(
-    (m) => m[1],
-  );
+  const invocations = [
+    ...yaml.matchAll(/bash\s+(?<script>\S*version-bump\.sh)/g),
+  ].map((m) => m.groups.script);
   assert.deepEqual(
     invocations,
     [".github/scripts/version-bump.sh"],
@@ -44,7 +59,7 @@ test("auto-version.yaml runs the .github/scripts release script", () => {
   assert.ok(existsSync(LIVE_SCRIPT), "the invoked script must exist on disk");
 });
 
-test("the release checkout pins GITHUB_TOKEN, never a cross-account PAT", () => {
+test("the release checkout falls back to GITHUB_TOKEN and names no cross-account PAT", () => {
   const yaml = readFileSync(AUTO_VERSION_YAML, "utf8");
   const tokenLines = yaml
     .split("\n")
@@ -52,8 +67,28 @@ test("the release checkout pins GITHUB_TOKEN, never a cross-account PAT", () => 
     .map((l) => l.trim());
   assert.deepEqual(
     tokenLines,
-    ["token: ${{ secrets.GITHUB_TOKEN }}"],
-    "the checkout must pin GITHUB_TOKEN, not a fallback to a cross-account PAT",
+    [`token: ${expr("secrets.RELEASE_BYPASS_TOKEN || secrets.GITHUB_TOKEN")}`],
+    "the checkout must default to GITHUB_TOKEN, overridable only by the own-owner bypass PAT",
+  );
+  assert.doesNotMatch(
+    yaml,
+    /secrets\.TEMPLATE_SYNC_TOKEN/,
+    "the release checkout must never reach for the cross-account template-sync PAT",
+  );
+});
+
+// A repo that already publishes must not receive a second publisher. The sync
+// only UPDATES this workflow, never INTRODUCES it — which is only true while
+// its path is in template-sync.yaml's OPT_IN_PATHS.
+test("auto-version.yaml is opt-in, so the sync never introduces a second publisher", () => {
+  const yaml = readFileSync(TEMPLATE_SYNC_YAML, "utf8");
+  const optIn = yaml.match(/^\s*OPT_IN_PATHS:\s*"(?<paths>[^"]*)"/m);
+  assert.ok(optIn, "template-sync.yaml must define OPT_IN_PATHS");
+  assert.ok(
+    optIn.groups.paths
+      .split(/\s+/)
+      .includes(".github/workflows/auto-version.yaml"),
+    "the release workflow must be opt-in, not unconditionally synced",
   );
 });
 
@@ -72,7 +107,7 @@ function makeSandbox(npmStubBody) {
   const dir = mkdtempSync(join(tmpdir(), "vbump-"));
   writeFileSync(
     join(dir, "package.json"),
-    JSON.stringify({ name: "sandbox-pkg", version: "0.0.0" }) + "\n",
+    `${JSON.stringify({ name: "sandbox-pkg", version: "0.0.0" })}\n`,
   );
   const binDir = join(dir, "stub-bin");
   mkdirSync(binDir);
@@ -96,10 +131,7 @@ function runScript(dir, binDir) {
   // Clear every credential-ladder rung so the sandboxed runs never reach the
   // real Claude API and always take the commit-list changelog fallback.
   for (const key of Object.keys(env)) {
-    if (
-      key === "ANTHROPIC_API_KEY" ||
-      key.startsWith("CLAUDE_CODE_OAUTH_TOKEN")
-    ) {
+    if (key.startsWith("CLAUDE_CODE_OAUTH_TOKEN")) {
       delete env[key];
     }
   }
@@ -128,10 +160,13 @@ const NPM_RELEASABLE_STUB =
   'if [[ "$2" == *@* ]]; then exit 1; else echo "5.0.0"; fi';
 
 /** Add publish/sleep stubs and a bare origin whose branches reject pushes (tags land). */
-function makeReleaseSandbox() {
-  const { dir, binDir } = makeSandbox(NPM_RELEASABLE_STUB);
+function makeReleaseSandbox({
+  npmStub = NPM_RELEASABLE_STUB,
+  pnpmStub = "exit 0",
+} = {}) {
+  const { dir, binDir } = makeSandbox(npmStub);
   // pnpm publish must "succeed" without touching a registry.
-  writeFileSync(join(binDir, "pnpm"), "#!/usr/bin/env bash\nexit 0\n");
+  writeFileSync(join(binDir, "pnpm"), `#!/usr/bin/env bash\n${pnpmStub}\n`);
   chmodSync(join(binDir, "pnpm"), 0o755);
   // retry_cmd sleeps between attempts; stub it so the failing-push retries are instant.
   writeFileSync(join(binDir, "sleep"), "#!/usr/bin/env bash\nexit 0\n");
@@ -179,6 +214,99 @@ test("tag is pushed before the docs push; a docs-push failure exits non-zero wit
         stderr.indexOf("failed to push the release-docs update"),
       "tag must be pushed before the docs push is attempted",
     );
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// --- Losing a race with a second publisher is a no-op, not an alert ---------
+// A repo that runs two release workflows on the default branch has both compute
+// the same version from the same commits. The loser must recognize that and stop
+// quietly: npm's bare `E404 ... PUT` on an already-published version names
+// neither the duplicate nor the workflow that beat it, so the script has to
+// classify it by re-probing the registry rather than by reading the message.
+
+test("a version already tagged on the remote is left to its publisher, not re-published", () => {
+  const { dir, binDir, origin } = makeReleaseSandbox();
+  try {
+    // The rival workflow's tag is on origin but not in this checkout — exactly
+    // the window between its `git push origin vX.Y.Z` and this run's publish.
+    const git = (...args) => execFileSync("git", args, { cwd: dir });
+    git("tag", "v5.1.0");
+    git("push", "-q", "origin", "v5.1.0");
+    git("tag", "-d", "v5.1.0");
+
+    const { status, stderr } = runScript(dir, binDir);
+    assert.equal(status, 0, stderr);
+    assert.match(stderr, /Tag v5\.1\.0 already exists on the remote/);
+    assert.match(stderr, /keep exactly one publisher/);
+    // Nothing was published: the guard fires before pnpm publish.
+    assert.doesNotMatch(stderr, /Published sandbox-pkg/);
+    assert.doesNotMatch(
+      execFileSync("git", ["ls-remote", "--heads", origin], {
+        encoding: "utf8",
+      }),
+      /refs\/heads\//,
+      "no release-docs commit may be pushed for a version this run did not publish",
+    );
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a publish E404 on a version that IS on the registry is a lost race, not a failure", () => {
+  // The rival publishes between this run's pre-publish probe and its own PUT:
+  // the first `npm view pkg@ver` says "not published", every later one says it
+  // is. npm answers the PUT with a bare 404 that names no duplicate.
+  const RACED_NPM_STUB = [
+    'if [[ "$2" == *@* ]]; then',
+    "  n=$(cat .npm-probe-count 2>/dev/null || echo 0)",
+    "  echo $((n + 1)) >.npm-probe-count",
+    '  [[ "$n" -ge 1 ]] && exit 0 || exit 1',
+    "else",
+    '  echo "5.0.0"',
+    "fi",
+  ].join("\n");
+  const PUBLISH_404 = [
+    'echo "npm error code E404" >&2',
+    'echo "npm error 404 Not Found - PUT https://registry.npmjs.org/sandbox-pkg - Not found" >&2',
+    "exit 1",
+  ].join("\n");
+
+  const { dir, binDir, origin } = makeReleaseSandbox({
+    npmStub: RACED_NPM_STUB,
+    pnpmStub: PUBLISH_404,
+  });
+  try {
+    const { status, stderr } = runScript(dir, binDir);
+    assert.equal(status, 0, stderr);
+    assert.match(stderr, /another release workflow published it first/);
+    // The rival owns the tag too — this run must not push one.
+    assert.doesNotMatch(
+      execFileSync("git", ["ls-remote", "--tags", origin], {
+        encoding: "utf8",
+      }),
+      /refs\/tags\//,
+    );
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a publish E404 on a version that is NOT on the registry still fails loud", () => {
+  // Same 404 text, but the version never appears — a real permission/name
+  // failure. Swallowing it here would turn a broken release into a silent green.
+  const PUBLISH_404 = [
+    'echo "npm error code E404" >&2',
+    'echo "npm error 404 Not Found - PUT https://registry.npmjs.org/sandbox-pkg - Not found" >&2',
+    "exit 1",
+  ].join("\n");
+  const { dir, binDir } = makeReleaseSandbox({ pnpmStub: PUBLISH_404 });
+  try {
+    const { status, stderr } = runScript(dir, binDir);
+    assert.notEqual(status, 0, "an unexplained publish 404 must fail the run");
+    assert.match(stderr, /404 Not Found - PUT/);
+    assert.doesNotMatch(stderr, /another release workflow published it first/);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
