@@ -6,8 +6,8 @@ name: Claude reviewer-hold sweeper
 # GitHub has no workflow trigger that fires when a review thread is resolved
 # (`pull_request_review_thread` is a webhook event but NOT a valid workflow `on:`
 # event — GitHub rejects it at compile time), so a thread resolved manually with no
-# follow-up push emits nothing for the per-push approve step
-# (claude-review-thread-resolve.yaml) to react to. A cron sweep re-runs the
+# follow-up push emits nothing for the push-time approve step in
+# claude-review.yaml to react to. A cron sweep re-runs the
 # state-based approve for all open PRs, so no resolution path can strand the hold.
 # The approve itself is state-based and idempotent (approve-if-reviewer-hold-
 # clear.sh reads current thread + review state), so a sweep never double-approves.
@@ -36,8 +36,15 @@ jobs:
       contents: read # sparse-checkout the trusted approval scripts
       pull-requests: write # submit the approving review; no other scope
     env:
+      # The sweep's own PR listing runs on the Actions token.
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       GH_REPO: ${{ github.repository }}
+      # The only rung the sweep gets. approve-if-reviewer-hold-clear.sh picks its
+      # credential from this ladder, and the sweep deliberately carries no PAT:
+      # GitHub bars the Actions token from approving, so the sweep clears a hold
+      # by dismissing it rather than by minting an approval on a PR no push-time
+      # review just examined.
+      GH_TOKEN_ACTIONS: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout the trusted approval scripts (default branch)
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0

@@ -104,10 +104,7 @@ export function parseCiFailureEvent(prompt) {
   const sha = /^HeadSHA:[ \t]*(?<sha>[0-9a-f]{40})[ \t]*$/m.exec(header);
   const found = sha?.groups?.sha;
   if (!found) return null;
-  const pr =
-    /^PR:[ \t]*(?<repo>[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+)#\d+[ \t]*$/m.exec(
-      header,
-    );
+  const pr = /^PR:[ \t]*(?<repo>[\w.-]+\/[\w.-]+)#\d+[ \t]*$/m.exec(header);
   return { sha: found, repo: pr?.groups?.repo ?? null };
 }
 
@@ -300,5 +297,5 @@ export async function main(read, write, listHeads = defaultListHeads) {
 }
 
 if (isMain(import.meta.url)) {
-  void main(readStdinJson, (chunk) => process.stdout.write(chunk));
+  await main(readStdinJson, (chunk) => process.stdout.write(chunk));
 }

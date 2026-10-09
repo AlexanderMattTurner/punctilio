@@ -11,10 +11,12 @@ name: Auto version bump and publish
 # "private": true, so the template repo never publishes itself. A downstream
 # repo opts in by dropping `private` and setting a real, publishable name.
 #
-# Versioned-app workflow: only adopt this in a repo that is published to npm.
-# Repos that are not npm packages (e.g. a website like TurnTrout.com) should
-# exclude it via the template-sync EXCLUDE_PATHS list — see
-# .github/workflows/template-sync.yaml.
+# Versioned-app workflow: only adopt this in a repo that is published to npm and
+# has no publisher of its own. It is listed in the template-sync OPT_IN_PATHS, so
+# the sync never introduces it — a repo that does not have this file keeps not
+# having it, and deleting it is how you opt back out. Two publishers on one
+# default branch race the same semver bump and the loser fails with an
+# unrecognizable npm E404 on an already-published version.
 
 on:
   push:
@@ -37,18 +39,30 @@ jobs:
     steps:
       - name: Checkout
         # Credentials stay persisted: version-bump.sh pushes the release-docs
-        # commit and the vX.Y.Z tag with them as github-actions[bot]. The
-        # workflow's `contents: write` authorizes that bot to push to the default
-        # branch and tags of its own repo — do NOT swap in a cross-account PAT
-        # (e.g. TEMPLATE_SYNC_TOKEN, minted for a different owner), which the
-        # remote rejects with a 403 and silently strands every release: npm is
-        # published but the docs commit and tag never land, so the next run
-        # re-reads the climbing npm version and bumps again.
+        # commit and the vX.Y.Z tag with them.
+        #
+        # Which token to use:
+        #   - Unprotected default branch (the default): leave RELEASE_BYPASS_TOKEN
+        #     unset. GITHUB_TOKEN's `contents: write` authorizes
+        #     github-actions[bot] to push to the branch and tags of its own repo.
+        #   - Default branch protected by a ruleset with required status checks:
+        #     GITHUB_TOKEN's push is rejected with GH013, which strands the
+        #     release — npm publishes but the tag and docs commit never land, so
+        #     the next run re-reads the climbed npm version and bumps again. Set
+        #     RELEASE_BYPASS_TOKEN to a PAT for THIS repo's owner that is
+        #     registered as a bypass actor on the ruleset.
+        #
+        # RELEASE_BYPASS_TOKEN must belong to this repo's own owner. A
+        # cross-account PAT (e.g. a TEMPLATE_SYNC_TOKEN minted for a different
+        # owner) is rejected 403 and strands the release exactly the same way.
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0 # zizmor: ignore[artipacked]
         with:
           # Need full history so `git describe`/`git log` can find the last tag.
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
+          # Both rungs are own-repo credentials, so the push identity never
+          # crosses accounts; see the token guidance above.
+          # token-fallback-ok: GITHUB_TOKEN is the correct default, not a degraded stand-in.
+          token: ${{ secrets.RELEASE_BYPASS_TOKEN || secrets.GITHUB_TOKEN }}
 
       - name: Setup base environment
         uses: ./.github/actions/setup-base-env
@@ -57,10 +71,14 @@ jobs:
           # a recent npm) and point it at the npm registry so provenance works.
           node-version: 24
           registry-url: https://registry.npmjs.org
+          # uv, so .hooks/pre-push can run pre-commit over the `docs: release`
+          # commit this job pushes. Without it the hook refuses that push and the
+          # release publishes to npm with its CHANGELOG section stranded.
+          setup-python: true
 
       - name: Bump version and publish if commits warrant a release
-        # The changelog-prose call walks the anthropic-ladder.bash credential
-        # ladder: subscription tokens first, the metered ANTHROPIC_API_KEY last.
+        # The changelog-prose call walks the claude-oauth-ladder.bash
+        # subscription tokens; there is no metered API-key rung.
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           CLAUDE_CODE_OAUTH_TOKEN_FALLBACK: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN_FALLBACK }}
@@ -69,5 +87,4 @@ jobs:
           CLAUDE_CODE_OAUTH_TOKEN_FALLBACK_4: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN_FALLBACK_4 }}
           CLAUDE_CODE_OAUTH_TOKEN_FALLBACK_5: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN_FALLBACK_5 }}
           CLAUDE_CODE_OAUTH_TOKEN_FALLBACK_6: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN_FALLBACK_6 }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: bash .github/scripts/version-bump.sh

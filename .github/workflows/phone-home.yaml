@@ -23,6 +23,8 @@ jobs:
     if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      GITLEAKS_VERSION: "8.30.1"
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
@@ -37,16 +39,28 @@ jobs:
             const run = require('./.github/scripts/phone-home-extract.js')
             await run({github, context, core})
 
-      - name: Scan lessons for leaked secrets
+      - name: Restore cached gitleaks binary
+        id: gitleaks-cache
         if: steps.extract.outputs.has_lessons == 'true'
-        env:
-          GITLEAKS_VERSION: "8.30.1"
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: /usr/local/bin/gitleaks
+          key: gitleaks-${{ runner.os }}-${{ env.GITLEAKS_VERSION }}
+
+      - name: Download gitleaks
+        if: steps.extract.outputs.has_lessons == 'true' && steps.gitleaks-cache.outputs.cache-hit != 'true'
         run: |
           set -euo pipefail
           curl --proto '=https' -fsSL --retry 6 --retry-all-errors --retry-delay 15 --connect-timeout 30 \
             -o /tmp/gitleaks.tar.gz \
             "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
           tar xz -C /usr/local/bin -f /tmp/gitleaks.tar.gz gitleaks
+
+      - name: Scan lessons for leaked secrets
+        if: steps.extract.outputs.has_lessons == 'true'
+        run: |
+          set -euo pipefail
+          chmod +x /usr/local/bin/gitleaks
           gitleaks detect --no-git -s /tmp/phone-home -v
 
       - name: Submit to template repo

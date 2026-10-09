@@ -27,12 +27,14 @@ export const MARKER = "<!-- pr-review-advisory -->";
 // The enforcement surfaces of THIS automation template — the guardrail hooks and
 // the CI automation (workflows + their scripts) — ARE the security-relevant code,
 // so they lead the review order and drive the risk tier. Adopters describe their
-// own surfaces in config/pr-review-paths.json; these defaults are the generic
-// fallback and already include .github/scripts + .github/workflows.
+// own surfaces in config/pr-review-paths.json; this repo ships no such file, so
+// these defaults are live here and already include .github/scripts,
+// .github/actions and .github/workflows.
 export const DEFAULT_PATHS = {
   securityPrefixes: [
     ".claude/hooks/",
     ".github/scripts/",
+    ".github/actions/",
     ".github/workflows/",
     "config/",
   ],
@@ -41,6 +43,7 @@ export const DEFAULT_PATHS = {
   highRiskPrefixes: [
     ".claude/hooks/",
     ".github/scripts/",
+    ".github/actions/",
     ".github/workflows/",
   ],
   highRiskConfigPrefix: "config/",
@@ -126,7 +129,7 @@ export function parsePatch(text) {
   let current = null;
   const put = (file, line) => {
     if (file === null) return;
-    hunks.set(file, (hunks.get(file) ?? "") + line + "\n");
+    hunks.set(file, `${hunks.get(file) ?? ""}${line}\n`);
   };
   for (const line of text.split("\n")) {
     if (line.startsWith("diff --git ")) {
@@ -154,7 +157,7 @@ function isTestFile(file) {
     file.includes("/tests/") ||
     /^test_/.test(base) ||
     /_test\.[^.]+$/.test(base) ||
-    /\.(?<kind>test|spec)\.[^.]+$/.test(base)
+    /\.(?:test|spec)\.[^.]+$/.test(base)
   );
 }
 
@@ -162,7 +165,7 @@ function isTestFile(file) {
 // foo_test.py, foo.test.mjs and foo.mjs all stem to "foo".
 export function stemOf(file) {
   let stem = basename(file).replace(/\.[^.]+$/, "");
-  stem = stem.replace(/\.(?<kind>test|spec)$/, "");
+  stem = stem.replace(/\.(?:test|spec)$/, "");
   stem = stem.replace(/^test_/, "").replace(/_test$/, "");
   return stem;
 }
@@ -460,7 +463,7 @@ function main() {
   });
 
   process.stdout.write(body);
-  writeFileSync(process.env.TIER_FILE, maxTier(declared, heuristic) + "\n");
+  writeFileSync(process.env.TIER_FILE, `${maxTier(declared, heuristic)}\n`);
 }
 
 if (isMain(import.meta.url)) main();
