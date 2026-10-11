@@ -1,5 +1,5 @@
 import { cachedRegExp, LATIN_LETTER_RE, LATIN_LETTERS, NBSP_CHARS, SPACE_CHAR_RE, SPACE_CHARS, UNICODE_SYMBOLS } from "./constants.js"
-import { boundaryCountAt, exceedsSingleBoundary, interiorBoundariesWithin, makeProsePass, overInput, type ProseView, replaceAllInView } from "./prose-view.js"
+import { advanceScanIndex, boundaryCountAt, exceedsSingleBoundary, interiorBoundariesWithin, makeProsePass, overInput, type ProseView, replaceAllInView } from "./prose-view.js"
 
 const {
   NBSP,
@@ -373,7 +373,7 @@ function nbspBeforeContext(
         !view.hasBoundary(start) &&
         WORD_CHAR_RE.test(clean[start - 1])
       ) {
-        pattern.lastIndex = start + 1
+        pattern.lastIndex = advanceScanIndex(clean, start, pattern)
         continue
       }
       // Slot between the `thing` literal and the space (offset = end - 1);
@@ -384,7 +384,7 @@ function nbspBeforeContext(
       if (!allowed) {
         // A boundary broke the (possibly longer) literal; let the scan re-anchor
         // one position later so a shorter sub-abbreviation can still match.
-        pattern.lastIndex = start + 1
+        pattern.lastIndex = advanceScanIndex(clean, start, pattern)
         continue
       }
       // Edit only the trailing space so the slot/lookahead boundaries keep their

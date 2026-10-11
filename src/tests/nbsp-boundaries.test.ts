@@ -56,6 +56,7 @@ describe("nbsp boundary tolerance", () => {
     ["boundary inside unit", nbspBetweenNumberAndUnit, `5 k${S}g`],
     ["boundary inside shortWord", nbspAfterShortWords, `a${S}n cat`],
     ["boundary inside lastWord", nbspBeforeLastWord, `hello wor${S}ld`],
+    ["boundary after astral initial", nbspBetweenInitials, `𝐀${S}. 𝐁`],
   ])("blocks two-boundary / split-literal: %s", (_label, fn, input) => {
     expect(viewTransform(fn, input)).toBe(input)
   })

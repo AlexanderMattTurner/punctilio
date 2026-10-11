@@ -253,6 +253,10 @@ describe("nbspBetweenInitials", () => {
     ["the USA. Its people", "the USA. Its people"],
     ["СССР. Это", "СССР. Это"],
     ["Π. Δ. Καλός", `Π.${NBSP}Δ.${NBSP}Καλός`],
+    // Astral (surrogate-pair) capitals: the rejected word-final match resumes
+    // past the whole character.
+    ["𝐀. 𝐁 ok", `𝐀.${NBSP}𝐁 ok`],
+    ["x𝐀. 𝐁 ok", "x𝐀. 𝐁 ok"],
   ])('"%s" → "%s"', (input, expected) => {
     expect(nbspBetweenInitials(input)).toBe(expected)
   })
