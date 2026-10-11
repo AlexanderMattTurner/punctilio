@@ -1,0 +1,132 @@
+# Syntax-aware merging. mergiraf parses both sides and merges by syntax node where
+# git compares lines, so two branches that each add a different import, key, or
+# declaration merge instead of conflicting.
+#
+# These attributes are INERT until the driver is registered: git falls back to
+# its built-in text driver when `merge.mergiraf.driver` is unset, so a checkout
+# without mergiraf behaves exactly as it did before this block existed.
+# .github/scripts/install-mergiraf.sh registers the driver, and only after
+# proving the binary's `solve -p` contract — so the name is never bound to
+# something unverified.
+#
+# The list below is `mergiraf languages --gitattributes` — every language it
+# parses, not a subset filtered to the types this tree contains. Nothing regenerates
+# it, so treat it as a floor rather than an exact copy of the pinned version's
+# output: refresh it by hand when MERGIRAF_VERSION moves. A pattern matching no
+# tracked file costs nothing, and mergiraf line-merges a file whose language it
+# cannot parse, so an entry can only ever match what it understands.
+*.java merge=mergiraf
+*.properties merge=mergiraf
+*.kt merge=mergiraf
+*.kts merge=mergiraf
+*.rs merge=mergiraf
+*.go merge=mergiraf
+go.mod merge=mergiraf
+go.sum merge=mergiraf
+go.work.sum merge=mergiraf
+*.ini merge=mergiraf
+*.js merge=mergiraf
+*.jsx merge=mergiraf
+*.mjs merge=mergiraf
+*.cjs merge=mergiraf
+*.json merge=mergiraf
+*.yml merge=mergiraf
+*.yaml merge=mergiraf
+pyproject.toml merge=mergiraf
+*.toml merge=mergiraf
+*.html merge=mergiraf
+*.htm merge=mergiraf
+*.xhtml merge=mergiraf
+*.xml merge=mergiraf
+*.c merge=mergiraf
+*.h merge=mergiraf
+*.cc merge=mergiraf
+*.hh merge=mergiraf
+*.cpp merge=mergiraf
+*.hpp merge=mergiraf
+*.cxx merge=mergiraf
+*.hxx merge=mergiraf
+*.c++ merge=mergiraf
+*.h++ merge=mergiraf
+*.mpp merge=mergiraf
+*.cppm merge=mergiraf
+*.ixx merge=mergiraf
+*.tcc merge=mergiraf
+*.cs merge=mergiraf
+*.dart merge=mergiraf
+*.dts merge=mergiraf
+*.scala merge=mergiraf
+*.sbt merge=mergiraf
+*.scm merge=mergiraf
+*.ts merge=mergiraf
+*.mts merge=mergiraf
+*.cts merge=mergiraf
+*.tsx merge=mergiraf
+*.py merge=mergiraf
+*.php merge=mergiraf
+*.phtml merge=mergiraf
+*.php3 merge=mergiraf
+*.php4 merge=mergiraf
+*.php5 merge=mergiraf
+*.phps merge=mergiraf
+*.phpt merge=mergiraf
+*.sol merge=mergiraf
+*.lua merge=mergiraf
+*.rb merge=mergiraf
+*.ex merge=mergiraf
+*.exs merge=mergiraf
+*.nix merge=mergiraf
+*.sv merge=mergiraf
+*.svh merge=mergiraf
+*.md merge=mergiraf
+*.hcl merge=mergiraf
+*.tf merge=mergiraf
+*.tfvars merge=mergiraf
+*.ml merge=mergiraf
+*.mli merge=mergiraf
+*.hs merge=mergiraf
+*.mk merge=mergiraf
+Makefile merge=mergiraf
+GNUmakefile merge=mergiraf
+*.bzl merge=mergiraf
+*.bxl merge=mergiraf
+*.bazel merge=mergiraf
+*.star merge=mergiraf
+*.sky merge=mergiraf
+BUILD merge=mergiraf
+WORKSPACE merge=mergiraf
+BUCK merge=mergiraf
+PACKAGE merge=mergiraf
+*.cmake merge=mergiraf
+CMakeLists.txt merge=mergiraf
+*.f merge=mergiraf
+*.for merge=mergiraf
+*.f90 merge=mergiraf
+*.R merge=mergiraf
+*.r merge=mergiraf
+.Rprofile merge=mergiraf
+requirements.txt merge=mergiraf
+requirements-dev.txt merge=mergiraf
+requirements-docs.txt merge=mergiraf
+requirements-test.txt merge=mergiraf
+*.sh merge=mergiraf
+*.bash merge=mergiraf
+PKGBUILD merge=mergiraf
+*.gleam merge=mergiraf
+
+# Lockfiles are derived artifacts — never let git line-merge them into an
+# inconsistent state (one that matches neither parent's manifest).
+#
+# THIS BLOCK MUST STAY BELOW THE MERGIRAF PATTERNS. `merge` is a single
+# attribute and git applies the LAST matching pattern, so `*.json
+# merge=mergiraf` placed after this would re-enable merging of
+# package-lock.json, and `*.yaml` would do the same to pnpm-lock.yaml.
+uv.lock          -merge
+pnpm-lock.yaml   -merge
+package-lock.json -merge
+yarn.lock        -merge
+Cargo.lock       -merge
+poetry.lock      -merge
+Gemfile.lock     -merge
+go.sum           -merge
+go.work.sum      -merge
