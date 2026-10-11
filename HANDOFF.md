@@ -160,3 +160,12 @@ Reference: `git clone --depth 1 https://github.com/AlexanderMattTurner/agent-glo
 - Which CI results depend on PR1 or PR2 merging.
 
 > This file was committed only so it survives the container being reclaimed. Delete it (`git rm HANDOFF.md`) before opening the B PR.
+
+## Update 23:34Z: Codex review on #293 (review 5485515880, none of it handled yet)
+
+All five findings are on template-owned files. For each one, either fix it locally in punctilio or reply that it belongs upstream in `claude-automation-template`. A security finding's thread stays open until the user decides.
+- **P1, `.github/workflows/review-gate.yaml:29`.** The auto-approve review is posted with `GITHUB_TOKEN`, so it never triggers the gate's `submitted` run, and `Automated review posted` can stay pending forever.
+- **P1, `.github/workflows/review-gate.yaml:61` (security).** A `pull_request_review` job holding `statuses: write` runs the PR's own copy of the workflow, so a collaborator can edit it and post a green gate status on their own PR.
+- **P1, `.github/scripts/lib-post-review-with-retry.sh:30`.** When APPROVE is rejected, the retry posts a COMMENT review and reports success, but a comment does not satisfy a required approval.
+- **P1, `.github/workflows/pr-meta-privileged.yaml:112` (security).** This privileged job checks out the external resolver at its mutable `main` and runs `label-merge-conflicts.sh` with write scopes. Pin it to a commit SHA.
+- **P2, `.github/actions/claude-run/action.yaml:517`.** When only `CLAUDE_CODE_OAUTH_TOKEN` is set, the zero-cost retry fires on empty rung 7 instead of the configured token. Note that this repo's `claude.yaml` is the caller, and PR1 deletes it.
