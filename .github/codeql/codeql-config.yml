@@ -1,0 +1,13 @@
+name: CodeQL config
+
+# security-extended adds query families the default suite omits, such as
+# prototype pollution and ReDoS, which matter for a library that runs regexes
+# over untrusted text.
+queries:
+  - uses: security-extended
+
+# Tests and fixtures are never shipped, and their deliberately hostile inputs
+# trip security queries.
+paths-ignore:
+  - src/tests
+  - "**/*.test.mjs"
