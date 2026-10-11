@@ -1,0 +1,78 @@
+name: Package smoke test
+
+# Tests what npm consumers actually install: the packed tarball, not the source
+# tree. scripts/pack-smoke.mjs installs it with and without the optional peers,
+# runs the bin through its node_modules/.bin link and imports every `exports`
+# subpath; publint and attw then lint the tarball's package.json and types.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  package-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PUBLINT_VERSION: "0.3.25"
+      ATTW_VERSION: "0.18.5"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Setup
+        uses: ./.github/actions/setup
+        with:
+          node-version: 22
+
+      - name: Build and pack
+        run: |
+          pnpm run build
+          pnpm pack --pack-destination "${RUNNER_TEMP}/pack"
+          tarballs=("${RUNNER_TEMP}"/pack/*.tgz)
+          if [ "${#tarballs[@]}" -ne 1 ] || [ ! -f "${tarballs[0]}" ]; then
+            echo "::error::Expected exactly one tarball, found: ${tarballs[*]}"
+            exit 1
+          fi
+          echo "TARBALL=${tarballs[0]}" >> "$GITHUB_ENV"
+
+      - name: Install and exercise the tarball
+        run: node scripts/pack-smoke.mjs "$TARBALL"
+
+      - name: publint
+        if: ${{ !cancelled() }}
+        run: pnpm dlx "publint@${PUBLINT_VERSION}" run --strict "$TARBALL"
+
+      - name: Are the types wrong?
+        if: ${{ !cancelled() }}
+        run: pnpm dlx "@arethetypeswrong/cli@${ATTW_VERSION}" --profile esm-only "$TARBALL"
+
+  package-smoke-passed: # required-check: true
+    if: always()
+    needs: [package-smoke]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          sparse-checkout: |
+            .github/actions/report-job-result
+            .github/scripts
+          persist-credentials: false
+
+      - name: Report result
+        uses: ./.github/actions/report-job-result
+        with:
+          run: "true"
+          decide-result: "success"
+          result: ${{ needs.package-smoke.result }}

@@ -25,6 +25,7 @@ on: # zizmor: ignore[dangerous-triggers]
       - Hook lifecycle
       - Lint
       - Node tests
+      - Package smoke test
       - PR meta (privileged)
       - pre-commit
       - Release canary
