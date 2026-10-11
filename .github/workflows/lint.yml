@@ -37,7 +37,10 @@ jobs:
           # branch (`@main`) is caught as well as a tag (`@v4`).
           UNPINNED_PATTERN: "uses:\\s*[\"']?(?!\\./|docker://)[^@\\s\"']+@(?![0-9a-f]{40}(\\s|$|[\"']))"
         run: |
-          UNPINNED=$(grep -rnP -e "$UNPINNED_PATTERN" .github/workflows/ .github/actions/ || true)
+          # grep exits 1 when nothing matches; anything above that is a real error.
+          rc=0
+          UNPINNED=$(grep -rnP -e "$UNPINNED_PATTERN" .github/workflows/ .github/actions/) || rc=$?
+          [ "$rc" -le 1 ] || exit "$rc"
           if [ -n "$UNPINNED" ]; then
             echo "::error::Found unpinned action references (must use SHA pins with version comment):"
             echo "$UNPINNED"
