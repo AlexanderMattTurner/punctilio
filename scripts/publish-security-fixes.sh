@@ -34,15 +34,24 @@ for file in branch.txt commits.bundle pr-body.md; do
 done
 
 branch=$(<"${PUBLISH_DIR}/branch.txt")
-if [[ -n "$EXISTING_BRANCH" ]]; then
-  [[ "$branch" == "$EXISTING_BRANCH" ]] || die "The agent committed on '${branch}', not the existing rollup branch '${EXISTING_BRANCH}'."
-elif [[ ! "$branch" =~ ^security-fixes/[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]; then
+# The existing branch comes from any open PR labelled security-scan, so it gets
+# the same name check: a mislabelled PR must not aim this push at another branch.
+[[ "$branch" =~ ^security-fixes/[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] ||
   die "Refusing to push the agent's branch '${branch}': expected security-fixes/YYYY-MM-DD."
-fi
+[[ -z "$EXISTING_BRANCH" || "$branch" == "$EXISTING_BRANCH" ]] ||
+  die "The agent committed on '${branch}', not the existing rollup branch '${EXISTING_BRANCH}'."
 
 git bundle verify --quiet "${PUBLISH_DIR}/commits.bundle"
 git fetch --quiet "${PUBLISH_DIR}/commits.bundle" HEAD
 tip=$(git rev-parse FETCH_HEAD)
+
+# A push with this token starts CI, and same-repo PR workflows run with the
+# repository's secrets. Refuse any change to code CI executes, so the agent
+# cannot turn its branch into a workflow that reads them.
+changed_ci_code=$(git diff --name-only "origin/${DEFAULT_BRANCH}...${tip}" -- \
+  .github/workflows .github/actions .github/scripts scripts .hooks .claude)
+[[ -z "$changed_ci_code" ]] ||
+  die "The agent's commits touch CI code, which this publisher never pushes: ${changed_ci_code//$'\n'/, }"
 
 # Hand the token to git through the environment, not argv or .git/config.
 basic_auth=$(printf 'x-access-token:%s' "$PUSH_TOKEN" | base64 -w0)
@@ -73,7 +82,10 @@ while IFS= read -r line || [[ -n "$line" ]]; do
   [[ -z "$line" ]] && continue
   [[ "$line" =~ ^[0-9]+$ ]] || die "superseded-prs.txt holds a non-numeric line: '${line}'."
   # Only an open Dependabot PR may be closed on the agent's word.
-  head_ref=$(gh pr view "$line" --json state,headRefName --jq 'select(.state == "OPEN") | .headRefName')
+  if ! head_ref=$(gh pr view "$line" --json state,headRefName --jq 'select(.state == "OPEN") | .headRefName'); then
+    echo "::warning::Not closing #${line}: could not look it up."
+    continue
+  fi
   if [[ "$head_ref" != dependabot/* ]]; then
     echo "::warning::Not closing #${line}: it is not an open Dependabot PR."
     continue
