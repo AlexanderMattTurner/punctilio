@@ -1,6 +1,7 @@
 version: 2
 updates:
-  # Disable version-update churn by capping open PRs at 0.
+  # Security updates only: version updates come from Renovate's single grouped
+  # weekly PR (.github/renovate.json5), so they are capped at 0 open PRs here.
   # Security updates ignore this limit and are still raised.
   - package-ecosystem: "npm"
     directory: "/"
