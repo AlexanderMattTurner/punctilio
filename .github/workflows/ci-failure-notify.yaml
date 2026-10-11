@@ -25,6 +25,7 @@ on: # zizmor: ignore[dangerous-triggers]
       - Gitleaks Secret Scanning
       - Hook lifecycle
       - Lint
+      - Mutation testing
       - Nightly fuzz
       - Node tests
       - Package smoke test
