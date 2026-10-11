@@ -125,6 +125,13 @@ describe("multiplication", () => {
     ["5xé", "5xé"],
     ["5xñ", "5xñ"],
     ["10xüber", "10xüber"],
+    // Operator spacing is horizontal only: a list marker starting the next
+    // line is not an operator, but other horizontal spaces still are.
+    ["Step 1\n* 2 cups flour", "Step 1\n* 2 cups flour"],
+    ["Step 1\r\n* 2 cups", "Step 1\r\n* 2 cups"],
+    ["5 x\n3", "5 x\n3"],
+    ["5\u2009x\u20093", `5 ${UNICODE_SYMBOLS.MULTIPLICATION} 3`],
+    ["5\tx\t3", `5 ${UNICODE_SYMBOLS.MULTIPLICATION} 3`],
   ])('converts "%s" to "%s"', (input, expected) => {
     expect(multiplication(input)).toBe(expected)
   })
