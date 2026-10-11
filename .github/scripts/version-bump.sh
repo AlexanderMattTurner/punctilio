@@ -44,11 +44,11 @@ false) ;;
   ;;
 esac
 
-# An Anthropic credential (any rung of the anthropic-ladder.bash ladder) is
+# An Anthropic credential (any rung of the claude-oauth-ladder.bash ladder) is
 # optional: it is used only for changelog prose. The version decision never
 # depends on it. npm authentication uses OIDC trusted publishing (id-token:
 # write in the workflow), so no NODE_AUTH_TOKEN / NPM_TOKEN is required.
-if [[ -z "$(anthropic_ladder)" ]]; then
+if [[ -z "$(claude_oauth_ladder)" ]]; then
   log "Note: no Anthropic credential is configured. Changelog prose will fall back to a plain commit list."
 fi
 
@@ -95,15 +95,19 @@ if CURRENT_VERSION=$(npm view "$PACKAGE_NAME" version 2>"$NPM_VIEW_ERR"); then
 elif grep -q "E404" "$NPM_VIEW_ERR"; then
   CURRENT_VERSION="0.0.0"
 else
+  npm_view_err="$(cat "$NPM_VIEW_ERR")"
   log "Error: npm view failed for '$PACKAGE_NAME' (not a 404 for an unpublished package):"
-  log "$(cat "$NPM_VIEW_ERR")"
+  log "$npm_view_err"
   exit 1
 fi
 # `npm view` can print nothing on a success exit (never-published package) or
 # emit a prerelease like `1.2.3-beta.0`; take the first line and require strict
 # X.Y.Z so the arithmetic bump below can't silently misfire. Empty -> 0.0.0
 # (first release); any other non-semver value fails loudly.
-CURRENT_VERSION=$(printf '%s\n' "$CURRENT_VERSION" | head -n1)
+# First line via parameter expansion, NOT `| head -n1`: head exits after one
+# line and SIGPIPEs the writer, which `set -o pipefail` reports as a failure —
+# aborting the release for the multi-line output this line exists to handle.
+CURRENT_VERSION="${CURRENT_VERSION%%$'\n'*}"
 [[ -z "$CURRENT_VERSION" ]] && CURRENT_VERSION="0.0.0"
 if ! [[ "$CURRENT_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
   log "Error: npm returned a non-semver current version: '$CURRENT_VERSION'. Refusing to guess a bump."
@@ -146,13 +150,16 @@ else
   DIFF_STAT=$(git show --stat HEAD 2>/dev/null || echo "Unable to get diff")
 fi
 
-# Cap commit-message length: truncate each line, limit total length. The
-# `head -c` cap is byte-based and can split a multibyte UTF-8 character at the
-# tail; if it does, the only consequence is that `jq -n --arg` rejects the
-# invalid sequence and the Claude prose step falls back to the plain commit list
-# (the version decision never uses $COMMITS), so a corrupted tail costs only
-# the generated prose — the release itself still completes.
-COMMITS=$(echo "$COMMITS_RAW" | head -20 | cut -c1-100 | head -c 2000)
+# Cap commit-message length: truncate each line, limit total length. Both caps
+# avoid an early-exiting pipe consumer (`head -20`, `head -c 2000`), which would
+# close the pipe while the writer still has output and SIGPIPE it — a failure
+# `set -o pipefail` surfaces as an aborted release, on exactly the large inputs
+# the caps exist for. awk reads to EOF regardless of how much it prints, and the
+# total cap is a parameter expansion on an already-captured string. That
+# expansion counts characters, not bytes, so the tail can no longer be a split
+# multibyte sequence that `jq -n --arg` would reject.
+COMMITS=$(echo "$COMMITS_RAW" | awk 'NR <= 20 { print substr($0, 1, 100) }')
+COMMITS="${COMMITS:0:2000}"
 
 if [[ -z "$COMMITS" ]]; then
   log "No commits to analyze. Skipping."
@@ -178,13 +185,17 @@ log "Conventional Commits bump level: $BUMP"
 # Extract the current "## Unreleased" block from CHANGELOG.md, if present.
 # The block runs from the "## Unreleased" heading up to (but not including) the
 # next "## " heading or end of file.
+# Capped by parameter expansion, NOT `| head -c`: head exits at its byte cap and
+# SIGPIPEs awk, which `set -o pipefail` reports as a failure — aborting the
+# release whenever the Unreleased block grows past the cap.
 UNRELEASED_CONTENT=""
 if [[ -f CHANGELOG.md ]]; then
   UNRELEASED_CONTENT=$(awk '
     /^## Unreleased[[:space:]]*$/ { collecting = 1; next }
     collecting && /^## / { collecting = 0 }
     collecting { print }
-  ' CHANGELOG.md | head -c 4000)
+  ' CHANGELOG.md)
+  UNRELEASED_CONTENT="${UNRELEASED_CONTENT:0:4000}"
 fi
 
 # Draft the changelog body. The Claude API is used only for prose — any
@@ -199,7 +210,7 @@ $COMMITS"
 fi
 CHANGELOG_SECTION="$CHANGELOG_FALLBACK"
 
-if [[ -n "$(anthropic_ladder)" ]]; then
+if [[ -n "$(claude_oauth_ladder)" ]]; then
   # The prompt uses clear delimiters to resist injection from commit messages
   # and the existing changelog block.
   PROMPT="Draft the body of the next CHANGELOG entry for these commits.
@@ -308,6 +319,19 @@ if npm view "$PACKAGE_NAME@$NEW_VERSION" version &>/dev/null; then
   exit 0
 fi
 
+# A second publisher — a release workflow the repo owns alongside this one —
+# reaches the same version from the same commits and pushes v$NEW_VERSION when it
+# wins. The npm probe above can still say "unpublished" in that window, so also
+# ask the remote whether the tag is already taken: whoever tagged it is releasing
+# this version, and a second `pnpm publish` of it can only fail. Fails open — an
+# ls-remote that errors reads as "no tag" and the release proceeds, because a
+# false positive here would skip a legitimate release outright.
+if [[ -n "$(timeout --kill-after=10 60 git ls-remote --tags origin "refs/tags/v$NEW_VERSION" 2>/dev/null)" ]]; then
+  log "Tag v$NEW_VERSION already exists on the remote — another release workflow is publishing this version. Skipping."
+  log "       Two workflows releasing one repo is a misconfiguration: keep exactly one publisher on the default branch."
+  exit 0
+fi
+
 # Update package.json in working directory only (not committed to git)
 NEW_VERSION="$NEW_VERSION" node -e '
 const fs = require("fs");
@@ -319,9 +343,26 @@ log "Set package.json to $NEW_VERSION (working directory only)"
 
 # Build and publish to npm. Treat "already published" (the registry's caching
 # can let the earlier safety check miss an existing version) as success.
+#
+# The registry reports that condition two different ways. The plain message is
+# "Cannot publish over previously published version". Under provenance it can
+# instead answer the PUT with a bare E404 — "404 Not Found - PUT
+# .../<pkg>", "could not be found or you do not have permission to access it" —
+# which reads like a missing package or a broken credential and says nothing
+# about a duplicate. Re-probe the registry to tell the two apart rather than
+# guessing from the text: if the version is there now, someone published it
+# while this run was building, and there is nothing left for this run to do.
+# If it is not, the 404 is a real failure and must stay loud.
 if ! PUBLISH_OUTPUT=$(pnpm publish --provenance --access public --no-git-checks 2>&1); then
   if [[ "$PUBLISH_OUTPUT" == *"Cannot publish over previously published version"* ]]; then
     log "Version $NEW_VERSION already published (detected at publish time). Skipping."
+    exit 0
+  fi
+  if [[ "$PUBLISH_OUTPUT" == *"E404"* ]] &&
+    npm view "$PACKAGE_NAME@$NEW_VERSION" version &>/dev/null; then
+    log "$PUBLISH_OUTPUT"
+    log "Publish 404'd but $PACKAGE_NAME@$NEW_VERSION is on the registry: another release workflow published it first. Skipping."
+    log "       Two workflows releasing one repo is a misconfiguration: keep exactly one publisher on the default branch."
     exit 0
   fi
   log "$PUBLISH_OUTPUT"
@@ -342,7 +383,7 @@ git tag "v$NEW_VERSION"
 # Fail loudly if the tag never lands: the tag is what stops the next run from
 # re-analyzing these commits (re-drafting the changelog, re-pushing release
 # docs), so a silent failure here would quietly corrupt the next release.
-if ! retry_cmd 4 2 git push origin "v$NEW_VERSION"; then
+if ! retry_cmd 4 2 timeout --kill-after=10 60 git push origin "v$NEW_VERSION"; then
   log "Error: failed to push tag v$NEW_VERSION after retries. The release is published;"
   log "       push the tag manually so the next run does not re-analyze these commits."
   exit 1
@@ -381,7 +422,7 @@ else
   git commit -m "docs: release $NEW_VERSION [skip ci]"
   # Push to the default branch explicitly so this works whether actions/checkout
   # left us on a branch or in detached HEAD state.
-  if ! retry_cmd 4 2 git push origin "HEAD:$DEFAULT_BRANCH"; then
+  if ! retry_cmd 4 2 timeout --kill-after=10 60 git push origin "HEAD:$DEFAULT_BRANCH"; then
     log "Error: failed to push the release-docs update for v$NEW_VERSION."
     log "       The release is published and tagged; push the CHANGELOG commit manually."
     exit 1

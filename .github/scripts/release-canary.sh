@@ -20,6 +20,15 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 log() { echo "$@" >&2; }
 
+# No package.json at all: not a package, so there is nothing to canary. Kept
+# separate from the fail-closed arm below, which must keep treating a
+# package.json that EXISTS but does not parse as an error. Without this arm the
+# daily canary alerts forever in a synced consumer that has no Node project.
+if [[ ! -f package.json ]]; then
+  log "No package.json; this repo does not publish to npm. Nothing to canary."
+  exit 0
+fi
+
 # Self-check guard: a repo that does not publish to npm (package.json
 # "private": true — e.g. the template itself) has no release pipeline to canary,
 # so skip. Fails CLOSED on an unreadable package.json, matching version-bump.sh.

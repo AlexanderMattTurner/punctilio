@@ -9,8 +9,12 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=.github/scripts/auto-resolve/lib.sh
-source "${SCRIPT_DIR}/auto-resolve/lib.sh"
+LIB_DIR="$(cd "${SCRIPT_DIR}/lib" && pwd)"
+# CONFLICT_MARKER_RE from one place; git_auth_header from another.
+# shellcheck source=.github/scripts/lib/merge-conflict.bash
+source "${LIB_DIR}/merge-conflict.bash"
+# shellcheck source=.github/scripts/lib/git-auth.bash
+source "${LIB_DIR}/git-auth.bash"
 
 : "${GITHUB_TOKEN:?GITHUB_TOKEN required}"
 
@@ -44,5 +48,5 @@ model_count=$(wc -w <<<"${BY_MODEL:-}")
 git commit -q -m "chore: resolve template-sync conflicts
 
 ${deterministic_count} resolved structurally (mergiraf), ${model_count} by the model."
-git push origin HEAD:template-sync
+timeout --kill-after=10 60 git push origin HEAD:template-sync
 echo "Pushed resolutions for ${#resolved[@]} file(s)."
