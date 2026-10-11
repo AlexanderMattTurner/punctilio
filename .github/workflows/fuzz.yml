@@ -1,0 +1,57 @@
+name: Nightly fuzz
+
+# The fuzz suite in src/tests/fuzz.test.ts runs on every PR at a fixed seed and
+# a few thousand cases per property, so the required check never flakes. This
+# nightly run explores far deeper from a fresh random seed. A failure prints the
+# seed and fast-check path, which reproduce it locally:
+#   FUZZ_SEED=<seed> FUZZ_PATH=<path> pnpm test --coverage=false src/tests/fuzz.test.ts
+
+on:
+  schedule:
+    - cron: "17 3 * * *" # daily, 03:17 UTC
+  workflow_dispatch:
+    inputs:
+      runs:
+        description: "Cases per property (FUZZ_RUNS)"
+        required: false
+        default: "100000"
+      seed:
+        description: "fast-check seed (FUZZ_SEED); empty picks a random one"
+        required: false
+        default: ""
+
+concurrency:
+  group: "${{ github.workflow }}"
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  fuzz:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Setup
+        uses: ./.github/actions/setup
+        with:
+          node-version: 22
+
+      - name: Run the fuzz suite deep
+        env:
+          INPUT_RUNS: ${{ inputs.runs }}
+          INPUT_SEED: ${{ inputs.seed }}
+          # The slowest property takes ~3 s per 2000 cases on a fast machine, so
+          # 100000 cases need well over the suite's default 300 s per test.
+          FUZZ_TIMEOUT_MS: "1800000"
+        run: |
+          FUZZ_RUNS="${INPUT_RUNS:-100000}"
+          FUZZ_SEED="${INPUT_SEED:-$((RANDOM * 32768 + RANDOM))}"
+          export FUZZ_RUNS FUZZ_SEED
+          echo "::notice::FUZZ_RUNS=${FUZZ_RUNS} FUZZ_SEED=${FUZZ_SEED}"
+          pnpm test --coverage=false src/tests/fuzz.test.ts
