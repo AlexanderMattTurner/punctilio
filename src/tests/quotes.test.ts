@@ -578,8 +578,11 @@ describe("niceQuotes", () => {
       // A dangling comma with no following item is not a separator.
       ['("a", ', `(${l}a,${r} `],
       // Fullwidth and CJK brackets enclose a list exactly like ASCII ones.
-      ...["\uFF08\uFF09", "\uFF3B\uFF3D", "\uFF5B\uFF5D", "\u3008\u3009", "\u300C\u300D", "\u3010\u3011"].map(
-        (pair): [string, string] => [`${pair[0]}${l}a${r}, ${l}b${r}${pair[1]}`, `${pair[0]}${l}a${r}, ${l}b${r}${pair[1]}`],
+      ...["\uFF08\uFF09", "\uFF3B\uFF3D", "\uFF5B\uFF5D", "\u3008\u3009", "\u300C\u300D", "\u3010\u3011"].flatMap(
+        (pair): [string, string][] => [
+          [`${pair[0]}${l}a${r}, ${l}b${r}${pair[1]}`, `${pair[0]}${l}a${r}, ${l}b${r}${pair[1]}`],
+          [`${pair[0]}"a", "b"${pair[1]}`, `${pair[0]}${l}a${r}, ${l}b${r}${pair[1]}`],
+        ],
       ),
     ])('places list-separator commas outside: "%s"', (input, expected) => {
       expect(niceQuotes(input)).toBe(expected)

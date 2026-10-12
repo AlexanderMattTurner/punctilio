@@ -151,11 +151,11 @@ const SINGLE_ENDING_SET = new Set<string>([".", "!", "?", ";", ":", ",", ")", EM
  * straight double quote belongs with the curly pair: whichever way it curls
  * lands in this set, so deciding as if it already had keeps re-runs (which
  * see the curled glyph) consistent. */
-const SINGLE_OPEN_BEFORE_SET = new Set<string>([LEFT_DOUBLE_QUOTE, RIGHT_DOUBLE_QUOTE, '"', EM_DASH, "-", "(", "/", "[", "{", INVERTED_QUESTION, INVERTED_EXCLAMATION])
+const SINGLE_OPEN_BEFORE_SET = new Set<string>([LEFT_DOUBLE_QUOTE, RIGHT_DOUBLE_QUOTE, '"', EM_DASH, "-", "/", ...OPENING_BRACKETS, INVERTED_QUESTION, INVERTED_EXCLAMATION])
 
 /** Boundary chars before an opening double quote (plus any \s char). A
  * single opener qualifies: a double quoted directly inside a single. */
-const DOUBLE_OPEN_BEFORE_SET = new Set<string>(["(", "/", "[", "{", "-", EM_DASH, LEFT_SINGLE_QUOTE, INVERTED_QUESTION, INVERTED_EXCLAMATION])
+const DOUBLE_OPEN_BEFORE_SET = new Set<string>(["/", ...OPENING_BRACKETS, "-", EM_DASH, LEFT_SINGLE_QUOTE, INVERTED_QUESTION, INVERTED_EXCLAMATION])
 
 /** Ending-context chars that block the opener rule's arm 2 (plus any \s char).
  * ELLIPSIS is deliberately absent: the rule's `...` arm opens, so `…` must too. */
@@ -169,10 +169,10 @@ const DOUBLE_EMPTY_BEFORE_SET = new Set<string>(["(", "[", "{"])
  * rule rejects falls through to opener/closer rules whose after-contexts are
  * the closer set, and the two routes must accept the same shapes or a re-run
  * (which sees the rendered opener, not the whitespace) classifies anew. */
-const DOUBLE_EMPTY_AFTER_SET = new Set<string>([")", "]", "}", ".", "!", "?", ",", ";", ":", "/", "-", "s", EM_DASH, ELLIPSIS, RIGHT_SINGLE_QUOTE, ...FOLDED_TERMINALS])
+const DOUBLE_EMPTY_AFTER_SET = new Set<string>([...CLOSING_BRACKETS, ".", "!", "?", ",", ";", ":", "/", "-", "s", EM_DASH, ELLIPSIS, RIGHT_SINGLE_QUOTE, ...FOLDED_TERMINALS])
 
 /** Ending-context chars after a closing double quote (plus any \s char). */
-const DOUBLE_CLOSE_AFTER_SET = new Set<string>(["/", ")", "]", ".", ",", ";", EM_DASH, ":", "-", "}", "!", "?", "s", ELLIPSIS, RIGHT_SINGLE_QUOTE, ...FOLDED_TERMINALS])
+const DOUBLE_CLOSE_AFTER_SET = new Set<string>(["/", ...CLOSING_BRACKETS, ".", ",", ";", EM_DASH, ":", "-", "!", "?", "s", ELLIPSIS, RIGHT_SINGLE_QUOTE, ...FOLDED_TERMINALS])
 
 /** Builds an `(items, index)` predicate: in range, non-boundary, and `test(ch)`. */
 function makeItemTester(test: (ch: string) => boolean): (items: Item[], index: number) => boolean {
