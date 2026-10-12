@@ -28,8 +28,9 @@ async function loadPunctilioConfig(searchFrom: string): Promise<RemarkPunctilioO
 
 async function runRemarkPunctilio(opts: RemarkPunctilioOptions, ast: Root): Promise<void> {
   // The unified `Transformer` signature requires a VFile and a callback,
-  // but `remarkPunctilio` only ever reads the tree. Narrow to the actual
-  // shape here so the cast lives in one well-commented place.
+  // but `remarkPunctilio` only needs the tree (the file just supplies the
+  // source for link positions). Narrow to the actual shape here so the cast
+  // lives in one well-commented place.
   const transformer = remarkPunctilio(opts) as (tree: Root) => void | Promise<void>
   await transformer(ast)
 }

@@ -77,6 +77,14 @@ const HTML_SNIPPETS = [
   `<p>"Use <code>transform("hello")</code> to apply."</p>`,
   `<p>The function <code>don't</code> is not transformed.</p>`,
 
+  // Quotes around skipped inline content pair across it; the content is untouched
+  `<p>Type "<kbd>q</kbd>" to quit, or "<var>x</var>".</p>`,
+  `<p>5<code>c</code>x 3 and 1<img src="a">-5</p>`,
+
+  // <iframe> fallback content and value-less <option> text are skipped
+  `<p>See <iframe>"a" -- b</iframe> now.</p>`,
+  `<select><option>"a" -- b</option><option value="v">"c" -- d</option></select>`,
+
   // German style on nested-quote snippet
   `<p>Er sagte, "Das ist <em>'gut'</em>".</p>`,
 

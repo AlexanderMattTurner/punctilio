@@ -1,16 +1,19 @@
 name: Mutation testing
 
-# Pull requests mutate only the source files they change (scripts/mutate-changed.mjs).
-# The full sharded run is daily, which also keeps each shard's incremental cache warm.
+# Runs daily (and on demand), not on pull requests: even a changed-files run can
+# take hours on a dense file, so contributors run `pnpm mutation:changed` locally
+# before opening a PR. A failed scheduled run opens or comments on a ci-failure
+# issue via ci-failure-notify.yaml.
 on:
-  pull_request:
   schedule:
     - cron: "41 2 * * *" # daily, 02:41 UTC
   workflow_dispatch:
 
+# cancellable-required-check-ok: cancel-in-progress is true only on pull_request, whose ref is per-PR; schedule and dispatch runs never cancel.
 concurrency:
   group: "${{ github.workflow }}-${{ github.ref }}"
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  # Never cancel: a dropped daily run leaves each shard's incremental cache cold.
+  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -21,9 +24,9 @@ jobs:
   # by SHARD_BUDGET (executions per shard) and MAX_SHARDS, so the matrix stays
   # balanced as the source grows without re-tuning file groups by hand. Runs on
   # the runner's bundled node; the planner reads only source files, no deps.
+  # event-scoped-ok: pull requests run mutation-changed instead of the sharded plan, and mutation-all reports on whichever ran.
   prep:
     name: Plan mutation shards
-    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
@@ -52,7 +55,7 @@ jobs:
     # backstop for the dense files (quote-classifier alone is ~270 mutants per
     # ~190 lines, each running a large covering-test set — ~30 min fully cold) and
     # for a cache-transition run (after a MAX_SHARDS change a shard's incremental
-    # cache mismatches and it re-tests fully cold). Warm PR runs finish in minutes.
+    # cache mismatches and it re-tests fully cold). Warm runs finish in minutes.
     timeout-minutes: 40
     strategy:
       fail-fast: false
@@ -105,7 +108,7 @@ jobs:
   weights-map:
     name: Merged weights map
     needs: mutation
-    if: always() && github.event_name != 'pull_request'
+    if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -127,47 +130,3 @@ jobs:
           echo "PUNCTILIO_MERGED_WEIGHTS_BEGIN"
           node scripts/mutation-weights.mjs merge shard-reports/mutation-report-*/mutation.json.weights.json
           echo "PUNCTILIO_MERGED_WEIGHTS_END"
-
-  # Mutates only the src files this PR changes, so a typical PR finishes in
-  # minutes; a PR touching a dense file (quote-classifier) can take ~30 min cold.
-  mutation-changed:
-    name: mutation (changed files)
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
-    steps:
-      - name: Checkout
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-        with:
-          # The script diffs against the merge-base with the base branch.
-          fetch-depth: 0
-          persist-credentials: false
-
-      - name: Setup
-        uses: ./.github/actions/setup
-        with:
-          node-version: 22
-
-      - name: Run mutation tests on changed files
-        env:
-          BASE_REF: ${{ github.base_ref }}
-        run: node scripts/mutate-changed.mjs "origin/${BASE_REF}"
-
-      - name: Upload mutation report
-        if: always()
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
-        with:
-          name: mutation-report-changed
-          path: reports/mutation/
-          if-no-files-found: ignore
-
-  mutation-all: # required-check: true
-    name: Mutation checks passed
-    needs: [prep, mutation, mutation-changed]
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    if: always()
-    steps:
-      - name: Fail if any job did not succeed
-        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
-        run: exit 1

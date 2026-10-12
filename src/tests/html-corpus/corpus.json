@@ -187,6 +187,42 @@
       }
     },
     {
+      "input": "<p>Type \"<kbd>q</kbd>\" to quit, or \"<var>x</var>\".</p>",
+      "outputs": {
+        "american": "<p>Type “<kbd>q</kbd>” to quit, or “<var>x</var>.”</p>",
+        "british": "<p>Type “<kbd>q</kbd>” to quit, or “<var>x</var>”.</p>",
+        "german": "<p>Type „<kbd>q</kbd>“ to quit, or „<var>x</var>“.</p>",
+        "french": "<p>Type « <kbd>q</kbd> » to quit, or « <var>x</var> ».</p>"
+      }
+    },
+    {
+      "input": "<p>5<code>c</code>x 3 and 1<img src=\"a\">-5</p>",
+      "outputs": {
+        "american": "<p>5<code>c</code>x 3 and 1<img src=\"a\">−5</p>",
+        "british": "<p>5<code>c</code>x 3 and 1<img src=\"a\">−5</p>",
+        "german": "<p>5<code>c</code>x 3 and 1<img src=\"a\">−5</p>",
+        "french": "<p>5<code>c</code>x 3 and 1<img src=\"a\">−5</p>"
+      }
+    },
+    {
+      "input": "<p>See <iframe>\"a\" -- b</iframe> now.</p>",
+      "outputs": {
+        "american": "<p>See <iframe>\"a\" -- b</iframe> now.</p>",
+        "british": "<p>See <iframe>\"a\" -- b</iframe> now.</p>",
+        "german": "<p>See <iframe>\"a\" -- b</iframe> now.</p>",
+        "french": "<p>See <iframe>\"a\" -- b</iframe> now.</p>"
+      }
+    },
+    {
+      "input": "<select><option>\"a\" -- b</option><option value=\"v\">\"c\" -- d</option></select>",
+      "outputs": {
+        "american": "<select><option>\"a\" -- b</option><option value=\"v\">“c”—d</option></select>",
+        "british": "<select><option>\"a\" -- b</option><option value=\"v\">“c”—d</option></select>",
+        "german": "<select><option>\"a\" -- b</option><option value=\"v\">„c“—d</option></select>",
+        "french": "<select><option>\"a\" -- b</option><option value=\"v\">« c »—d</option></select>"
+      }
+    },
+    {
       "input": "<p>Er sagte, \"Das ist <em>'gut'</em>\".</p>",
       "outputs": {
         "american": "<p>Er sagte, “Das ist <em>‘gut.’</em>”</p>",

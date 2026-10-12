@@ -20,6 +20,7 @@ import { UNICODE_SYMBOLS } from "../constants.js";
 const {
   LEFT_DOUBLE_QUOTE: LDQ,
   RIGHT_DOUBLE_QUOTE: RDQ,
+  LEFT_SINGLE_QUOTE: LSQ,
   RIGHT_SINGLE_QUOTE: RSQ,
   EM_DASH,
   EN_DASH,
@@ -88,8 +89,8 @@ describe("rehypePunctilio", () => {
       ["button", '<button>"Hi"</button>', `<button>${LDQ}Hi${RDQ}</button>`],
       [
         "option",
-        '<select><option>"Hi"</option></select>',
-        `<select><option>${LDQ}Hi${RDQ}</option></select>`,
+        '<select><option value="1">"Hi"</option></select>',
+        `<select><option value="1">${LDQ}Hi${RDQ}</option></select>`,
       ],
       ["output", '<output>"Hi"</output>', `<output>${LDQ}Hi${RDQ}</output>`],
     ])("transforms %s text", async (_name, html, expected) => {
@@ -172,11 +173,11 @@ describe("rehypePunctilio", () => {
 
     it("skips select but still transforms its option children", async () => {
       expect(
-        await processHtml('<select><option>"Hi"</option></select>', {
+        await processHtml('<select><option value="1">"Hi"</option></select>', {
           nbsp: false,
           transformAllElements: true,
         }),
-      ).toEqual(`<select><option>${LDQ}Hi${RDQ}</option></select>`);
+      ).toEqual(`<select><option value="1">${LDQ}Hi${RDQ}</option></select>`);
     });
 
     it("skipTags still wins in inverted mode", async () => {
@@ -449,6 +450,99 @@ describe("rehypePunctilio", () => {
       expect(await processHtml(html, { nbsp: false })).toEqual(expected);
     });
 
+    // Quote pairing reads across the gap, so quotes around skipped inline
+    // content keep their direction; the gap itself is never written into.
+    it.each([
+      [
+        "skipped elements",
+        '<p>Type "<kbd>q</kbd>" to quit, or "<var>x</var>".</p>',
+        `<p>Type ${LDQ}<kbd>q</kbd>${RDQ} to quit, or ${LDQ}<var>x</var>.${RDQ}</p>`,
+      ],
+      [
+        "an image",
+        '<p>See "<img src="a">" here</p>',
+        `<p>See ${LDQ}<img src="a">${RDQ} here</p>`,
+      ],
+      [
+        "a line break",
+        "<p>He said \"hi<br>there\" ok</p>",
+        `<p>He said ${LDQ}hi<br>there${RDQ} ok</p>`,
+      ],
+      [
+        "an element wrapping a gap",
+        '<p>A "<em>b <code>c</code> d</em>" e</p>',
+        `<p>A ${LDQ}<em>b <code>c</code> d</em>${RDQ} e</p>`,
+      ],
+      [
+        "a skipped element in a bare-text fragment",
+        'Type "<kbd>q</kbd>" now',
+        `Type ${LDQ}<kbd>q</kbd>${RDQ} now`,
+      ],
+      [
+        "an image among loose blockquote text",
+        '<blockquote><p>x</p>Type "<img src="a">" now</blockquote>',
+        `<blockquote><p>x</p>Type ${LDQ}<img src="a">${RDQ} now</blockquote>`,
+      ],
+      [
+        "a gap beside an apostrophe",
+        "<p>The <code>x</code>'s value</p>",
+        `<p>The <code>x</code>${RSQ}s value</p>`,
+      ],
+    ])("quotes pair across %s", async (_name, html, expected) => {
+      const once = await processHtml(html, { nbsp: false });
+      expect(once).toEqual(expected);
+      expect(await processHtml(once, { nbsp: false })).toEqual(once);
+    });
+
+    // A quote at the edge of a gap keeps the direction the segment edge gives
+    // it, while a pair around the gap still pairs.
+    it.each([
+      [
+        "a closing single quote before more prose",
+        "<p>He called it 'hi'<code>x</code> later</p>",
+        `<p>He called it ${LSQ}hi${RSQ}<code>x</code> later</p>`,
+      ],
+      [
+        "a closing double quote before more prose",
+        '<p>He said "hi"<code>x</code> later</p>',
+        `<p>He said ${LDQ}hi${RDQ}<code>x</code> later</p>`,
+      ],
+      [
+        "a closing single quote at the end of the block",
+        "<p>He called it 'hi'<code>x</code></p>",
+        `<p>He called it ${LSQ}hi${RSQ}<code>x</code></p>`,
+      ],
+      [
+        "an abbreviated opener before the gap",
+        "<p>rock 'n'<code>x</code> roll</p>",
+        `<p>rock ${LSQ}n${RSQ}<code>x</code> roll</p>`,
+      ],
+      [
+        "a plural possessive before the gap",
+        "<p>the boys'<code>x</code> toys</p>",
+        `<p>the boys${RSQ}<code>x</code> toys</p>`,
+      ],
+      [
+        "an opening single quote after the gap",
+        "<p>a <code>x</code>'hi' there</p>",
+        `<p>a <code>x</code>${LSQ}hi${RSQ} there</p>`,
+      ],
+      [
+        "a single quote pair around the gap",
+        "<p>the '<code>x</code>' key</p>",
+        `<p>the ${LSQ}<code>x</code>${RSQ} key</p>`,
+      ],
+      [
+        "closing and opening single quotes on both sides of a gap",
+        "<p>say 'a'<code>x</code>'b' ok</p>",
+        `<p>say ${LSQ}a${RSQ}<code>x</code>${LSQ}b${RSQ} ok</p>`,
+      ],
+    ])("quote direction is kept beside %s", async (_name, html, expected) => {
+      const once = await processHtml(html, { nbsp: false });
+      expect(once).toEqual(expected);
+      expect(await processHtml(once, { nbsp: false })).toEqual(once);
+    });
+
     it("skipped-text nodes act as an opaque gap between their neighbors", async () => {
       // The skipped "MID" text separates "5" from "x5", so no × forms across it.
       const skipMid = (t: Text) => t.value === "MID";
@@ -558,6 +652,53 @@ describe("rehypePunctilio", () => {
       );
     });
 
+    it.each([false, true])(
+      "skips iframe fallback content (transformAllElements: %s)",
+      async (transformAllElements) => {
+        const html = '<p>See <iframe>"a" -- b</iframe> now</p>';
+        expect(
+          await processHtml(html, { nbsp: false, transformAllElements }),
+        ).toEqual(html);
+      },
+    );
+
+    // An option without a `value` attribute submits its text as the value.
+    it.each([
+      ["without value", "<option>\"a\" -- b</option>", "<option>\"a\" -- b</option>"],
+      [
+        "with value",
+        '<option value="v">"a" -- b</option>',
+        `<option value="v">${LDQ}a${RDQ}${EM_DASH}b</option>`,
+      ],
+      [
+        "with empty value",
+        '<option value="">"a"</option>',
+        `<option value="">${LDQ}a${RDQ}</option>`,
+      ],
+    ])("option %s", async (_name, option, expected) => {
+      const wrap = (inner: string) => `<select>${inner}</select>`;
+      for (const transformAllElements of [false, true]) {
+        expect(
+          await processHtml(wrap(option), { nbsp: false, transformAllElements }),
+        ).toEqual(wrap(expected));
+      }
+    });
+
+    // HAST allows a null property (serializers omit it), which is as absent
+    // as undefined.
+    it.each([null, undefined])(
+      "an option with a %s value property is a literal control value",
+      async (value) => {
+        const option: Element = {
+          ...h("option", {}, '"a" -- b'),
+          properties: { value } as unknown as Element["properties"],
+        };
+        const tree: Root = { type: "root", children: [h("select", [option])] };
+        await unified().use(rehypePunctilio, { nbsp: false }).run(tree);
+        expect((option.children[0] as Text).value).toBe('"a" -- b');
+      },
+    );
+
     it("skips nested content inside code blocks", async () => {
       expect(
         await processHtml('<pre><code>"Hello" -- test...</code></pre>'),
@@ -613,6 +754,27 @@ describe("rehypePunctilio", () => {
       ],
     ])("skips %s", async (_name, html, options, expected) => {
       expect(await processHtml(html, options)).toEqual(expected);
+    });
+
+    // User skipTags extend the defaults rather than replacing them.
+    it.each(["code", "iframe", "custom-tag"])(
+      "skipTags: [custom-tag] still skips %s",
+      async (tag) => {
+        const html = `<p>x <${tag}>"a"</${tag}> y</p>`;
+        expect(
+          await processHtml(html, { nbsp: false, skipTags: ["custom-tag"] }),
+        ).toEqual(html);
+      },
+    );
+
+    it("collectProseBlocks skipTags extend the defaults", () => {
+      const first = h("p", '"a"');
+      const root = h("div", [
+        first,
+        h("p", [h("code", '"b"')]),
+        h("aside", [h("p", '"c"')]),
+      ]);
+      expect(collectProseBlocks(root, { skipTags: ["aside"] })).toEqual([first]);
     });
   });
 

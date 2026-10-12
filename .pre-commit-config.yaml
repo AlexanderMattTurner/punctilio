@@ -1,0 +1,38 @@
+repos:
+  - repo: https://github.com/AlexanderMattTurner/ci-truth-serum
+    # Keep in step with the pip pin in .github/workflows/sync-required-checks.yaml,
+    # so the lint and the ruleset apply step read the annotations the same way.
+    rev: da8f79630cdcaa5bc81902127dfc6d3982a2bc97 # v1.6.0
+    hooks:
+      # Every check, minus the ones below. Each --ignore is either a check that
+      # does not apply to this repo, or one whose findings sit in template-synced
+      # files. Findings in files this repo owns carry a per-site annotation or a
+      # fix instead, so the check stays live for new code.
+      - id: check-select
+        args:
+          - --select
+          - all
+          # Not applicable: it reads a Python tests/ directory, which this repo lacks.
+          - --ignore
+          - check:check-test-helper-kwargs
+          # Not applicable: NodeNext `.js` specifiers that resolve to `.ts` sources,
+          # and benchmark.mjs's `./dist/` import, read to it as dangling.
+          - --ignore
+          - check:check-relative-imports
+          # Template-synced findings, fixed upstream in the template: these
+          # files are overwritten on sync, so a local fix or annotation would
+          # not survive. Drop a line once the template stops producing it.
+          - --ignore
+          - check:check-collapsing-job-group
+          - --ignore
+          - check:check-counted-repo-root
+          - --ignore
+          - check:check-curl-retry
+          - --ignore
+          - check:check-dead-shell-functions
+          - --ignore
+          - check:check-divergent-action-pins
+          - --ignore
+          - check:check-pending-cancel-concurrency
+          - --ignore
+          - check:check-workflow-refs
