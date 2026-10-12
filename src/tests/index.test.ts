@@ -20,6 +20,7 @@ const {
   COPYRIGHT,
   NBSP,
   NNBSP,
+  QUESTION_EXCLAMATION,
   LEFT_GUILLEMET,
   RIGHT_GUILLEMET,
   PRIME,
@@ -466,6 +467,15 @@ describe("transform", () => {
     it("handles boundaries in degrees", () => {
       const input = `72${sep} F`
       expect(transformOverView(input, { degrees: true, nbsp: false })).toBe(`72${sep} ${DEGREE}F`)
+    })
+
+    // The ligature fold consumes the "!" between a boundary and the dash, so
+    // the dash must read the same on a re-run that finds it boundary-led.
+    it.each(["american", "british"] as const)("keeps a dash after a ligature folded across a boundary (%s dashes)", (dashStyle) => {
+      const options = { dashStyle, ligatures: true, nbsp: false }
+      const once = transformOverView(`a?${sep}!${EN_DASH} `, options)
+      expect(once).toBe(`a${QUESTION_EXCLAMATION}${sep}${EN_DASH} `)
+      expect(transformOverView(once, options)).toBe(once)
     })
   })
 

@@ -59,6 +59,17 @@ const FOLDED_FROM_TRAILING_DASH = new Set<string>([
  * dash char (`->` → `→`). */
 const FOLDED_FROM_LEADING_DASH = new Set<string>([UNICODE_SYMBOLS.ARROW_RIGHT])
 
+/**
+ * Glyphs the ellipsis and punctuation-ligature passes fold runs of `.`, `?` and
+ * `!` into. Like the math operators, the fold tolerates one node boundary at
+ * its junction, so it can consume the character that sat between a boundary and
+ * a dash.
+ */
+const FOLDED_TERMINAL_GLYPHS = new Set<string>([
+  UNICODE_SYMBOLS.ELLIPSIS, UNICODE_SYMBOLS.DOUBLE_QUESTION, UNICODE_SYMBOLS.QUESTION_EXCLAMATION,
+  UNICODE_SYMBOLS.EXCLAMATION_QUESTION, UNICODE_SYMBOLS.DOUBLE_EXCLAMATION, UNICODE_SYMBOLS.INTERROBANG,
+])
+
 /** The vulgar fraction glyphs the fraction pass folds digit-led `n/d` pairs into. */
 const FRACTION_GLYPH_CLASS_FRAGMENT = Object.entries(UNICODE_SYMBOLS)
   .filter(([name]) => name.startsWith("FRACTION_"))
@@ -796,10 +807,7 @@ const MINUS_BEFORE_CLASS_RE = new RegExp(`[\\s${asCharClassContent(OPENING_BRACK
 // ("?|!-0" folds to "⁈|-0" with the hyphen stranded boundary-adjacent).
 const FOLDED_WORD_CLASS_FRAGMENT = [...FOLDED_WORD_CHARS].join("")
 const FOLDED_MATH_CLASS_FRAGMENT = [...FOLDED_MATH_OPERATORS].join("")
-const FOLDED_TERMINAL_CLASS_FRAGMENT = [
-  UNICODE_SYMBOLS.ELLIPSIS, UNICODE_SYMBOLS.DOUBLE_QUESTION, UNICODE_SYMBOLS.QUESTION_EXCLAMATION,
-  UNICODE_SYMBOLS.EXCLAMATION_QUESTION, UNICODE_SYMBOLS.DOUBLE_EXCLAMATION, UNICODE_SYMBOLS.INTERROBANG, "!",
-].join("")
+const FOLDED_TERMINAL_CLASS_FRAGMENT = [...FOLDED_TERMINAL_GLYPHS, "!"].join("")
 const NUM_BEFORE_2B_BLOCK_RE = new RegExp(`[\\d.,${LATIN_LETTERS}${FOLDED_WORD_CLASS_FRAGMENT}${FOLDED_MATH_CLASS_FRAGMENT}${FOLDED_TERMINAL_CLASS_FRAGMENT}]`)
 
 /**
@@ -1082,10 +1090,11 @@ function convertBoundaryLedDashes(view: ProseView, rendered: string): void {
     // fold-stranded configuration: the math pass consumes one character
     // across this junction (`=` + `~—` folds to `≈` + `—`), so the character
     // that blocked this rule on the source text is gone, and converting now
-    // would diverge from that blocked first pass.
+    // would diverge from that blocked first pass. The ellipsis and ligature
+    // folds strand a dash the same way (`?|!–` folds to `⁈|–`).
     if (stackedHere < 2) {
       const before = text[b - 1]
-      if (before === undefined || /\s/.test(before) || FOLDED_MATH_OPERATORS.has(before)) continue
+      if (before === undefined || /\s/.test(before) || FOLDED_MATH_OPERATORS.has(before) || FOLDED_TERMINAL_GLYPHS.has(before)) continue
     }
     // Dash run from the boundary, not crossing a further boundary.
     let runEnd = b + 1

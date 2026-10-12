@@ -1013,6 +1013,24 @@ describe("ProseView boundary-tolerance edges", () => {
     })
   })
 
+  // The ellipsis and ligature folds consume the character between a boundary
+  // and a dash ("?{b}!– x" folds to "⁈{b}– x"), so a boundary-led dash after a
+  // folded terminal blocks like the character run it folds from.
+  describe("boundary-led dash after a folded terminal", () => {
+    const sep = DEFAULT_SEPARATOR
+    it.each([
+      ["a!", `a!${sep}${EM_DASH}b`],
+      [`a${ELLIPSIS}`, `a${ELLIPSIS}${sep}${EN_DASH} b`],
+      [`a${UNICODE_SYMBOLS.DOUBLE_QUESTION}`, `a${UNICODE_SYMBOLS.DOUBLE_QUESTION}${sep}${EN_DASH} b`],
+      [`a${UNICODE_SYMBOLS.QUESTION_EXCLAMATION}`, `a${UNICODE_SYMBOLS.QUESTION_EXCLAMATION}${sep}${EN_DASH} b`],
+      [`a${UNICODE_SYMBOLS.EXCLAMATION_QUESTION}`, `a${UNICODE_SYMBOLS.EXCLAMATION_QUESTION}${sep}${EN_DASH} b`],
+      [`a${UNICODE_SYMBOLS.DOUBLE_EXCLAMATION}`, `a${UNICODE_SYMBOLS.DOUBLE_EXCLAMATION}${sep}${EN_DASH} b`],
+      [`a${UNICODE_SYMBOLS.INTERROBANG}`, `a${UNICODE_SYMBOLS.INTERROBANG}${sep}${EN_DASH} b`],
+    ])("hyphenReplace(%j + boundary + spaced en dash) is %j", (before, expected) => {
+      expect(viewTransform(hyphenReplace, `${before}${sep}${EN_DASH} b`, sep)).toBe(expected)
+    })
+  })
+
   describe("line-leading em dash before a fraction glyph", () => {
     it.each([
       UNICODE_SYMBOLS.FRACTION_1_4,
