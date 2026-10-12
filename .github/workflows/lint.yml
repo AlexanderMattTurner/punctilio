@@ -32,20 +32,53 @@ jobs:
         run: pnpm typecheck:scripts
 
       - name: Check GitHub Actions are SHA-pinned
+        env:
+          # Any remote `uses:` whose ref is not a full 40-hex commit SHA, so a
+          # branch (`@main`) is caught as well as a tag (`@v4`).
+          UNPINNED_PATTERN: "uses:\\s*[\"']?(?!\\./|docker://)[^@\\s\"']+@(?![0-9a-f]{40}(\\s|$|[\"']))"
         run: |
-          UNPINNED=$(grep -rn 'uses:.*@v[0-9]' .github/workflows/ .github/actions/ || true)
+          # grep exits 1 when nothing matches; anything above that is a real error.
+          rc=0
+          UNPINNED=$(grep -rnP -e "$UNPINNED_PATTERN" .github/workflows/ .github/actions/) || rc=$?
+          [ "$rc" -le 1 ] || exit "$rc"
           if [ -n "$UNPINNED" ]; then
             echo "::error::Found unpinned action references (must use SHA pins with version comment):"
             echo "$UNPINNED"
             exit 1
           fi
 
+  actionlint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      ACTIONLINT_VERSION: "1.7.12"
+      ACTIONLINT_SHA256: "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Download pinned actionlint
+        run: |
+          archive="actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          curl -fsSL --retry 6 --retry-all-errors --retry-delay 15 --connect-timeout 30 \
+            -o "${RUNNER_TEMP}/${archive}" \
+            "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/${archive}"
+          echo "${ACTIONLINT_SHA256}  ${RUNNER_TEMP}/${archive}" | sha256sum --check --strict
+          tar xzf "${RUNNER_TEMP}/${archive}" -C "${RUNNER_TEMP}" actionlint
+
+      # The runner image ships shellcheck, so actionlint also lints every `run:` script.
+      - name: Run actionlint
+        run: '"${RUNNER_TEMP}/actionlint" -color'
+
   all-checks-passed:
     name: All checks passed
-    needs: [lint]
+    needs: [lint, actionlint]
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     if: always()
     steps:
       - name: Fail if lint did not succeed
-        if: needs.lint.result != 'success'
+        if: needs.lint.result != 'success' || needs.actionlint.result != 'success'
         run: exit 1

@@ -8,6 +8,7 @@ const {
   LEFT_SINGLE_QUOTE,
   RIGHT_SINGLE_QUOTE,
   MODIFIER_LETTER_APOSTROPHE,
+  DOUBLE_PRIME,
   EM_DASH,
   ELLIPSIS,
   DOUBLE_LOW_9_QUOTE,
@@ -390,6 +391,56 @@ describe("niceQuotes", () => {
       const options = style ? { punctuationStyle: style } : {}
       expect(niceQuotes(`can${MODIFIER_LETTER_APOSTROPHE}t`, options)).toBe(`can${RIGHT_SINGLE_QUOTE}t`)
     })
+  })
+
+  // Inputs a prior transform failed to stabilize in one pass: each produced one
+  // value on the first transform and a different value on the second. `expected`
+  // is the fixed point both passes must now reach.
+  describe("idempotency regressions", () => {
+    it.each([
+      // Literal U+02BC beside an orphan closer: normalizing it before
+      // classification lets american comma placement settle in one pass, rather
+      // than exposing a fresh closer for the re-run to move.
+      [
+        niceQuotes,
+        "american",
+        `'S${MODIFIER_LETTER_APOSTROPHE},`,
+        `${LEFT_SINGLE_QUOTE}S,${RIGHT_SINGLE_QUOTE}`,
+      ],
+      // German unmatched double beside a digit re-derives to a straight `"`,
+      // which is an inch/prime candidate; the post-classification prime pass
+      // converts it now instead of leaving it for the re-run.
+      [
+        niceQuotes,
+        "german",
+        `0${LEFT_DOUBLE_QUOTE}${RIGHT_DOUBLE_QUOTE}S`,
+        `0${DOUBLE_PRIME}"S`,
+      ],
+      // Swiss thousands separator after a digit stays an apostrophe (renders
+      // U+2019), never a prime — the closing normalization folds the protected
+      // U+02BC back to U+2019.
+      [
+        niceQuotes,
+        "german",
+        `5${RIGHT_SINGLE_QUOTE}000`,
+        `5${RIGHT_SINGLE_QUOTE}000`,
+      ],
+    ] as const)("niceQuotes stabilizes %s: %j", (fn, style, input, expected) => {
+      const options = { punctuationStyle: style } as const
+      expect(fn(input, options)).toBe(expected)
+      expect(fn(fn(input, options), options)).toBe(expected)
+    })
+
+    it.each(["british", "french"] as const)(
+      "classifyApostrophes relabels a closer placement slid onto an s (%s)",
+      (style) => {
+        const options = { punctuationStyle: style } as const
+        const input = "dogs.'"
+        const expected = `dogs${MODIFIER_LETTER_APOSTROPHE}.`
+        expect(classifyApostrophes(input, options)).toBe(expected)
+        expect(classifyApostrophes(expected, options)).toBe(expected)
+      },
+    )
   })
 
   describe("with separator character", () => {

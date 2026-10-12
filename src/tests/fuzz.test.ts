@@ -6,8 +6,9 @@
  * would flake the moment it found a rare counterexample). Each property still
  * explores thousands of inputs from that seed. Widen the search locally with
  * `FUZZ_RUNS=<n>` (more cases) and `FUZZ_SEED=<n>`
- * (a different slice); on failure fast-check prints the seed and path to
- * reproduce with `FUZZ_SEED=<seed> FUZZ_PATH=<path> pnpm test fuzz`.
+ * (a different slice), raising the per-test `FUZZ_TIMEOUT_MS` for deep runs;
+ * on failure fast-check prints the seed and path to reproduce with
+ * `FUZZ_SEED=<seed> FUZZ_PATH=<path> pnpm test fuzz`.
  */
 
 import fc from "fast-check"
@@ -28,6 +29,7 @@ import { type ProseNode } from "../prose-view.js"
 // Default seed is verified green across the suite's run counts; override with
 // FUZZ_SEED to explore a different slice.
 const SEED = process.env.FUZZ_SEED ? Number(process.env.FUZZ_SEED) : 0
+const TIMEOUT_MS = Number(process.env.FUZZ_TIMEOUT_MS ?? "") || 300_000
 
 function fcParams(numRuns: number): fc.Parameters<unknown> {
   const runs = Number(process.env.FUZZ_RUNS ?? "") || numRuns
@@ -86,7 +88,7 @@ describe("fuzz: transform", () => {
       }),
       fcParams(3000),
     )
-  }, 300_000)
+  }, TIMEOUT_MS)
 
   it("with all opt-in passes enabled is idempotent", () => {
     const allOn: TransformOptions = { degrees: true, fractions: true, ligatures: true, superscript: true }
@@ -102,7 +104,7 @@ describe("fuzz: transform", () => {
       ),
       fcParams(3000),
     )
-  }, 300_000)
+  }, TIMEOUT_MS)
 })
 
 describe("fuzz: transformView over multi-node views", () => {
@@ -125,7 +127,7 @@ describe("fuzz: transformView over multi-node views", () => {
       ),
       fcParams(2000),
     )
-  }, 300_000)
+  }, TIMEOUT_MS)
 
   it("over a single node matches the plain-string transform", () => {
     fc.assert(
@@ -137,7 +139,7 @@ describe("fuzz: transformView over multi-node views", () => {
       }),
       fcParams(1500),
     )
-  }, 300_000)
+  }, TIMEOUT_MS)
 })
 
 describe("fuzz: ProseView commit semantics", () => {
@@ -189,7 +191,7 @@ describe("fuzz: ProseView commit semantics", () => {
       ),
       fcParams(3000),
     )
-  }, 300_000)
+  }, TIMEOUT_MS)
 })
 
 describe("fuzz: definePass replacement templates", () => {
@@ -224,7 +226,7 @@ describe("fuzz: definePass replacement templates", () => {
         fcParams(2000),
       )
     },
-    300_000,
+    TIMEOUT_MS,
   )
 
   it("with boundaries: \"allow\" matches String.replace across node splits", () => {
@@ -240,7 +242,7 @@ describe("fuzz: definePass replacement templates", () => {
       }),
       fcParams(2000),
     )
-  }, 300_000)
+  }, TIMEOUT_MS)
 })
 
 describe("fuzz: transformHtml", () => {
@@ -267,7 +269,7 @@ describe("fuzz: transformHtml", () => {
       ),
       fcParams(300),
     )
-  }, 300_000)
+  }, TIMEOUT_MS)
 })
 
 describe("fuzz: transformMarkdown", () => {
@@ -284,7 +286,7 @@ describe("fuzz: transformMarkdown", () => {
       }),
       fcParams(300),
     )
-  }, 300_000)
+  }, TIMEOUT_MS)
 
   it("leaves inline code spans untouched", async () => {
     // Edge whitespace and empty spans change the Markdown code-span syntax
@@ -299,5 +301,5 @@ describe("fuzz: transformMarkdown", () => {
       }),
       fcParams(300),
     )
-  }, 300_000)
+  }, TIMEOUT_MS)
 })

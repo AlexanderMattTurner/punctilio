@@ -1,9 +1,11 @@
 name: Mutation testing
 
+# Pull requests mutate only the source files they change (scripts/mutate-changed.mjs).
+# The full sharded run is daily, which also keeps each shard's incremental cache warm.
 on:
   pull_request:
-  push:
-    branches: [main]
+  schedule:
+    - cron: "41 2 * * *" # daily, 02:41 UTC
   workflow_dispatch:
 
 concurrency:
@@ -21,6 +23,7 @@ jobs:
   # the runner's bundled node; the planner reads only source files, no deps.
   prep:
     name: Plan mutation shards
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
@@ -99,7 +102,7 @@ jobs:
   weights-map:
     name: Merged weights map
     needs: mutation
-    if: always()
+    if: always() && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -122,10 +125,44 @@ jobs:
           node scripts/mutation-weights.mjs merge shard-reports/mutation-report-*/mutation.json.weights.json
           echo "PUNCTILIO_MERGED_WEIGHTS_END"
 
-  mutation-all:
-    name: Mutation checks passed
-    needs: [prep, mutation]
+  # Mutates only the src files this PR changes, so a typical PR finishes in
+  # minutes; a PR touching a dense file (quote-classifier) can take ~30 min cold.
+  mutation-changed:
+    name: mutation (changed files)
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          # The script diffs against the merge-base with the base branch.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup
+        uses: ./.github/actions/setup
+        with:
+          node-version: 22
+
+      - name: Run mutation tests on changed files
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: node scripts/mutate-changed.mjs "origin/${BASE_REF}"
+
+      - name: Upload mutation report
+        if: always()
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        with:
+          name: mutation-report-changed
+          path: reports/mutation/
+          if-no-files-found: ignore
+
+  mutation-all: # required-check: true
+    name: Mutation checks passed
+    needs: [prep, mutation, mutation-changed]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
     if: always()
     steps:
       - name: Fail if any job did not succeed

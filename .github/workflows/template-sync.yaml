@@ -122,9 +122,12 @@ env:
   # still carries it keeps its own copy rather than having sync delete it out
   # from under a caller that has not converted yet.
   # punctilio runs its own test/lint/release/Claude workflows (test.yml, lint.yml,
-  # auto-version.yml); the template's equivalents below duplicate them, and
-  # auto-version.yaml would race auto-version.yml to publish.
-  EXCLUDE_PATHS: ".github/workflows/security-vulnerability-scan.yaml .github/prompts/security-vulnerability-scan.md .github/scripts/auto-resolve .github/workflows/auto-version.yaml .github/workflows/lint.yaml .github/workflows/node-tests.yaml .github/workflows/pre-commit.yaml .github/workflows/claude.yaml"
+  # auto-version.yml + scripts/version-bump.sh, which pins the README pre-commit
+  # rev on release); the template's equivalents below duplicate them, and
+  # auto-version.yaml would race auto-version.yml to publish. The template's
+  # release scripts (version-bump.sh, promote-changelog.mjs and its test) are
+  # used only by its auto-version.yaml, so they are excluded with it.
+  EXCLUDE_PATHS: ".github/workflows/security-vulnerability-scan.yaml .github/prompts/security-vulnerability-scan.md .github/scripts/auto-resolve .github/workflows/auto-version.yaml .github/workflows/lint.yaml .github/workflows/node-tests.yaml .github/workflows/pre-commit.yaml .github/workflows/claude.yaml .github/scripts/version-bump.sh .github/scripts/promote-changelog.mjs .github/scripts/version-bump.test.mjs"
   # Files the sync UPDATES but never INTRODUCES. Absent from the child repo they
   # are skipped; present, they sync like anything else. This is the opt-in half
   # of EXCLUDE_PATHS: opting in is creating the file once, opting out is deleting

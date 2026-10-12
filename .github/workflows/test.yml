@@ -14,16 +14,32 @@ permissions:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 50
     strategy:
+      fail-fast: false
       matrix:
+        os: [ubuntu-latest]
         node-version: [20, 22, 24]
+        include:
+          - os: windows-latest
+            node-version: 22
+          - os: macos-latest
+            node-version: 22
+    defaults:
+      run:
+        shell: bash
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
+
+      # package.json scripts use POSIX shell syntax (`if [ -d src ]`,
+      # `STRYKER_RUN=1 cmd`), which pnpm would otherwise hand to cmd.exe.
+      - name: Run package scripts under Git Bash
+        if: runner.os == 'Windows'
+        run: printf '%s\n' 'npm_config_script_shell=C:\Program Files\Git\bin\bash.exe' >> "$GITHUB_ENV"
 
       - name: Setup
         uses: ./.github/actions/setup
@@ -60,6 +76,7 @@ jobs:
     name: All checks passed
     needs: [test, benchmark]
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     if: always()
     steps:
       - name: Fail if any job did not succeed

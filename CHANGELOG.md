@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+## [5.4.6] - 2026-10-12
+
+### Fixed
+
+- Restore idempotency for orphan-apostrophe and placement-slide quote closers.
+- CLI now runs through the .bin symlink and without optional peers.
+
+### Security
+
+- Dependency review now gates pull requests.
+- CodeQL analysis enabled for TypeScript and Actions.
+
 ## [5.4.4] - 2026-08-18
 
 ### Fixed
