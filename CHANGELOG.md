@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## [5.4.7] - 2026-10-12
+
+### Fixed
+
+- CI configuration now includes `.gitattributes` to ensure merge-driver-probe has the necessary attributes for testing.
+
 ## [5.4.6] - 2026-10-12
 
 ### Fixed
