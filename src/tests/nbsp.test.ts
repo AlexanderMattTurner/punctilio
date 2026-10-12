@@ -76,6 +76,8 @@ describe("nbspAfterShortWords", () => {
     ["à chat", `à${NBSP}chat`],
     ["où aller", `où${NBSP}aller`],
     ["ça va", `ça${NBSP}va`],
+    // A short word right after any opening quote, low-9 and guillemets included.
+    ...["\u201C", "\u00AB", "\u201E", "\u201A"].map((quote): [string, string] => [`${quote}a test`, `${quote}a${NBSP}test`]),
   ])('"%s" → "%s"', (input, expected) => {
     expect(nbspAfterShortWords(input)).toBe(expected)
   })

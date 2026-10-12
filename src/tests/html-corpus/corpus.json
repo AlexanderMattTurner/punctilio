@@ -11,7 +11,7 @@
       "outputs": {
         "american": "<p>“He said <em>‘never,’</em>” she replied.</p>",
         "british": "<p>“He said <em>‘never’</em>”, she replied.</p>",
-        "german": "<p>„He said <em>‚never‘</em>“, she replied.</p>",
+        "german": "<p>„He said <em>‚never‘</em>“, she replied.</p>",
         "french": "<p>« He said <em>‘never’</em> », she replied.</p>"
       }
     },
@@ -281,7 +281,7 @@
       "outputs": {
         "american": "<p>“He told me, <em>‘She said, “hello.”’</em>”</p>",
         "british": "<p>“He told me, <em>‘She said, “hello”’</em>”.</p>",
-        "german": "<p>„He told me, <em>‚She said, „hello“‘</em>.“</p>",
+        "german": "<p>„He told me, <em>‚She said, „hello“‘</em>.“</p>",
         "french": "<p>« He told me, <em>‘She said, « hello »’</em> ».</p>"
       }
     }

@@ -155,6 +155,9 @@ export const OPENING_PUNCTUATION: readonly string[] = [
   UNICODE_SYMBOLS.SINGLE_LOW_9_QUOTE,
 ]
 
+/** Guillemets and low-9 quotes, which open or close quotes like the curly pairs. */
+export const LOCALE_QUOTE_MARKS = `${UNICODE_SYMBOLS.LEFT_GUILLEMET}${UNICODE_SYMBOLS.RIGHT_GUILLEMET}${UNICODE_SYMBOLS.DOUBLE_LOW_9_QUOTE}${UNICODE_SYMBOLS.SINGLE_LOW_9_QUOTE}`
+
 /**
  * Closing brackets, which may not begin a line. Scoped to brackets because the
  * other marks barred from a line start are {@link TERMINAL_PUNCTUATION} and the
