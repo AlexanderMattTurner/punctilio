@@ -81,8 +81,10 @@ superseded="${PUBLISH_DIR}/superseded-prs.txt"
 while IFS= read -r line || [[ -n "$line" ]]; do
   [[ -z "$line" ]] && continue
   [[ "$line" =~ ^[0-9]+$ ]] || die "superseded-prs.txt holds a non-numeric line: '${line}'."
-  # Only an open Dependabot PR may be closed on the agent's word.
-  if ! head_ref=$(gh pr view "$line" --json state,headRefName --jq 'select(.state == "OPEN") | .headRefName'); then
+  # Only an open Dependabot PR may be closed on the agent's word. A fork can
+  # name its branch dependabot/*, so the author and head repository count too.
+  if ! head_ref=$(gh pr view "$line" --json state,headRefName,isCrossRepository,author --jq \
+    'select(.state == "OPEN" and .isCrossRepository == false and (.author.login == "app/dependabot" or .author.login == "dependabot[bot]")) | .headRefName'); then
     echo "::warning::Not closing #${line}: could not look it up."
     continue
   fi
