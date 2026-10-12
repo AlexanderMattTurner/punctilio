@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { createHash } from "node:crypto"
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs"
 import { readFile, rename, writeFile } from "node:fs/promises"
 import { dirname, extname, isAbsolute, join, relative, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
@@ -11,8 +11,9 @@ import { cosmiconfig } from "cosmiconfig"
 import ignore, { type Ignore } from "ignore"
 import { glob } from "tinyglobby"
 
-import { MARKDOWN_ONLY_OPTION_KEYS, MARKDOWN_OPTION_KEYS, type MarkdownOptions, transformMarkdown } from "./markdown.js"
-import { HTML_ONLY_OPTION_KEYS, HTML_OPTION_KEYS, type HtmlOptions, transformHtml } from "./html.js"
+import type { MarkdownOptions } from "./markdown.js"
+import type { HtmlOptions } from "./html.js"
+import { HTML_ONLY_OPTION_KEYS, HTML_OPTION_KEYS, MARKDOWN_ONLY_OPTION_KEYS, MARKDOWN_OPTION_KEYS } from "./sink-option-keys.js"
 import { PUNCTUATION_STYLES, type PunctuationStyle } from "./quotes.js"
 import { DASH_STYLES, type DashStyle } from "./dashes.js"
 import { assertKnownOptionKeys, omitKeys, stableStringify } from "./utils.js"
@@ -381,11 +382,16 @@ function buildOptions(flags: ParsedFlags): CliOptions {
 
 // The merged options may carry keys for the other sink (e.g. emphasisMarker
 // alongside skipTags from one shared config); strip the inapplicable ones so
-// each sink's strict key validation only sees keys it understands.
+// each sink's strict key validation only sees keys it understands. The sinks
+// load lazily because they import the optional unified peers, which --help,
+// --version and usage errors must not need.
 async function transformContent(input: string, type: FileType, opts: CliOptions): Promise<string> {
-  return type === "md"
-    ? transformMarkdown(input, omitKeys(opts, HTML_ONLY_OPTION_KEYS) as MarkdownOptions)
-    : transformHtml(input, omitKeys(opts, MARKDOWN_ONLY_OPTION_KEYS) as HtmlOptions)
+  if (type === "md") {
+    const { transformMarkdown } = await import("./markdown.js")
+    return transformMarkdown(input, omitKeys(opts, HTML_ONLY_OPTION_KEYS) as MarkdownOptions)
+  }
+  const { transformHtml } = await import("./html.js")
+  return transformHtml(input, omitKeys(opts, MARKDOWN_ONLY_OPTION_KEYS) as HtmlOptions)
 }
 
 // The unified pipelines emit LF-only output and unconditionally append a
@@ -546,7 +552,8 @@ async function runValidated(
 }
 
 /* istanbul ignore next -- entry-point bootstrap; logic is covered via runCli */
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+// npm runs the bin through a node_modules/.bin symlink, so compare real paths.
+if (process.argv[1] && fileURLToPath(import.meta.url) === realpathSync(process.argv[1])) {
   runCli(process.argv.slice(2), {
     stdin: process.stdin,
     stdout: process.stdout,
