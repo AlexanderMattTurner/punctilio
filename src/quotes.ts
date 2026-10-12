@@ -24,6 +24,14 @@ export function niceQuotes(input: ProseView, options?: QuoteOptions): void
 export function niceQuotes(input: string | ProseView, options: QuoteOptions = {}): string | void {
   const punctuationStyle = options.punctuationStyle ?? "american"
   return overInput(input, (view) => {
+    // Normalize any U+02BC in the input to U+2019 up front (for every style,
+    // including "none"), so classification and punctuation placement see the
+    // same glyph a re-run would. Normalizing after classification instead lets
+    // a second transform reclassify the freshly-normalized closer, breaking
+    // idempotency (e.g. "'Sʼ," → "‘S’," → "‘S,’"). Commit before the next stage
+    // so it reads the normalized text: replaceAllInView only queues edits.
+    replaceAllInView(view, cachedRegExp(MODIFIER_LETTER_APOSTROPHE, "g"), () => RIGHT_SINGLE_QUOTE)
+    view.commit()
     if (punctuationStyle !== "none") {
       if (options.primes !== false) {
         convertPrimeMarks(view)
@@ -31,10 +39,15 @@ export function niceQuotes(input: string | ProseView, options: QuoteOptions = {}
       // Apostrophes render as U+2019, the same glyph as closing single quotes,
       // per the Unicode Standard.
       classifyAndRenderQuotes(view, punctuationStyle, RIGHT_SINGLE_QUOTE)
+      if (options.primes !== false) {
+        // Classification can synthesize a fresh digit-adjacent straight quote
+        // (e.g. a German unmatched double/single re-derived by position), which
+        // is a prime candidate the pre-classification pass never saw. Re-run the
+        // prime pass so the fixed point is reached now instead of on a re-run
+        // (e.g. "0“”S" → "0″\"S" in one transform, not "0\"\"S" then "0″\"S").
+        convertPrimeMarks(view)
+      }
     }
-    // Any U+02BC already in the input is normalized to U+2019 as well
-    // (including under punctuationStyle "none").
-    replaceAllInView(view, cachedRegExp(MODIFIER_LETTER_APOSTROPHE, "g"), () => RIGHT_SINGLE_QUOTE)
   })
 }
 
