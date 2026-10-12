@@ -1,6 +1,7 @@
 import type { Link, PhrasingContent, Root, Text } from "mdast"
 import type { Transformer } from "unified"
 
+import { type Token, Tokenizer } from "parse5"
 import { visitParents } from "unist-util-visit-parents"
 
 import { transformView } from "./index.js"
@@ -22,8 +23,6 @@ const PHRASING_CONTAINERS = new Set(["paragraph", "heading", "tableCell"])
 const SKIP_TYPES = new Set(["inlineCode", "html"])
 
 const SKIPPED_HTML_TAGS: ReadonlySet<string> = new Set([...DEFAULT_SKIP_TAGS, RAW_TEXT_FORM_TAG])
-
-const HTML_TAG_RE = /^<(?<closing>\/)?(?<name>[a-z][a-z0-9-]*)(?=[\s/>])/i
 
 // Leaf phrasing nodes that render atomic content and carry no transformable
 // text. Between two text nodes, one is a real visual separator, so the
@@ -50,17 +49,31 @@ function isUrlTextLink(node: Link): boolean {
   return text === node.url || text === node.url.replace(/^(?:mailto:|https?:\/\/)/, "")
 }
 
+const ignoreToken = (): void => {}
+
 /** Tracks raw-HTML skip-list tags so the text between an open and close tag is skipped. */
-function trackSkippedHtmlTag(html: string, c: ProseCollector): void {
-  const groups = HTML_TAG_RE.exec(html)?.groups
-  const tagName = groups?.name.toLowerCase()
-  if (!groups || !tagName || !SKIPPED_HTML_TAGS.has(tagName)) return
-  if (groups.closing) {
-    const openIndex = c.openSkippedTags.lastIndexOf(tagName)
-    if (openIndex !== -1) c.openSkippedTags.length = openIndex
-    return
+function trackSkippedHtmlTags(html: string, c: ProseCollector): void {
+  const openTag = (token: Token.TagToken): void => {
+    if (!token.selfClosing && SKIPPED_HTML_TAGS.has(token.tagName)) c.openSkippedTags.push(token.tagName)
   }
-  if (!html.endsWith("/>")) c.openSkippedTags.push(tagName)
+  const closeTag = (token: Token.TagToken): void => {
+    const openIndex = c.openSkippedTags.lastIndexOf(token.tagName)
+    if (openIndex !== -1) c.openSkippedTags.length = openIndex
+  }
+  const tokenizer = new Tokenizer(
+    { sourceCodeLocationInfo: false },
+    {
+      onComment: ignoreToken,
+      onDoctype: ignoreToken,
+      onStartTag: openTag,
+      onEndTag: closeTag,
+      onEof: ignoreToken,
+      onCharacter: ignoreToken,
+      onNullCharacter: ignoreToken,
+      onWhitespaceCharacter: ignoreToken,
+    }
+  )
+  tokenizer.write(html, true)
 }
 
 function collectProse(node: PhrasingContent, depth: number, c: ProseCollector): void {
@@ -69,7 +82,7 @@ function collectProse(node: PhrasingContent, depth: number, c: ProseCollector): 
     return
   }
 
-  if (node.type === "html") trackSkippedHtmlTag(node.value, c)
+  if (node.type === "html") trackSkippedHtmlTags(node.value, c)
 
   if (
     SKIP_TYPES.has(node.type) ||

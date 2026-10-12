@@ -1,3 +1,4 @@
+import type { Paragraph, Root } from "mdast"
 import { unified } from "unified"
 import remarkParse from "remark-parse"
 import remarkGfm from "remark-gfm"
@@ -177,6 +178,28 @@ describe("remarkPunctilio", () => {
       ["a comment", 'a <!-- c --> "z"', `a <!-- c --> ${LDQ}z${RDQ}`],
     ])("%s", async (_name, input, expected) => {
       expect(await processMarkdown(input, { nbsp: false })).toEqual(expected)
+    })
+  })
+
+  describe("one raw HTML node holding several tags", () => {
+    it.each([
+      ["a skipped tag after a non-skipped one", "<b><code>", "</code></b>"],
+      ["uppercase tags", "<B><KBD>", "</KBD></B>"],
+      ["a self-closed tag before the skipped one", "<br/><code>", "</code>"],
+    ])("tracks every tag in %s", async (_name, open, close) => {
+      const paragraph: Paragraph = {
+        type: "paragraph",
+        children: [
+          { type: "html", value: open },
+          { type: "text", value: '"x"' },
+          { type: "html", value: close },
+          { type: "text", value: ' "y"' },
+        ],
+      }
+      const tree: Root = { type: "root", children: [paragraph] }
+      await unified().use(remarkPunctilio, { nbsp: false }).run(tree)
+      expect(paragraph.children.filter((child) => child.type === "text").map((child) => child.value))
+        .toEqual(['"x"', ` ${LDQ}y${RDQ}`])
     })
   })
 
