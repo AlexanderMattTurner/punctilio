@@ -83,7 +83,7 @@ function loadRules() {
     }
     if (rule.sourcesPattern !== undefined) {
       try {
-        new RegExp(rule.sourcesPattern);
+        RegExp(rule.sourcesPattern);
       } catch (err) {
         die(`${at}: "sourcesPattern" is not a valid regex: ${err.message}`);
       }
@@ -124,8 +124,8 @@ const ruleMatches = (rule, changed) => {
 // a leak: appending BASH_ENV=/tmp/x.sh to $GITHUB_ENV makes the NEXT step of the
 // same job source attacker-controlled shell before its first line.
 const SECRETISH = /TOKEN|SECRET|KEY|PASSWORD|CREDENTIAL/i;
-const GIT_CONFIG_INJECTION = /^GIT_CONFIG_(COUNT|KEY_\d+|VALUE_\d+)$/;
-const RUNNER_CHANNEL = /^GITHUB_(ENV|PATH|OUTPUT|STATE)$/;
+const GIT_CONFIG_INJECTION = /^GIT_CONFIG_(?:COUNT|KEY_\d+|VALUE_\d+)$/;
+const RUNNER_CHANNEL = /^GITHUB_(?:ENV|PATH|OUTPUT|STATE)$/;
 
 function scrubbedEnv() {
   // Null-prototype: the keys here are environment variable names, which are

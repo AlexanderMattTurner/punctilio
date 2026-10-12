@@ -25,7 +25,8 @@ gh pr create --base "$CLAUDE_CODE_BASE_REF" --title "<type>: <description>" --bo
 ## What & why
 <FIRST sentence states what this PR does, in the imperative — the deliverable, not the
 incident that motivated it. Then, only if it isn't obvious from the what, one or two
-sentences of why. Length scales with the diff, not a fixed floor.>
+sentences of why. Length scales with the diff, not a fixed floor. Then each part's worked
+example, per `CLAUDE.md` -> Writing.>
 
 ## Review focus
 <!-- Non-trivial PRs only; delete for a small, self-evident diff. -->
@@ -105,7 +106,7 @@ to engage, not raise it. Concretely:
   navigates to the code (information foraging).
 - Note any breaking changes.
 - **Default to NO “Lessons Learned” section.** It exists only for a genuinely novel, cross-project insight that would improve the template for a downstream repo sharing none of this code — a rare case; most PRs have none. Each lesson filed triggers the phone-home workflow (one issue per PR on the template repo), so a low-value or repo-specific “lesson” is triage noise, not a contribution. When you do include one, each lesson must specify **what** to change, **where**, and **why**. **Never write a negative placeholder** (“none applicable”, “N/A”, “nothing generalizable”): phone-home now drops those, so the sentence achieves nothing — omit the whole heading instead.
-- **Skip the Lessons Learned section entirely when the PR targets the `claude-automation-template` repo itself.** Phone-home propagates lessons _from_ downstream repos _into_ the template; a change made directly in the template is already there, so the section propagates nothing and is just noise.
+- **Skip the Lessons Learned section entirely when the repo this PR MERGES INTO is named `claude-automation-template`, whatever its owner** — `vars.TEMPLATE_SYNC_ORG` redirects a fork to its own template. phone-home runs in the base repo, so read that name — the PR's base repo from a fork, `git remote get-url origin` otherwise — and never the repo's own `CLAUDE.md` prose. Every other repo only sends and never receives, so dropping the section there loses the lesson.
 
 ## Updating PR Description After Additional Commits
 
@@ -118,7 +119,7 @@ description, not an accretion log.
 ```bash
 gh pr edit --body "$(cat <<'EOF'
 ## What & why
-<Rewritten lead + why, covering all commits.>
+<Rewritten lead + why, covering all commits, with each part's worked example.>
 
 ## Review focus
 <!-- Delete if the diff is small and self-evident. -->

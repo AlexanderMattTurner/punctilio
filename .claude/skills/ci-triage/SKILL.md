@@ -42,6 +42,19 @@ you leave in place is a red check you decided to tolerate, which is forbidden �
 even when it is pre-existing and unrelated to your change (fix it in its own
 `fix(test):`/`fix(ci):` commit; "it was already flaky" is not an exemption).
 
+**One passing sample does not confirm a fix for an intermittent failure.** When the
+failure lands on a different shard, half, or worker each run, a single green says
+only that you drew the good half. This is not a licence to re-run: the samples come
+after the root-cause fix, and locally under the same parallelism, not from
+re-dispatching the red job. Name the count in the claim ("fix pushed; 20 local runs
+at `-n 4`, 0 failures"), never "re-ran, green now".
+
+**A performance claim names the path it measured, because a harness that warms
+that path cannot measure a change to it.** A benchmark whose earlier step already
+started the process under test prices a warm round trip, not the cold start a user
+pays, so a real saving reads as "no movement". Say which conditions the saving
+holds under, and treat a flat result from a warm harness as no measurement.
+
 **Never just re-run a failure — root-cause it, then fix it.** A re-run is not a
 resolution and is forbidden as the response to a red check, even for a failure
 you've proven external (a third-party runtime crash, a hosted-runner fault, a
@@ -79,8 +92,15 @@ expensive, or live-fire workflow exercises, do not verify by dispatching it and
 waiting turn after turn. Reproduce that layer locally and iterate there until it's
 green, then let CI confirm once. Two traps make "dispatched and waiting" a false
 signal: a faked-input unit test can enshrine a wrong assumption the real
-dependency would refute, and a run tied to a branch/PR is **cancelled on merge**
-so it may never reach the assertion.
+dependency would refute, and a run in a `cancel-in-progress`
+concurrency group is **cancelled when another run or job queues in that
+group** — a push, a schedule or a dispatch alike — so it may never reach the
+assertion. Let the PR-head run finish before the merge
+when the confirmation is meant to gate it — a post-merge run cannot block what
+already landed. Dispatch against the **default branch** only for a confirmation
+that must outlive the PR, and name its reader first: a run with no PR
+association has no PR surface, and its group can still cancel it, so either
+watch it to completion or check the workflow reaches `ci-failure-notify.yaml`.
 
 ## Before claiming green
 
@@ -88,6 +108,13 @@ Read the aggregate, not one page of check runs. On a repo with many checks, a
 single page is a truncated slice and a failing check may sit on a page you never
 read. The PR's `mergeable_state` (`clean` = no failing required checks and up to
 date; `blocked`/`dirty`/`behind` = not mergeable) is the source of truth.
+
+**A green check is not evidence the path you changed RAN.** A gate can pass
+because its subject skipped, because a decide job routed around it, or because a
+cached artifact stood in. When the change is what a check exists to exercise, take
+a second read from the log that only the live path produces — the download it
+performed, the argv it emitted, the file it wrote — before calling the pass a pass
+of that path.
 
 ## Handing off is the last resort, and only after the work
 
