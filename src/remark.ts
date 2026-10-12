@@ -40,13 +40,37 @@ interface ProseCollector {
   // Raw-HTML skip-list tags opened and not yet closed; everything between an
   // open tag and its close tag is skipped content.
   openSkippedTags: string[]
+  // Markdown source the tree was parsed from; link positions index into it.
+  source: string
 }
 
-/** True for an autolink or bare URL, whose visible text is the URL itself. */
-function isUrlTextLink(node: Link): boolean {
+const URL_SCHEMES = ["mailto:", "https://", "http://"]
+
+/** `url` without a leading `mailto:`, `https://` or `http://`, in any letter case. */
+function stripUrlScheme(url: string): string {
+  const lowerCaseUrl = url.toLowerCase()
+  const scheme = URL_SCHEMES.find((candidate) => lowerCaseUrl.startsWith(candidate))
+  return scheme === undefined ? url : url.slice(scheme.length)
+}
+
+/** The Markdown source that produced `node`, or "" when it carries no usable position. */
+function sourceOfLink(node: Link, source: string): string {
+  const start = node.position?.start.offset
+  const end = node.position?.end.offset
+  return start === undefined || end === undefined ? "" : source.slice(start, end)
+}
+
+/**
+ * True for an autolink or bare URL, whose visible text is the URL itself. A
+ * link not written as `[text](url)` (an `<…>` autolink or a GFM literal) is one
+ * by construction; a bracketed link is one when its text is its URL, with or
+ * without the scheme.
+ */
+function isUrlTextLink(node: Link, source: string): boolean {
+  const linkSource = sourceOfLink(node, source)
+  if (linkSource !== "" && !linkSource.startsWith("[")) return true
   if (node.children.length !== 1 || node.children[0].type !== "text") return false
-  const text = node.children[0].value
-  return text === node.url || text === node.url.replace(/^(?:mailto:|https?:\/\/)/, "")
+  return stripUrlScheme(node.children[0].value) === stripUrlScheme(node.url)
 }
 
 const ignoreToken = (): void => {}
@@ -88,7 +112,7 @@ function collectProse(node: PhrasingContent, depth: number, c: ProseCollector): 
     SKIP_TYPES.has(node.type) ||
     OPAQUE_LEAF_TYPES.has(node.type) ||
     c.openSkippedTags.length > 0 ||
-    (node.type === "link" && isUrlTextLink(node))
+    (node.type === "link" && isUrlTextLink(node, c.source))
   ) {
     c.pendingOpaque = true
     return
@@ -106,8 +130,8 @@ function collectProse(node: PhrasingContent, depth: number, c: ProseCollector): 
   }
 }
 
-function flattenProse(children: readonly PhrasingContent[]): { nodes: Text[]; opaqueBefore: Set<number> } {
-  const c: ProseCollector = { nodes: [], opaqueBefore: new Set(), pendingOpaque: false, openSkippedTags: [] }
+function flattenProse(children: readonly PhrasingContent[], source: string): { nodes: Text[]; opaqueBefore: Set<number> } {
+  const c: ProseCollector = { nodes: [], opaqueBefore: new Set(), pendingOpaque: false, openSkippedTags: [], source }
   for (const child of children) collectProse(child, 0, c)
   return { nodes: c.nodes, opaqueBefore: c.opaqueBefore }
 }
@@ -125,7 +149,10 @@ export function remarkPunctilio(
     nbsp: options.nbsp ?? false,
   }
 
-  return (tree: Root) => {
+  // `file` is absent when the transformer is called with a bare tree (the
+  // Prettier plugin); links are then judged by their text alone.
+  return (tree: Root, file?: { toString(): string }) => {
+    const source = file?.toString() ?? ""
     visitParents(tree, (node, ancestors) => {
       if (!PHRASING_CONTAINERS.has(node.type)) {
         return
@@ -141,7 +168,7 @@ export function remarkPunctilio(
         return
       }
 
-      const { nodes, opaqueBefore } = flattenProse(node.children as PhrasingContent[])
+      const { nodes, opaqueBefore } = flattenProse(node.children as PhrasingContent[], source)
 
       // Opaque gaps (inline code, images, breaks) become placeholders, so
       // quotes pair across them while no pass rewrites text through them.

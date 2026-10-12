@@ -1,5 +1,6 @@
-import type { Paragraph, Root } from "mdast"
+import type { Link, Paragraph, Root, Text } from "mdast"
 import { unified } from "unified"
+import { visitParents } from "unist-util-visit-parents"
 import remarkParse from "remark-parse"
 import remarkGfm from "remark-gfm"
 import remarkStringify from "remark-stringify"
@@ -221,6 +222,21 @@ describe("remarkPunctilio", () => {
         "[example.com/a--b...c](https://example.com/a--b...c)",
         "[example.com/a--b...c](https://example.com/a--b...c)",
       ],
+      [
+        "an uppercase URL scheme",
+        "[example.com/a--b](HTTPS://example.com/a--b)",
+        "[example.com/a--b](HTTPS://example.com/a--b)",
+      ],
+      [
+        "an uppercase scheme in the link text",
+        "[HTTPS://example.com/a--b](https://example.com/a--b)",
+        "[HTTPS://example.com/a--b](https://example.com/a--b)",
+      ],
+      [
+        "an uppercase mailto scheme",
+        "[me--x@example.com](MAILTO:me--x@example.com)",
+        "[me--x@example.com](MAILTO:me--x@example.com)",
+      ],
     ])("leaves %s unchanged", async (_name, input, expected) => {
       expect(await processGfmMarkdown(input, { nbsp: false })).toEqual(expected)
     })
@@ -228,6 +244,36 @@ describe("remarkPunctilio", () => {
     it("still transforms ordinary link text", async () => {
       expect(await processGfmMarkdown('["a" -- b](https://example.com)', { nbsp: false }))
         .toEqual(`[${LDQ}a${RDQ}${EM_DASH}b](https://example.com)`)
+    })
+
+    // The parse, not the text, says a link is an autolink: its URL may be
+    // rewritten by another plugin so it no longer equals the visible text.
+    it("leaves an autolink whose URL was rewritten unchanged", async () => {
+      const rewriteUrls = () => (tree: Root) => {
+        visitParents(tree, "link", (node) => {
+          node.url = `${node.url}?ref=x`
+        })
+      }
+      const result = await unified()
+        .use(remarkParse)
+        .use(rewriteUrls)
+        .use(remarkPunctilio, { nbsp: false })
+        .use(remarkStringify)
+        .process("<https://example.com/a--b>")
+      expect(String(result).trimEnd()).toEqual("[https://example.com/a--b](https://example.com/a--b?ref=x)")
+    })
+
+    // Without usable positions a link is judged by its text and URL alone.
+    it.each([
+      ["no position", (link: Link) => { delete link.position }],
+      ["a position into an empty source", () => {}],
+    ])("treats a link with %s as an ordinary link", async (_name, prepare) => {
+      const processor = unified().use(remarkParse).use(remarkPunctilio, { nbsp: false })
+      const tree = processor.parse('["a" -- b](https://example.com)')
+      const link = (tree.children[0] as Paragraph).children[0] as Link
+      prepare(link)
+      await processor.run(tree, "")
+      expect((link.children[0] as Text).value).toEqual(`${LDQ}a${RDQ}${EM_DASH}b`)
     })
   })
 
