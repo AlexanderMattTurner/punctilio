@@ -1,4 +1,4 @@
-import type { Link, Parent, PhrasingContent, Root, Text } from "mdast"
+import type { Link, PhrasingContent, Root, Text } from "mdast"
 import type { Transformer } from "unified"
 
 import { type Token, Tokenizer } from "parse5"
@@ -21,11 +21,6 @@ export type RemarkPunctilioOptions = TransformOptions
 const PHRASING_CONTAINERS = new Set(["paragraph", "heading", "tableCell"])
 
 const SKIP_TYPES = new Set(["inlineCode", "html"])
-
-// Inline marks whose only text a pass can move out (`_,_`). Left empty, one
-// serializes as bare delimiters (`**`) that re-parse as literal text, which the
-// next run escapes, so the output would not be a fixed point.
-const EMPTIABLE_MARK_TYPES = new Set(["emphasis", "strong", "delete"])
 
 const SKIPPED_HTML_TAGS: ReadonlySet<string> = new Set([...DEFAULT_SKIP_TAGS, RAW_TEXT_FORM_TAG])
 
@@ -135,16 +130,6 @@ function collectProse(node: PhrasingContent, depth: number, c: ProseCollector): 
   }
 }
 
-/** Removes marks left with no text, innermost first, so emptied nesting goes too. */
-function pruneEmptiedMarks(parent: Parent): void {
-  parent.children = parent.children.filter((child) => {
-    if (!("children" in child)) return true
-    pruneEmptiedMarks(child)
-    return !EMPTIABLE_MARK_TYPES.has(child.type)
-      || child.children.some((grandchild) => grandchild.type !== "text" || grandchild.value !== "")
-  }) as Parent["children"]
-}
-
 function flattenProse(children: readonly PhrasingContent[], source: string): { nodes: Text[]; opaqueBefore: Set<number> } {
   const c: ProseCollector = { nodes: [], opaqueBefore: new Set(), pendingOpaque: false, openSkippedTags: [], source }
   for (const child of children) collectProse(child, 0, c)
@@ -188,7 +173,6 @@ export function remarkPunctilio(
       // Opaque gaps (inline code, images, breaks) become placeholders, so
       // quotes pair across them while no pass rewrites text through them.
       runAcrossOpaqueGaps(nodes, opaqueBefore, (view) => transformView(view, pluginOptions))
-      pruneEmptiedMarks(node)
     })
   }
 }

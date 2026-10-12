@@ -1133,7 +1133,7 @@ function movePunctuationInside(order: Item[], isMovable: (items: Item[], index: 
     // suffix would be quadratic on long closer runs. The position-dependent
     // lookbehinds (terminal char, A-side wall) instead retry one level in,
     // where the preceding item is a closer and can no longer block.
-    if (punctIndex >= order.length || order[punctIndex].boundary || !isMovable(order, punctIndex)) {
+    if (punctIndex >= order.length || order[punctIndex].boundary || isWholeNodeText(order, punctIndex) || !isMovable(order, punctIndex)) {
       position = Math.max(runEnd, position + 1)
       continue
     }
@@ -1244,9 +1244,8 @@ function runContainsSingleCloser(order: Item[], start: number, end: number): boo
 
 /**
  * Mirror of {@link singleEndingAfter} at the run end as the post-move item
- * sequence reads it: the vacating punctuation leaves its surrounding boundary
- * items behind (an emptied node stacks them), and they all count against the
- * lookahead's one-boundary budget.
+ * sequence reads it: the vacating punctuation leaves the boundary items around
+ * it behind, and they all count against the lookahead's one-boundary budget.
  */
 function endingContextAfterMove(order: Item[], runEnd: number, punctIndex: number): boolean {
   let boundaries = 0
@@ -1321,6 +1320,16 @@ function moveWallAt(items: Item[], index: number): boolean {
 }
 
 /**
+ * True iff the item at `index` is the only text of its node: a boundary or the
+ * view edge on each side. Moving it would empty the node, and an emptied inline
+ * mark (`_,_`) serializes as bare delimiters that the next run reads as literal
+ * text.
+ */
+function isWholeNodeText(order: Item[], index: number): boolean {
+  return (order[index - 1]?.boundary ?? true) && (order[index + 1]?.boundary ?? true)
+}
+
+/**
  * British/German/French: a period or comma directly before a closing-quote
  * run moves past the whole run. No terminal-punctuation guard.
  *
@@ -1335,7 +1344,7 @@ function movePunctuationOutside(order: Item[], punctChar: string, closingSet: Re
   let position = 0
   while (position < order.length) {
     const item = order[position]
-    if (item.boundary || item.ch !== punctChar) {
+    if (item.boundary || item.ch !== punctChar || isWholeNodeText(order, position)) {
       position++
       continue
     }

@@ -153,16 +153,18 @@ describe("transformMarkdown", () => {
     expect(result.includes("\u00A0")).toBe(expectNbsp)
   })
 
-  // Moving a mark's only character out of it drops the emptied mark rather
-  // than leaving bare delimiters for the next run to escape.
+  // Punctuation that is the only text of a mark stays in it: moving it out
+  // would leave an empty mark, which serializes as bare delimiters.
   it.each([
-    ['"x"_,_ y\n', `${LDQ}x,${RDQ} y\n`],
-    ['"x"**_,_** y\n', `${LDQ}x,${RDQ} y\n`],
-    ['"x"~~.~~ y\n', `${LDQ}x.${RDQ} y\n`],
-  ])("drops a mark emptied by moved punctuation: %j", async (input, expected) => {
-    const once = await transformMarkdown(input)
+    ['"x"_,_ y\n', `${LDQ}x${RDQ}*,* y\n`, "american"],
+    ['"x"**_,_** y\n', `${LDQ}x${RDQ}***,*** y\n`, "american"],
+    ['"x"~~.~~ y\n', `${LDQ}x${RDQ}~~.~~ y\n`, "american"],
+    ['"a"[_,_](u) b\n', `${LDQ}a${RDQ}[*,*](u) b\n`, "american"],
+    ['"x *,*" y\n', `${LDQ}x *,*${RDQ} y\n`, "british"],
+  ] as const)("keeps a mark whose only text is movable punctuation: %j", async (input, expected, punctuationStyle) => {
+    const once = await transformMarkdown(input, { punctuationStyle })
     expect(once).toBe(expected)
-    expect(await transformMarkdown(once)).toBe(once)
+    expect(await transformMarkdown(once, { punctuationStyle })).toBe(once)
   })
 
   const BODY_IN = '"Hello" -- *world*.\n'
