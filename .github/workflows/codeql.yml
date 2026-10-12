@@ -62,10 +62,13 @@ jobs:
           languages: ${{ matrix.language }}
           config-file: ./.github/codeql/codeql-config.yml
 
+      # A fork PR's token can't be granted security-events: write, so it analyzes
+      # without uploading rather than failing the required check on the upload.
       - name: Perform CodeQL analysis
         uses: github/codeql-action/analyze@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
         with:
           category: "/language:${{ matrix.language }}"
+          upload: ${{ github.event.pull_request.head.repo.fork && 'never' || 'always' }}
 
   codeql-passed: # required-check: true
     if: always()
