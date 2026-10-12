@@ -90,7 +90,7 @@ else
 fi
 # Empty output (never published) means first release; anything other than
 # strict X.Y.Z (e.g. a prerelease) fails loudly rather than misfiring the bump.
-CURRENT_VERSION=$(printf '%s\n' "$CURRENT_VERSION" | head -n1)
+CURRENT_VERSION="${CURRENT_VERSION%%$'\n'*}"
 [[ -z "$CURRENT_VERSION" ]] && CURRENT_VERSION="0.0.0"
 if ! [[ "$CURRENT_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
   log "Error: npm returned a non-semver current version: '$CURRENT_VERSION'. Refusing to guess a bump."
@@ -122,10 +122,14 @@ else
   DIFF_STAT=$(git show --stat HEAD 2>/dev/null || echo "Unable to get diff")
 fi
 
-# Cap commit-message length: truncate each line, limit total length. Bytes pass
-# through verbatim so non-ASCII characters in commit subjects survive — the JSON
-# body is built via `jq -n --arg`, which handles arbitrary bytes safely.
-COMMITS=$(head -20 <<< "$COMMITS_RAW" | cut -c1-100 | head -c 2000)
+# Cap commit-message length: keep 20 lines, truncate each to 100 characters, and
+# limit the total to 2000 characters (bytes under a non-UTF-8 locale). The caps
+# are applied in awk and bash rather than through `head`: under `set -o pipefail`
+# a reader that stops early SIGPIPEs its writer and aborts the release. Non-ASCII
+# characters in commit subjects survive — the JSON body is built via
+# `jq -n --arg`, which handles arbitrary bytes safely.
+COMMITS=$(awk 'NR <= 20 { print substr($0, 1, 100) }' <<< "$COMMITS_RAW")
+COMMITS="${COMMITS:0:2000}"
 
 if [ -z "$COMMITS" ]; then
   log "No commits to analyze. Skipping."
@@ -156,7 +160,9 @@ if [ -f CHANGELOG.md ]; then
     /^## Unreleased[[:space:]]*$/ { collecting = 1; next }
     collecting && /^## / { collecting = 0 }
     collecting { print }
-  ' CHANGELOG.md | head -c 4000)
+  ' CHANGELOG.md)
+  # Capped after capture, not by `| head -c`, so the writer is never SIGPIPEd.
+  UNRELEASED_CONTENT="${UNRELEASED_CONTENT:0:4000}"
 fi
 
 # Draft the changelog body. The Claude API is used only for prose — any

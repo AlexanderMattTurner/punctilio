@@ -191,6 +191,57 @@ test("a range containing only release-docs commits is skipped, not re-released",
   }
 });
 
+// --- Truncation never aborts the run -----------------------------------------
+// The script runs under `set -euo pipefail`, so a size cap built from a pipe
+// whose reader closes early (`... | head -c N`) kills the writer with SIGPIPE
+// (status 141) once its output outgrows the pipe buffer, aborting the release
+// before it versions or publishes.
+const OVERSIZED_UNRELEASED_ENTRY = "- a changelog entry\n";
+
+test("an Unreleased section larger than the pipe buffer does not abort the run", () => {
+  const { dir, binDir } = makeSandbox(NPM_AT_5_STUB);
+  try {
+    execFileSync("git", ["commit", "-q", "--allow-empty", "-m", "fix: y"], {
+      cwd: dir,
+    });
+    writeFileSync(
+      join(dir, "CHANGELOG.md"),
+      `# Changelog\n\n## Unreleased\n\n${OVERSIZED_UNRELEASED_ENTRY.repeat(
+        (512 * 1024) / OVERSIZED_UNRELEASED_ENTRY.length,
+      )}\n## 0.0.0\n\n- seed\n`,
+    );
+    const { status, stderr } = runScript(dir, binDir);
+    assert.equal(status, 0, stderr.slice(-2000));
+    assert.match(stderr, /New version: 5\.0\.1/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("the commit list handed to the changelog drafter is capped at 20 lines, 100 characters each, 2000 in total", () => {
+  const { dir, binDir } = makeSandbox(NPM_AT_5_STUB);
+  try {
+    for (let index = 0; index < 30; index += 1) {
+      execFileSync(
+        "git",
+        ["commit", "-q", "--allow-empty", "-m", `fix: ${"x".repeat(150)}`],
+        { cwd: dir },
+      );
+    }
+    const { status, stderr } = runScript(dir, binDir);
+    assert.equal(status, 0, stderr);
+    const listed = stderr
+      .split("Commits to analyze:\n")[1]
+      .split("\nConventional Commits bump level")[0];
+    const lines = listed.split("\n");
+    assert.equal(lines.length, 20);
+    assert.ok(lines.every((line) => line.length <= 100));
+    assert.equal(listed.length, 2000);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 // --- Tag ordering: the dedup tag lands before the docs push ----------------
 // A docs-push failure (e.g. main moved underneath the run) must still fail the
 // run, but only after the vX.Y.Z tag reached the remote; otherwise the next
