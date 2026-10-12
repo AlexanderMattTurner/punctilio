@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## [5.4.8] - 2026-10-12
+
+### Fixed
+
+- Pre-push hook now skips the pre-commit run when the repository has no configuration.
+
 ## [5.4.7] - 2026-10-12
 
 ### Fixed
