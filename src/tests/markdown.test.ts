@@ -153,6 +153,18 @@ describe("transformMarkdown", () => {
     expect(result.includes("\u00A0")).toBe(expectNbsp)
   })
 
+  // Moving a mark's only character out of it drops the emptied mark rather
+  // than leaving bare delimiters for the next run to escape.
+  it.each([
+    ['"x"_,_ y\n', `${LDQ}x,${RDQ} y\n`],
+    ['"x"**_,_** y\n', `${LDQ}x,${RDQ} y\n`],
+    ['"x"~~.~~ y\n', `${LDQ}x.${RDQ} y\n`],
+  ])("drops a mark emptied by moved punctuation: %j", async (input, expected) => {
+    const once = await transformMarkdown(input)
+    expect(once).toBe(expected)
+    expect(await transformMarkdown(once)).toBe(once)
+  })
+
   const BODY_IN = '"Hello" -- *world*.\n'
   const BODY_OUT = `${LDQ}Hello${RDQ}${EM_DASH}*world*.\n`
   it.each([
