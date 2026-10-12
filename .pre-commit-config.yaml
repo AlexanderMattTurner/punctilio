@@ -1,0 +1,57 @@
+repos:
+  - repo: https://github.com/AlexanderMattTurner/ci-truth-serum
+    # Keep in step with the pip pin in .github/workflows/sync-required-checks.yaml,
+    # so the lint and the ruleset apply step read the annotations the same way.
+    rev: da8f79630cdcaa5bc81902127dfc6d3982a2bc97 # v1.6.0
+    hooks:
+      # Every tier, minus the checks below. Each --ignore is either a check that
+      # does not apply to this repo, or one with findings on main still to fix;
+      # drop the line once its findings are gone.
+      - id: check-select
+        args:
+          - --select
+          - tier:1
+          - --select
+          - tier:2
+          - --select
+          - tier:extras
+          # Not applicable: Python-only, and this is a TypeScript ESM package.
+          - --ignore
+          - check:check-test-helper-kwargs
+          - --ignore
+          - check:check-relative-imports
+          # Findings on main, mostly in template-synced workflows and scripts.
+          - --ignore
+          - check:check-uncached-download
+          - --ignore
+          - check:check-required-event-closure
+          - --ignore
+          - check:check-embedded-program-length
+          - --ignore
+          - check:check-main-push
+          - --ignore
+          - check:check-pending-cancel-concurrency
+          - --ignore
+          - check:check-collapsing-job-group
+          - --ignore
+          - check:check-cancellable-required-check
+          - --ignore
+          - check:check-token-fallback
+          - --ignore
+          - check:check-workflow-secret-names
+          - --ignore
+          - check:check-divergent-action-pins
+          - --ignore
+          - check:check-echo-fallback
+          - --ignore
+          - check:check-curl-retry
+          - --ignore
+          - check:check-unbounded-waits
+          - --ignore
+          - check:check-replacement-expansion
+          - --ignore
+          - check:check-counted-repo-root
+          - --ignore
+          - check:check-workflow-refs
+          - --ignore
+          - check:check-dead-shell-functions
