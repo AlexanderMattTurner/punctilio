@@ -1,5 +1,5 @@
 import { dashWordJoiner, enDashDateRange, enDashNumberRange, hyphenReplace, minusReplace, numberRangeDisallowedPrefixes } from "../dashes.js"
-import { UNICODE_SYMBOLS } from "../constants.js"
+import { CLOSING_BRACKETS, OPENING_BRACKETS, UNICODE_SYMBOLS } from "../constants.js"
 import { SEP as DEFAULT_SEPARATOR, viewTransform } from "./test-helpers.js"
 
 const {
@@ -14,7 +14,19 @@ const {
   MULTIPLICATION,
   NBSP,
   SUPERSCRIPT_ST,
+  DOUBLE_LOW_9_QUOTE,
+  SINGLE_LOW_9_QUOTE,
+  LEFT_GUILLEMET,
+  RIGHT_GUILLEMET,
 } = UNICODE_SYMBOLS
+
+/** Opener/closer pairs for the low-9 quotes and both guillemet orders. */
+const LOCALE_QUOTE_PAIRS: [string, string][] = [
+  [DOUBLE_LOW_9_QUOTE, LEFT_DOUBLE_QUOTE],
+  [SINGLE_LOW_9_QUOTE, LEFT_SINGLE_QUOTE],
+  [LEFT_GUILLEMET, RIGHT_GUILLEMET],
+  [RIGHT_GUILLEMET, LEFT_GUILLEMET],
+]
 
 describe("hyphenReplace", () => {
   describe("em dashes from surrounded hyphens", () => {
@@ -399,6 +411,10 @@ describe("minusReplace", () => {
     expect(minusReplace(input)).toBe(expected)
   })
 
+  it.each([...LOCALE_QUOTE_PAIRS, ...OPENING_BRACKETS.map((opening, index): [string, string] => [opening, CLOSING_BRACKETS[index]])])("converts a hyphen directly after the opener %s (closed by %s)", (opener, closer) => {
+    expect(minusReplace(`${opener}-15${closer}`)).toBe(`${opener}${MINUS}15${closer}`)
+  })
+
   it("should not convert hyphens in other contexts", () => {
     expect(minusReplace("well-known")).toBe("well-known")
     expect(minusReplace("re-read")).toBe("re-read")
@@ -489,6 +505,16 @@ describe("competitor-derived edge cases", () => {
       [`${RIGHT_SINGLE_QUOTE} -- source`, `${RIGHT_SINGLE_QUOTE}${EM_DASH}source`],
     ])('handles spaced dashes after quotes: "%s"', (input, expected) => {
       expect(hyphenReplace(input)).toBe(expected)
+    })
+
+    it.each(LOCALE_QUOTE_PAIRS)("treats %s...%s quote pairs like straight ones in a dash run", (opener, closer) => {
+      const input = `${opener}x${closer}--${opener}y${closer}`
+      expect(hyphenReplace(input)).toBe(`${opener}x${closer}${EM_DASH}${opener}y${closer}`)
+      expect(hyphenReplace(input, { dashStyle: "british" })).toBe(`${opener}x${closer} ${EN_DASH} ${opener}y${closer}`)
+      for (const dashStyle of ["american", "british"] as const) {
+        const once = hyphenReplace(input, { dashStyle })
+        expect(hyphenReplace(once, { dashStyle })).toBe(once)
+      }
     })
 
     it("handles unspaced double dash between quotes", () => {

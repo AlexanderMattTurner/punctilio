@@ -1,4 +1,4 @@
-import { cachedRegExp, LATIN_LETTER_RE, LATIN_LETTERS, NBSP_CHARS, SPACE_CHAR_RE, SPACE_CHARS, UNICODE_SYMBOLS } from "./constants.js"
+import { asCharClassContent, cachedRegExp, CLOSING_BRACKETS, LATIN_LETTER_RE, LATIN_LETTERS, LOCALE_QUOTE_MARKS, NBSP_CHARS, OPENING_BRACKETS, SPACE_CHAR_RE, SPACE_CHARS, UNICODE_SYMBOLS } from "./constants.js"
 import { advanceScanIndex, boundaryCountAt, exceedsSingleBoundary, interiorBoundariesWithin, makeProsePass, overInput, type ProseView, replaceAllInView } from "./prose-view.js"
 
 const {
@@ -97,7 +97,7 @@ const UNIT_PATTERN = [...UNITS].sort((a, b) => b.length - a.length).join("|")
 // the mandatory trailing `\.` disambiguates prefix overlaps (e.g. Mr\. vs Mrs\.).
 const HONORIFIC_PATTERN = HONORIFICS.map((h) => `${h}\\.`).join("|")
 const ABBREVIATION_PATTERN = REFERENCE_ABBREVIATIONS.map((a) => `${a}\\.`).join("|")
-const PUNCTUATION_OR_QUOTE = `[.,!?:;)(${LEFT_DOUBLE_QUOTE}${RIGHT_DOUBLE_QUOTE}\u00AB\u00BB${LEFT_SINGLE_QUOTE}${RIGHT_SINGLE_QUOTE}"]`
+const PUNCTUATION_OR_QUOTE = `[.,!?:;${asCharClassContent([...OPENING_BRACKETS, ...CLOSING_BRACKETS])}${LEFT_DOUBLE_QUOTE}${RIGHT_DOUBLE_QUOTE}${LOCALE_QUOTE_MARKS}${LEFT_SINGLE_QUOTE}${RIGHT_SINGLE_QUOTE}"]`
 const COPYRIGHT_SYMBOLS = `[${COPYRIGHT}${REGISTERED}${TRADEMARK}]`
 
 
@@ -433,6 +433,7 @@ export function nbspTransform(input: string | ProseView): string | void {
     for (const fn of NBSP_TRANSFORMS) {
       fn(view)
     }
-    nbspBeforeLastWordOverView(view, nbspAfterShortWordsOverView(view))
+    const insertedShortWordGlue = nbspAfterShortWordsOverView(view)
+    nbspBeforeLastWordOverView(view, insertedShortWordGlue)
   })
 }

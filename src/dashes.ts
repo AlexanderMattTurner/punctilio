@@ -1,4 +1,4 @@
-import { cachedRegExp, FOLDED_WORD_CHARS, isWordLike, LATIN_LETTER_RE, LATIN_LETTERS, LATIN_OR_DIGIT, LATIN_OR_DIGIT_RE, MAX_BOUNDARY_SEPARATORS, NBSP_CHARS, SPACE_CHAR_RE, UNICODE_SYMBOLS } from "./constants.js"
+import { asCharClassContent, cachedRegExp, FOLDED_WORD_CHARS, isWordLike, LATIN_LETTER_RE, LATIN_LETTERS, LATIN_OR_DIGIT, LATIN_OR_DIGIT_RE, LOCALE_QUOTE_MARKS, MAX_BOUNDARY_SEPARATORS, NBSP_CHARS, OPENING_BRACKETS, QUOTE_GLYPHS, SPACE_CHAR_RE, UNICODE_SYMBOLS } from "./constants.js"
 import { boundaryCountAt, exceedsSingleBoundary, firstInteriorBoundary, lastBoundaryBefore, makeProsePass, overInput, type ProseView, replaceAllInView, type ReplaceAllOptions } from "./prose-view.js"
 
 export const DASH_STYLES = ["american", "british", "none"] as const
@@ -12,7 +12,6 @@ export interface DashOptions {
 const {
   EN_DASH, EM_DASH, MINUS, MULTIPLICATION, PLUS_MINUS,
   LEFT_DOUBLE_QUOTE, RIGHT_DOUBLE_QUOTE, LEFT_SINGLE_QUOTE, RIGHT_SINGLE_QUOTE,
-  MODIFIER_LETTER_APOSTROPHE, LEFT_GUILLEMET,
 } = UNICODE_SYMBOLS
 
 // Prevents false-positive ranges in model names like "Llama-2-7B".
@@ -782,7 +781,7 @@ function minusSubtractionPrefixOk(match: RegExpExecArray, view: ProseView, prefi
   return NUM_BODY_RE.test(view.text.slice(numStart, truncatedEnd))
 }
 
-const MINUS_BEFORE_CLASS_RE = new RegExp(`[\\s("'${LEFT_DOUBLE_QUOTE}${RIGHT_DOUBLE_QUOTE}${LEFT_SINGLE_QUOTE}${RIGHT_SINGLE_QUOTE}${LEFT_GUILLEMET}]`)
+const MINUS_BEFORE_CLASS_RE = new RegExp(`[\\s${asCharClassContent(OPENING_BRACKETS)}"'${LEFT_DOUBLE_QUOTE}${RIGHT_DOUBLE_QUOTE}${LEFT_SINGLE_QUOTE}${RIGHT_SINGLE_QUOTE}${LOCALE_QUOTE_MARKS}]`)
 // The folded word glyphs block like the word chars they fold from ("1x|-0"
 // and "1×|-0" must agree), the folded math operators block like the operator
 // chars they fold from (the `!=` → `≠` fold consumes the `=` that blocked
@@ -833,7 +832,7 @@ function minusDirectNegative(view: ProseView): void {
           if (before !== undefined && NUM_BEFORE_2B_BLOCK_RE.test(before)) return null
         }
       } else {
-        // Pattern 2: line start, whitespace, `(`, or a quote immediately left.
+        // Pattern 2: line start, whitespace, an opening bracket, or a quote immediately left.
         const before = v.text[start - 1]
         const atLineStart = before === undefined || before === "\n"
         if (!atLineStart && !MINUS_BEFORE_CLASS_RE.test(before)) return null
@@ -860,8 +859,6 @@ function convertParentheticalDashes(view: ProseView, style: DashStyle): void {
   convertLeadingLineDashes(view, localizedDash)
   if (style === "british") convertUnspacedEmDashes(view, rendered)
 }
-
-const QUOTE_CHARS = `"'${LEFT_DOUBLE_QUOTE}${RIGHT_DOUBLE_QUOTE}${LEFT_SINGLE_QUOTE}${RIGHT_SINGLE_QUOTE}${MODIFIER_LETTER_APOSTROPHE}`
 
 const DASH_RUN_CHARS = new Set(["-", EN_DASH, EM_DASH])
 
@@ -1117,8 +1114,8 @@ function convertBoundaryLedDashes(view: ProseView, rendered: string): void {
  * slot and block the match.
  */
 function convertMultipleDashes(view: ProseView, rendered: string): void {
-  const before = `[${LATIN_OR_DIGIT}${QUOTE_CHARS}]`
-  const after = `[${LATIN_LETTERS}${QUOTE_CHARS} ]`
+  const before = `[${LATIN_OR_DIGIT}${QUOTE_GLYPHS}]`
+  const after = `[${LATIN_LETTERS}${QUOTE_GLYPHS} ]`
   // Upper bound of 50 prevents ReDoS on pathological runs of dashes.
   const pattern = `(?<=${before})[${EN_DASH}${EM_DASH}-]{2,50}(?=${after})`
   const afterRe = cachedRegExp(after, "")

@@ -1,4 +1,4 @@
-import { CLOSING_BRACKETS, FOLDED_WORD_CHARS, LATIN_LETTER_RE, OPENING_BRACKETS, SPACE_CHAR_RE, TERMINAL_PUNCTUATION, UNICODE_SYMBOLS, WORD_RE } from "./constants.js"
+import { CLOSING_BRACKETS, FOLDED_WORD_CHARS, LATIN_LETTER_RE, OPENING_BRACKETS, QUOTE_GLYPHS, SPACE_CHAR_RE, TERMINAL_PUNCTUATION, UNICODE_SYMBOLS, WORD_RE } from "./constants.js"
 import type { ProseView } from "./prose-view.js"
 
 const {
@@ -120,10 +120,7 @@ const SPACE_RE = /\s/
 const DIGIT_RE = /\d/
 
 /** Fast path: text without any quote-like character is returned untouched. */
-const QUOTE_CANDIDATE_RE = new RegExp(
-  `['"${LEFT_SINGLE_QUOTE}${RIGHT_SINGLE_QUOTE}${LEFT_DOUBLE_QUOTE}${RIGHT_DOUBLE_QUOTE}` +
-  `${MODIFIER_LETTER_APOSTROPHE}${DOUBLE_LOW_9_QUOTE}${SINGLE_LOW_9_QUOTE}${LEFT_GUILLEMET}${RIGHT_GUILLEMET}]`
-)
+const QUOTE_CANDIDATE_RE = new RegExp(`[${QUOTE_GLYPHS}]`)
 
 const TERMINAL_SET = new Set<string>(TERMINAL_PUNCTUATION)
 
@@ -145,34 +142,37 @@ const SINGLE_QUOTE_FAMILY = new Set<string>(["'", LEFT_SINGLE_QUOTE, RIGHT_SINGL
 /** Ending-context chars for single quotes (plus any \s char). The curly
  * doubles accompany the straight one: `"` curls into one of them in this same
  * pass, and an ending decision must survive the curl. */
-const SINGLE_ENDING_SET = new Set<string>([".", "!", "?", ";", ":", ",", ")", EM_DASH, "-", "]", '"', LEFT_DOUBLE_QUOTE, RIGHT_DOUBLE_QUOTE, ELLIPSIS, ...FOLDED_TERMINALS])
+const SINGLE_ENDING_SET = new Set<string>([".", "!", "?", ";", ":", ",", ...CLOSING_BRACKETS, EM_DASH, "-", '"', LEFT_DOUBLE_QUOTE, RIGHT_DOUBLE_QUOTE, ELLIPSIS, ...FOLDED_TERMINALS])
 
 /** Boundary chars before an opening single quote (plus any \s char). A
  * straight double quote belongs with the curly pair: whichever way it curls
  * lands in this set, so deciding as if it already had keeps re-runs (which
  * see the curled glyph) consistent. */
-const SINGLE_OPEN_BEFORE_SET = new Set<string>([LEFT_DOUBLE_QUOTE, RIGHT_DOUBLE_QUOTE, '"', EM_DASH, "-", "(", "/", "[", "{", INVERTED_QUESTION, INVERTED_EXCLAMATION])
+const SINGLE_OPEN_BEFORE_SET = new Set<string>([LEFT_DOUBLE_QUOTE, RIGHT_DOUBLE_QUOTE, '"', EM_DASH, "-", "/", ...OPENING_BRACKETS, INVERTED_QUESTION, INVERTED_EXCLAMATION])
 
 /** Boundary chars before an opening double quote (plus any \s char). A
  * single opener qualifies: a double quoted directly inside a single. */
-const DOUBLE_OPEN_BEFORE_SET = new Set<string>(["(", "/", "[", "{", "-", EM_DASH, LEFT_SINGLE_QUOTE, INVERTED_QUESTION, INVERTED_EXCLAMATION])
+const DOUBLE_OPEN_BEFORE_SET = new Set<string>(["/", ...OPENING_BRACKETS, "-", EM_DASH, LEFT_SINGLE_QUOTE, INVERTED_QUESTION, INVERTED_EXCLAMATION])
 
 /** Ending-context chars that block the opener rule's arm 2 (plus any \s char).
  * ELLIPSIS is deliberately absent: the rule's `...` arm opens, so `…` must too. */
-const DOUBLE_OPEN_ENDING_SET = new Set<string>([")", EM_DASH, ",", "!", "?", ";", ":", ".", "}", ...FOLDED_TERMINALS])
+const DOUBLE_OPEN_ENDING_SET = new Set<string>([...CLOSING_BRACKETS, EM_DASH, ",", "!", "?", ";", ":", ".", ...FOLDED_TERMINALS])
+
+const OPEN_BRACKETS = new Set<string>(OPENING_BRACKETS)
+const CLOSE_BRACKETS = new Set<string>(CLOSING_BRACKETS)
 
 /** Chars allowed before an empty double-quote pair (plus any \s char). */
-const DOUBLE_EMPTY_BEFORE_SET = new Set<string>(["(", "[", "{"])
+const DOUBLE_EMPTY_BEFORE_SET = new Set<string>(OPENING_BRACKETS)
 
 /** Chars allowed after an empty double-quote pair (plus any \s char).
  * Aligned to contain {@link DOUBLE_CLOSE_AFTER_SET}: a pair the empty-pair
  * rule rejects falls through to opener/closer rules whose after-contexts are
  * the closer set, and the two routes must accept the same shapes or a re-run
  * (which sees the rendered opener, not the whitespace) classifies anew. */
-const DOUBLE_EMPTY_AFTER_SET = new Set<string>([")", "]", "}", ".", "!", "?", ",", ";", ":", "/", "-", "s", EM_DASH, ELLIPSIS, RIGHT_SINGLE_QUOTE, ...FOLDED_TERMINALS])
+const DOUBLE_EMPTY_AFTER_SET = new Set<string>([...CLOSING_BRACKETS, ".", "!", "?", ",", ";", ":", "/", "-", "s", EM_DASH, ELLIPSIS, RIGHT_SINGLE_QUOTE, ...FOLDED_TERMINALS])
 
 /** Ending-context chars after a closing double quote (plus any \s char). */
-const DOUBLE_CLOSE_AFTER_SET = new Set<string>(["/", ")", "]", ".", ",", ";", EM_DASH, ":", "-", "}", "!", "?", "s", ELLIPSIS, RIGHT_SINGLE_QUOTE, ...FOLDED_TERMINALS])
+const DOUBLE_CLOSE_AFTER_SET = new Set<string>(["/", ...CLOSING_BRACKETS, ".", ",", ";", EM_DASH, ":", "-", "!", "?", "s", ELLIPSIS, RIGHT_SINGLE_QUOTE, ...FOLDED_TERMINALS])
 
 /** Builds an `(items, index)` predicate: in range, non-boundary, and `test(ch)`. */
 function makeItemTester(test: (ch: string) => boolean): (items: Item[], index: number) => boolean {
@@ -879,7 +879,7 @@ function classifyClosingDoubles(items: Item[], style: ActiveQuoteStyle): void {
     const item = items[i]
     if (item.boundary || item.ch !== '"') continue
     const before = items[i - 1]
-    if (!before.boundary && (SPACE_RE.test(before.ch) || before.ch === "(")) {
+    if (!before.boundary && (SPACE_RE.test(before.ch) || OPEN_BRACKETS.has(before.ch))) {
       const absorbedIntoOpener = style === "french" && before.ch === " " && isCharItem(items, i - 2, LEFT_DOUBLE_QUOTE)
       if (!absorbedIntoOpener) continue
     }
@@ -1033,9 +1033,6 @@ function applyRelocations(order: Item[], moves: Relocation[]): Item[] {
   }
   return result
 }
-
-const OPEN_BRACKETS = new Set<string>(OPENING_BRACKETS)
-const CLOSE_BRACKETS = new Set<string>(CLOSING_BRACKETS)
 
 /**
  * Unmatched open brackets (see {@link OPENING_BRACKETS}) strictly before each item — a
