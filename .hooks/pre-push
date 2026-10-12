@@ -75,6 +75,9 @@ while read -r -u 3 _local_ref local_sha _remote_ref remote_sha; do
       from_ref=$(git hash-object -t tree /dev/null)
   fi
   [[ "$from_ref" == "$local_tip" ]] && continue # nothing new to push
+  # No config means no suite: pre-commit dies with InvalidConfigError, and
+  # pre-commit.yaml skips its step on the same hashFiles condition.
+  [[ -f "$git_root/.pre-commit-config.yaml" ]] || continue
   # The tool check sits BELOW the emptiness skip. A push that introduces no
   # commits has nothing for pre-commit to look at, so demanding the tool first
   # refuses a release-tag push from a runner that has no pre-commit — which is
