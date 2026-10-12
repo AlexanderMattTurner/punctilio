@@ -15,6 +15,7 @@ const {
   EM_DASH,
   ELLIPSIS,
   DOUBLE_LOW_9_QUOTE,
+  DOUBLE_PRIME,
   SINGLE_LOW_9_QUOTE,
   LEFT_GUILLEMET,
   RIGHT_GUILLEMET,
@@ -1001,6 +1002,14 @@ describe("niceQuotes", () => {
         "german",
         `${EM_DASH}${LEFT_DOUBLE_QUOTE}8${DEFAULT_SEPARATOR}${LEFT_DOUBLE_QUOTE}${LEFT_SINGLE_QUOTE}-${RIGHT_SINGLE_QUOTE}a1`,
         `${EM_DASH}${DOUBLE_LOW_9_QUOTE}8${DEFAULT_SEPARATOR}${LEFT_DOUBLE_QUOTE}${LEFT_SINGLE_QUOTE}-${RIGHT_SINGLE_QUOTE}a1`,
+      ],
+      // A digit-adjacent straight quote the pass leaves straight is a prime on the
+      // next run, so it is not the opener position that blocks the closer reading.
+      ["german", `"4${DEFAULT_SEPARATOR}"${RIGHT_SINGLE_QUOTE}`, `${DOUBLE_LOW_9_QUOTE}4${DEFAULT_SEPARATOR}${DOUBLE_PRIME}${LEFT_SINGLE_QUOTE}`],
+      [
+        "german",
+        `"4${DEFAULT_SEPARATOR}"${RIGHT_SINGLE_QUOTE}!2"4`,
+        `${DOUBLE_LOW_9_QUOTE}4${DEFAULT_SEPARATOR}${DOUBLE_PRIME}${LEFT_SINGLE_QUOTE}!2${DOUBLE_PRIME}4`,
       ],
     ] as const)("%s: %j reaches its fixed point in one run", (punctuationStyle, input, expected) => {
       const run = (text: string): string => viewTransform((view) => niceQuotes(view, { punctuationStyle }), text, DEFAULT_SEPARATOR)

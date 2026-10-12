@@ -1555,23 +1555,27 @@ function queueRenderEdits(view: ProseView, items: Item[], table: Record<QuoteRol
  * The items the next run builds from this pass's rendering. German reads its
  * rendered glyphs by depth, and re-derives most of them to straight candidates
  * classified by position, so the next run's readings depend on the roles this
- * pass assigned to everything before them.
+ * pass assigned to everything before them. The next run's prime pass turns
+ * the digit-adjacent straight quotes this pass leaves straight into primes,
+ * so they are primes here too.
  */
 function rereadGermanRendering(items: Item[], text: string, apostrophe: string): Item[] {
   const rendered = renderTable("german", apostrophe)
   const depth: GermanDepth = { double: 0, single: 0 }
-  return items.map((item) => {
+  const reread = items.map((item) => {
     if (item.boundary) return makeItem(true, "", item.start, item.end)
     const role = ROLE_BY_CHAR.get(item.ch)
     const glyph = role === undefined ? (item.curlySource ?? item.ch) : rendered[role]
     const mapped = readGermanGlyph(glyph, DIGIT_RE.test(text[item.start - 1] ?? ""), depth)
-    const reread = makeItem(false, mapped ?? item.ch, item.start, item.end)
-    reread.moved = item.moved
-    reread.anchorOffset = item.anchorOffset
-    reread.anchorBind = item.anchorBind
-    if (mapped === '"' || mapped === "'") reread.curlySource = glyph
-    return reread
+    const next = makeItem(false, mapped ?? item.ch, item.start, item.end)
+    next.moved = item.moved
+    next.anchorOffset = item.anchorOffset
+    next.anchorBind = item.anchorBind
+    if (mapped === '"' || mapped === "'") next.curlySource = glyph
+    return next
   })
+  convertPrimes(reread, new Set())
+  return reread
 }
 
 /** Runs the single- then double-quote classification rules over `items`. */
@@ -1679,7 +1683,7 @@ function convertPrimes(items: Item[], swissSeparators: ReadonlySet<number>): voi
     let balance = 0
     for (let i = 0; i < items.length; i++) {
       const item = items[i]
-      if (item.boundary || item.ch !== quote) continue
+      if (item.boundary || item.ch !== quote || item.curlySource !== undefined) continue
       // A Swiss/Liechtenstein digit-group separator (5'000) is an apostrophe,
       // not a foot/minute prime; curl it and leave the quote balance untouched.
       if (quote === "'" && swissSeparators.has(item.start)) {
