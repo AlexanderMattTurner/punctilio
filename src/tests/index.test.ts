@@ -29,6 +29,7 @@ const {
   REGISTERED,
   DEGREE,
   MINUS,
+  MODIFIER_LETTER_APOSTROPHE,
   FRACTION_1_2,
   SUPERSCRIPT_ST,
 } = UNICODE_SYMBOLS
@@ -561,6 +562,13 @@ describe("transform", () => {
     ])('range abutting a superscript ordinal is idempotent: "%s"', (input) => {
       const first = transform(input, { superscript: true })
       expect(transform(first, { superscript: true })).toBe(first)
+    })
+
+    // The quote pass renders U+02BC as U+2019, so the minus rule reads both alike.
+    it.each([
+      [`x ${MODIFIER_LETTER_APOSTROPHE}-5`, `x ${RIGHT_SINGLE_QUOTE}${MINUS}5`],
+    ])("converts a hyphen after a modifier apostrophe in one run: %j", (input, expected) => {
+      expect(transform(input, { nbsp: false })).toBe(expected)
     })
 
     it.each([

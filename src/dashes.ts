@@ -1,4 +1,4 @@
-import { asCharClassContent, cachedRegExp, FOLDED_WORD_CHARS, isWordLike, LATIN_LETTER_RE, LATIN_LETTERS, LATIN_OR_DIGIT, LATIN_OR_DIGIT_RE, LOCALE_QUOTE_MARKS, MAX_BOUNDARY_SEPARATORS, NBSP_CHARS, OPENING_BRACKETS, QUOTE_GLYPHS, SPACE_CHAR_RE, UNICODE_SYMBOLS } from "./constants.js"
+import { asCharClassContent, cachedRegExp, FOLDED_WORD_CHARS, isWordLike, LATIN_LETTER_RE, LATIN_LETTERS, LATIN_OR_DIGIT, LATIN_OR_DIGIT_RE, MAX_BOUNDARY_SEPARATORS, NBSP_CHARS, OPENING_BRACKETS, QUOTE_GLYPHS, SPACE_CHAR_RE, UNICODE_SYMBOLS } from "./constants.js"
 import { boundaryCountAt, exceedsSingleBoundary, firstInteriorBoundary, lastBoundaryBefore, makeProsePass, overInput, type ProseView, replaceAllInView, type ReplaceAllOptions } from "./prose-view.js"
 
 export const DASH_STYLES = ["american", "british", "none"] as const
@@ -9,10 +9,7 @@ export interface DashOptions {
   dashStyle?: DashStyle
 }
 
-const {
-  EN_DASH, EM_DASH, MINUS, MULTIPLICATION, PLUS_MINUS,
-  LEFT_DOUBLE_QUOTE, RIGHT_DOUBLE_QUOTE, LEFT_SINGLE_QUOTE, RIGHT_SINGLE_QUOTE,
-} = UNICODE_SYMBOLS
+const { EN_DASH, EM_DASH, MINUS, MULTIPLICATION, PLUS_MINUS } = UNICODE_SYMBOLS
 
 // Prevents false-positive ranges in model names like "Llama-2-7B".
 export const numberRangeDisallowedPrefixes = ["-", EN_DASH, EM_DASH, MINUS] as const
@@ -793,7 +790,7 @@ function minusSubtractionPrefixOk(match: RegExpExecArray, view: ProseView, prefi
   return NUM_BODY_RE.test(view.text.slice(numStart, truncatedEnd))
 }
 
-const MINUS_BEFORE_CLASS_RE = new RegExp(`[\\s${asCharClassContent(OPENING_BRACKETS)}"'${LEFT_DOUBLE_QUOTE}${RIGHT_DOUBLE_QUOTE}${LEFT_SINGLE_QUOTE}${RIGHT_SINGLE_QUOTE}${LOCALE_QUOTE_MARKS}]`)
+const MINUS_BEFORE_CLASS_RE = new RegExp(`[\\s${asCharClassContent(OPENING_BRACKETS)}${QUOTE_GLYPHS}]`)
 // The folded word glyphs block like the word chars they fold from ("1x|-0"
 // and "1×|-0" must agree), the folded math operators block like the operator
 // chars they fold from (the `!=` → `≠` fold consumes the `=` that blocked

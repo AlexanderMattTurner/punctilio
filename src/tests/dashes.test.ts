@@ -18,6 +18,7 @@ const {
   SINGLE_LOW_9_QUOTE,
   LEFT_GUILLEMET,
   RIGHT_GUILLEMET,
+  MODIFIER_LETTER_APOSTROPHE,
 } = UNICODE_SYMBOLS
 
 /** Opener/closer pairs for the low-9 quotes and both guillemet orders. */
@@ -403,6 +404,8 @@ describe("minusReplace", () => {
     // Curly quotes (pre-transformed text)
     [`${LEFT_DOUBLE_QUOTE}-5${RIGHT_DOUBLE_QUOTE}`, `${LEFT_DOUBLE_QUOTE}${MINUS}5${RIGHT_DOUBLE_QUOTE}`],
     [`${LEFT_SINGLE_QUOTE}-5${RIGHT_SINGLE_QUOTE}`, `${LEFT_SINGLE_QUOTE}${MINUS}5${RIGHT_SINGLE_QUOTE}`],
+    // U+02BC reads as the U+2019 the quote pass renders it to
+    [`x ${MODIFIER_LETTER_APOSTROPHE}-5`, `x ${MODIFIER_LETTER_APOSTROPHE}${MINUS}5`],
     // Spaced math subtraction (digit before)
     ["5 - 3", `5 ${MINUS} 3`],
     ["10 - 5 = 5", `10 ${MINUS} 5 = 5`],

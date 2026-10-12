@@ -37,10 +37,10 @@ function fcParams(numRuns: number): fc.Parameters<unknown> {
 }
 
 /** Characters weighted toward every transform trigger: quotes (straight, curly,
- * low-9, and guillemets), dashes, ellipses, primes, arrows, fractions,
+ * low-9, guillemets, and U+02BC), dashes, ellipses, primes, arrows, fractions,
  * ordinals, units, and whitespace. */
 const TYPOGRAPHY_CHAR = fc.constantFrom(
-  ..."\"'`-–—.…!?xX*/\\<>()[]{}0123456789aAbBzZ   ,;:\n\t$%&#@^~_|+=\u201C\u201D\u2018\u2019\u201E\u201A\u00AB\u00BB",
+  ..."\"'`-–—.…!?xX*/\\<>()[]{}0123456789aAbBzZ   ,;:\n\t$%&#@^~_|+=\u201C\u201D\u2018\u2019\u201E\u201A\u00AB\u00BB\u02BC",
 )
 
 /** Arbitrary text: plain ASCII, raw UTF-16 (including lone surrogates), and
@@ -268,7 +268,7 @@ describe("fuzz: transformHtml", () => {
   // typography passes are the subject here.
   const ARB_HTML_TEXT = fc.string({
     maxLength: 40,
-    unit: fc.constantFrom(..."\"'-–—.!?x/()0123456789abz ,;:\u201C\u201D\u2018\u2019\u201E\u201A\u00AB\u00BB"),
+    unit: fc.constantFrom(..."\"'-–—.!?x/()0123456789abz ,;:\u201C\u201D\u2018\u2019\u201E\u201A\u00AB\u00BB\u02BC"),
   })
 
   it("is idempotent and leaves code blocks untouched", async () => {
@@ -293,7 +293,7 @@ describe("fuzz: transformHtml", () => {
 describe("fuzz: transformMarkdown", () => {
   const ARB_MARKDOWN_TEXT = fc.string({
     maxLength: 50,
-    unit: fc.constantFrom(..."\"'-.!?x/()0123456789abz ,;:\n*_`[]#>\u201C\u201D\u2018\u2019\u201E\u201A\u00AB\u00BB"),
+    unit: fc.constantFrom(..."\"'-.!?x/()0123456789abz ,;:\n*_`[]#>\u201C\u201D\u2018\u2019\u201E\u201A\u00AB\u00BB\u02BC"),
   })
 
   it("is idempotent", async () => {
