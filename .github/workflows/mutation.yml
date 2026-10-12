@@ -8,6 +8,7 @@ on:
     - cron: "41 2 * * *" # daily, 02:41 UTC
   workflow_dispatch:
 
+# cancellable-required-check-ok: cancel-in-progress is true only on pull_request, whose ref is per-PR; schedule and dispatch runs never cancel.
 concurrency:
   group: "${{ github.workflow }}-${{ github.ref }}"
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -21,6 +22,7 @@ jobs:
   # by SHARD_BUDGET (executions per shard) and MAX_SHARDS, so the matrix stays
   # balanced as the source grows without re-tuning file groups by hand. Runs on
   # the runner's bundled node; the planner reads only source files, no deps.
+  # event-scoped-ok: pull requests run mutation-changed instead of the sharded plan, and mutation-all reports on whichever ran.
   prep:
     name: Plan mutation shards
     if: github.event_name != 'pull_request'

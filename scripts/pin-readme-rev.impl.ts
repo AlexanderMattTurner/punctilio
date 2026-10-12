@@ -33,7 +33,7 @@ export function pinReadmeRev(readme: string, version: string | undefined): PinOu
   if (!REV_LINE.test(readme)) {
     return { pinned: false, message: `pre-commit rev pattern not found in ${README_PATH}; leaving it unchanged.` }
   }
-  const updated = readme.replace(REV_LINE, `$<prefix>v${version}`)
+  const updated = readme.replace(REV_LINE, (_matched: string, prefix: string) => `${prefix}v${version}`)
   if (updated === readme) {
     return { pinned: false, message: `pre-commit rev already at v${version} in ${README_PATH}; nothing to do.` }
   }

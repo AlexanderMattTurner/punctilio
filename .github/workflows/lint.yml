@@ -59,7 +59,15 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Restore pinned actionlint
+        id: actionlint-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/actionlint
+          key: actionlint-${{ runner.os }}-${{ env.ACTIONLINT_VERSION }}
+
       - name: Download pinned actionlint
+        if: steps.actionlint-cache.outputs.cache-hit != 'true'
         run: |
           archive="actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
           curl -fsSL --retry 6 --retry-all-errors --retry-delay 15 --connect-timeout 30 \

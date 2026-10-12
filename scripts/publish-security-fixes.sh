@@ -42,6 +42,7 @@ branch=$(<"${PUBLISH_DIR}/branch.txt")
   die "The agent committed on '${branch}', not the existing rollup branch '${EXISTING_BRANCH}'."
 
 git bundle verify --quiet "${PUBLISH_DIR}/commits.bundle"
+# allow-unbounded: fetches from the local bundle file, never the network.
 git fetch --quiet "${PUBLISH_DIR}/commits.bundle" HEAD
 tip=$(git rev-parse FETCH_HEAD)
 
@@ -59,7 +60,7 @@ echo "::add-mask::${basic_auth}"
 GIT_CONFIG_COUNT=1 \
   GIT_CONFIG_KEY_0="http.https://github.com/.extraheader" \
   GIT_CONFIG_VALUE_0="AUTHORIZATION: basic ${basic_auth}" \
-  git push origin "${tip}:refs/heads/${branch}"
+  timeout --kill-after=10 120 git push origin "${tip}:refs/heads/${branch}"
 
 export GH_TOKEN="$PUSH_TOKEN"
 pr_number=$(gh pr list --head "$branch" --state open --json number --jq '.[0].number // empty')

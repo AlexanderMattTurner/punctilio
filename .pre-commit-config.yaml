@@ -5,8 +5,9 @@ repos:
     rev: da8f79630cdcaa5bc81902127dfc6d3982a2bc97 # v1.6.0
     hooks:
       # Every check, minus the ones below. Each --ignore is either a check that
-      # does not apply to this repo, or one with findings on main still to fix;
-      # drop the line once its findings are gone.
+      # does not apply to this repo, or one whose findings sit in template-synced
+      # files. Findings in files this repo owns carry a per-site annotation or a
+      # fix instead, so the check stays live for new code.
       - id: check-select
         args:
           - --select
@@ -18,38 +19,20 @@ repos:
           # and benchmark.mjs's `./dist/` import, read to it as dangling.
           - --ignore
           - check:check-relative-imports
-          # Findings on main, mostly in template-synced workflows and scripts.
-          - --ignore
-          - check:check-uncached-download
-          - --ignore
-          - check:check-required-event-closure
-          - --ignore
-          - check:check-embedded-program-length
-          - --ignore
-          - check:check-main-push
-          - --ignore
-          - check:check-pending-cancel-concurrency
+          # Template-synced findings, fixed upstream in the template: these
+          # files are overwritten on sync, so a local fix or annotation would
+          # not survive. Drop a line once the template stops producing it.
           - --ignore
           - check:check-collapsing-job-group
           - --ignore
-          - check:check-cancellable-required-check
-          - --ignore
-          - check:check-token-fallback
-          - --ignore
-          - check:check-workflow-secret-names
-          - --ignore
-          - check:check-divergent-action-pins
-          - --ignore
-          - check:check-echo-fallback
+          - check:check-counted-repo-root
           - --ignore
           - check:check-curl-retry
           - --ignore
-          - check:check-unbounded-waits
+          - check:check-dead-shell-functions
           - --ignore
-          - check:check-replacement-expansion
+          - check:check-divergent-action-pins
           - --ignore
-          - check:check-counted-repo-root
+          - check:check-pending-cancel-concurrency
           - --ignore
           - check:check-workflow-refs
-          - --ignore
-          - check:check-dead-shell-functions
