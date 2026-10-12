@@ -1,7 +1,7 @@
 import { readFileSync } from "fs"
 import { resolve } from "path"
 import { fileURLToPath } from "url"
-import { clearProcessorCache, transformMarkdown } from "../markdown.js"
+import { clearProcessorCache, remarkRoundTrip, transformMarkdown } from "../markdown.js"
 import { transform } from "../index.js"
 import { UNICODE_SYMBOLS } from "../constants.js"
 
@@ -165,6 +165,22 @@ describe("transformMarkdown", () => {
     const once = await transformMarkdown(input, { punctuationStyle })
     expect(once).toBe(expected)
     expect(await transformMarkdown(once, { punctuationStyle })).toBe(once)
+  })
+
+  // Remark's own round trip changes `*)**!*)` to `*)\*\*!*)`: a second
+  // transform must match that plain round trip, not the first output.
+  it.each([
+    ['"Hi" -- *x*\n', '"Hi" -- *x*\n', {}],
+    ["*)**!*)\n", "*)\\*\\*!*)\n", {}],
+    ["\uFEFF---\ntitle: \"a\"\n---\n\n*x*\n", "\uFEFF---\ntitle: \"a\"\n---\n\n_x_\n", { emphasisMarker: "_" }],
+  ] as const)("remarkRoundTrip(%j) applies no punctilio pass: %j", async (input, expected, options) => {
+    expect(await remarkRoundTrip(input, options)).toBe(expected)
+  })
+
+  it("transforms to a fixed point modulo remark's round trip", async () => {
+    const once = await transformMarkdown("_)_*!*)")
+    expect(once).toBe("*)**!*)\n")
+    expect(await transformMarkdown(once)).toBe(await remarkRoundTrip(once))
   })
 
   const BODY_IN = '"Hello" -- *world*.\n'
