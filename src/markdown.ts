@@ -4,8 +4,8 @@ import remarkGfm from "remark-gfm"
 import remarkStringify from "remark-stringify"
 import QuickLRU from "quick-lru"
 
-import { TRANSFORM_OPTION_KEYS } from "./transform-options.js"
 import { remarkPunctilio, type RemarkPunctilioOptions } from "./remark.js"
+import { MARKDOWN_ONLY_OPTION_KEYS, MARKDOWN_OPTION_KEYS } from "./sink-option-keys.js"
 import { assertKnownOptionKeys, stableStringify } from "./utils.js"
 
 /**
@@ -33,11 +33,7 @@ export interface MarkdownOptions extends RemarkPunctilioOptions {
   ruleMarker?: "-" | "*" | "_"
 }
 
-/** Option keys handled by `transformMarkdown` itself rather than `transform()`. */
-export const MARKDOWN_ONLY_OPTION_KEYS: readonly string[] = ["emphasisMarker", "strongMarker", "bulletMarker", "ruleMarker"]
-
-/** Runtime list of valid `transformMarkdown` option keys. */
-export const MARKDOWN_OPTION_KEYS: readonly string[] = [...TRANSFORM_OPTION_KEYS, ...MARKDOWN_ONLY_OPTION_KEYS]
+export { MARKDOWN_ONLY_OPTION_KEYS, MARKDOWN_OPTION_KEYS }
 
 function createProcessor(options: MarkdownOptions) {
   const {
