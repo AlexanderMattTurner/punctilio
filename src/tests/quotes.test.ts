@@ -927,94 +927,67 @@ describe("niceQuotes", () => {
       expect(niceQuotes(once, { punctuationStyle: "french" })).toBe(once)
     })
 
-    // Every collapsible space merges into the closer's padding, not just a plain
-    // space, so a straight quote before one reads as an opener on the first run.
+    // Each row is the output a re-run reproduces, so the first run must reach
+    // it directly. French: a straight quote beside a guillemet reads as an opener
+    // or closer when one space separates them, or two once the guillemet's
+    // padding absorbs the NBSP/NNBSP beside it (a tab stays between the
+    // paddings); punctuation moved out of the quote leaves its NBSP behind, which
+    // the closer absorbs. German: U+2018/U+201C close only while a low-9 opener
+    // is open, so a glyph whose opener a straight candidate consumed is an
+    // orphan classified by position, and a straight quote opening across a
+    // node boundary turns the U+201C orphan after it into its closer.
     it.each([
-      [NBSP, `a ${LEFT_GUILLEMET}${NNBSP}${NNBSP}${RIGHT_GUILLEMET}`],
-      ["\t", `a ${LEFT_GUILLEMET}${NNBSP}\t${NNBSP}${RIGHT_GUILLEMET}`],
-    ])("french opener before a closer spaced with %j reaches its fixed point in one run", (space, expected) => {
-      const once = niceQuotes(`a "${space}${RIGHT_DOUBLE_QUOTE}`, { punctuationStyle: "french" })
-      expect(once).toBe(expected)
-      expect(niceQuotes(once, { punctuationStyle: "french" })).toBe(once)
-    })
-
-    it.each([
-      [`${LEFT_DOUBLE_QUOTE}${NBSP}".`, `${LEFT_GUILLEMET}${NNBSP}${NNBSP}${RIGHT_GUILLEMET}.`],
-      [`${LEFT_DOUBLE_QUOTE}${NNBSP}" b`, `${LEFT_GUILLEMET}${NNBSP}${NNBSP}${RIGHT_GUILLEMET} b`],
-      // Two spaces collapse to one once the glyph's padding absorbs the NBSP/NNBSP
-      // beside it, whichever side of the pair the glyph is on.
-      [`${LEFT_DOUBLE_QUOTE}${NNBSP}\t"]`, `${LEFT_GUILLEMET}${NNBSP}\t${NNBSP}${RIGHT_GUILLEMET}]`],
-      [`${LEFT_DOUBLE_QUOTE}${NBSP}${NNBSP}"]`, `${LEFT_GUILLEMET}${NNBSP}${NNBSP}${RIGHT_GUILLEMET}]`],
-      [`"${NNBSP}${NNBSP}${RIGHT_DOUBLE_QUOTE}`, `${LEFT_GUILLEMET}${NNBSP}${NNBSP}${RIGHT_GUILLEMET}`],
-      [`"\t${NNBSP}${RIGHT_DOUBLE_QUOTE}`, `${LEFT_GUILLEMET}${NNBSP}\t${NNBSP}${RIGHT_GUILLEMET}`],
+      ["french", `a "${NBSP}${RIGHT_DOUBLE_QUOTE}`, `a ${LEFT_GUILLEMET}${NNBSP}${NNBSP}${RIGHT_GUILLEMET}`],
+      ["french", `a "\t${RIGHT_DOUBLE_QUOTE}`, `a ${LEFT_GUILLEMET}${NNBSP}\t${NNBSP}${RIGHT_GUILLEMET}`],
+      ["french", `${LEFT_DOUBLE_QUOTE}${NBSP}".`, `${LEFT_GUILLEMET}${NNBSP}${NNBSP}${RIGHT_GUILLEMET}.`],
+      ["french", `${LEFT_DOUBLE_QUOTE}${NNBSP}" b`, `${LEFT_GUILLEMET}${NNBSP}${NNBSP}${RIGHT_GUILLEMET} b`],
+      ["french", `${LEFT_DOUBLE_QUOTE}${NNBSP}\t"]`, `${LEFT_GUILLEMET}${NNBSP}\t${NNBSP}${RIGHT_GUILLEMET}]`],
+      ["french", `${LEFT_DOUBLE_QUOTE}${NBSP}${NNBSP}"]`, `${LEFT_GUILLEMET}${NNBSP}${NNBSP}${RIGHT_GUILLEMET}]`],
+      ["french", `"${NNBSP}${NNBSP}${RIGHT_DOUBLE_QUOTE}`, `${LEFT_GUILLEMET}${NNBSP}${NNBSP}${RIGHT_GUILLEMET}`],
+      ["french", `"\t${NNBSP}${RIGHT_DOUBLE_QUOTE}`, `${LEFT_GUILLEMET}${NNBSP}\t${NNBSP}${RIGHT_GUILLEMET}`],
       // A third space survives the absorption, so the quote stays straight.
-      [`"${NNBSP}${NNBSP}${NNBSP}${RIGHT_DOUBLE_QUOTE}`, `"${NNBSP}${NNBSP}${NNBSP}${RIGHT_GUILLEMET}`],
-    ])("french closer after an opener spaced with a no-break space reaches its fixed point in one run: %j", (input, expected) => {
-      const once = niceQuotes(input, { punctuationStyle: "french" })
-      expect(once).toBe(expected)
-      expect(niceQuotes(once, { punctuationStyle: "french" })).toBe(once)
-    })
-
-    // Moving the period or comma out of the quote leaves the NBSP that preceded
-    // it directly before the closer, where a re-run absorbs it into the
-    // closer's NNBSP padding; the first run must absorb it too.
-    it.each([
-      [`x${NBSP}.${RIGHT_DOUBLE_QUOTE}`, `x${NNBSP}${RIGHT_GUILLEMET}.`],
-      [`x${NBSP},${RIGHT_DOUBLE_QUOTE}`, `x${NNBSP}${RIGHT_GUILLEMET},`],
-      [`${LEFT_DOUBLE_QUOTE}y${NNBSP}.${RIGHT_DOUBLE_QUOTE}`, `${LEFT_GUILLEMET}${NNBSP}y${NNBSP}${RIGHT_GUILLEMET}.`],
-    ])("french closer absorbs the space a moved punctuation mark leaves behind: %j", (input, expected) => {
-      const once = niceQuotes(input, { punctuationStyle: "french" })
-      expect(once).toBe(expected)
-      expect(niceQuotes(once, { punctuationStyle: "french" })).toBe(once)
-    })
-
-    // A U+2018/U+201C reads as a closer only while a low-9 opener is open. A
-    // straight candidate between them that classifies as that opener's closer
-    // consumes it, so the later glyph is an orphan and must be classified by
-    // position, as the next run reads it.
-    it.each([
+      ["french", `"${NNBSP}${NNBSP}${NNBSP}${RIGHT_DOUBLE_QUOTE}`, `"${NNBSP}${NNBSP}${NNBSP}${RIGHT_GUILLEMET}`],
+      ["french", `x${NBSP}.${RIGHT_DOUBLE_QUOTE}`, `x${NNBSP}${RIGHT_GUILLEMET}.`],
+      ["french", `x${NBSP},${RIGHT_DOUBLE_QUOTE}`, `x${NNBSP}${RIGHT_GUILLEMET},`],
+      ["french", `${LEFT_DOUBLE_QUOTE}y${NNBSP}.${RIGHT_DOUBLE_QUOTE}`, `${LEFT_GUILLEMET}${NNBSP}y${NNBSP}${RIGHT_GUILLEMET}.`],
       [
+        "german",
         `z${SINGLE_LOW_9_QUOTE}^${RIGHT_SINGLE_QUOTE}]]${LEFT_SINGLE_QUOTE}${LEFT_SINGLE_QUOTE}`,
         `z${SINGLE_LOW_9_QUOTE}^${LEFT_SINGLE_QUOTE}]]${SINGLE_LOW_9_QUOTE}${LEFT_SINGLE_QUOTE}`,
       ],
       [
+        "german",
         `${SINGLE_LOW_9_QUOTE}'] "${LEFT_SINGLE_QUOTE}.`,
         `${SINGLE_LOW_9_QUOTE}${LEFT_SINGLE_QUOTE}] ${DOUBLE_LOW_9_QUOTE}${RIGHT_SINGLE_QUOTE}.`,
       ],
       [
+        "german",
         `${DOUBLE_LOW_9_QUOTE}${RIGHT_DOUBLE_QUOTE} ${LEFT_DOUBLE_QUOTE}${DOUBLE_LOW_9_QUOTE}, `,
         `${DOUBLE_LOW_9_QUOTE}${LEFT_DOUBLE_QUOTE} ${DOUBLE_LOW_9_QUOTE}${DOUBLE_LOW_9_QUOTE}, `,
       ],
       [
+        "german",
         `${DOUBLE_LOW_9_QUOTE}." ${LEFT_DOUBLE_QUOTE}a${RIGHT_DOUBLE_QUOTE}`,
         `${DOUBLE_LOW_9_QUOTE}.${LEFT_DOUBLE_QUOTE} ${DOUBLE_LOW_9_QUOTE}a${LEFT_DOUBLE_QUOTE}`,
       ],
       // The U+2018 after the apostrophe reads as a closer on the next run, so
       // it renders as the U+2019 that run reads, not the glyph in the source.
       [
+        "german",
         `${LEFT_SINGLE_QUOTE}1${RIGHT_SINGLE_QUOTE} ${RIGHT_SINGLE_QUOTE}${LEFT_SINGLE_QUOTE}${LEFT_SINGLE_QUOTE}]${RIGHT_SINGLE_QUOTE}`,
         `${SINGLE_LOW_9_QUOTE}1${RIGHT_SINGLE_QUOTE} ${RIGHT_SINGLE_QUOTE}${RIGHT_SINGLE_QUOTE}${LEFT_SINGLE_QUOTE}]${LEFT_SINGLE_QUOTE}`,
       ],
-    ])("german orphan closer after a consumed opener: %j", (input, expected) => {
-      const once = niceQuotes(input, { punctuationStyle: "german" })
-      expect(once).toBe(expected)
-      expect(niceQuotes(once, { punctuationStyle: "german" })).toBe(once)
-    })
-
-    // A straight quote that classifies as an opener turns the U+201C orphan
-    // after it into that opener's closer on the next run, which also changes
-    // how the single quote after it classifies; the first run must read it so.
-    it.each([
-      [`"${DEFAULT_SEPARATOR}${LEFT_DOUBLE_QUOTE}${LEFT_SINGLE_QUOTE}-`, `${DOUBLE_LOW_9_QUOTE}${DEFAULT_SEPARATOR}${LEFT_DOUBLE_QUOTE}${LEFT_SINGLE_QUOTE}-`],
+      ["german", `"${DEFAULT_SEPARATOR}${LEFT_DOUBLE_QUOTE}${LEFT_SINGLE_QUOTE}-`, `${DOUBLE_LOW_9_QUOTE}${DEFAULT_SEPARATOR}${LEFT_DOUBLE_QUOTE}${LEFT_SINGLE_QUOTE}-`],
       [
+        "german",
         `${EM_DASH}${LEFT_DOUBLE_QUOTE}8${DEFAULT_SEPARATOR}${LEFT_DOUBLE_QUOTE}${LEFT_SINGLE_QUOTE}-${RIGHT_SINGLE_QUOTE}a1`,
         `${EM_DASH}${DOUBLE_LOW_9_QUOTE}8${DEFAULT_SEPARATOR}${LEFT_DOUBLE_QUOTE}${LEFT_SINGLE_QUOTE}-${RIGHT_SINGLE_QUOTE}a1`,
       ],
-    ])("german orphan closer opened across a node boundary: %j", (input, expected) => {
-      const options = { punctuationStyle: "german" as const }
-      const once = viewTransform((view) => niceQuotes(view, options), input)
+    ] as const)("%s: %j reaches its fixed point in one run", (punctuationStyle, input, expected) => {
+      const run = (text: string): string => viewTransform((view) => niceQuotes(view, { punctuationStyle }), text, DEFAULT_SEPARATOR)
+      const once = run(input)
       expect(once).toBe(expected)
-      expect(viewTransform((view) => niceQuotes(view, options), once)).toBe(once)
+      expect(run(once)).toBe(once)
     })
 
     it("german normalizer re-classifies pre-existing RDQ", () => {

@@ -545,9 +545,6 @@ describe("transform", () => {
       [`"She said, 'Hello.'"`, "french" as const],
       // Leading apostrophe — tests the German RSQ normalization fix
       [`'Twas the night before Christmas.`, "german" as const],
-      // A straight candidate closes the low-9 opener before the U+2018 that
-      // would otherwise close it
-      ["z\u201A^\u2019]]\u2018\u2018", "german" as const],
     ])('is idempotent across styles: "%s" [%s]', (input, style) => {
       const first = transform(input, { punctuationStyle: style })
       const second = transform(first, { punctuationStyle: style })
@@ -753,7 +750,10 @@ describe("transform", () => {
       [`^818_${EN_DASH}${NBSP}.${RIGHT_DOUBLE_QUOTE}`, `^818_${EN_DASH}${NNBSP}${RIGHT_GUILLEMET}.`],
       [`${RIGHT_DOUBLE_QUOTE}${NBSP}"\t${NBSP}${RIGHT_DOUBLE_QUOTE},`, `${NNBSP}${RIGHT_GUILLEMET}${NBSP}${LEFT_GUILLEMET}${NNBSP}${RIGHT_GUILLEMET},`],
     ])("transform(%j, french) is %j", (input, expected) => {
-      expect(transform(input, { punctuationStyle: "french" })).toBe(expected)
+      const french = { punctuationStyle: "french" } as const
+      const once = transform(input, french)
+      expect(once).toBe(expected)
+      expect(transform(once, french)).toBe(once)
     })
   })
 
