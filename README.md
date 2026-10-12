@@ -228,7 +228,7 @@ Second, non-breaking spaces (U+00A0) are invisible in source files: they render 
 File handling follows a few rules:
 
 - Globs skip `node_modules` and `.git`, and `.punctilioignore` (gitignore syntax) applies to files named explicitly as well as to glob matches, so a hook that passes every staged file by name still honors it.
-- A glob that matches nothing is a usage error (exit 2) in every mode; so is an unsupported file extension, which is detected before any file is rewritten. `--stdin-filepath` cannot be combined with file arguments.
+- Every glob must match at least one file: a glob that matches nothing is a usage error (exit 2) in every mode, even when another glob matches, so a typo in one pattern can't hide behind the rest; so is an unsupported file extension, which is detected before any file is rewritten. `--stdin-filepath` cannot be combined with file arguments.
 - `--write` follows symlinks and rewrites the target, keeps its permissions, and leaves no temporary file behind on failure.
 - A leading UTF-8 byte order mark is preserved. Markdown front matter (YAML between `---` fences, or TOML between `+++` fences) is passed through untouched.
 - HTML input that begins with `<!doctype` or `<html` is parsed as a complete document, so the doctype, `<head>`, and `<body>` survive; anything else is parsed as a fragment. `--no-fragment` (or `fragment: false`) forces the document parse, and `fragment: true` forces the fragment parse.

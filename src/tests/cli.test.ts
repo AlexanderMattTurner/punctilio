@@ -785,6 +785,7 @@ describe("runCli", () => {
     ["--check", ["--check"]],
     ["stdout mode", []],
     ["--write with a matching literal path alongside", ["--write", "a.md"]],
+    ["--write with a matching glob alongside", ["--write", "*.md"]],
   ])("exits 2 without touching files when a glob matches nothing (%s)", async (_label, args) => {
     await withTempCwd("punctilio-glob-empty-", async (dir) => {
       writeFileSync(join(dir, "a.md"), '"a"\n')
@@ -793,6 +794,45 @@ describe("runCli", () => {
       expect(cap.stderr()).toBe("Error: no files matched: *.html\n")
       expect(cap.stdout()).toBe("")
       expect(readFileSync(join(dir, "a.md"), "utf8")).toBe('"a"\n')
+    })
+  })
+
+  it.each([
+    ["one unmatched glob after a matching one", ["*.md", "*.htlm"], "*.htlm"],
+    ["one unmatched glob before a matching one", ["*.htlm", "*.md"], "*.htlm"],
+    ["every unmatched glob", ["*.nope", "*.md", "*.htlm"], "*.nope *.htlm"],
+    ["a glob whose matches are all negated", ["*.md", "!a.*"], "*.md"],
+    ["only negated globs", ["!a.*"], "!a.*"],
+  ])("exits 2 naming each glob that matches nothing, before writing (%s)", async (_label, patterns, unmatched) => {
+    await withTempCwd("punctilio-glob-each-", async (dir) => {
+      writeFileSync(join(dir, "a.md"), '"a"\n')
+      const cap = captureIO()
+      expect(await runCli(["--write", "--no-nbsp", ...patterns], cap.io)).toBe(2)
+      expect(cap.stderr()).toBe(`Error: no files matched: ${unmatched}\n`)
+      expect(readFileSync(join(dir, "a.md"), "utf8")).toBe('"a"\n')
+    })
+  })
+
+  it("excludes files matched by a negated glob", async () => {
+    await withTempCwd("punctilio-glob-negated-", async (dir) => {
+      writeFileSync(join(dir, "a.md"), '"a"\n')
+      writeFileSync(join(dir, "b.md"), '"b"\n')
+      expect(await runCli(["--write", "--no-nbsp", "*.md", "!b.*"], captureIO().io)).toBe(0)
+      expect(readFileSync(join(dir, "a.md"), "utf8")).toBe(`${LDQ}a${RDQ}\n`)
+      expect(readFileSync(join(dir, "b.md"), "utf8")).toBe('"b"\n')
+    })
+  })
+
+  it("warns about only the glob whose matches are all ignored", async () => {
+    await withTempCwd("punctilio-glob-one-ignored-", async (dir) => {
+      mkdirSync(join(dir, "skipped"))
+      writeFileSync(join(dir, "skipped", "s.md"), '"s"\n')
+      writeFileSync(join(dir, "a.md"), '"a"\n')
+      writeFileSync(join(dir, ".punctilioignore"), "skipped/\n")
+      const cap = captureIO()
+      expect(await runCli(["--write", "--no-nbsp", "*.md", "skipped/*.md"], cap.io)).toBe(0)
+      expect(cap.stderr()).toBe("Warning: every file matched by skipped/*.md is ignored\n")
+      expect(readFileSync(join(dir, "a.md"), "utf8")).toBe(`${LDQ}a${RDQ}\n`)
     })
   })
 
@@ -945,6 +985,14 @@ describe("runCli", () => {
     expect(await runCli(["--check", "--no-cache", path, "--no-nbsp"], check.io)).toBe(0)
   })
 
+  // The parser drops whitespace after a bare doctype, so the output lacks the
+  // newline the source ended with.
+  it.each([["\n"], ["\r\n"]])("--write restores the final line ending a document's output lacks (%j)", async (eol) => {
+    const path = tmpFile(`<!DOCTYPE html>${eol}`, "page.html")
+    expect(await runCli(["--write", "--no-cache", path], captureIO().io)).toBe(0)
+    expect(readFileSync(path, "utf8")).toBe(`<!doctype html><html><head></head><body></body></html>${eol}`)
+  })
+
   it("--write updates a symlink's target and keeps the symlink", async () => {
     await withTempCwd("punctilio-symlink-", async (dir) => {
       mkdirSync(join(dir, "real"))
@@ -961,20 +1009,31 @@ describe("runCli", () => {
   it.each([0o600, 0o755])("--write preserves file mode %o", async (mode) => {
     const path = tmpFile('"Hello."\n', "doc.md")
     chmodSync(path, mode)
+    // Windows cannot set POSIX permission bits, so compare against what the
+    // platform reports rather than the requested mode.
+    const modeBeforeWrite = statSync(path).mode & 0o777
     expect(await runCli(["--write", "--no-cache", path, "--no-nbsp"], captureIO().io)).toBe(0)
     expect(readFileSync(path, "utf8")).toBe(`${LDQ}Hello.${RDQ}\n`)
-    expect(statSync(path).mode & 0o777).toBe(mode)
+    expect(statSync(path).mode & 0o777).toBe(modeBeforeWrite)
   })
 
-  it("--write keeps a full HTML document's doctype, html, head, and body", async () => {
-    const path = tmpFile(
-      '<!DOCTYPE html>\n<html lang="en">\n<head><title>T</title></head>\n<body class="page"><p>"Hi" -- there</p></body>\n</html>\n',
-      "page.html",
-    )
+  const FULL_DOCUMENT_HEAD = '<!DOCTYPE html>\n<html lang="en">\n<head><title>T</title></head>\n<body class="page">'
+  it.each([
+    ["LF with a trailing newline", "\n", "\n"],
+    ["CRLF with a trailing newline", "\r\n", "\r\n"],
+    ["LF without a trailing newline", "\n", ""],
+    ["CRLF without a trailing newline", "\r\n", ""],
+  ])("--write keeps a full HTML document's structure and trailing newline (%s)", async (_label, eol, finalEol) => {
+    const source = `${FULL_DOCUMENT_HEAD}<p>"Hi" -- there</p></body>\n</html>`.replace(/\n/g, eol) + finalEol
+    const path = tmpFile(source, "page.html")
     expect(await runCli(["--write", "--no-cache", path, "--no-nbsp"], captureIO().io)).toBe(0)
-    expect(readFileSync(path, "utf8")).toBe(
-      `<!doctype html><html lang="en"><head><title>T</title></head>\n<body class="page"><p>${LDQ}Hi${RDQ}${EM_DASH}there</p>\n\n</body></html>`,
-    )
+    const expected = (
+      `<!doctype html><html lang="en"><head><title>T</title></head>\n<body class="page"><p>${LDQ}Hi${RDQ}${EM_DASH}there</p>\n</body></html>`
+    ).replace(/\n/g, eol) + finalEol
+    expect(readFileSync(path, "utf8")).toBe(expected)
+    // A second run must be a no-op: the trailing newline cannot migrate into <body>.
+    const check = captureIO()
+    expect(await runCli(["--check", "--no-cache", path, "--no-nbsp"], check.io)).toBe(0)
   })
 })
 

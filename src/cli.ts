@@ -11,7 +11,7 @@ import { cosmiconfig } from "cosmiconfig"
 import ignore, { type Ignore } from "ignore"
 import { glob } from "tinyglobby"
 
-import { HTML_ONLY_OPTION_KEYS, HTML_OPTION_KEYS, MARKDOWN_ONLY_OPTION_KEYS, MARKDOWN_OPTION_KEYS } from "./sink-option-keys.js"
+import { HTML_ONLY_OPTION_KEYS, MARKDOWN_ONLY_OPTION_KEYS } from "./sink-option-keys.js"
 import type { MarkdownOptions } from "./markdown.js"
 import type { HtmlOptions } from "./html.js"
 import { loadSinkTransform, MissingPeerDependencyError, type PeerImporter } from "./peer-dependencies.js"
@@ -233,12 +233,6 @@ function inferFileType(path: string, override?: FileType): FileType {
   )
 }
 
-// A config file may legitimately mix markdown-only and HTML-only keys for use
-// across file types; transformContent strips the keys the sink doesn't accept.
-const CLI_CONFIG_KEYS: readonly string[] = [
-  ...new Set([...MARKDOWN_OPTION_KEYS, ...HTML_OPTION_KEYS]),
-]
-
 interface ConfigValueRule {
   expected: string
   isValid: (value: unknown) => boolean
@@ -286,6 +280,10 @@ const CONFIG_VALUE_RULES = {
   skipClasses: STRING_ARRAY_RULE,
   shouldSkipText: FUNCTION_RULE,
 } as const satisfies Record<keyof CliOptions, ConfigValueRule>
+
+// A config file may legitimately mix markdown-only and HTML-only keys for use
+// across file types; transformContent strips the keys the sink doesn't accept.
+const CLI_CONFIG_KEYS: readonly string[] = Object.keys(CONFIG_VALUE_RULES)
 
 // Keys are checked first, so every key present has a rule.
 function assertValidConfig(config: unknown, source: string): asserts config is CliOptions {
@@ -351,8 +349,10 @@ function isIgnored(file: string, cwd: string, ig: Ignore): boolean {
 
 // Literal positionals pass through to the read step so a missing file errors
 // loudly. Ignore rules apply to literals and glob expansions alike, because
-// tools like pre-commit pass every staged file by name. A glob that matches
-// nothing is a usage error; one whose matches are all ignored only warns.
+// tools like pre-commit pass every staged file by name. Each glob is expanded
+// on its own, so one that matches nothing is a usage error even when another
+// glob matches; one whose matches are all ignored only warns. Negated globs
+// (`!pattern`) exclude from every other glob rather than matching on their own.
 async function discoverFiles(
   patterns: string[],
   cwd: string,
@@ -361,15 +361,30 @@ async function discoverFiles(
 ): Promise<string[]> {
   const literals = patterns.filter((p) => isLiteralPath(p, cwd))
   const globs = patterns.filter((p) => !isLiteralPath(p, cwd))
-  const expanded = globs.length > 0
-    ? await glob(globs, { cwd, absolute: true, onlyFiles: true, ignore: DEFAULT_GLOB_IGNORES })
-    : []
-  if (globs.length > 0 && expanded.length === 0) {
-    throw new UsageError(`no files matched: ${globs.join(" ")}`)
+  const negatedGlobs = globs.filter((pattern) => pattern.startsWith("!"))
+  const positiveGlobs = globs.filter((pattern) => !pattern.startsWith("!"))
+  const expansions = await Promise.all(
+    positiveGlobs.map(async (pattern) => ({
+      pattern,
+      files: await glob([pattern, ...negatedGlobs], {
+        cwd,
+        absolute: true,
+        onlyFiles: true,
+        ignore: DEFAULT_GLOB_IGNORES,
+      }),
+    })),
+  )
+  const unmatched = positiveGlobs.length === 0
+    ? globs
+    : expansions.filter(({ files }) => files.length === 0).map(({ pattern }) => pattern)
+  if (unmatched.length > 0) {
+    throw new UsageError(`no files matched: ${unmatched.join(" ")}`)
   }
-  const keptExpanded = expanded.filter((file) => !isIgnored(file, cwd, ig))
-  if (expanded.length > 0 && keptExpanded.length === 0) {
-    stderr.write(`Warning: every file matched by ${globs.join(" ")} is ignored\n`)
+  const keptExpanded: string[] = []
+  for (const { pattern, files } of expansions) {
+    const kept = files.filter((file) => !isIgnored(file, cwd, ig))
+    if (kept.length === 0) stderr.write(`Warning: every file matched by ${pattern} is ignored\n`)
+    keptExpanded.push(...kept)
   }
   const keptLiterals = literals.map((p) => resolve(cwd, p)).filter((file) => !isIgnored(file, cwd, ig))
   return [...new Set([...keptLiterals, ...keptExpanded])]
@@ -432,7 +447,7 @@ export async function atomicWriteFile(path: string, contents: string): Promise<v
   const { mode } = await stat(targetPath)
   const tmpPath = `${targetPath}.${process.pid}.tmp`
   try {
-    await writeFile(tmpPath, contents)
+    await writeFile(tmpPath, contents, { mode: mode & 0o7777 })
     await chmod(tmpPath, mode & 0o7777)
     await rename(tmpPath, targetPath)
   } catch (err) {
@@ -485,34 +500,27 @@ async function transformContent(
   return transformHtml(input, omitKeys(opts, MARKDOWN_ONLY_OPTION_KEYS) as HtmlOptions)
 }
 
-const BYTE_ORDER_MARK = "\uFEFF"
-
-// A leading BOM would otherwise be parsed as content (and block full-document
-// and front matter detection), so it is set aside and restored on the output.
 async function formatDocument(
   original: string,
   type: FileType,
   opts: CliOptions,
   importPeer: PeerImporter | undefined,
 ): Promise<string> {
-  const hasBom = original.startsWith(BYTE_ORDER_MARK)
-  const source = hasBom ? original.slice(BYTE_ORDER_MARK.length) : original
-  const formatted = matchLineEndings(source, await transformContent(source, type, opts, importPeer))
-  return hasBom ? BYTE_ORDER_MARK + formatted : formatted
+  return matchLineEndings(original, await transformContent(original, type, opts, importPeer))
 }
 
-// The unified pipelines emit LF-only output and unconditionally append a
-// trailing newline. Restore the source's line-ending style and trailing-newline
-// presence so a CRLF file doesn't gain mixed endings (which would make --check
-// report a change forever and --write churn on every run).
+// The unified pipelines emit LF-only output. Markdown always ends in a newline;
+// a full HTML document may end without one (its final newline can be dropped
+// or sit inside <body>). Restore the source's line-ending style and
+// trailing-newline presence so a CRLF file doesn't gain mixed endings (which
+// would make --check report a change forever and --write churn on every run).
 function matchLineEndings(original: string, formatted: string): string {
-  // Normalize the LF output back to CRLF when the source used it.
-  let out = original.includes("\r\n")
+  const lineEnding = original.includes("\r\n") ? "\r\n" : "\n"
+  const out = lineEnding === "\r\n"
     ? formatted.replace(/\r\n/g, "\n").replace(/\n/g, "\r\n")
     : formatted
-  // Drop the appended trailing newline if the original had none.
-  if (!/\n$/.test(original)) out = out.replace(/\r?\n$/, "")
-  return out
+  if (!original.endsWith("\n")) return out.replace(/\r?\n$/, "")
+  return out.endsWith("\n") ? out : out + lineEnding
 }
 
 async function readStdin(stdin: AsyncIterable<string | Buffer>): Promise<string> {
