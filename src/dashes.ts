@@ -12,6 +12,7 @@ export interface DashOptions {
 const {
   EN_DASH, EM_DASH, MINUS, MULTIPLICATION, PLUS_MINUS,
   LEFT_DOUBLE_QUOTE, RIGHT_DOUBLE_QUOTE, LEFT_SINGLE_QUOTE, RIGHT_SINGLE_QUOTE,
+  MODIFIER_LETTER_APOSTROPHE, LEFT_GUILLEMET,
 } = UNICODE_SYMBOLS
 
 // Prevents false-positive ranges in model names like "Llama-2-7B".
@@ -781,7 +782,7 @@ function minusSubtractionPrefixOk(match: RegExpExecArray, view: ProseView, prefi
   return NUM_BODY_RE.test(view.text.slice(numStart, truncatedEnd))
 }
 
-const MINUS_BEFORE_CLASS_RE = new RegExp(`[\\s("'${LEFT_DOUBLE_QUOTE}${RIGHT_DOUBLE_QUOTE}${LEFT_SINGLE_QUOTE}${RIGHT_SINGLE_QUOTE}]`)
+const MINUS_BEFORE_CLASS_RE = new RegExp(`[\\s("'${LEFT_DOUBLE_QUOTE}${RIGHT_DOUBLE_QUOTE}${LEFT_SINGLE_QUOTE}${RIGHT_SINGLE_QUOTE}${LEFT_GUILLEMET}]`)
 // The folded word glyphs block like the word chars they fold from ("1x|-0"
 // and "1×|-0" must agree), the folded math operators block like the operator
 // chars they fold from (the `!=` → `≠` fold consumes the `=` that blocked
@@ -860,7 +861,7 @@ function convertParentheticalDashes(view: ProseView, style: DashStyle): void {
   if (style === "british") convertUnspacedEmDashes(view, rendered)
 }
 
-const QUOTE_CHARS = `"'${LEFT_DOUBLE_QUOTE}${RIGHT_DOUBLE_QUOTE}${LEFT_SINGLE_QUOTE}${RIGHT_SINGLE_QUOTE}`
+const QUOTE_CHARS = `"'${LEFT_DOUBLE_QUOTE}${RIGHT_DOUBLE_QUOTE}${LEFT_SINGLE_QUOTE}${RIGHT_SINGLE_QUOTE}${MODIFIER_LETTER_APOSTROPHE}`
 
 const DASH_RUN_CHARS = new Set(["-", EN_DASH, EM_DASH])
 

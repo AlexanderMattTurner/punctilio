@@ -41,6 +41,20 @@ export function assertKnownOptionKeys(
   }
 }
 
+const BYTE_ORDER_MARK = "\uFEFF"
+
+/**
+ * Runs `transform` on `input` without its leading BOM, which would otherwise
+ * be parsed as content, and restores the BOM on the result. @internal
+ */
+export async function transformPreservingBom(
+  input: string,
+  transform: (inputWithoutBom: string) => Promise<string>,
+): Promise<string> {
+  if (!input.startsWith(BYTE_ORDER_MARK)) return transform(input)
+  return BYTE_ORDER_MARK + (await transform(input.slice(BYTE_ORDER_MARK.length)))
+}
+
 /** Returns a copy of `obj` without the listed keys. @internal */
 export function omitKeys<T extends object>(obj: T, keys: readonly string[]): Partial<T> {
   const result: Record<string, unknown> = {}

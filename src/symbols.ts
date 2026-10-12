@@ -147,10 +147,14 @@ const DIGIT_SUFFIX = `(?:${PRIME_ALT}|${UNIT_ALT})?`
 // (1e5x3 — the `e` is a letter) and model SKUs (Surface5x3, RTX3060x2);
 // signed exponents (1e-5x3, 3.5E+10x2) are unambiguously scientific, their
 // operand is preceded by a sign, and they convert.
-const MULTIPLICATION_CHAIN = `(?<firstNum>\\d+${DIGIT_SUFFIX})(?<rest>(?:\\s*[xX*]\\s*\\d+${DIGIT_SUFFIX})+)`
-const MULTIPLICATION_SEGMENT = `(?<spaceBefore>\\s*)[xX*](?<spaceAfter>\\s*)(?<num>\\d+${DIGIT_SUFFIX})`
+//
+// Operator spacing is horizontal whitespace only: an operator across a line
+// break is a list marker (`Step 1\n* 2 cups`), not multiplication.
+const OPERATOR_SPACE = "[^\\S\\n\\v\\f\\r\\u2028\\u2029]*"
+const MULTIPLICATION_CHAIN = `(?<firstNum>\\d+${DIGIT_SUFFIX})(?<rest>(?:${OPERATOR_SPACE}[xX*]${OPERATOR_SPACE}\\d+${DIGIT_SUFFIX})+)`
+const MULTIPLICATION_SEGMENT = `(?<spaceBefore>${OPERATOR_SPACE})[xX*](?<spaceAfter>${OPERATOR_SPACE})(?<num>\\d+${DIGIT_SUFFIX})`
 
-/** A `\s*[xX*]\s*\d+suffix` segment located by absolute clean-text offsets. */
+/** An `OPERATOR_SPACE [xX*] OPERATOR_SPACE \d+suffix` segment located by absolute clean-text offsets. */
 interface ChainSegment {
   /** Absolute offset of the operator character. */
   operatorOffset: number
@@ -183,7 +187,7 @@ function chainSegments(chainStart: number, firstNum: string, rest: string): Chai
 }
 
 /**
- * Each operator's spacing slot (`\s*[xX*]\s*`) tolerates one node boundary at
+ * Each operator's spacing slot (`OPERATOR_SPACE [xX*] OPERATOR_SPACE`) tolerates one node boundary at
  * each outer edge and none inside the spacing; a second adjacent boundary at an
  * edge breaks the segment. The operator's slot is the span [slotStart, slotEnd)
  * covering its surrounding spaces and the operator itself.

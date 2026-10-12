@@ -35,6 +35,17 @@ function splitsSurrogatePair(text: string, offset: number): boolean {
   return high >= 0xd800 && high <= 0xdbff && low >= 0xdc00 && low <= 0xdfff;
 }
 
+/**
+ * The scan index one position past `index`: one code point for a unicode-mode
+ * (u/v) regex, else one code unit. Resuming a unicode-mode regex inside a
+ * surrogate pair makes `exec` back up to the pair's start and re-match there
+ * forever.
+ */
+export function advanceScanIndex(text: string, index: number, regex: RegExp): number {
+  const unicodeMode = regex.unicode || regex.flags.includes("v");
+  return index + (unicodeMode && splitsSurrogatePair(text, index + 1) ? 2 : 1);
+}
+
 class ProseViewImpl implements ProseView {
   private readonly nodes: ProseNode[];
   private cachedText: string;
@@ -469,7 +480,7 @@ export function replaceAllInView(
   let match: RegExpExecArray | null;
   while ((match = regex.exec(text)) !== null) {
     if (match[0].length === 0) {
-      regex.lastIndex += 1;
+      regex.lastIndex = advanceScanIndex(text, regex.lastIndex, regex);
     }
 
     if (matchContainsBoundary(match, view) && !allowBoundaries?.(match, view)) {

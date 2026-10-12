@@ -153,6 +153,42 @@ describe("transformMarkdown", () => {
     expect(result.includes("\u00A0")).toBe(expectNbsp)
   })
 
+  const BODY_IN = '"Hello" -- *world*.\n'
+  const BODY_OUT = `${LDQ}Hello${RDQ}${EM_DASH}*world*.\n`
+  it.each([
+    ["YAML", '---\ntitle: "Hi" -- there\ntags:\n  - a\n---\n', `\n${BODY_IN}`, `\n${BODY_OUT}`],
+    ["YAML closed by ...", '---\ntitle: "Hi"\n...\n', BODY_IN, BODY_OUT],
+    ["TOML", '+++\ntitle = "Hi -- there"\n+++\n', `\n${BODY_IN}`, `\n${BODY_OUT}`],
+    ["CRLF YAML", '---\r\ntitle: "Hi"\r\n---\r\n', BODY_IN, BODY_OUT],
+    ["YAML with an indented list", '---\nkey:\n  - "a"\n---', "", ""],
+    ["empty YAML", "---\n---\n", BODY_IN, BODY_OUT],
+  ])("passes %s front matter through untouched", async (_label, frontmatter, bodyIn, bodyOut) => {
+    const result = await transformMarkdown(frontmatter + bodyIn, { nbsp: false })
+    expect(result).toBe(frontmatter + bodyOut)
+  })
+
+  it.each([
+    ["an unterminated opening fence", '---\ntitle: "Hi"\n'],
+    ["a mismatched closing fence", '---\ntitle: "Hi"\n+++\n'],
+    ["front matter that is not at the very start", '\n---\ntitle: "Hi"\n---\n'],
+    ["a fence with trailing text", '--- yaml\ntitle: "Hi"\n---\n'],
+    ["a first line named constructor", 'constructor\n"Hi"\n'],
+    ["a first line named __proto__", '__proto__\n"Hi"\n'],
+    ["a first line named toString", 'toString\n"Hi"\n'],
+    ["a first line named hasOwnProperty", 'hasOwnProperty\n"Hi"\n'],
+  ])("does not treat %s as front matter", async (_label, input) => {
+    const result = await transformMarkdown(input, { nbsp: false })
+    expect(result).toContain(LDQ)
+  })
+
+  it.each([
+    ["YAML front matter", '---\ntitle: "Hi" -- there\n---\n\n', '"Hello"\n'],
+    ["no front matter", "", '"Hello"\n'],
+  ])("restores a leading BOM and detects front matter behind it (%s)", async (_label, frontmatter, body) => {
+    const result = await transformMarkdown(`\uFEFF${frontmatter}${body}`, { nbsp: false })
+    expect(result).toBe(`\uFEFF${frontmatter}${LDQ}Hello${RDQ}\n`)
+  })
+
   it("README.md prose is already typographically correct", () => {
     const readme = readFileSync(resolve(__dirname, "../../README.md"), "utf-8")
     const lines = readme.split("\n")

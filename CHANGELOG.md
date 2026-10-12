@@ -2,6 +2,32 @@
 
 ## Unreleased
 
+## [5.4.10] - 2026-10-12
+
+### Fixed
+
+- No-break spaces in author text are now preserved, and non-ASCII last words are properly glued.
+- Quote classification now opens single quotes after brackets, nests double quotes correctly, and preserves German curly orphans.
+- Dashes now correctly interpret U+02BC as a quote and opening guillemets as minus context.
+- Multiplication operator spacing is now restricted to horizontal whitespace only.
+- Unicode-mode scans in prose view now advance by a whole code point.
+- HTML documents are now properly detected and parsed as full documents when the fragment option is unset.
+- Markdown and HTML now correctly handle BOM, prototype-named first lines, and preserve final newlines.
+- YAML and TOML front matter in Markdown files are now passed through untouched.
+- Transform options now reject non-object options and align documentation with behavior.
+- CLI now validates each glob pattern, restores final newlines, and derives config keys correctly.
+- CLI file handling, config validation, and optional peer dependencies are now hardened.
+- Release scripts now match publish output without requiring pipes and cover fail-closed guards.
+- Changelog and commit text truncation in release scripts no longer triggers SIGPIPE under pipefail.
+
+### Changed
+
+- CI workflows have been consolidated and strengthened with real required checks and non-vacuous gates.
+- CI now runs GitHub scripts tests only in environments where those scripts are executed.
+- Fuzz testing now runs the idempotence property once per locale punctuation style.
+- Regex safety tests now disable recheck's wall-clock timeouts for deterministic verdicts.
+- HTML detection now uses parse5's tokenizer for more accurate full document identification.
+
 ## [5.4.8] - 2026-10-12
 
 ### Fixed

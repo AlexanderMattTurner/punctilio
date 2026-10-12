@@ -1,5 +1,6 @@
 import { classifyApostrophes, niceQuotes } from "../quotes.js"
 import { TERMINAL_PUNCTUATION, UNICODE_SYMBOLS } from "../constants.js"
+import type { ProseView } from "../prose-view.js"
 import { SEP as DEFAULT_SEPARATOR, viewTransform } from "./test-helpers.js"
 
 const {
@@ -8,7 +9,6 @@ const {
   LEFT_SINGLE_QUOTE,
   RIGHT_SINGLE_QUOTE,
   MODIFIER_LETTER_APOSTROPHE,
-  DOUBLE_PRIME,
   EM_DASH,
   ELLIPSIS,
   DOUBLE_LOW_9_QUOTE,
@@ -407,14 +407,14 @@ describe("niceQuotes", () => {
         `'S${MODIFIER_LETTER_APOSTROPHE},`,
         `${LEFT_SINGLE_QUOTE}S,${RIGHT_SINGLE_QUOTE}`,
       ],
-      // German unmatched double beside a digit re-derives to a straight `"`,
-      // which is an inch/prime candidate; the post-classification prime pass
-      // converts it now instead of leaving it for the re-run.
+      // German curly orphans that no rule claims keep their curly glyph rather
+      // than being downgraded to straight quotes (which the next run would
+      // treat as prime candidates).
       [
         niceQuotes,
         "german",
         `0${LEFT_DOUBLE_QUOTE}${RIGHT_DOUBLE_QUOTE}S`,
-        `0${DOUBLE_PRIME}"S`,
+        `0${LEFT_DOUBLE_QUOTE}${RIGHT_DOUBLE_QUOTE}S`,
       ],
       // Swiss thousands separator after a digit stays an apostrophe (renders
       // U+2019), never a prime — the closing normalization folds the protected
@@ -577,6 +577,10 @@ describe("niceQuotes", () => {
       ['("x") "a", "b"', `(${l}x${r}) ${l}a,${r} ${l}b${r}`],
       // A dangling comma with no following item is not a separator.
       ['("a", ', `(${l}a,${r} `],
+      // Fullwidth and CJK brackets enclose a list exactly like ASCII ones.
+      ...["\uFF08\uFF09", "\uFF3B\uFF3D", "\uFF5B\uFF5D", "\u3008\u3009", "\u300C\u300D", "\u3010\u3011"].map(
+        (pair): [string, string] => [`${pair[0]}${l}a${r}, ${l}b${r}${pair[1]}`, `${pair[0]}${l}a${r}, ${l}b${r}${pair[1]}`],
+      ),
     ])('places list-separator commas outside: "%s"', (input, expected) => {
       expect(niceQuotes(input)).toBe(expected)
       expect(niceQuotes(niceQuotes(input))).toBe(expected)
@@ -734,6 +738,10 @@ describe("niceQuotes", () => {
         ["It's a test"],
       ])("skips all quote transforms: %s", (input) => {
         expect(niceQuotes(input, { punctuationStyle: "none" })).toBe(input)
+      })
+
+      it("still normalizes U+02BC to U+2019", () => {
+        expect(niceQuotes("it\u02BCs 'x'", { punctuationStyle: "none" })).toBe(`it${RIGHT_SINGLE_QUOTE}s 'x'`)
       })
     })
   })
@@ -1030,4 +1038,71 @@ describe("niceQuotes", () => {
     })
   })
 
+  describe("opener and closer context", () => {
+    const LDQ = LEFT_DOUBLE_QUOTE
+    const RDQ = RIGHT_DOUBLE_QUOTE
+    const LSQ = LEFT_SINGLE_QUOTE
+    const RSQ = RIGHT_SINGLE_QUOTE
+    // Brackets and Spanish inverted marks open a quotation like `(` does, and
+    // a double quote nested directly inside a single (or the reverse) opens
+    // and closes with it.
+    it.each([
+      ["['a', 'b']", `[${LSQ}a${RSQ}, ${LSQ}b${RSQ}]`],
+      ["{'a': 1}", `{${LSQ}a${RSQ}: 1}`],
+      ["x/'a' b", `x/${LSQ}a${RSQ} b`],
+      ['\u00BF"Qu\u00E9?"', `\u00BF${LDQ}Qu\u00E9?${RDQ}`],
+      ["\u00A1'Hola'!", `\u00A1${LSQ}Hola${RSQ}!`],
+      ["\u00BF'Qu\u00E9?'", `\u00BF${LSQ}Qu\u00E9?${RSQ}`],
+      ["\u00A1\"Hola\"!", `\u00A1${LDQ}Hola${RDQ}!`],
+      ['\'"Hello"\'', `${LSQ}${LDQ}Hello${RDQ}${RSQ}`],
+      ['"\'Hello\'"', `${LDQ}${LSQ}Hello${RSQ}${RDQ}`],
+      ['He said \'"Hello" to me\'', `He said ${LSQ}${LDQ}Hello${RDQ} to me${RSQ}`],
+      ['\'She said "hi"\'', `${LSQ}She said ${LDQ}hi${RDQ}${RSQ}`],
+    ])("niceQuotes(%j) is %j and a fixed point", (input, expected) => {
+      const once = niceQuotes(input)
+      expect(once).toBe(expected)
+      expect(niceQuotes(once)).toBe(once)
+    })
+  })
+
+  // A double quote before an apostrophe closes, except in German: its re-run
+  // re-derives the rendered apostrophe as a straight quote that can close the
+  // single, so the first pass must leave the double unclosed.
+  describe("double quote before an apostrophe", () => {
+    const sep = DEFAULT_SEPARATOR
+    it.each([
+      ["american", `zb"'_`, `zb${RIGHT_DOUBLE_QUOTE}${RIGHT_SINGLE_QUOTE}_`],
+      ["british", `a "b"'_`, `a ${LEFT_DOUBLE_QUOTE}b${RIGHT_DOUBLE_QUOTE}${RIGHT_SINGLE_QUOTE}_`],
+      ["german", `a "b"'_`, `a ${DOUBLE_LOW_9_QUOTE}b"${RIGHT_SINGLE_QUOTE}_`],
+      ["german", `b "x1.;${sep}"',-`, `b ${DOUBLE_LOW_9_QUOTE}x1.;${sep}"${RIGHT_SINGLE_QUOTE},-`],
+    ] as const)("%s: %j is %j and a fixed point", (punctuationStyle, input, expected) => {
+      const niceQuotesInStyle = (view: ProseView): void => niceQuotes(view, { punctuationStyle })
+      expect(viewTransform(niceQuotesInStyle, input, sep)).toBe(expected)
+      expect(viewTransform(niceQuotesInStyle, expected, sep)).toBe(expected)
+    })
+  })
+
+  // German re-derives curly input by position; a curly glyph that no rule
+  // claims stays curly rather than degrading to a straight quote (which the
+  // next run would read as a prime or a fresh quote candidate).
+  describe("german curly orphans", () => {
+    it.each([
+      ["Gr\u00F6\u00DFe 5\u201Dx7\u201D", `Gr\u00F6\u00DFe 5${RIGHT_DOUBLE_QUOTE}x7${LEFT_DOUBLE_QUOTE}`],
+      ["Er hat 3\u2018000 Euro", "Er hat 3\u2018000 Euro"],
+      ["x 1\u2018\u2018 y", `x 1${LEFT_SINGLE_QUOTE}${RIGHT_SINGLE_QUOTE} y`],
+      ["a \u201D b", "a \u201D b"],
+      ["a \u201C b", "a \u201C b"],
+      // Below a quote opened in this same pass, the orphan is that quote's
+      // closer on the re-run, so it is one now; with the quote already closed
+      // it is an orphan again.
+      ['"a \u201C b', `${DOUBLE_LOW_9_QUOTE}a \u201C b`],
+      ['"a" \u201C b', `${DOUBLE_LOW_9_QUOTE}a\u201C \u201C b`],
+      ["'S:*\u2018s-/", `${SINGLE_LOW_9_QUOTE}S:*\u2019s-/`],
+    ])("niceQuotes(%j, german) is %j and a fixed point", (input, expected) => {
+      const options = { punctuationStyle: "german" } as const
+      const once = niceQuotes(input, options)
+      expect(once).toBe(expected)
+      expect(niceQuotes(once, options)).toBe(once)
+    })
+  })
 })

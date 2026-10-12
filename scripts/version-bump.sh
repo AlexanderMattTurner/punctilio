@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Auto version bump and publish to npm. The semver bump level is decided
 # deterministically from Conventional Commits parsing of the commits since the
 # last release tag; the Claude API is used only to draft changelog prose and
@@ -8,14 +8,37 @@
 # All diagnostics are written to stderr so stdout stays clean for callers that
 # pipe the output. The only intentional stdout writer is the TypeScript helper
 # `scripts/promote-changelog.ts`, which prints a one-line success confirmation.
-set -e
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../.github/scripts/lib/retry.bash disable=SC1091
+source "$SCRIPT_DIR/../.github/scripts/lib/retry.bash"
 
 log() { echo "$@" >&2; }
+
+# Self-publish guard. `private: true` marks a package that must never reach the
+# registry, so skip the whole release. It fails CLOSED: anything other than a
+# clean true/false from node (missing/malformed package.json, no node) aborts
+# the run rather than falling through to publish.
+# echo-fallback-ok: the `*)` arm below fails loud on the "error" sentinel.
+IS_PRIVATE=$(node -p "require('./package.json').private === true" 2>/dev/null || echo "error")
+case "$IS_PRIVATE" in
+  true)
+    log "package.json has \"private\": true; this repo does not publish to npm. Skipping."
+    exit 0
+    ;;
+  false) ;;
+  *)
+    log "Error: could not read package.json \"private\" field (got: '$IS_PRIVATE'). Refusing to publish."
+    exit 1
+    ;;
+esac
 
 # ANTHROPIC_API_KEY is optional: it is used only for changelog prose. The
 # version decision never depends on it. npm authentication uses OIDC trusted
 # publishing (id-token: write in the workflow), so no NODE_AUTH_TOKEN /
 # NPM_TOKEN is required.
+ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY:-}"
 if [ -z "$ANTHROPIC_API_KEY" ]; then
   log "Note: ANTHROPIC_API_KEY is not set. Changelog prose will fall back to a plain commit list."
 fi
@@ -48,9 +71,31 @@ determine_bump() {
   fi
 }
 
-# Get the latest published version from npm (source of truth)
+# Get the latest published version from npm (source of truth). Only npm's 404
+# for a never-published package means "first release"; any other failure
+# (network blip, registry auth, rate limit) aborts, so a transient outage can
+# never restart the version line at 0.0.1. stderr is captured separately so an
+# npm notice on the success path can't contaminate CURRENT_VERSION.
 PACKAGE_NAME=$(node -p "require('./package.json').name")
-CURRENT_VERSION=$(npm view "$PACKAGE_NAME" version 2>/dev/null || echo "0.0.0")
+NPM_VIEW_ERR="$(mktemp)"
+trap 'rm -f "$NPM_VIEW_ERR"' EXIT
+if CURRENT_VERSION=$(npm view "$PACKAGE_NAME" version 2>"$NPM_VIEW_ERR"); then
+  :
+elif grep -q "E404" "$NPM_VIEW_ERR"; then
+  CURRENT_VERSION="0.0.0"
+else
+  log "Error: npm view failed for '$PACKAGE_NAME' (not a 404 for an unpublished package):"
+  log "$(cat "$NPM_VIEW_ERR")"
+  exit 1
+fi
+# Empty output (never published) means first release; anything other than
+# strict X.Y.Z (e.g. a prerelease) fails loudly rather than misfiring the bump.
+CURRENT_VERSION="${CURRENT_VERSION%%$'\n'*}"
+[[ -z "$CURRENT_VERSION" ]] && CURRENT_VERSION="0.0.0"
+if ! [[ "$CURRENT_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  log "Error: npm returned a non-semver current version: '$CURRENT_VERSION'. Refusing to guess a bump."
+  exit 1
+fi
 log "Current npm version: $CURRENT_VERSION"
 
 # Find the latest version tag to determine which commits to analyze
@@ -77,13 +122,26 @@ else
   DIFF_STAT=$(git show --stat HEAD 2>/dev/null || echo "Unable to get diff")
 fi
 
-# Cap commit-message length: truncate each line, limit total length. Bytes pass
-# through verbatim so non-ASCII characters in commit subjects survive — the JSON
-# body is built via `jq -n --arg`, which handles arbitrary bytes safely.
-COMMITS=$(echo "$COMMITS_RAW" | head -20 | cut -c1-100 | head -c 2000)
+# Cap commit-message length: keep 20 lines, truncate each to 100 characters, and
+# limit the total to 2000 characters (bytes under a non-UTF-8 locale). The caps
+# are applied in awk and bash rather than through `head`: under `set -o pipefail`
+# a reader that stops early SIGPIPEs its writer and aborts the release. Non-ASCII
+# characters in commit subjects survive — the JSON body is built via
+# `jq -n --arg`, which handles arbitrary bytes safely.
+COMMITS=$(awk 'NR <= 20 { print substr($0, 1, 100) }' <<< "$COMMITS_RAW")
+COMMITS="${COMMITS:0:2000}"
 
 if [ -z "$COMMITS" ]; then
   log "No commits to analyze. Skipping."
+  exit 0
+fi
+
+# Skip when every commit since the tag is this script's own release-docs commit
+# ("docs: release X.Y.Z [skip ci]"). The tag marks the published commit and the
+# docs commit lands after it, so a re-dispatch with no real work must not read
+# that docs commit as releasable and cut a spurious patch.
+if ! grep -Evq '^docs: release [0-9]+\.[0-9]+\.[0-9]+ \[skip ci\]$' <<< "$COMMIT_SUBJECTS"; then
+  log "Only release-docs commits since $LAST_TAG. Skipping."
   exit 0
 fi
 
@@ -102,7 +160,9 @@ if [ -f CHANGELOG.md ]; then
     /^## Unreleased[[:space:]]*$/ { collecting = 1; next }
     collecting && /^## / { collecting = 0 }
     collecting { print }
-  ' CHANGELOG.md | head -c 4000)
+  ' CHANGELOG.md)
+  # Capped after capture so no early-exiting reader can SIGPIPE the writer.
+  UNRELEASED_CONTENT="${UNRELEASED_CONTENT:0:4000}"
 fi
 
 # Draft the changelog body. The Claude API is used only for prose — any
@@ -237,7 +297,7 @@ log "Set package.json to $NEW_VERSION (working directory only)"
 # Handle "already published" (exit code 1, HTTP 400/409) as success — can happen
 # when npm registry caching causes the earlier safety check to miss an existing version
 if ! PUBLISH_OUTPUT=$(pnpm publish --provenance --access public --no-git-checks 2>&1); then
-  if echo "$PUBLISH_OUTPUT" | grep -q "Cannot publish over previously published version"; then
+  if [[ "$PUBLISH_OUTPUT" == *"Cannot publish over previously published version"* ]]; then
     log "Version $NEW_VERSION already published (detected at publish time). Skipping."
     exit 0
   fi
@@ -246,6 +306,18 @@ if ! PUBLISH_OUTPUT=$(pnpm publish --provenance --access public --no-git-checks 
 fi
 log "$PUBLISH_OUTPUT"
 log "✅ Published $PACKAGE_NAME@$NEW_VERSION"
+
+# Tag the published commit immediately, before any docs work. The tag is the
+# dedup guard that stops the next run from re-analyzing these commits, so it
+# must land even if the docs push below fails (e.g. main moved underneath us);
+# otherwise the next run would re-read the climbing npm version and bump again.
+git tag "v$NEW_VERSION"
+if ! retry_cmd 4 2 git push origin "v$NEW_VERSION"; then
+  log "Error: failed to push tag v$NEW_VERSION after retries. The release is published;"
+  log "       push the tag manually so the next run does not re-analyze these commits."
+  exit 1
+fi
+log "Pushed tag v$NEW_VERSION"
 
 # Pin the README's pre-commit `rev:` to this release so the documented version
 # never lags behind what's published. The helper touches only the line inside
@@ -268,10 +340,9 @@ fi
 # Commit the release docs (CHANGELOG entry + README rev pin) back to main so
 # users see the release notes and an up-to-date pre-commit pin. package.json
 # stays dirty (npm is the source of truth for version). A bot identity and
-# `[skip ci]` keep the resulting push from spawning another workflow run. The
-# tag is created AFTER this commit (and only if it reached main) so HEAD == tag
-# SHA and the next run sees "HEAD is already tagged" and exits.
-RELEASE_DOCS_PUSH_FAILED=0
+# `[skip ci]` keep the resulting push from spawning another workflow run. A
+# push failure fails the run loudly, but the tag above has already landed, so
+# only the release-docs commit needs re-pushing.
 git config user.name "github-actions[bot]"
 git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 if git diff --quiet -- CHANGELOG.md README.md; then
@@ -281,22 +352,9 @@ else
   git commit -m "docs: release $NEW_VERSION [skip ci]"
   # Push to main explicitly so this works whether actions/checkout left us on
   # a branch or in detached HEAD state.
-  if ! git push origin HEAD:main; then
-    log "⚠️ Failed to push release-docs update. Release was published; docs can be updated manually."
-    RELEASE_DOCS_PUSH_FAILED=1
+  if ! retry_cmd 4 2 git push origin HEAD:main; then
+    log "Error: failed to push the release-docs update for v$NEW_VERSION."
+    log "       The release is published and tagged; push the release-docs commit manually."
+    exit 1
   fi
 fi
-
-# Tag only when the release-docs commit (if any) actually reached main.
-# Otherwise the local HEAD is an orphan commit that nobody can see, and tagging
-# it would leave v$NEW_VERSION pointing at a SHA outside the main-branch history.
-if [ "$RELEASE_DOCS_PUSH_FAILED" = "1" ]; then
-  log "⚠️ Skipping tag v$NEW_VERSION because the release-docs commit did not reach main."
-  log "    Release was published to npm; reconcile by pushing the release-docs commit and tagging manually."
-  exit 1
-fi
-
-# Tag the release for future commit range detection. Tag HEAD (which now
-# includes the release-docs commit, if any) so a re-trigger sees HEAD == tag SHA.
-git tag "v$NEW_VERSION"
-git push origin "v$NEW_VERSION" || log "⚠️ Failed to push tag v$NEW_VERSION. Next run may re-analyze these commits."

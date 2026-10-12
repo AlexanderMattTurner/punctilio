@@ -690,6 +690,20 @@ describe("transform", () => {
     })
   })
 
+  // The quote pass rewrites glyphs the dash pass keyed on (U+02BC to U+2019,
+  // guillemet padding), so the dash pass must read the pre-rewrite glyph the
+  // way it reads the rewritten one. `transform` asserts the fixed point.
+  describe("dash decisions agree across the quote rewrite", () => {
+    it.each([
+      ["x--\u02BCs", "american", `x${EM_DASH}${RIGHT_SINGLE_QUOTE}s`],
+      ["x--\u02BC", "american", `x${EM_DASH}${RIGHT_SINGLE_QUOTE}`],
+      ["Il a dit \u00AB-15\u00BB", "french", `Il a dit \u00AB\u202F${MINUS}15\u202F\u00BB`],
+      ["Il a dit \u00AB-15\u00BB", "american", `Il a dit \u00AB${MINUS}15\u00BB`],
+    ] as const)("transform(%j, %s) is %j", (input, punctuationStyle, expected) => {
+      expect(transform(input, { punctuationStyle, nbsp: false })).toBe(expected)
+    })
+  })
+
   describe("edge case inputs", () => {
     it.each([
       ["empty string", "", ""],
@@ -730,6 +744,18 @@ describe("transform", () => {
     ])("rejects invalid punctuationStyle: %s", (style) => {
       expect(() => transform("hello", { punctuationStyle: style as never })).toThrow(
         /Invalid punctuationStyle/
+      )
+    })
+
+    it.each([
+      [null, "null"],
+      ["american", "string"],
+      [5, "number"],
+      [true, "boolean"],
+      [[], "an array"],
+    ])("rejects non-object options %j with a clear error", (options, described) => {
+      expect(() => transform("hello", options as never)).toThrow(
+        new TypeError(`transform options must be an object, got ${described}.`)
       )
     })
 

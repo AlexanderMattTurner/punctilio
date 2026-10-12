@@ -5,8 +5,7 @@ import type { Parser, Plugin } from "prettier"
 import type { Root } from "mdast"
 import { cosmiconfig } from "cosmiconfig"
 
-import { HTML_ONLY_OPTION_KEYS } from "./html.js"
-import { MARKDOWN_ONLY_OPTION_KEYS } from "./markdown.js"
+import { HTML_ONLY_OPTION_KEYS, MARKDOWN_ONLY_OPTION_KEYS } from "./sink-option-keys.js"
 import { remarkPunctilio, type RemarkPunctilioOptions } from "./remark.js"
 import { omitKeys } from "./utils.js"
 

@@ -130,6 +130,9 @@ const BRACKET_PAIRS: readonly (readonly [string, string])[] = [
   [UNICODE_SYMBOLS.LEFT_LENTICULAR_BRACKET, UNICODE_SYMBOLS.RIGHT_LENTICULAR_BRACKET],
 ]
 
+/** Opening brackets, the counterparts of {@link CLOSING_BRACKETS}. */
+export const OPENING_BRACKETS: readonly string[] = BRACKET_PAIRS.map(([opening]) => opening)
+
 /**
  * Punctuation that opens a construct and so binds rightward, to the text after
  * it rather than the text before: brackets, the Spanish inverted marks, and the
@@ -142,7 +145,7 @@ const BRACKET_PAIRS: readonly (readonly [string, string])[] = [
  * settle, so a consumer that wants to treat one as an opener owns that call.
  */
 export const OPENING_PUNCTUATION: readonly string[] = [
-  ...BRACKET_PAIRS.map(([opening]) => opening),
+  ...OPENING_BRACKETS,
   UNICODE_SYMBOLS.INVERTED_EXCLAMATION,
   UNICODE_SYMBOLS.INVERTED_QUESTION,
   UNICODE_SYMBOLS.LEFT_DOUBLE_QUOTE,

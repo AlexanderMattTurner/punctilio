@@ -225,6 +225,16 @@ Two caveats before pointing the CLI (or the [pre-commit hook](#pre-commit) below
 
 Second, non-breaking spaces (U+00A0) are invisible in source files: they render fine, but they aren’t regular spaces, so Ctrl+F and `grep` matches against the source can miss. Markdown files therefore default to `nbsp` off; pass `--nbsp` (or set `nbsp: true` in config) to opt in. HTML files keep the default of `nbsp` on; pass `--no-nbsp` to keep them ASCII-spaced.
 
+File handling follows a few rules:
+
+- Globs skip `node_modules` and `.git`, and `.punctilioignore` (gitignore syntax) applies to files named explicitly as well as to glob matches, so a hook that passes every staged file by name still honors it.
+- Every glob must match at least one file: a glob that matches nothing is a usage error (exit 2) in every mode, even when another glob matches, so a typo in one pattern can't hide behind the rest; so is an unsupported file extension, which is detected before any file is rewritten. `--stdin-filepath` cannot be combined with file arguments.
+- `--write` follows symlinks and rewrites the target, keeps its permissions, and leaves no temporary file behind on failure.
+- A leading UTF-8 byte order mark is preserved. Markdown front matter (YAML between `---` fences, or TOML between `+++` fences) is passed through untouched.
+- HTML input that begins with `<!doctype` or `<html` is parsed as a complete document, so the doctype, `<head>`, and `<body>` survive; anything else is parsed as a fragment. `--no-fragment` (or `fragment: false`) forces the document parse, and `fragment: true` forces the fragment parse.
+- Config values are type-checked, so a wrong type such as `"nbsp": "false"` or `"skipTags": "code"` exits 2 with a message naming the key.
+- `unified` and the `remark-*` or `rehype-*` packages are optional peers, loaded only for the file type being processed. When one is missing, the CLI exits 2 with the package names and the `npm install` command to run.
+
 ### pre-commit
 
 A `.pre-commit-hooks.yaml` ships in the package, so [pre-commit](https://pre-commit.com) users can wire `punctilio` in directly:
@@ -233,7 +243,7 @@ A `.pre-commit-hooks.yaml` ships in the package, so [pre-commit](https://pre-com
 # .pre-commit-config.yaml
 repos:
   - repo: https://github.com/AlexanderMattTurner/punctilio
-    rev: v5.4.8
+    rev: v5.4.10
     hooks:
       - id: punctilio          # rewrites *.md / *.html in place
       - id: punctilio-check    # or: fail without writing (CI-friendly)
@@ -254,7 +264,7 @@ repos:
 - The `french` style uses guillemets padded with a narrow no-break space (U+202F), per Unicode CLDR's `fr` locale and the Imprimerie nationale's *Lexique des règles typographiques*: « Bonjour ».
   - Single quotes remain as curly quotes
   - Punctuation outside quotes
-- Setting either style to `none` skips the entire transform category: `punctuationStyle: 'none'` preserves straight quotes, apostrophes, and prime marks; `dashStyle: 'none'` preserves all hyphens, number ranges, date ranges, and minus signs.
+- Setting either style to `none` skips the entire transform category: `punctuationStyle: 'none'` preserves straight quotes, apostrophes, and prime marks (a U+02BC modifier-letter apostrophe is still normalized to U+2019); `dashStyle: 'none'` preserves all hyphens, number ranges, date ranges, and minus signs.
 - `punctilio` is idempotent by design: `transform(transform(text))` always equals `transform(text)`. The test suite verifies the fixed point on every case plus fuzzed mixed content.
 - Use `classifyApostrophes(text)` to distinguish apostrophes from closing single quotes. It returns text with apostrophes as U+02BC (MODIFIER LETTER APOSTROPHE) and closing quotes as U+2019 (RIGHT SINGLE QUOTATION MARK). Per the [Unicode Standard](https://www.unicode.org/versions/Unicode16.0.0/core-spec/chapter-6/#G30602), `transform()` and `niceQuotes()` use U+2019 for both in their output.
 
