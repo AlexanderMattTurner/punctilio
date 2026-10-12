@@ -91,7 +91,7 @@ jobs:
           key: pre-commit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
 
       - name: Run pre-commit
-        run: uvx pre-commit==4.6.0 run --all-files --show-diff-on-failure
+        run: uvx pre-commit==4.6.0 run --all-files
 
   # Stable Required check: runs even when a needed job is cancelled/skipped, so
   # a protected branch never gets stuck on a check that never reports.

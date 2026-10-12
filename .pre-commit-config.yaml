@@ -4,20 +4,18 @@ repos:
     # so the lint and the ruleset apply step read the annotations the same way.
     rev: da8f79630cdcaa5bc81902127dfc6d3982a2bc97 # v1.6.0
     hooks:
-      # Every tier, minus the checks below. Each --ignore is either a check that
+      # Every check, minus the ones below. Each --ignore is either a check that
       # does not apply to this repo, or one with findings on main still to fix;
       # drop the line once its findings are gone.
       - id: check-select
         args:
           - --select
-          - tier:1
-          - --select
-          - tier:2
-          - --select
-          - tier:extras
-          # Not applicable: Python-only, and this is a TypeScript ESM package.
+          - all
+          # Not applicable: it reads a Python tests/ directory, which this repo lacks.
           - --ignore
           - check:check-test-helper-kwargs
+          # Not applicable: NodeNext `.js` specifiers that resolve to `.ts` sources,
+          # and benchmark.mjs's `./dist/` import, read to it as dangling.
           - --ignore
           - check:check-relative-imports
           # Findings on main, mostly in template-synced workflows and scripts.

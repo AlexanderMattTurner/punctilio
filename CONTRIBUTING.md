@@ -15,7 +15,7 @@ pnpm install
 ```bash
 pnpm test        # Jest test suite
 pnpm lint        # ESLint over src/ and scripts/
-uvx pre-commit run --all-files   # ci-truth-serum CI lints (.pre-commit-config.yaml); CI runs them in lint.yml
+uvx pre-commit==4.6.0 run --all-files   # ci-truth-serum lints (.pre-commit-config.yaml), as lint.yml runs them
 pnpm benchmark   # build, then run benchmark.mjs against competitor libraries
 pnpm build       # tsc
 pnpm mutation    # Stryker mutation testing (slow; CI runs it on every PR)
