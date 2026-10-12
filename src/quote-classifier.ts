@@ -1387,10 +1387,8 @@ function movePunctuationOutside(order: Item[], punctChar: string, closingSet: Re
       // Any collapsible space char qualifies, not just a plain space: the
       // collapse pass merges tabs and NBSPs into the closer's NNBSP padding
       // the same way.
-      if (spaceBeforePaddedCloser && k < order.length && !order[k].boundary
-        && order[k].ch.length === 1 && SPACE_CHAR_RE.test(order[k].ch)
-        && isCharItem(order, k + 1, RIGHT_DOUBLE_QUOTE)) {
-        k++
+      if (spaceBeforePaddedCloser && spaceRunReadsAsSingle(order, k, 1, RIGHT_DOUBLE_QUOTE)) {
+        while (SPACE_CHAR_RE.test(order[k].ch)) k++
       }
       if (k >= order.length || order[k].boundary || !closingRunMemberAt(order, k, closingSet)) break
       last = k

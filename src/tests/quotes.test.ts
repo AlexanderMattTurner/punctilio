@@ -954,6 +954,11 @@ describe("niceQuotes", () => {
       ["french", `${LEFT_DOUBLE_QUOTE}y${NNBSP}.${RIGHT_DOUBLE_QUOTE}`, `${LEFT_GUILLEMET}${NNBSP}y${NNBSP}${RIGHT_GUILLEMET}.`],
       ["french", `" .${RIGHT_DOUBLE_QUOTE}`, `${LEFT_GUILLEMET}${NNBSP} ${NNBSP}${RIGHT_GUILLEMET}.`],
       ["french", `"${NBSP},${RIGHT_DOUBLE_QUOTE}`, `${LEFT_GUILLEMET}${NNBSP}${NNBSP}${RIGHT_GUILLEMET},`],
+      // Two spaces before the closer reduce to one once its padding absorbs the NBSP beside it.
+      ["french", `x,${NBSP}${NBSP}${RIGHT_DOUBLE_QUOTE}5`, `x${NBSP}${NNBSP}${RIGHT_GUILLEMET},5`],
+      ["french", `x.${NNBSP}${NNBSP}${RIGHT_DOUBLE_QUOTE}`, `x${NNBSP}${NNBSP}${RIGHT_GUILLEMET}.`],
+      // A tab does not merge into the padding, so a third space keeps the punctuation in place.
+      ["french", `x.${NNBSP}\t${NBSP}${RIGHT_DOUBLE_QUOTE}`, `x.${NNBSP}\t${NNBSP}${RIGHT_GUILLEMET}`],
       [
         "german",
         `z${SINGLE_LOW_9_QUOTE}^${RIGHT_SINGLE_QUOTE}]]${LEFT_SINGLE_QUOTE}${LEFT_SINGLE_QUOTE}`,
