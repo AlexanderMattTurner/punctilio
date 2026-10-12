@@ -4,7 +4,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 import {
   aggregateMetrics,
@@ -12,7 +12,10 @@ import {
   readBreakThreshold,
 } from "./mutation-score.mjs";
 
-const SCRIPT = join(dirname(fileURLToPath(import.meta.url)), "mutation-score.mjs");
+const SCRIPT = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "mutation-score.mjs",
+);
 const REPO_ROOT = join(dirname(SCRIPT), "..");
 
 const location = { start: { line: 1, column: 1 }, end: { line: 1, column: 2 } };
@@ -41,8 +44,13 @@ const reportOf = (statusesByFile) => ({
 const repeat = (status, count) => Array(count).fill(status);
 
 // Shard one scores 50% alone, shard two 100%; together 7 of 10 are detected.
-const weakShard = reportOf({ "src/a.ts": [...repeat("Killed", 2), ...repeat("Survived", 2)] });
-const strongShard = reportOf({ "src/b.ts": repeat("Killed", 4), "src/c.ts": ["Timeout", "Timeout"] });
+const weakShard = reportOf({
+  "src/a.ts": [...repeat("Killed", 2), ...repeat("Survived", 2)],
+});
+const strongShard = reportOf({
+  "src/b.ts": repeat("Killed", 4),
+  "src/c.ts": ["Timeout", "Timeout"],
+});
 
 for (const { name, reports, expected } of [
   {
@@ -52,7 +60,11 @@ for (const { name, reports, expected } of [
   },
   {
     name: "counts NoCoverage as undetected and ignores compile errors",
-    reports: [reportOf({ "src/a.ts": ["Killed", "NoCoverage", "CompileError", "Ignored"] })],
+    reports: [
+      reportOf({
+        "src/a.ts": ["Killed", "NoCoverage", "CompileError", "Ignored"],
+      }),
+    ],
     expected: { killed: 1, timeout: 0, survived: 0, score: 50 },
   },
   {
@@ -79,12 +91,17 @@ test("aggregateMetrics rejects an empty report list", () => {
 
 for (const { score, threshold, error } of [
   { score: 60, threshold: 60, error: null },
-  { score: 59.99, threshold: 60, error: /59\.99 is under the breaking threshold 60/ },
+  {
+    score: 59.99,
+    threshold: 60,
+    error: /59\.99 is under the breaking threshold 60/,
+  },
   { score: 99, threshold: 60, error: null },
   { score: NaN, threshold: 60, error: /no valid mutants/ },
 ]) {
   test(`assertScoreMeetsThreshold score ${score} vs ${threshold}`, () => {
-    const check = () => assertScoreMeetsThreshold({ mutationScore: score }, threshold);
+    const check = () =>
+      assertScoreMeetsThreshold({ mutationScore: score }, threshold);
     if (error) assert.throws(check, error);
     else assert.doesNotThrow(check);
   });
@@ -104,10 +121,17 @@ for (const { thresholds, error } of [
 }
 
 test("shard config differs from the base config only by disabling the break", async () => {
-  const base = JSON.parse(readFileSync(join(REPO_ROOT, "stryker.config.json"), "utf8"));
-  const { default: shard } = await import(join(REPO_ROOT, "stryker.shard.config.mjs"));
+  const base = JSON.parse(
+    readFileSync(join(REPO_ROOT, "stryker.config.json"), "utf8"),
+  );
+  const { default: shard } = await import(
+    pathToFileURL(join(REPO_ROOT, "stryker.shard.config.mjs")).href
+  );
   assert.equal(typeof readBreakThreshold(base), "number");
-  assert.deepEqual(shard, { ...base, thresholds: { ...base.thresholds, break: null } });
+  assert.deepEqual(shard, {
+    ...base,
+    thresholds: { ...base.thresholds, break: null },
+  });
 });
 
 test("CLI exit code follows the aggregate score and the expected shard count", () => {
@@ -126,12 +150,18 @@ test("CLI exit code follows the aggregate score and the expected shard count", (
       spawnSync(process.execPath, [SCRIPT, ...args], { encoding: "utf8" });
 
     // The weak shard alone scores 50 (under 75) yet the pooled score of 80 passes.
-    assert.equal(run(weak, strong, "--config", lenient, "--expect-shards", "2").status, 0);
+    assert.equal(
+      run(weak, strong, "--config", lenient, "--expect-shards", "2").status,
+      0,
+    );
     assert.notEqual(run(weak, "--config", lenient).status, 0);
 
     const underThreshold = run(weak, strong, "--config", strict);
     assert.notEqual(underThreshold.status, 0);
-    assert.match(underThreshold.stderr, /80\.00 is under the breaking threshold 85/);
+    assert.match(
+      underThreshold.stderr,
+      /80\.00 is under the breaking threshold 85/,
+    );
 
     const missingShard = run(weak, "--config", lenient, "--expect-shards", "2");
     assert.notEqual(missingShard.status, 0);

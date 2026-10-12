@@ -2,6 +2,7 @@ import { strict as assert } from "node:assert";
 import { execFileSync, spawnSync } from "node:child_process";
 import {
   chmodSync,
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -301,63 +302,104 @@ test("the commit list handed to the changelog drafter is capped at 20 lines, 100
 });
 
 // --- Tag ordering: the dedup tag lands before the docs push ----------------
-// A docs-push failure (e.g. the remote rejects it) must still fail the run, but
-// only after the vX.Y.Z tag reached the remote; otherwise the next run re-reads
-// the climbing npm version and bumps again.
-test("tag is pushed before the docs push; a docs-push failure exits non-zero with the tag landed", () => {
-  const { dir, binDir } = makeSandbox(
-    'if [[ "$2" == *@* ]]; then exit 1; else echo "5.0.0"; fi',
-  );
-  try {
-    // `pnpm publish` succeeds offline; `pnpm exec` (the changelog helper)
-    // edits CHANGELOG.md so the run has a release-docs commit to push.
-    writeFileSync(
-      join(binDir, "pnpm"),
-      '#!/usr/bin/env bash\nif [[ "$1" == exec ]]; then echo promoted >> CHANGELOG.md; fi\nexit 0\n',
+// A docs push that still fails after the retries must fail the run, but only
+// after the vX.Y.Z tag reached the remote (otherwise the next run re-reads the
+// climbing npm version and bumps again), and with no rebase left in progress,
+// so the docs commit can be re-pushed by hand.
+for (const { name, breakOrigin } of [
+  {
+    name: "the remote rejects the branch push",
+    breakOrigin: (origin) => {
+      const preReceive = join(origin, "hooks", "pre-receive");
+      writeFileSync(
+        preReceive,
+        '#!/usr/bin/env bash\nwhile read -r _old _new ref; do\n  [[ "$ref" == refs/heads/* ]] && exit 1\ndone\nexit 0\n',
+      );
+      chmodSync(preReceive, 0o755);
+    },
+  },
+  {
+    name: "a mid-release merge conflicts with the docs commit",
+    breakOrigin: (origin, dir) => {
+      const other = join(dir, "other");
+      const git = (...args) => execFileSync("git", args, { cwd: other });
+      execFileSync("git", ["clone", "-q", "--branch", "main", origin, other]);
+      writeFileSync(
+        join(other, "CHANGELOG.md"),
+        "# Changelog\n\n## Unreleased\n\n- a thing\n- conflicting\n",
+      );
+      git(
+        "-c",
+        "user.name=o",
+        "-c",
+        "user.email=o@o.test",
+        "commit",
+        "-q",
+        "-am",
+        "docs: conflicting edit",
+      );
+      git("push", "-q", "origin", "main");
+    },
+  },
+]) {
+  test(`when ${name}, the run fails after the tag landed and leaves no rebase behind`, () => {
+    const { dir, binDir } = makeSandbox(
+      'if [[ "$2" == *@* ]]; then exit 1; else echo "5.0.0"; fi',
     );
-    chmodSync(join(binDir, "pnpm"), 0o755);
-    // retry_cmd sleeps between attempts; make the failing-push retries instant.
-    writeFileSync(join(binDir, "sleep"), "#!/usr/bin/env bash\nexit 0\n");
-    chmodSync(join(binDir, "sleep"), 0o755);
+    try {
+      // `pnpm publish` succeeds offline; `pnpm exec` (the changelog helper)
+      // edits CHANGELOG.md so the run has a release-docs commit to push.
+      writeFileSync(
+        join(binDir, "pnpm"),
+        '#!/usr/bin/env bash\nif [[ "$1" == exec ]]; then echo promoted >> CHANGELOG.md; fi\nexit 0\n',
+      );
+      chmodSync(join(binDir, "pnpm"), 0o755);
+      // retry_cmd sleeps between attempts; make the failing-push retries instant.
+      writeFileSync(join(binDir, "sleep"), "#!/usr/bin/env bash\nexit 0\n");
+      chmodSync(join(binDir, "sleep"), 0o755);
 
-    // Bare origin that accepts tag pushes but rejects branch pushes.
-    const origin = join(dir, "origin.git");
-    execFileSync("git", ["init", "-q", "--bare", origin]);
-    const preReceive = join(origin, "hooks", "pre-receive");
-    writeFileSync(
-      preReceive,
-      '#!/usr/bin/env bash\nwhile read -r _old _new ref; do\n  [[ "$ref" == refs/heads/* ]] && exit 1\ndone\nexit 0\n',
-    );
-    chmodSync(preReceive, 0o755);
-    execFileSync("git", ["remote", "add", "origin", origin], { cwd: dir });
-    writeFileSync(
-      join(dir, "CHANGELOG.md"),
-      "# Changelog\n\n## Unreleased\n\n- a thing\n",
-    );
-    writeFileSync(join(dir, "README.md"), "# sandbox\n");
-    execFileSync("git", ["add", "CHANGELOG.md", "README.md"], { cwd: dir });
-    execFileSync("git", ["commit", "-q", "-m", "feat: releasable work"], {
-      cwd: dir,
-    });
+      const origin = join(dir, "origin.git");
+      execFileSync("git", ["init", "-q", "--bare", origin]);
+      execFileSync("git", ["remote", "add", "origin", origin], { cwd: dir });
+      writeFileSync(
+        join(dir, "CHANGELOG.md"),
+        "# Changelog\n\n## Unreleased\n\n- a thing\n",
+      );
+      writeFileSync(join(dir, "README.md"), "# sandbox\n");
+      execFileSync("git", ["add", "CHANGELOG.md", "README.md"], { cwd: dir });
+      execFileSync("git", ["commit", "-q", "-m", "feat: releasable work"], {
+        cwd: dir,
+      });
+      execFileSync("git", ["push", "-q", "origin", "HEAD:main"], { cwd: dir });
+      breakOrigin(origin, dir);
 
-    const { status, stderr } = runScript(dir, binDir);
-    assert.notEqual(status, 0, "a failed docs push must fail the run");
-    const tagIndex = stderr.indexOf("Pushed tag v5.1.0");
-    const docsFailureIndex = stderr.indexOf(
-      "failed to push the release-docs update",
-    );
-    assert.ok(tagIndex !== -1, stderr);
-    assert.ok(docsFailureIndex > tagIndex, stderr);
-    assert.match(
-      execFileSync("git", ["ls-remote", "--tags", origin], {
-        encoding: "utf8",
-      }),
-      /refs\/tags\/v5\.1\.0/,
-    );
-  } finally {
-    rmSync(dir, { recursive: true, force: true });
-  }
-});
+      const { status, stderr } = runScript(dir, binDir);
+      assert.notEqual(status, 0, "a failed docs push must fail the run");
+      const tagIndex = stderr.indexOf("Pushed tag v5.1.0");
+      const docsFailureIndex = stderr.indexOf(
+        "failed to push the release-docs update",
+      );
+      assert.ok(tagIndex !== -1, stderr);
+      assert.ok(docsFailureIndex > tagIndex, stderr);
+      assert.match(
+        execFileSync("git", ["ls-remote", "--tags", origin], {
+          encoding: "utf8",
+        }),
+        /refs\/tags\/v5\.1\.0/,
+      );
+      assert.ok(!existsSync(join(dir, ".git", "rebase-merge")), stderr);
+      assert.equal(
+        execFileSync("git", ["log", "-1", "--format=%s"], {
+          cwd: dir,
+          encoding: "utf8",
+        }).trim(),
+        "docs: release 5.1.0 [skip ci]",
+      );
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+}
 
 test("a merge that lands on main mid-release gets the docs commit replayed on top", () => {
   const { dir, binDir } = makeSandbox(

@@ -338,8 +338,8 @@ log "Set package.json to $NEW_VERSION (working directory only)"
 # Handle "already published" (exit code 1, HTTP 400/409) as success — can happen
 # when npm registry caching causes the earlier safety check to miss an existing version
 if ! PUBLISH_OUTPUT=$(pnpm publish --provenance --access public --no-git-checks 2>&1); then
-  # npm words this "previously published version" or "previously staged version".
-  if [[ "$PUBLISH_OUTPUT" == *"Cannot publish over previously "* ]]; then
+  if [[ "$PUBLISH_OUTPUT" == *"Cannot publish over previously published version"* ||
+    "$PUBLISH_OUTPUT" == *"Cannot publish over previously staged version"* ]]; then
     log "Version $NEW_VERSION already published (detected at publish time). Skipping."
     exit 0
   fi
