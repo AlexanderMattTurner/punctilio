@@ -1,5 +1,6 @@
 import { cachedRegExp, LATIN_LETTER_RE, LATIN_OR_DIGIT, MAX_BOUNDARY_SEPARATORS, SPACE_CHAR_RE, UNICODE_SYMBOLS, WORD_RE } from "./constants.js"
 import { boundaryCountAt, exceedsSingleBoundary, firstInteriorBoundary, interiorBoundariesWithin, makeProsePass, overInput, type ProseView, replaceAllInView } from "./prose-view.js"
+import { isDashChar } from "./dashes.js"
 import { convertPrimeMarks } from "./quote-classifier.js"
 
 export interface SymbolOptions {
@@ -79,6 +80,16 @@ function ellipsisNextDot(view: ProseView, text: string, afterDot: number): numbe
 }
 
 /**
+ * Whether folding `[from, to)` would absorb a node boundary into the glyph and
+ * leave a dash directly after it. The dash pass keyed on the unfolded text, where
+ * a character sat between the boundary and the dash; the fold removes that
+ * character, so a re-run would read the dash as boundary-led and convert it.
+ */
+function foldStrandsDash(view: ProseView, from: number, to: number): boolean {
+  return firstInteriorBoundary(view, from, to) >= 0 && isDashChar(view.text[to]) && !view.hasBoundary(to)
+}
+
+/**
  * Fold `...`, `. . .`, and the cross-boundary variants into `…`, scanning
  * left-to-right so a blocked leftmost triple still lets the next valid triple
  * fold. Each fold replaces the whole `. gap . gap .` span with `…`; consumed
@@ -92,7 +103,7 @@ function ellipsisFoldDots(view: ProseView): void {
     const secondDot = ellipsisNextDot(view, text, i + 1)
     if (secondDot < 0) { i++; continue }
     const thirdDot = ellipsisNextDot(view, text, secondDot + 1)
-    if (thirdDot < 0) { i++; continue }
+    if (thirdDot < 0 || foldStrandsDash(view, i, thirdDot + 1)) { i++; continue }
     view.replace(i, thirdDot + 1, ELLIPSIS)
     i = thirdDot + 1
   }
@@ -967,7 +978,7 @@ function punctuationLigaturesOverView(view: ProseView): void {
         end = afterSep + 1
         consumed++
       }
-      if (consumed === 0) { i++; continue }
+      if (consumed === 0 || foldStrandsDash(view, i, end)) { i++; continue }
       view.replace(i, end, replacement)
       i = end
     }

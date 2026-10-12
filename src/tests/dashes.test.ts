@@ -1013,21 +1013,19 @@ describe("ProseView boundary-tolerance edges", () => {
     })
   })
 
-  // The ellipsis and ligature folds consume the character between a boundary
-  // and a dash ("?{b}!– x" folds to "⁈{b}– x"), so a boundary-led dash after a
-  // folded terminal blocks like the character run it folds from.
-  describe("boundary-led dash after a folded terminal", () => {
+  // An author-typed terminal glyph before a boundary-led dash blocks nothing:
+  // the dash converts as it does after any other non-space character.
+  describe("boundary-led dash after an author-typed terminal glyph", () => {
     const sep = DEFAULT_SEPARATOR
     it.each([
-      ["a!", `a!${sep}${EM_DASH}b`],
-      [`a${ELLIPSIS}`, `a${ELLIPSIS}${sep}${EN_DASH} b`],
-      [`a${UNICODE_SYMBOLS.DOUBLE_QUESTION}`, `a${UNICODE_SYMBOLS.DOUBLE_QUESTION}${sep}${EN_DASH} b`],
-      [`a${UNICODE_SYMBOLS.QUESTION_EXCLAMATION}`, `a${UNICODE_SYMBOLS.QUESTION_EXCLAMATION}${sep}${EN_DASH} b`],
-      [`a${UNICODE_SYMBOLS.EXCLAMATION_QUESTION}`, `a${UNICODE_SYMBOLS.EXCLAMATION_QUESTION}${sep}${EN_DASH} b`],
-      [`a${UNICODE_SYMBOLS.DOUBLE_EXCLAMATION}`, `a${UNICODE_SYMBOLS.DOUBLE_EXCLAMATION}${sep}${EN_DASH} b`],
-      [`a${UNICODE_SYMBOLS.INTERROBANG}`, `a${UNICODE_SYMBOLS.INTERROBANG}${sep}${EN_DASH} b`],
-    ])("hyphenReplace(%j + boundary + spaced en dash) is %j", (before, expected) => {
-      expect(viewTransform(hyphenReplace, `${before}${sep}${EN_DASH} b`, sep)).toBe(expected)
+      ELLIPSIS,
+      UNICODE_SYMBOLS.DOUBLE_QUESTION,
+      UNICODE_SYMBOLS.QUESTION_EXCLAMATION,
+      UNICODE_SYMBOLS.EXCLAMATION_QUESTION,
+      UNICODE_SYMBOLS.DOUBLE_EXCLAMATION,
+      UNICODE_SYMBOLS.INTERROBANG,
+    ])("%s", (glyph) => {
+      expect(viewTransform(hyphenReplace, `a${glyph}${sep}${EN_DASH} b`, sep)).toBe(`a${glyph}${sep}${EM_DASH}b`)
     })
   })
 

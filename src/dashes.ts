@@ -59,12 +59,7 @@ const FOLDED_FROM_TRAILING_DASH = new Set<string>([
  * dash char (`->` → `→`). */
 const FOLDED_FROM_LEADING_DASH = new Set<string>([UNICODE_SYMBOLS.ARROW_RIGHT])
 
-/**
- * Glyphs the ellipsis and punctuation-ligature passes fold runs of `.`, `?` and
- * `!` into. Like the math operators, the fold tolerates one node boundary at
- * its junction, so it can consume the character that sat between a boundary and
- * a dash.
- */
+/** Glyphs the ellipsis and punctuation-ligature passes fold runs of `.`, `?` and `!` into. */
 const FOLDED_TERMINAL_GLYPHS = new Set<string>([
   UNICODE_SYMBOLS.ELLIPSIS, UNICODE_SYMBOLS.DOUBLE_QUESTION, UNICODE_SYMBOLS.QUESTION_EXCLAMATION,
   UNICODE_SYMBOLS.EXCLAMATION_QUESTION, UNICODE_SYMBOLS.DOUBLE_EXCLAMATION, UNICODE_SYMBOLS.INTERROBANG,
@@ -876,7 +871,7 @@ function convertParentheticalDashes(view: ProseView, style: DashStyle): void {
 
 const DASH_RUN_CHARS = new Set(["-", EN_DASH, EM_DASH])
 
-function isDashChar(ch: string | undefined): boolean {
+export function isDashChar(ch: string | undefined): boolean {
   return ch !== undefined && DASH_RUN_CHARS.has(ch)
 }
 
@@ -1087,14 +1082,12 @@ function convertBoundaryLedDashes(view: ProseView, rendered: string): void {
     if (!isDashChar(text[b])) continue
     // Non-space before the boundary: ≥2 stacked boundaries, or a non-space
     // clean char immediately left. A folded math operator there marks the
-    // fold-stranded configuration: the math pass consumes one character
-    // across this junction (`=` + `~—` folds to `≈` + `—`), so the character
-    // that blocked this rule on the source text is gone, and converting now
-    // would diverge from that blocked first pass. The ellipsis and ligature
-    // folds strand a dash the same way (`?|!–` folds to `⁈|–`).
+    // fold-stranded configuration: the math pass consumes the `=` that blocked
+    // this rule across the junction (`=|~—` folds to `≈|—`), so converting now
+    // would diverge from that blocked first pass.
     if (stackedHere < 2) {
       const before = text[b - 1]
-      if (before === undefined || /\s/.test(before) || FOLDED_MATH_OPERATORS.has(before) || FOLDED_TERMINAL_GLYPHS.has(before)) continue
+      if (before === undefined || /\s/.test(before) || FOLDED_MATH_OPERATORS.has(before)) continue
     }
     // Dash run from the boundary, not crossing a further boundary.
     let runEnd = b + 1

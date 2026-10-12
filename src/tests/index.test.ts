@@ -469,12 +469,23 @@ describe("transform", () => {
       expect(transformOverView(input, { degrees: true, nbsp: false })).toBe(`72${sep} ${DEGREE}F`)
     })
 
-    // The ligature fold consumes the "!" between a boundary and the dash, so
-    // the dash must read the same on a re-run that finds it boundary-led.
-    it.each(["american", "british"] as const)("keeps a dash after a ligature folded across a boundary (%s dashes)", (dashStyle) => {
+    // A fold that would absorb the character between a boundary and a dash is
+    // skipped (the dash pass blocked on that character); a glyph the author
+    // typed leaves the boundary-led dash free to convert.
+    it.each([
+      ["american", `a?${sep}!${EN_DASH} `, `a?${sep}!${EN_DASH} `],
+      ["british", `a?${sep}!${EN_DASH} `, `a?${sep}!${EN_DASH} `],
+      ["american", `a.${sep}..${EN_DASH} b`, `a.${sep}..${EN_DASH} b`],
+      ["american", `a..${sep}.${EN_DASH} b`, `a..${sep}.${EN_DASH} b`],
+      ["american", `Hmm${ELLIPSIS}${sep}${EN_DASH} yes`, `Hmm${ELLIPSIS}${sep}${EM_DASH}yes`],
+      ["american", `Wait${ELLIPSIS}${sep}-- no`, `Wait${ELLIPSIS}${sep}${EM_DASH}no`],
+      ["american", `Wait...${sep}-- no`, `Wait${ELLIPSIS}${sep}${EM_DASH}no`],
+      ["british", `Hmm${ELLIPSIS}${sep}${EN_DASH} yes`, `Hmm${ELLIPSIS}${sep} ${EN_DASH} yes`],
+      ["american", `a${QUESTION_EXCLAMATION}${sep}${EN_DASH} b`, `a${QUESTION_EXCLAMATION}${sep}${EM_DASH}b`],
+    ] as const)("%s dashes: %j with ligatures reads %j", (dashStyle, input, expected) => {
       const options = { dashStyle, ligatures: true, nbsp: false }
-      const once = transformOverView(`a?${sep}!${EN_DASH} `, options)
-      expect(once).toBe(`a${QUESTION_EXCLAMATION}${sep}${EN_DASH} `)
+      const once = transformOverView(input, options)
+      expect(once).toBe(expected)
       expect(transformOverView(once, options)).toBe(once)
     })
   })
