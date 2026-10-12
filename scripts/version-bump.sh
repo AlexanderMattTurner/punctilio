@@ -161,7 +161,7 @@ if [ -f CHANGELOG.md ]; then
     collecting && /^## / { collecting = 0 }
     collecting { print }
   ' CHANGELOG.md)
-  # Capped after capture, not by `| head -c`, so the writer is never SIGPIPEd.
+  # Capped after capture so no early-exiting reader can SIGPIPE the writer.
   UNRELEASED_CONTENT="${UNRELEASED_CONTENT:0:4000}"
 fi
 
@@ -297,7 +297,7 @@ log "Set package.json to $NEW_VERSION (working directory only)"
 # Handle "already published" (exit code 1, HTTP 400/409) as success — can happen
 # when npm registry caching causes the earlier safety check to miss an existing version
 if ! PUBLISH_OUTPUT=$(pnpm publish --provenance --access public --no-git-checks 2>&1); then
-  if echo "$PUBLISH_OUTPUT" | grep -q "Cannot publish over previously published version"; then
+  if [[ "$PUBLISH_OUTPUT" == *"Cannot publish over previously published version"* ]]; then
     log "Version $NEW_VERSION already published (detected at publish time). Skipping."
     exit 0
   fi

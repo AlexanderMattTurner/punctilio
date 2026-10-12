@@ -171,6 +171,41 @@ for (const { name, npmStub, packageExtras, status, expected, forbidden } of [
   });
 }
 
+test("an unreadable package.json fails closed instead of publishing", () => {
+  const { dir, binDir } = makeSandbox("exit 99");
+  try {
+    writeFileSync(join(dir, "package.json"), "{ not json");
+    const { status, stderr } = runScript(dir, binDir);
+    assert.equal(status, 1, stderr);
+    assert.match(stderr, /could not read package\.json "private" field/);
+    assert.doesNotMatch(stderr, /Current npm version/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a publish rejected as already published is treated as success", () => {
+  const { dir, binDir } = makeSandbox(
+    'if [[ "$2" == *@* ]]; then exit 1; else echo "5.0.0"; fi',
+  );
+  try {
+    writeFileSync(
+      join(binDir, "pnpm"),
+      "#!/usr/bin/env bash\necho 'npm error Cannot publish over previously published version \"5.0.1\"' >&2\nexit 1\n",
+    );
+    chmodSync(join(binDir, "pnpm"), 0o755);
+    execFileSync("git", ["commit", "-q", "--allow-empty", "-m", "fix: x"], {
+      cwd: dir,
+    });
+    const { status, stderr } = runScript(dir, binDir);
+    assert.equal(status, 0, stderr);
+    assert.match(stderr, /already published \(detected at publish time\)/);
+    assert.doesNotMatch(stderr, /Pushed tag/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test("a range containing only release-docs commits is skipped, not re-released", () => {
   // The tag marks the published commit, so after every successful release HEAD
   // sits one "docs: release ..." commit past it; a re-dispatch must not read
