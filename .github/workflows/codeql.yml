@@ -10,6 +10,7 @@ on:
   schedule:
     - cron: "27 4 * * 1" # weekly, Monday 04:27 UTC
 
+# cancellable-required-check-ok: cancel-in-progress is true only on pull_request, whose ref is per-PR; schedule and push runs never cancel.
 concurrency:
   group: "${{ github.workflow }}-${{ github.ref }}"
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}

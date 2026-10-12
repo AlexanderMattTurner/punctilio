@@ -85,7 +85,7 @@ elif grep -q "E404" "$NPM_VIEW_ERR"; then
   CURRENT_VERSION="0.0.0"
 else
   log "Error: npm view failed for '$PACKAGE_NAME' (not a 404 for an unpublished package):"
-  log "$(cat "$NPM_VIEW_ERR")"
+  cat "$NPM_VIEW_ERR" >&2
   exit 1
 fi
 # Empty output (never published) means first release; anything other than
@@ -99,6 +99,7 @@ fi
 log "Current npm version: $CURRENT_VERSION"
 
 # Find the latest version tag to determine which commits to analyze
+# echo-fallback-ok: git describe exits non-zero when no v* tag exists, and the empty tag selects the first-release path below.
 LAST_TAG=$(git describe --tags --match "v*" --abbrev=0 HEAD 2>/dev/null || echo "")
 
 if [ -n "$LAST_TAG" ]; then
@@ -113,13 +114,13 @@ if [ -n "$LAST_TAG" ]; then
   COMMITS_RAW=$(git log "$LAST_TAG"..HEAD --pretty=format:"- %s" --no-merges)
   COMMIT_SUBJECTS=$(git log "$LAST_TAG"..HEAD --pretty=format:%s --no-merges)
   COMMIT_MESSAGES=$(git log "$LAST_TAG"..HEAD --pretty=format:%B --no-merges)
-  DIFF_STAT=$(git diff --stat "$LAST_TAG"..HEAD 2>/dev/null || echo "Unable to get diff")
+  DIFF_STAT=$(git diff --stat "$LAST_TAG"..HEAD)
 else
   # No version tags found — analyze recent commits
   COMMITS_RAW=$(git log --pretty=format:"- %s" --no-merges -20)
   COMMIT_SUBJECTS=$(git log --pretty=format:%s --no-merges -20)
   COMMIT_MESSAGES=$(git log --pretty=format:%B --no-merges -20)
-  DIFF_STAT=$(git show --stat HEAD 2>/dev/null || echo "Unable to get diff")
+  DIFF_STAT=$(git show --stat HEAD)
 fi
 
 # Cap commit-message length: keep 20 lines, truncate each to 100 characters, and
@@ -285,6 +286,7 @@ if npm view "$PACKAGE_NAME@$NEW_VERSION" version &>/dev/null; then
 fi
 
 # Update package.json in working directory only (not committed to git)
+# allow-inline-program: a short package.json version stamp that reads only NEW_VERSION from the environment.
 NEW_VERSION="$NEW_VERSION" node -e '
 const fs = require("fs");
 const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
@@ -312,6 +314,7 @@ log "✅ Published $PACKAGE_NAME@$NEW_VERSION"
 # must land even if the docs push below fails (e.g. main moved underneath us);
 # otherwise the next run would re-read the climbing npm version and bump again.
 git tag "v$NEW_VERSION"
+# allow-unbounded: auto-version.yml's job timeout-minutes bounds the release; `timeout` is absent on the macOS runners that run version-bump.test.mjs.
 if ! retry_cmd 4 2 git push origin "v$NEW_VERSION"; then
   log "Error: failed to push tag v$NEW_VERSION after retries. The release is published;"
   log "       push the tag manually so the next run does not re-analyze these commits."
@@ -352,6 +355,8 @@ else
   git commit -m "docs: release $NEW_VERSION [skip ci]"
   # Push to main explicitly so this works whether actions/checkout left us on
   # a branch or in detached HEAD state.
+  # main-push-ok: the release workflow's ruleset-bypass PAT pushes this [skip ci] docs commit straight to main, after the release is tagged.
+  # allow-unbounded: bounded by the job timeout, as the tag push above.
   if ! retry_cmd 4 2 git push origin HEAD:main; then
     log "Error: failed to push the release-docs update for v$NEW_VERSION."
     log "       The release is published and tagged; push the release-docs commit manually."

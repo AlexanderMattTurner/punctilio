@@ -59,7 +59,15 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Restore pinned actionlint
+        id: actionlint-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/actionlint
+          key: actionlint-${{ runner.os }}-${{ env.ACTIONLINT_VERSION }}
+
       - name: Download pinned actionlint
+        if: steps.actionlint-cache.outputs.cache-hit != 'true'
         run: |
           archive="actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
           curl -fsSL --retry 6 --retry-all-errors --retry-delay 15 --connect-timeout 30 \
@@ -72,14 +80,35 @@ jobs:
       - name: Run actionlint
         run: '"${RUNNER_TEMP}/actionlint" -color'
 
+  # ci-truth-serum lints from .pre-commit-config.yaml, over the whole tree.
+  pre-commit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+
+      - name: Restore pre-commit cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
+
+      - name: Run pre-commit
+        run: uvx pre-commit==4.6.0 run --all-files
+
   # Stable Required check: runs even when a needed job is cancelled/skipped, so
   # a protected branch never gets stuck on a check that never reports.
   lint-passed: # required-check: true
-    needs: [lint, actionlint]
+    needs: [lint, actionlint, pre-commit]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     if: always()
     steps:
       - name: Fail if lint did not succeed
-        if: needs.lint.result != 'success' || needs.actionlint.result != 'success'
+        if: needs.lint.result != 'success' || needs.actionlint.result != 'success' || needs.pre-commit.result != 'success'
         run: exit 1
