@@ -2,8 +2,7 @@ name: Mutation testing
 
 # Runs daily (and on demand), not on pull requests: the sharded run is too slow
 # to gate every PR. A failed scheduled run opens or comments on a ci-failure
-# issue via ci-failure-notify.yaml. Locally, `pnpm mutation:changed` mutates
-# only the files a branch changes.
+# issue via ci-failure-notify.yaml.
 on:
   schedule:
     - cron: "41 2 * * *" # daily, 02:41 UTC
@@ -11,7 +10,6 @@ on:
 
 concurrency:
   group: "${{ github.workflow }}-${{ github.ref }}"
-  cancel-in-progress: false
 
 permissions:
   contents: read
