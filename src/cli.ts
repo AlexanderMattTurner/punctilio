@@ -2,7 +2,7 @@
 
 import { createHash } from "node:crypto"
 import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs"
-import { readFile, rename, writeFile } from "node:fs/promises"
+import { chmod, readFile, realpath, rename, rm, stat, writeFile } from "node:fs/promises"
 import { dirname, extname, isAbsolute, join, relative, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 import { parseArgs } from "node:util"
@@ -11,9 +11,10 @@ import { cosmiconfig } from "cosmiconfig"
 import ignore, { type Ignore } from "ignore"
 import { glob } from "tinyglobby"
 
+import { HTML_ONLY_OPTION_KEYS, HTML_OPTION_KEYS, MARKDOWN_ONLY_OPTION_KEYS, MARKDOWN_OPTION_KEYS } from "./sink-option-keys.js"
 import type { MarkdownOptions } from "./markdown.js"
 import type { HtmlOptions } from "./html.js"
-import { HTML_ONLY_OPTION_KEYS, HTML_OPTION_KEYS, MARKDOWN_ONLY_OPTION_KEYS, MARKDOWN_OPTION_KEYS } from "./sink-option-keys.js"
+import { loadSinkTransform, MissingPeerDependencyError, type PeerImporter } from "./peer-dependencies.js"
 import { PUNCTUATION_STYLES, type PunctuationStyle } from "./quotes.js"
 import { DASH_STYLES, type DashStyle } from "./dashes.js"
 import { assertKnownOptionKeys, omitKeys, stableStringify } from "./utils.js"
@@ -25,6 +26,8 @@ interface CliIO {
   stdin: AsyncIterable<string | Buffer>
   stdout: NodeJS.WritableStream
   stderr: NodeJS.WritableStream
+  /** Overrides how optional peer dependencies are imported; tests use it to simulate one being absent. */
+  importPeer?: PeerImporter
 }
 
 class UsageError extends Error {}
@@ -133,7 +136,7 @@ Options:
   --rule-marker <char>        markdown thematic break character (choices: ${RULE_MARKERS.join(", ")})
   --skip-tag <tag>            HTML tag whose contents are left alone (repeatable)
   --skip-class <class>        HTML class name whose elements are skipped (repeatable)
-  --no-fragment               parse input as a full HTML document
+  --no-fragment               always parse HTML as a full document (default: a full document is detected from a leading <!doctype> or <html>)
   -h, --help                  display help for command
 `
 
@@ -236,6 +239,71 @@ const CLI_CONFIG_KEYS: readonly string[] = [
   ...new Set([...MARKDOWN_OPTION_KEYS, ...HTML_OPTION_KEYS]),
 ]
 
+interface ConfigValueRule {
+  expected: string
+  isValid: (value: unknown) => boolean
+}
+
+const BOOLEAN_RULE: ConfigValueRule = {
+  expected: "a boolean",
+  isValid: (value) => typeof value === "boolean",
+}
+const STRING_ARRAY_RULE: ConfigValueRule = {
+  expected: "an array of strings",
+  isValid: (value) => Array.isArray(value) && value.every((item) => typeof item === "string"),
+}
+const FUNCTION_RULE: ConfigValueRule = {
+  expected: "a function",
+  isValid: (value) => typeof value === "function",
+}
+
+function oneOfRule(choices: readonly string[]): ConfigValueRule {
+  return {
+    expected: `one of ${choices.join(", ")}`,
+    isValid: (value) => typeof value === "string" && choices.includes(value),
+  }
+}
+
+// `satisfies` makes the compiler flag any option key that lacks a rule.
+const CONFIG_VALUE_RULES = {
+  symbols: BOOLEAN_RULE,
+  collapseSpaces: BOOLEAN_RULE,
+  includeArrows: BOOLEAN_RULE,
+  fractions: BOOLEAN_RULE,
+  degrees: BOOLEAN_RULE,
+  superscript: BOOLEAN_RULE,
+  ligatures: BOOLEAN_RULE,
+  nbsp: BOOLEAN_RULE,
+  fragment: BOOLEAN_RULE,
+  transformAllElements: BOOLEAN_RULE,
+  punctuationStyle: oneOfRule(PUNCTUATION_STYLES),
+  dashStyle: oneOfRule(DASH_STYLES),
+  emphasisMarker: oneOfRule(EMPHASIS_MARKERS),
+  strongMarker: oneOfRule(EMPHASIS_MARKERS),
+  bulletMarker: oneOfRule(BULLET_MARKERS),
+  ruleMarker: oneOfRule(RULE_MARKERS),
+  skipTags: STRING_ARRAY_RULE,
+  skipClasses: STRING_ARRAY_RULE,
+  shouldSkipText: FUNCTION_RULE,
+} as const satisfies Record<keyof CliOptions, ConfigValueRule>
+
+// Keys are checked first, so every key present has a rule.
+function assertValidConfig(config: unknown, source: string): asserts config is CliOptions {
+  if (typeof config !== "object" || config === null || Array.isArray(config)) {
+    throw new UsageError(`${source} must contain an object of options.`)
+  }
+  assertKnownOptionKeys(config, CLI_CONFIG_KEYS, source)
+  for (const [key, value] of Object.entries(config)) {
+    if (value === undefined) continue
+    const rule: ConfigValueRule = CONFIG_VALUE_RULES[key as keyof CliOptions]
+    if (!rule.isValid(value)) {
+      throw new UsageError(
+        `Invalid value for "${key}" in ${source}: expected ${rule.expected}, got ${JSON.stringify(value)}.`,
+      )
+    }
+  }
+}
+
 // Config keys must match library option names (punctuationStyle, skipTags, …),
 // not the kebab-cased CLI flag names.
 async function loadConfig(
@@ -248,11 +316,11 @@ async function loadConfig(
   const result = configPath ? await explorer.load(configPath) : await explorer.search(cwd)
   if (!result || result.isEmpty) return {}
   try {
-    assertKnownOptionKeys(result.config as object, CLI_CONFIG_KEYS, `config file ${result.filepath}`)
+    assertValidConfig(result.config, `config file ${result.filepath}`)
   } catch (err) {
-    throw new UsageError((err as Error).message)
+    throw err instanceof UsageError ? err : new UsageError((err as Error).message)
   }
-  return result.config as CliOptions
+  return result.config
 }
 
 function loadIgnore(cwd: string, ignorePath: string | undefined): Ignore {
@@ -273,9 +341,18 @@ function isLiteralPath(pattern: string, cwd: string): boolean {
   return !hasGlobMetacharacters(pattern) || existsSync(resolve(cwd, pattern))
 }
 
-// Literal positionals pass through untouched so they error loudly if missing and
-// bypass ignore rules (naming a file explicitly is an intent to format it).
-// Ignore rules and the zero-match warning apply only to glob-expanded paths.
+// Dependency and VCS trees are never project sources; glob expansion skips them.
+const DEFAULT_GLOB_IGNORES = ["**/node_modules/**", "**/.git/**"]
+
+function isIgnored(file: string, cwd: string, ig: Ignore): boolean {
+  const rel = relative(cwd, file)
+  return !rel.startsWith("..") && ig.ignores(rel)
+}
+
+// Literal positionals pass through to the read step so a missing file errors
+// loudly. Ignore rules apply to literals and glob expansions alike, because
+// tools like pre-commit pass every staged file by name. A glob that matches
+// nothing is a usage error; one whose matches are all ignored only warns.
 async function discoverFiles(
   patterns: string[],
   cwd: string,
@@ -285,16 +362,17 @@ async function discoverFiles(
   const literals = patterns.filter((p) => isLiteralPath(p, cwd))
   const globs = patterns.filter((p) => !isLiteralPath(p, cwd))
   const expanded = globs.length > 0
-    ? await glob(globs, { cwd, absolute: true, onlyFiles: true })
+    ? await glob(globs, { cwd, absolute: true, onlyFiles: true, ignore: DEFAULT_GLOB_IGNORES })
     : []
-  const kept = expanded.filter((file) => {
-    const rel = relative(cwd, file)
-    return rel.startsWith("..") || !ig.ignores(rel)
-  })
-  if (globs.length > 0 && kept.length === 0) {
-    stderr.write(`Warning: no files matched: ${globs.join(" ")}\n`)
+  if (globs.length > 0 && expanded.length === 0) {
+    throw new UsageError(`no files matched: ${globs.join(" ")}`)
   }
-  return [...new Set([...literals.map((p) => resolve(cwd, p)), ...kept])]
+  const keptExpanded = expanded.filter((file) => !isIgnored(file, cwd, ig))
+  if (expanded.length > 0 && keptExpanded.length === 0) {
+    stderr.write(`Warning: every file matched by ${globs.join(" ")} is ignored\n`)
+  }
+  const keptLiterals = literals.map((p) => resolve(cwd, p)).filter((file) => !isIgnored(file, cwd, ig))
+  return [...new Set([...keptLiterals, ...keptExpanded])]
 }
 
 interface CacheEntry {
@@ -347,10 +425,20 @@ function saveCache(location: string, cache: Cache): void {
 
 // Replace a file's contents atomically: write a sibling temp file, then rename
 // it over the target so an interrupted run can never leave a half-written file.
-async function atomicWriteFile(path: string, contents: string): Promise<void> {
-  const tmpPath = `${path}.${process.pid}.tmp`
-  await writeFile(tmpPath, contents)
-  await rename(tmpPath, path)
+// The temp file replaces the symlink's target (not the link itself) and takes
+// over the original file's permission bits; it is removed if anything fails.
+export async function atomicWriteFile(path: string, contents: string): Promise<void> {
+  const targetPath = await realpath(path)
+  const { mode } = await stat(targetPath)
+  const tmpPath = `${targetPath}.${process.pid}.tmp`
+  try {
+    await writeFile(tmpPath, contents)
+    await chmod(tmpPath, mode & 0o7777)
+    await rename(tmpPath, targetPath)
+  } catch (err) {
+    await rm(tmpPath, { force: true })
+    throw err
+  }
 }
 
 // cwd-relative so the cache survives directory moves and cross-machine syncs.
@@ -382,16 +470,35 @@ function buildOptions(flags: ParsedFlags): CliOptions {
 
 // The merged options may carry keys for the other sink (e.g. emphasisMarker
 // alongside skipTags from one shared config); strip the inapplicable ones so
-// each sink's strict key validation only sees keys it understands. The sinks
-// load lazily because they import the optional unified peers, which --help,
-// --version and usage errors must not need.
-async function transformContent(input: string, type: FileType, opts: CliOptions): Promise<string> {
+// each sink's strict key validation only sees keys it understands.
+async function transformContent(
+  input: string,
+  type: FileType,
+  opts: CliOptions,
+  importPeer: PeerImporter | undefined,
+): Promise<string> {
   if (type === "md") {
-    const { transformMarkdown } = await import("./markdown.js")
+    const transformMarkdown = await loadSinkTransform("md", importPeer)
     return transformMarkdown(input, omitKeys(opts, HTML_ONLY_OPTION_KEYS) as MarkdownOptions)
   }
-  const { transformHtml } = await import("./html.js")
+  const transformHtml = await loadSinkTransform("html", importPeer)
   return transformHtml(input, omitKeys(opts, MARKDOWN_ONLY_OPTION_KEYS) as HtmlOptions)
+}
+
+const BYTE_ORDER_MARK = "\uFEFF"
+
+// A leading BOM would otherwise be parsed as content (and block full-document
+// and front matter detection), so it is set aside and restored on the output.
+async function formatDocument(
+  original: string,
+  type: FileType,
+  opts: CliOptions,
+  importPeer: PeerImporter | undefined,
+): Promise<string> {
+  const hasBom = original.startsWith(BYTE_ORDER_MARK)
+  const source = hasBom ? original.slice(BYTE_ORDER_MARK.length) : original
+  const formatted = matchLineEndings(source, await transformContent(source, type, opts, importPeer))
+  return hasBom ? BYTE_ORDER_MARK + formatted : formatted
 }
 
 // The unified pipelines emit LF-only output and unconditionally append a
@@ -443,7 +550,7 @@ export async function runCli(args: string[], io: CliIO): Promise<number> {
     }
     return await runValidated(buildFlags(values, tokens), positionals, io, version)
   } catch (err) {
-    if (err instanceof UsageError) {
+    if (err instanceof UsageError || err instanceof MissingPeerDependencyError) {
       io.stderr.write(`Error: ${err.message}\n`)
       return 2
     }
@@ -475,6 +582,10 @@ async function runValidated(
     throw new UsageError("--write and --check are mutually exclusive.")
   }
 
+  if (flags.stdinFilepath !== undefined && positionals.some((p) => p !== "-")) {
+    throw new UsageError("--stdin-filepath cannot be combined with file arguments.")
+  }
+
   if (readsStdin(positionals, flags)) {
     if (write) {
       throw new UsageError("--write cannot be used when reading from stdin.")
@@ -489,7 +600,7 @@ async function runValidated(
       throw new UsageError("Reading from stdin requires --type md|html or --stdin-filepath <path>.")
     }
     const input = await readStdin(io.stdin)
-    const output = matchLineEndings(input, await transformContent(input, type, opts))
+    const output = await formatDocument(input, type, opts, io.importPeer)
     if (check) return input === output ? 0 : 1
     io.stdout.write(output)
     return 0
@@ -502,6 +613,9 @@ async function runValidated(
 
   const ig = loadIgnore(cwd, flags.ignorePath)
   const files = await discoverFiles(positionals, cwd, ig, io.stderr)
+  // Resolve every file's type up front so an unsupported extension fails
+  // before any file has been rewritten.
+  const types = files.map((file) => inferFileType(file, flags.type))
 
   // In stdout mode every file's content must be produced, so a cache hit
   // could never skip work; only --write and --check use the cache.
@@ -512,8 +626,8 @@ async function runValidated(
   const optionsHash = cache ? hashOptions(opts) : ""
 
   let anyChanged = false
-  for (const path of files) {
-    const type = inferFileType(path, flags.type)
+  for (const [index, path] of files.entries()) {
+    const type = types[index]
     const original = await readFile(path, "utf8")
     const key = cache ? cacheKey(path, cwd) : ""
     if (cache) {
@@ -527,7 +641,7 @@ async function runValidated(
       ) continue
     }
 
-    const formatted = matchLineEndings(original, await transformContent(original, type, opts))
+    const formatted = await formatDocument(original, type, opts, io.importPeer)
     if (!write && !check) {
       io.stdout.write(formatted)
       continue
@@ -551,9 +665,19 @@ async function runValidated(
   return check && anyChanged ? 1 : 0
 }
 
+// npm links bins through symlinks, so argv[1] is the link, not the module file.
+export function isMainModule(moduleUrl: string, entryPath: string | undefined): boolean {
+  if (entryPath === undefined) return false
+  try {
+    return realpathSync(fileURLToPath(moduleUrl)) === realpathSync(entryPath)
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") return false
+    throw err
+  }
+}
+
 /* istanbul ignore next -- entry-point bootstrap; logic is covered via runCli */
-// npm runs the bin through a node_modules/.bin symlink, so compare real paths.
-if (process.argv[1] && fileURLToPath(import.meta.url) === realpathSync(process.argv[1])) {
+if (isMainModule(import.meta.url, process.argv[1])) {
   runCli(process.argv.slice(2), {
     stdin: process.stdin,
     stdout: process.stdout,

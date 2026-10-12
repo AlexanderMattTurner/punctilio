@@ -225,6 +225,16 @@ Two caveats before pointing the CLI (or the [pre-commit hook](#pre-commit) below
 
 Second, non-breaking spaces (U+00A0) are invisible in source files: they render fine, but they aren’t regular spaces, so Ctrl+F and `grep` matches against the source can miss. Markdown files therefore default to `nbsp` off; pass `--nbsp` (or set `nbsp: true` in config) to opt in. HTML files keep the default of `nbsp` on; pass `--no-nbsp` to keep them ASCII-spaced.
 
+File handling follows a few rules:
+
+- Globs skip `node_modules` and `.git`, and `.punctilioignore` (gitignore syntax) applies to files named explicitly as well as to glob matches, so a hook that passes every staged file by name still honors it.
+- A glob that matches nothing is a usage error (exit 2) in every mode; so is an unsupported file extension, which is detected before any file is rewritten. `--stdin-filepath` cannot be combined with file arguments.
+- `--write` follows symlinks and rewrites the target, keeps its permissions, and leaves no temporary file behind on failure.
+- A leading UTF-8 byte order mark is preserved. Markdown front matter (YAML between `---` fences, or TOML between `+++` fences) is passed through untouched.
+- HTML input that begins with `<!doctype` or `<html` is parsed as a complete document, so the doctype, `<head>`, and `<body>` survive; anything else is parsed as a fragment. `--no-fragment` (or `fragment: false`) forces the document parse, and `fragment: true` forces the fragment parse.
+- Config values are type-checked, so a wrong type such as `"nbsp": "false"` or `"skipTags": "code"` exits 2 with a message naming the key.
+- `unified` and the `remark-*` or `rehype-*` packages are optional peers, loaded only for the file type being processed. When one is missing, the CLI exits 2 with the package names and the `npm install` command to run.
+
 ### pre-commit
 
 A `.pre-commit-hooks.yaml` ships in the package, so [pre-commit](https://pre-commit.com) users can wire `punctilio` in directly:
