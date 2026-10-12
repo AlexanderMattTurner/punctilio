@@ -1195,7 +1195,10 @@ const CHAIN_PUNCT_SET = new Set<string>([".", ",", ELLIPSIS])
  *    dot triple, which the double-opener rule reads as `…`;
  *  - `.` + digit at the removal site: a period directly before a digit blocks
  *    the dash pass's number-range detection, so vacating the slot converts a
- *    range this run left alone.
+ *    range this run left alone;
+ *  - a closer directly after a still-straight `'` + two digits: that adjacency
+ *    is what keeps {@link isDecadeElision} from reading the quote as an
+ *    elision, so the re-run of `.'47,’` would turn it into `’`.
  */
 function insideMoveFlipsContext(order: Item[], runStart: number, punctIndex: number): boolean {
   if (order[punctIndex].ch === ".") {
@@ -1204,7 +1207,15 @@ function insideMoveFlipsContext(order: Item[], runStart: number, punctIndex: num
     const afterPunct = nextIndex(order, punctIndex, 1)
     if (afterPunct < order.length && !order[afterPunct].boundary && DIGIT_RE.test(order[afterPunct].ch)) return true
   }
-  return false
+  return closesStraightQuotedDigits(order, runStart)
+}
+
+/** `'` + two digits, then the single closer at `runStart`. */
+function closesStraightQuotedDigits(order: Item[], runStart: number): boolean {
+  return isCharItem(order, runStart, RIGHT_SINGLE_QUOTE)
+    && isDigitItem(order, runStart - 1)
+    && isDigitItem(order, runStart - 2)
+    && isCharItem(order, runStart - 3, "'")
 }
 
 /** True iff the run [start, end) contains a single-quote closer or apostrophe. */

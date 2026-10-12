@@ -52,6 +52,9 @@ describe("quote classifier role-stream regressions", () => {
     ["'37'x", `${RIGHT_SINGLE_QUOTE}37'x`],
     // Without its own closer the elision fires as before.
     ["'37 x", `${RIGHT_SINGLE_QUOTE}37 x`],
+    // The closer must stay adjacent to the digits: a comma moved inside it
+    // would read as an elision on the next run.
+    [".'47',", `.'47${RIGHT_SINGLE_QUOTE},`],
   ])("quoted numbers are not decade elisions: niceQuotes(%j) === %j", (input, expected) => {
     expect(niceQuotes(input)).toBe(expected)
     expect(niceQuotes(expected)).toBe(expected)
