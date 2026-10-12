@@ -199,6 +199,23 @@ function isCharItem(items: Item[], index: number, ch: string): boolean {
 }
 
 /**
+ * French only: whether the run of space items from `start` (walking by `step`)
+ * ends at a `glyph` item and collapses to one space once an unpadded glyph's
+ * padding absorbs the NBSP/NNBSP beside it. A re-run reads that space between
+ * the straight quote and the padded glyph, so the first run must too.
+ */
+function spaceRunReadsAsSingle(items: Item[], start: number, step: 1 | -1, glyph: string): boolean {
+  let index = start
+  while (index >= 0 && index < items.length && !items[index].boundary && SPACE_CHAR_RE.test(items[index].ch)) index += step
+  const runLength = (index - start) * step
+  if (!isCharItem(items, index, glyph)) return false
+  // A glyph the source already pads absorbs nothing further.
+  const glyphSide = items[index - step].ch
+  const absorbs = items[index].end - items[index].start === 1 && (glyphSide === NBSP || glyphSide === NNBSP)
+  return runLength === 1 || (runLength === 2 && absorbs)
+}
+
+/**
  * Index of the previous item, treating up to `maxBoundaries` boundary items as
  * transparent. Returns -1 at start of text; returns the blocking boundary's
  * index when the budget is exceeded, so character-class tests on the result
@@ -788,7 +805,7 @@ function classifyOpeningDoubles(items: Item[], style: ActiveQuoteStyle): void {
         const j = nextIndex(items, i, 1)
         if (j < items.length && !items[j].boundary) {
           const ch = items[j].ch
-          const absorbedIntoCloser = style === "french" && SPACE_CHAR_RE.test(ch) && isCharItem(items, j + 1, RIGHT_DOUBLE_QUOTE)
+          const absorbedIntoCloser = style === "french" && spaceRunReadsAsSingle(items, j, 1, RIGHT_DOUBLE_QUOTE)
           opens = isEllipsisDots(items, j) || foldsToNotEqual(items, j)
             || (!SPACE_RE.test(ch) && !DOUBLE_OPEN_ENDING_SET.has(ch))
             || absorbedIntoCloser
@@ -897,7 +914,7 @@ function classifyClosingDoubles(items: Item[], style: ActiveQuoteStyle): void {
     if (item.boundary || item.ch !== '"') continue
     const before = items[i - 1]
     if (!before.boundary && (SPACE_RE.test(before.ch) || OPEN_BRACKETS.has(before.ch))) {
-      const absorbedIntoOpener = style === "french" && SPACE_CHAR_RE.test(before.ch) && isCharItem(items, i - 2, LEFT_DOUBLE_QUOTE)
+      const absorbedIntoOpener = style === "french" && spaceRunReadsAsSingle(items, i - 1, -1, LEFT_DOUBLE_QUOTE)
       if (!absorbedIntoOpener) continue
     }
     const next = items[i + 1]

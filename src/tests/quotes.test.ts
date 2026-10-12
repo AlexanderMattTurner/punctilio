@@ -941,6 +941,14 @@ describe("niceQuotes", () => {
     it.each([
       [`${LEFT_DOUBLE_QUOTE}${NBSP}".`, `${LEFT_GUILLEMET}${NNBSP}${NNBSP}${RIGHT_GUILLEMET}.`],
       [`${LEFT_DOUBLE_QUOTE}${NNBSP}" b`, `${LEFT_GUILLEMET}${NNBSP}${NNBSP}${RIGHT_GUILLEMET} b`],
+      // Two spaces collapse to one once the glyph's padding absorbs the NBSP/NNBSP
+      // beside it, whichever side of the pair the glyph is on.
+      [`${LEFT_DOUBLE_QUOTE}${NNBSP}\t"]`, `${LEFT_GUILLEMET}${NNBSP}\t${NNBSP}${RIGHT_GUILLEMET}]`],
+      [`${LEFT_DOUBLE_QUOTE}${NBSP}${NNBSP}"]`, `${LEFT_GUILLEMET}${NNBSP}${NNBSP}${RIGHT_GUILLEMET}]`],
+      [`"${NNBSP}${NNBSP}${RIGHT_DOUBLE_QUOTE}`, `${LEFT_GUILLEMET}${NNBSP}${NNBSP}${RIGHT_GUILLEMET}`],
+      [`"\t${NNBSP}${RIGHT_DOUBLE_QUOTE}`, `${LEFT_GUILLEMET}${NNBSP}\t${NNBSP}${RIGHT_GUILLEMET}`],
+      // A third space survives the absorption, so the quote stays straight.
+      [`"${NNBSP}${NNBSP}${NNBSP}${RIGHT_DOUBLE_QUOTE}`, `"${NNBSP}${NNBSP}${NNBSP}${RIGHT_GUILLEMET}`],
     ])("french closer after an opener spaced with a no-break space reaches its fixed point in one run: %j", (input, expected) => {
       const once = niceQuotes(input, { punctuationStyle: "french" })
       expect(once).toBe(expected)
