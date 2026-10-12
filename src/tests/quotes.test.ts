@@ -584,6 +584,13 @@ describe("niceQuotes", () => {
           [`${pair[0]}"a", "b"${pair[1]}`, `${pair[0]}${l}a${r}, ${l}b${r}${pair[1]}`],
         ],
       ),
+      // Every closing bracket ends a single-quoted item, braces and fullwidth/CJK included.
+      ...["{}", "\uFF08\uFF09", "\uFF3B\uFF3D", "\uFF5B\uFF5D", "\u3008\u3009", "\u300C\u300D", "\u3010\u3011"].map(
+        (pair): [string, string] => [
+          `${pair[0]}'a', 'b'${pair[1]}`,
+          `${pair[0]}${LEFT_SINGLE_QUOTE}a${RIGHT_SINGLE_QUOTE}, ${LEFT_SINGLE_QUOTE}b${RIGHT_SINGLE_QUOTE}${pair[1]}`,
+        ],
+      ),
     ])('places list-separator commas outside: "%s"', (input, expected) => {
       expect(niceQuotes(input)).toBe(expected)
       expect(niceQuotes(niceQuotes(input))).toBe(expected)
@@ -755,6 +762,11 @@ describe("niceQuotes", () => {
       ['""', `${LEFT_DOUBLE_QUOTE}${RIGHT_DOUBLE_QUOTE}`, "empty double"],
       ["' '", `${LEFT_SINGLE_QUOTE} ${RIGHT_SINGLE_QUOTE}`, "whitespace single"],
       ['" "', `${LEFT_DOUBLE_QUOTE} ${RIGHT_DOUBLE_QUOTE}`, "whitespace double"],
+      ...["()", "（）", "［］", "｛｝", "「」"].map((pair): [string, string, string] => [
+        `${pair[0]}""${pair[1]}`,
+        `${pair[0]}${LEFT_DOUBLE_QUOTE}${RIGHT_DOUBLE_QUOTE}${pair[1]}`,
+        "empty double in brackets",
+      ]),
     ])("converts %s → %s (%s)", (input, expected) => {
       expect(niceQuotes(input)).toBe(expected)
     })

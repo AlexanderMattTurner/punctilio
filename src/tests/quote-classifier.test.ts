@@ -347,12 +347,12 @@ describe("placement and opener stability across boundaries", () => {
     // The period's node empties if it moves, stacking two boundaries after
     // the closer; the leading-apostrophe scan then stops reading it as a
     // closer, so the period stays put.
-    [`~'}'${SEP}.${SEP}`, `~'}${RIGHT_SINGLE_QUOTE}${SEP}.${SEP}`],
+    [`~'^'${SEP}.${SEP}`, `~'^${RIGHT_SINGLE_QUOTE}${SEP}.${SEP}`],
     // Same shape with a non-ending follower after the period.
-    [`~'}'${SEP}.2`, `~'}${RIGHT_SINGLE_QUOTE}${SEP}.2`],
+    [`~'^'${SEP}.2`, `~'^${RIGHT_SINGLE_QUOTE}${SEP}.2`],
     // An ending follower keeps the run a closer for the scan, so the period
     // moves inside as usual.
-    [`~'}'${SEP}.,`, `~'}.${RIGHT_SINGLE_QUOTE}${SEP},`],
+    [`~'^'${SEP}.,`, `~'^.${RIGHT_SINGLE_QUOTE}${SEP},`],
     // Terminal punctuation blocks the inside move through one boundary, the
     // slot a ligature fold can pull it across.
     [`${UNICODE_SYMBOLS.QUESTION_EXCLAMATION}${SEP}",`, `${UNICODE_SYMBOLS.QUESTION_EXCLAMATION}${SEP}${RIGHT_DOUBLE_QUOTE},`],
@@ -371,7 +371,7 @@ describe("placement and opener stability across boundaries", () => {
     [`5'x${SEP}"q"${SEP}.z`, `5'x${SEP}${LEFT_DOUBLE_QUOTE}q.${RIGHT_DOUBLE_QUOTE}${SEP}z`],
     // A single trailing boundary keeps the run a closer for the re-run's
     // scan, so the period still moves inside.
-    [`~'}'${SEP}.`, `~'}.${RIGHT_SINGLE_QUOTE}${SEP}`],
+    [`~'^'${SEP}.`, `~'^.${RIGHT_SINGLE_QUOTE}${SEP}`],
     // Two stacked boundaries hide the dot from the terminal lookbehind; the
     // landing-site dot-gap probe then reads through the boundary pair.
     [`q.${SEP}${SEP}".`, `q.${SEP}${SEP}.${RIGHT_DOUBLE_QUOTE}`],
@@ -400,9 +400,9 @@ describe("fold-stability of the != / ellipsis / possessive guards", () => {
   // (folding to `≠`) after the period is no ending context, so the post-move
   // lookahead blocks the inside move.
   it("blocks the inside move when the post-move follower folds to not-equal", () => {
-    const input = `~'}'${SEP}.!=2`
+    const input = `~'^'${SEP}.!=2`
     const once = viewTransform(niceQuotes, input, SEP)
-    expect(once).toBe(`~'}${UNICODE_SYMBOLS.RIGHT_SINGLE_QUOTE}${SEP}.!=2`)
+    expect(once).toBe(`~'^${UNICODE_SYMBOLS.RIGHT_SINGLE_QUOTE}${SEP}.!=2`)
     expect(viewTransform(niceQuotes, once, SEP)).toBe(once)
   })
 
@@ -425,7 +425,7 @@ describe("fold-stability of the != / ellipsis / possessive guards", () => {
   // fold-transparent boundary.
   it.each([
     [`'.${SEP}".`, `.${RIGHT_SINGLE_QUOTE}${SEP}.${RIGHT_DOUBLE_QUOTE}`],
-    [`~'}'${SEP}.${SEP}${SEP}z`, `~'}${RIGHT_SINGLE_QUOTE}${SEP}.${SEP}${SEP}z`],
+    [`~'^'${SEP}.${SEP}${SEP}z`, `~'^${RIGHT_SINGLE_QUOTE}${SEP}.${SEP}${SEP}z`],
     [`("5"!=3)`, `(${LEFT_DOUBLE_QUOTE}5${UNICODE_SYMBOLS.DOUBLE_PRIME}!=3)`],
     [`'.${SEP}"`, `.${RIGHT_SINGLE_QUOTE}${SEP}${RIGHT_DOUBLE_QUOTE}`],
     // A dash directly after the period is a wall: the minus rule reads the

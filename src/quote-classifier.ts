@@ -145,7 +145,7 @@ const SINGLE_QUOTE_FAMILY = new Set<string>(["'", LEFT_SINGLE_QUOTE, RIGHT_SINGL
 /** Ending-context chars for single quotes (plus any \s char). The curly
  * doubles accompany the straight one: `"` curls into one of them in this same
  * pass, and an ending decision must survive the curl. */
-const SINGLE_ENDING_SET = new Set<string>([".", "!", "?", ";", ":", ",", ")", EM_DASH, "-", "]", '"', LEFT_DOUBLE_QUOTE, RIGHT_DOUBLE_QUOTE, ELLIPSIS, ...FOLDED_TERMINALS])
+const SINGLE_ENDING_SET = new Set<string>([".", "!", "?", ";", ":", ",", ...CLOSING_BRACKETS, EM_DASH, "-", '"', LEFT_DOUBLE_QUOTE, RIGHT_DOUBLE_QUOTE, ELLIPSIS, ...FOLDED_TERMINALS])
 
 /** Boundary chars before an opening single quote (plus any \s char). A
  * straight double quote belongs with the curly pair: whichever way it curls
