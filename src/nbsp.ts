@@ -433,6 +433,7 @@ export function nbspTransform(input: string | ProseView): string | void {
     for (const fn of NBSP_TRANSFORMS) {
       fn(view)
     }
-    nbspBeforeLastWordOverView(view, nbspAfterShortWordsOverView(view))
+    const insertedShortWordGlue = nbspAfterShortWordsOverView(view)
+    nbspBeforeLastWordOverView(view, insertedShortWordGlue)
   })
 }
