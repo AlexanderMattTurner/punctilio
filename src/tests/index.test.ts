@@ -20,6 +20,7 @@ const {
   COPYRIGHT,
   NBSP,
   NNBSP,
+  LEFT_GUILLEMET,
   RIGHT_GUILLEMET,
   PRIME,
   DOUBLE_PRIME,
@@ -719,6 +720,7 @@ describe("transform", () => {
       [`a${NBSP}${RIGHT_GUILLEMET} b c`, `a${NNBSP}${RIGHT_GUILLEMET} b${NBSP}c`],
       ['foo bar"', `foo bar${NNBSP}${RIGHT_GUILLEMET}`],
       [`^818_${EN_DASH}${NBSP}.${RIGHT_DOUBLE_QUOTE}`, `^818_${EN_DASH}${NNBSP}${RIGHT_GUILLEMET}.`],
+      [`${RIGHT_DOUBLE_QUOTE}${NBSP}"\t${NBSP}${RIGHT_DOUBLE_QUOTE},`, `${NNBSP}${RIGHT_GUILLEMET}${NBSP}${LEFT_GUILLEMET}${NNBSP}${RIGHT_GUILLEMET},`],
     ])("transform(%j, french) is %j", (input, expected) => {
       expect(transform(input, { punctuationStyle: "french" })).toBe(expected)
     })

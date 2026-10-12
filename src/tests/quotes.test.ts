@@ -927,6 +927,26 @@ describe("niceQuotes", () => {
       expect(niceQuotes(once, { punctuationStyle: "french" })).toBe(once)
     })
 
+    // Every collapsible space merges into the closer's padding, not just a plain
+    // space, so a straight quote before one reads as an opener on the first run.
+    it.each([
+      [NBSP, `a ${LEFT_GUILLEMET}${NNBSP}${NNBSP}${RIGHT_GUILLEMET}`],
+      ["\t", `a ${LEFT_GUILLEMET}${NNBSP}\t${NNBSP}${RIGHT_GUILLEMET}`],
+    ])("french opener before a closer spaced with %j reaches its fixed point in one run", (space, expected) => {
+      const once = niceQuotes(`a "${space}${RIGHT_DOUBLE_QUOTE}`, { punctuationStyle: "french" })
+      expect(once).toBe(expected)
+      expect(niceQuotes(once, { punctuationStyle: "french" })).toBe(once)
+    })
+
+    it.each([
+      [`${LEFT_DOUBLE_QUOTE}${NBSP}".`, `${LEFT_GUILLEMET}${NNBSP}${NNBSP}${RIGHT_GUILLEMET}.`],
+      [`${LEFT_DOUBLE_QUOTE}${NNBSP}" b`, `${LEFT_GUILLEMET}${NNBSP}${NNBSP}${RIGHT_GUILLEMET} b`],
+    ])("french closer after an opener spaced with a no-break space reaches its fixed point in one run: %j", (input, expected) => {
+      const once = niceQuotes(input, { punctuationStyle: "french" })
+      expect(once).toBe(expected)
+      expect(niceQuotes(once, { punctuationStyle: "french" })).toBe(once)
+    })
+
     // Moving the period or comma out of the quote leaves the NBSP that preceded
     // it directly before the closer, where a re-run absorbs it into the
     // closer's NNBSP padding; the first run must absorb it too.

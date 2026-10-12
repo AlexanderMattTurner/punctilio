@@ -787,7 +787,7 @@ function classifyOpeningDoubles(items: Item[], style: ActiveQuoteStyle): void {
         const j = nextIndex(items, i, 1)
         if (j < items.length && !items[j].boundary) {
           const ch = items[j].ch
-          const absorbedIntoCloser = style === "french" && ch === " " && isCharItem(items, j + 1, RIGHT_DOUBLE_QUOTE)
+          const absorbedIntoCloser = style === "french" && SPACE_CHAR_RE.test(ch) && isCharItem(items, j + 1, RIGHT_DOUBLE_QUOTE)
           opens = isEllipsisDots(items, j) || foldsToNotEqual(items, j)
             || (!SPACE_RE.test(ch) && !DOUBLE_OPEN_ENDING_SET.has(ch))
             || absorbedIntoCloser
@@ -896,7 +896,7 @@ function classifyClosingDoubles(items: Item[], style: ActiveQuoteStyle): void {
     if (item.boundary || item.ch !== '"') continue
     const before = items[i - 1]
     if (!before.boundary && (SPACE_RE.test(before.ch) || OPEN_BRACKETS.has(before.ch))) {
-      const absorbedIntoOpener = style === "french" && before.ch === " " && isCharItem(items, i - 2, LEFT_DOUBLE_QUOTE)
+      const absorbedIntoOpener = style === "french" && SPACE_CHAR_RE.test(before.ch) && isCharItem(items, i - 2, LEFT_DOUBLE_QUOTE)
       if (!absorbedIntoOpener) continue
     }
     const next = items[i + 1]
