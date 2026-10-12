@@ -7,7 +7,7 @@ import { transformView } from "./index.js"
 import { TRANSFORM_OPTION_KEYS, type TransformOptions } from "./transform-options.js"
 import { MAX_RECURSION_DEPTH } from "./constants.js"
 import { runAcrossOpaqueGaps } from "./prose-view.js"
-import { DEFAULT_SKIP_TAGS } from "./rehype.js"
+import { DEFAULT_SKIP_TAGS, RAW_TEXT_FORM_TAG } from "./rehype.js"
 import { assertKnownOptionKeys } from "./utils.js"
 
 /**
@@ -21,7 +21,7 @@ const PHRASING_CONTAINERS = new Set(["paragraph", "heading", "tableCell"])
 
 const SKIP_TYPES = new Set(["inlineCode", "html"])
 
-const SKIPPED_HTML_TAGS: ReadonlySet<string> = new Set(DEFAULT_SKIP_TAGS)
+const SKIPPED_HTML_TAGS: ReadonlySet<string> = new Set([...DEFAULT_SKIP_TAGS, RAW_TEXT_FORM_TAG])
 
 const HTML_TAG_RE = /^<(?<closing>\/)?(?<name>[a-z][a-z0-9-]*)(?=[\s/>])/i
 

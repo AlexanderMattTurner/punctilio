@@ -169,6 +169,8 @@ describe("remarkPunctilio", () => {
       ["nested skip tags", 'a <pre><code>"x"</code> "y"</pre> "z"', `a <pre><code>"x"</code> "y"</pre> ${LDQ}z${RDQ}`],
       ["nested emphasis", '<code>*"x"* -- y</code> "z"', `<code>*"x"* -- y</code> ${LDQ}z${RDQ}`],
       ["an unclosed tag skips to the end of the paragraph", '<var>"x" "y"', '<var>"x" "y"'],
+      ["an unclosed tag does not leak into the next paragraph", '<var>"x"\n\n"y"', `<var>"x"\n\n${LDQ}y${RDQ}`],
+      ["textarea", 'a <textarea>"b" -- c</textarea> "d"', `a <textarea>"b" -- c</textarea> ${LDQ}d${RDQ}`],
       ["a stray close tag", '</code> "z"', `</code> ${LDQ}z${RDQ}`],
       ["a self-closed tag", '<svg/> "z"', `<svg/> ${LDQ}z${RDQ}`],
       ["non-skip tags", '<span>"x"</span>', `<span>${LDQ}x${RDQ}</span>`],

@@ -104,7 +104,7 @@ const FORM_VALUE_TAGS = ["textarea", "input"];
 // Skipped in BOTH modes — the allowlist default does not reach it as its own
 // unit, but a transformable ancestor would otherwise pull its text into a
 // shared view and transform it.
-const RAW_TEXT_FORM_TAG = "textarea";
+export const RAW_TEXT_FORM_TAG = "textarea";
 
 // `<select>` is not prose itself, but its `<option>` children are (and are
 // transformed under the default allowlist). Under `transformAllElements` we
