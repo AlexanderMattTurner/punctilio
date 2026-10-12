@@ -316,9 +316,10 @@ export interface ProseViewOfOptions extends ElementTransformOptions {
 /**
  * Builds a single ProseView over the element's transformable text nodes,
  * honoring the element-level `shouldSkip` and per-text-node `shouldSkipText`
- * predicates. Returns null when the element holds no transformable text. This
- * view spans opaque gaps; the transform pipeline uses {@link proseViewsOf},
- * which splits on them so no pass rewrites across removed atomic content.
+ * predicates. Returns null when the element holds no transformable text. The
+ * view spans opaque gaps with only a boundary at each; the transform pipeline
+ * instead runs {@link runAcrossOpaqueGaps}, which holds each gap with a
+ * placeholder, and {@link proseViewsOf} gives one view per gap-free segment.
  */
 export function proseViewOf(
   element: Element,
