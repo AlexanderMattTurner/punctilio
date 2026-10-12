@@ -106,8 +106,9 @@ interface Item {
    */
   frozenCloser?: boolean
   /**
-   * Set on a German item whose curly source glyph was re-derived to a straight
-   * candidate by position. If classification assigns it no role, it renders as
+   * Set on a German item whose curly glyph was re-derived to a straight
+   * candidate by position: the source glyph, or the one the previous round's
+   * rendering gives it. If classification assigns it no role, it renders as
    * this glyph: the style never downgrades curly text to straight.
    */
   curlySource?: string
@@ -1501,7 +1502,7 @@ function queueRenderEdits(view: ProseView, items: Item[], table: Record<QuoteRol
   for (const item of items) {
     if (item.boundary) continue
     const role = ROLE_BY_CHAR.get(item.ch)
-    const rendered = role === undefined ? item.ch : table[role]
+    const rendered = role === undefined ? (item.curlySource ?? item.ch) : table[role]
     if (item.moved) {
       view.replace(item.start, item.end, "")
       const key = `${item.anchorOffset}|${item.anchorBind}`
@@ -1518,10 +1519,9 @@ function queueRenderEdits(view: ProseView, items: Item[], table: Record<QuoteRol
       }
       continue
     }
-    if (role === undefined && item.curlySource !== undefined) continue
     // Fast path for ordinary characters; pre-labeled items may have changed
     // `ch` without gaining a role (German orphan closers) and must still diff.
-    if (role === undefined && item.ch === text[item.start] && item.end - item.start === 1) continue
+    if (role === undefined && item.curlySource === undefined && item.ch === text[item.start] && item.end - item.start === 1) continue
     if (rendered !== text.slice(item.start, item.end)) {
       view.replace(item.start, item.end, rendered)
     }

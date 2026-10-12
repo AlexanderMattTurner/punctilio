@@ -981,6 +981,12 @@ describe("niceQuotes", () => {
         `${DOUBLE_LOW_9_QUOTE}." ${LEFT_DOUBLE_QUOTE}a${RIGHT_DOUBLE_QUOTE}`,
         `${DOUBLE_LOW_9_QUOTE}.${LEFT_DOUBLE_QUOTE} ${DOUBLE_LOW_9_QUOTE}a${LEFT_DOUBLE_QUOTE}`,
       ],
+      // The U+2018 after the apostrophe reads as a closer on the next run, so
+      // it renders as the U+2019 that run reads, not the glyph in the source.
+      [
+        `${LEFT_SINGLE_QUOTE}1${RIGHT_SINGLE_QUOTE} ${RIGHT_SINGLE_QUOTE}${LEFT_SINGLE_QUOTE}${LEFT_SINGLE_QUOTE}]${RIGHT_SINGLE_QUOTE}`,
+        `${SINGLE_LOW_9_QUOTE}1${RIGHT_SINGLE_QUOTE} ${RIGHT_SINGLE_QUOTE}${RIGHT_SINGLE_QUOTE}${LEFT_SINGLE_QUOTE}]${LEFT_SINGLE_QUOTE}`,
+      ],
     ])("german orphan closer after a consumed opener: %j", (input, expected) => {
       const once = niceQuotes(input, { punctuationStyle: "german" })
       expect(once).toBe(expected)
