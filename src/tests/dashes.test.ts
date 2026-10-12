@@ -1,5 +1,5 @@
 import { dashWordJoiner, enDashDateRange, enDashNumberRange, hyphenReplace, minusReplace, numberRangeDisallowedPrefixes } from "../dashes.js"
-import { UNICODE_SYMBOLS } from "../constants.js"
+import { CLOSING_BRACKETS, OPENING_BRACKETS, UNICODE_SYMBOLS } from "../constants.js"
 import { SEP as DEFAULT_SEPARATOR, viewTransform } from "./test-helpers.js"
 
 const {
@@ -411,7 +411,7 @@ describe("minusReplace", () => {
     expect(minusReplace(input)).toBe(expected)
   })
 
-  it.each(LOCALE_QUOTE_PAIRS)("converts a hyphen directly after the opening quote %s (closed by %s)", (opener, closer) => {
+  it.each([...LOCALE_QUOTE_PAIRS, ...OPENING_BRACKETS.map((opening, index): [string, string] => [opening, CLOSING_BRACKETS[index]])])("converts a hyphen directly after the opener %s (closed by %s)", (opener, closer) => {
     expect(minusReplace(`${opener}-15${closer}`)).toBe(`${opener}${MINUS}15${closer}`)
   })
 

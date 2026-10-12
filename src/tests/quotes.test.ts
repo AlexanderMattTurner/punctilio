@@ -1,7 +1,10 @@
 import { classifyApostrophes, niceQuotes } from "../quotes.js"
-import { TERMINAL_PUNCTUATION, UNICODE_SYMBOLS } from "../constants.js"
+import { CLOSING_BRACKETS, OPENING_BRACKETS, TERMINAL_PUNCTUATION, UNICODE_SYMBOLS } from "../constants.js"
 import type { ProseView } from "../prose-view.js"
 import { SEP as DEFAULT_SEPARATOR, viewTransform } from "./test-helpers.js"
+
+/** Every bracket pair the quote classifier treats as context, ASCII through CJK. */
+const BRACKET_PAIRS: [string, string][] = OPENING_BRACKETS.map((opening, index) => [opening, CLOSING_BRACKETS[index]])
 
 const {
   LEFT_DOUBLE_QUOTE,
@@ -577,20 +580,12 @@ describe("niceQuotes", () => {
       ['("x") "a", "b"', `(${l}x${r}) ${l}a,${r} ${l}b${r}`],
       // A dangling comma with no following item is not a separator.
       ['("a", ', `(${l}a,${r} `],
-      // Fullwidth and CJK brackets enclose a list exactly like ASCII ones.
-      ...["\uFF08\uFF09", "\uFF3B\uFF3D", "\uFF5B\uFF5D", "\u3008\u3009", "\u300C\u300D", "\u3010\u3011"].flatMap(
-        (pair): [string, string][] => [
-          [`${pair[0]}${l}a${r}, ${l}b${r}${pair[1]}`, `${pair[0]}${l}a${r}, ${l}b${r}${pair[1]}`],
-          [`${pair[0]}"a", "b"${pair[1]}`, `${pair[0]}${l}a${r}, ${l}b${r}${pair[1]}`],
-        ],
-      ),
-      // Every closing bracket ends a single-quoted item, braces and fullwidth/CJK included.
-      ...["{}", "\uFF08\uFF09", "\uFF3B\uFF3D", "\uFF5B\uFF5D", "\u3008\u3009", "\u300C\u300D", "\u3010\u3011"].map(
-        (pair): [string, string] => [
-          `${pair[0]}'a', 'b'${pair[1]}`,
-          `${pair[0]}${LEFT_SINGLE_QUOTE}a${RIGHT_SINGLE_QUOTE}, ${LEFT_SINGLE_QUOTE}b${RIGHT_SINGLE_QUOTE}${pair[1]}`,
-        ],
-      ),
+      // Every bracket pair encloses a list exactly like parentheses, for doubles and singles.
+      ...BRACKET_PAIRS.flatMap(([open, close]): [string, string][] => [
+        [`${open}${l}a${r}, ${l}b${r}${close}`, `${open}${l}a${r}, ${l}b${r}${close}`],
+        [`${open}"a", "b"${close}`, `${open}${l}a${r}, ${l}b${r}${close}`],
+        [`${open}'a', 'b'${close}`, `${open}${LEFT_SINGLE_QUOTE}a${RIGHT_SINGLE_QUOTE}, ${LEFT_SINGLE_QUOTE}b${RIGHT_SINGLE_QUOTE}${close}`],
+      ]),
     ])('places list-separator commas outside: "%s"', (input, expected) => {
       expect(niceQuotes(input)).toBe(expected)
       expect(niceQuotes(niceQuotes(input))).toBe(expected)
@@ -762,20 +757,24 @@ describe("niceQuotes", () => {
       ['""', `${LEFT_DOUBLE_QUOTE}${RIGHT_DOUBLE_QUOTE}`, "empty double"],
       ["' '", `${LEFT_SINGLE_QUOTE} ${RIGHT_SINGLE_QUOTE}`, "whitespace single"],
       ['" "', `${LEFT_DOUBLE_QUOTE} ${RIGHT_DOUBLE_QUOTE}`, "whitespace double"],
-      ...["()", "（）", "［］", "｛｝", "「」"].flatMap((pair): [string, string, string][] => [
-        [`${pair[0]}""${pair[1]}`, `${pair[0]}${LEFT_DOUBLE_QUOTE}${RIGHT_DOUBLE_QUOTE}${pair[1]}`, "empty double in brackets"],
-        [`${pair[0]}" "${pair[1]}`, `${pair[0]}${LEFT_DOUBLE_QUOTE} ${RIGHT_DOUBLE_QUOTE}${pair[1]}`, "whitespace double in brackets"],
+      ...BRACKET_PAIRS.flatMap(([open, close]): [string, string, string][] => [
+        [`${open}""${close}`, `${open}${LEFT_DOUBLE_QUOTE}${RIGHT_DOUBLE_QUOTE}${close}`, "empty double in brackets"],
+        [`${open}" "${close}`, `${open}${LEFT_DOUBLE_QUOTE} ${RIGHT_DOUBLE_QUOTE}${close}`, "whitespace double in brackets"],
       ]),
     ])("converts %s → %s (%s)", (input, expected) => {
       expect(niceQuotes(input)).toBe(expected)
     })
   })
 
-  describe("fullwidth closing bracket after a double quote", () => {
-    // Each row matches its ASCII `)` counterpart.
+  describe("lone double quote beside a bracket", () => {
     it.each([
-      ['"）', '"）'],
-      ['He said "no"） ok', `He said ${LEFT_DOUBLE_QUOTE}no${RIGHT_DOUBLE_QUOTE}） ok`],
+      ...[")", "\uFF09"].flatMap((close): [string, string][] => [
+        [`"${close}`, `"${close}`],
+        [`He said "no"${close} ok`, `He said ${LEFT_DOUBLE_QUOTE}no${RIGHT_DOUBLE_QUOTE}${close} ok`],
+      ]),
+      // A quote straight after an opening bracket never closes, as after `(`;
+      // ASCII `{` is left out because the brace-opener rule opens any quote after it.
+      ...BRACKET_PAIRS.filter(([open]) => open !== "{").map(([open, close]): [string, string] => [`${open}"${close}`, `${open}"${close}`]),
     ])("converts %s → %s", (input, expected) => {
       expect(niceQuotes(input)).toBe(expected)
     })

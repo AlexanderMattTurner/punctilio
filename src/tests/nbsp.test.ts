@@ -12,11 +12,11 @@ import {
   REFERENCE_ABBREVIATIONS,
   UNITS,
 } from "../nbsp.js"
-import { UNICODE_SYMBOLS } from "../constants.js"
+import { CLOSING_BRACKETS, OPENING_BRACKETS, UNICODE_SYMBOLS } from "../constants.js"
 import type { ProseView } from "../prose-view.js"
 import { SEP, viewTransform } from "./test-helpers.js"
 
-const { NBSP, COPYRIGHT, REGISTERED, TRADEMARK } = UNICODE_SYMBOLS
+const { NBSP, COPYRIGHT, REGISTERED, TRADEMARK, LEFT_DOUBLE_QUOTE, LEFT_GUILLEMET, DOUBLE_LOW_9_QUOTE, SINGLE_LOW_9_QUOTE } = UNICODE_SYMBOLS
 
 /** Runs fn over the multi-node view each marked input describes, checking per-node values. */
 function expectSep(
@@ -76,8 +76,10 @@ describe("nbspAfterShortWords", () => {
     ["à chat", `à${NBSP}chat`],
     ["où aller", `où${NBSP}aller`],
     ["ça va", `ça${NBSP}va`],
-    // A short word right after any opening quote, low-9 and guillemets included.
-    ...["\u201C", "\u00AB", "\u201E", "\u201A"].map((quote): [string, string] => [`${quote}a test`, `${quote}a${NBSP}test`]),
+    // A short word right after any opening quote or any bracket.
+    ...[LEFT_DOUBLE_QUOTE, LEFT_GUILLEMET, DOUBLE_LOW_9_QUOTE, SINGLE_LOW_9_QUOTE, ...OPENING_BRACKETS, ...CLOSING_BRACKETS].map(
+      (opener): [string, string] => [`${opener}a test`, `${opener}a${NBSP}test`],
+    ),
   ])('"%s" → "%s"', (input, expected) => {
     expect(nbspAfterShortWords(input)).toBe(expected)
   })

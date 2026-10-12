@@ -155,8 +155,16 @@ export const OPENING_PUNCTUATION: readonly string[] = [
   UNICODE_SYMBOLS.SINGLE_LOW_9_QUOTE,
 ]
 
+/** Characters escaped so they can sit inside a regex character class. */
+export function asCharClassContent(chars: readonly string[]): string {
+  return chars.map((ch) => ch.replace(/[\\[\]^-]/g, "\\$&")).join("")
+}
+
 /** Guillemets and low-9 quotes, which open or close quotes like the curly pairs. */
 export const LOCALE_QUOTE_MARKS = `${UNICODE_SYMBOLS.LEFT_GUILLEMET}${UNICODE_SYMBOLS.RIGHT_GUILLEMET}${UNICODE_SYMBOLS.DOUBLE_LOW_9_QUOTE}${UNICODE_SYMBOLS.SINGLE_LOW_9_QUOTE}`
+
+/** Every quote-like glyph: straight, curly, the modifier-letter apostrophe and {@link LOCALE_QUOTE_MARKS}. */
+export const QUOTE_GLYPHS = `"'${UNICODE_SYMBOLS.LEFT_DOUBLE_QUOTE}${UNICODE_SYMBOLS.RIGHT_DOUBLE_QUOTE}${UNICODE_SYMBOLS.LEFT_SINGLE_QUOTE}${UNICODE_SYMBOLS.RIGHT_SINGLE_QUOTE}${UNICODE_SYMBOLS.MODIFIER_LETTER_APOSTROPHE}${LOCALE_QUOTE_MARKS}`
 
 /**
  * Closing brackets, which may not begin a line. Scoped to brackets because the
