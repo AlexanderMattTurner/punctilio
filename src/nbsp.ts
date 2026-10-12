@@ -14,6 +14,16 @@ const {
 
 const SPACE = `[${SPACE_CHARS}]`
 
+/**
+ * Glues the space at `offset` with an NBSP. A space that is already
+ * non-breaking (NBSP, or the NNBSP French quote padding) stays as written: an
+ * NBSP in its place would be re-padded to NNBSP by the next quote pass.
+ */
+function glueSpace(view: ProseView, offset: number): void {
+  if (NBSP_CHARS.includes(view.text[offset])) return
+  view.replace(offset, offset + 1, NBSP)
+}
+
 const UNICODE_UPPERCASE = "\\p{Lu}"
 
 // A word-forming character (any Unicode letter or number). Used for the
@@ -197,7 +207,7 @@ function nbspAfterShortWordsOverView(view: ProseView): ReadonlySet<number> {
         // Edit only the space so any boundary keeps its side of the NBSP.
         const spaceOffset = offset + match[0].length - 1
         if (!NBSP_CHARS.includes(clean[spaceOffset])) insertedGlue.add(spaceOffset)
-        v.replace(spaceOffset, spaceOffset + 1, NBSP)
+        glueSpace(v, spaceOffset)
         return null
       },
       {
@@ -226,7 +236,7 @@ function nbspBetweenNumberAndUnitOverView(view: ProseView): void {
       (match, v) => {
         // Edit only the space (after the single digit) so any boundaries keep
         // their sides.
-        v.replace(match.index + 1, match.index + 2, NBSP)
+        glueSpace(v, match.index + 1)
         return null
       },
       {
@@ -304,7 +314,7 @@ function nbspBeforeLastWordOverView(view: ProseView, insertedShortWordGlue: Read
         if (exceedsSingleBoundary(v, end - match.groups!.ending.length)) return null
         // Edit only the leading space so the lastWord/ending (and any boundary
         // before \n\n) keep their positions.
-        v.replace(start, start + 1, NBSP)
+        glueSpace(v, start)
         return null
       },
       {
@@ -375,7 +385,7 @@ function nbspBeforeContext(
       }
       // Edit only the trailing space so the slot/lookahead boundaries keep their
       // sides.
-      view.replace(end - 1, end, NBSP)
+      glueSpace(view, end - 1)
     }
   }
   view.commit()

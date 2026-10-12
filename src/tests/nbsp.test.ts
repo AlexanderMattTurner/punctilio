@@ -16,7 +16,7 @@ import { CLOSING_BRACKETS, OPENING_BRACKETS, UNICODE_SYMBOLS } from "../constant
 import type { ProseView } from "../prose-view.js"
 import { SEP, viewTransform } from "./test-helpers.js"
 
-const { NBSP, COPYRIGHT, REGISTERED, TRADEMARK, LEFT_DOUBLE_QUOTE, LEFT_GUILLEMET, DOUBLE_LOW_9_QUOTE, SINGLE_LOW_9_QUOTE } = UNICODE_SYMBOLS
+const { NBSP, NNBSP, COPYRIGHT, REGISTERED, TRADEMARK, LEFT_DOUBLE_QUOTE, LEFT_GUILLEMET, DOUBLE_LOW_9_QUOTE, SINGLE_LOW_9_QUOTE } = UNICODE_SYMBOLS
 
 /** Runs fn over the multi-node view each marked input describes, checking per-node values. */
 function expectSep(
@@ -282,6 +282,21 @@ describe("nbspTransform", () => {
     ["Je suis all\u00E9 l\u00E0", `Je${NBSP}suis all\u00E9${NBSP}l\u00E0`],
     ["\u041E\u043D \u043F\u0440\u0438\u0448\u0451\u043B \u0434\u043E\u043C\u043E\u0439", `\u041E\u043D \u043F\u0440\u0438\u0448\u0451\u043B${NBSP}\u0434\u043E\u043C\u043E\u0439`],
   ])("nbspTransform(%j) is %j and a fixed point", (input, expected) => {
+    expect(nbspTransform(input)).toBe(expected)
+    expect(nbspTransform(expected)).toBe(expected)
+  })
+
+  // A narrow no-break space (the padding French quote styling inserts) is
+  // already non-breaking; every glue rule leaves it in place.
+  it.each([
+    [`B${NNBSP}\u00BB;)(8\t&+`, `B${NNBSP}\u00BB;)(8${NBSP}&+`],
+    [`foo bar${NNBSP}\u00BB`, `foo bar${NNBSP}\u00BB`],
+    [`5${NNBSP}kg`, `5${NNBSP}kg`],
+    [`Dr.${NNBSP}Smith`, `Dr.${NNBSP}Smith`],
+    [`Fig.${NNBSP}1`, `Fig.${NNBSP}1`],
+    [`${COPYRIGHT}${NNBSP}2024`, `${COPYRIGHT}${NNBSP}2024`],
+    [`J.${NNBSP}K.`, `J.${NNBSP}K.`],
+  ])("nbspTransform(%j) keeps the narrow no-break space: %j", (input, expected) => {
     expect(nbspTransform(input)).toBe(expected)
     expect(nbspTransform(expected)).toBe(expected)
   })

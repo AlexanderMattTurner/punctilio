@@ -19,6 +19,8 @@ const {
   GREATER_EQUAL,
   COPYRIGHT,
   NBSP,
+  NNBSP,
+  RIGHT_GUILLEMET,
   PRIME,
   DOUBLE_PRIME,
   TRADEMARK,
@@ -701,6 +703,19 @@ describe("transform", () => {
       ["Il a dit \u00AB-15\u00BB", "american", `Il a dit \u00AB${MINUS}15\u00BB`],
     ] as const)("transform(%j, %s) is %j", (input, punctuationStyle, expected) => {
       expect(transform(input, { punctuationStyle, nbsp: false })).toBe(expected)
+    })
+  })
+
+  // The nbsp rules leave French guillemet padding (NNBSP) alone: an NBSP glue
+  // is undone by the next quote pass, and which rules fire on the padded word
+  // depends on glue elsewhere in the text.
+  describe("french guillemet padding survives the nbsp rules", () => {
+    it.each([
+      ['B";)(8\t&+', `B${NNBSP}${RIGHT_GUILLEMET};)(8${NBSP}&+`],
+      [`a${NBSP}${RIGHT_GUILLEMET} b c`, `a${NNBSP}${RIGHT_GUILLEMET} b${NBSP}c`],
+      ['foo bar"', `foo bar${NNBSP}${RIGHT_GUILLEMET}`],
+    ])("transform(%j, french) is %j", (input, expected) => {
+      expect(transform(input, { punctuationStyle: "french" })).toBe(expected)
     })
   })
 
