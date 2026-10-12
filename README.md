@@ -155,11 +155,11 @@ transform(text, {
 
 Markdown sinks (`remarkPunctilio`, `transformMarkdown`, the Prettier plugin, and the CLI for Markdown files) default `nbsp` to `false` instead, because invisible U+00A0 characters in Markdown source files break `grep` and Ctrl+F. Pass `nbsp: true` (or the `--nbsp` CLI flag) to opt in.
 
-The `rehype` plugin accepts additional options. Elements matching any `skipTags` tag name or carrying any `skipClasses` class are left untransformed. The `skipTags` value below is the default; `skipClasses` defaults to `[]`, and the value shown is a common opt-in (add `no-formatting` yourself to skip elements marked with it):
+The `rehype` plugin accepts additional options. Elements matching a default skip tag (`code`, `pre`, `script`, `style`, `kbd`, `var`, `samp`, `template`, `math`, `svg`, `iframe`), any `skipTags` tag name, or any `skipClasses` class are left untransformed, as are `<textarea>` and any `<option>` without a `value` attribute (its text is the submitted value). `skipTags` extends the default skip tags rather than replacing them, and `skipClasses` defaults to `[]`; the values shown are common opt-ins (add `no-formatting` yourself to skip elements marked with it):
 
 ```typescript
 rehypePunctilio({
-  skipTags: ["code", "pre", "script", "style", "kbd", "var", "samp", "template", "math", "svg"], // default
+  skipTags: ["aside"], // default: [] — added to the default skip tags
   skipClasses: ["no-formatting"], // default: [] — shown here as a common opt-in
   transformAllElements: false, // see below
 });

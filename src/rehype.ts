@@ -46,10 +46,12 @@ export interface ElementTransformOptions {
 export interface RehypePunctilioOptions
   extends TransformOptions, ElementTransformOptions {
   /**
-   * HTML tag names to skip when applying transformations.
-   * Content inside these elements won't have formatting improvements applied.
+   * Additional HTML tag names to skip when applying transformations, on top of
+   * the always-skipped defaults ("code", "pre", "script", "style", "kbd",
+   * "var", "samp", "template", "math", "svg", "iframe"). Content inside these
+   * elements won't have formatting improvements applied.
    *
-   * Default: ["code", "pre", "script", "style", "kbd", "var", "samp", "template", "math", "svg", "iframe"]
+   * Default: []
    */
   skipTags?: string[];
 
@@ -74,6 +76,7 @@ export interface RehypePunctilioOptions
   transformAllElements?: boolean;
 }
 
+/** Tag names whose content is always left untransformed; user `skipTags` extend this list. */
 export const DEFAULT_SKIP_TAGS: readonly string[] = [
   "code",
   "pre",
@@ -590,8 +593,8 @@ function hasTextDescendant(
 
 export interface CollectProseBlocksOptions {
   /**
-   * HTML tag names to skip. Default: the plugin's default skip list
-   * ("code", "pre", "script", ...).
+   * HTML tag names to skip in addition to the plugin's default skip list
+   * ("code", "pre", "script", ...). Default: []
    */
   skipTags?: string[];
   /** CSS class names whose elements (and their subtrees) are skipped. Default: [] */
@@ -618,7 +621,7 @@ function resolveCollectOptions(
   options: CollectProseBlocksOptions,
 ): ResolvedCollectOptions {
   const {
-    skipTags = DEFAULT_SKIP_TAGS,
+    skipTags = [],
     skipClasses = [],
     shouldSkip,
     transformAllElements = false,
@@ -628,11 +631,11 @@ function resolveCollectOptions(
   // flattens its literal value; inverted mode additionally hard-skips the whole
   // form-value set (void `input`, which is opaque otherwise) on top of the user
   // skip-list.
-  const skipTagSet = new Set(
-    transformAllElements
-      ? [...skipTags, ...FORM_VALUE_TAGS]
-      : [...skipTags, RAW_TEXT_FORM_TAG],
-  );
+  const skipTagSet = new Set([
+    ...DEFAULT_SKIP_TAGS,
+    ...skipTags,
+    ...(transformAllElements ? FORM_VALUE_TAGS : [RAW_TEXT_FORM_TAG]),
+  ]);
   const skipClassSet = new Set(skipClasses);
 
   const hasSkipClass = (node: Element): boolean => {

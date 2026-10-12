@@ -690,6 +690,27 @@ describe("rehypePunctilio", () => {
     ])("skips %s", async (_name, html, options, expected) => {
       expect(await processHtml(html, options)).toEqual(expected);
     });
+
+    // User skipTags extend the defaults rather than replacing them.
+    it.each(["code", "iframe", "custom-tag"])(
+      "skipTags: [custom-tag] still skips %s",
+      async (tag) => {
+        const html = `<p>x <${tag}>"a"</${tag}> y</p>`;
+        expect(
+          await processHtml(html, { nbsp: false, skipTags: ["custom-tag"] }),
+        ).toEqual(html);
+      },
+    );
+
+    it("collectProseBlocks skipTags extend the defaults", () => {
+      const first = h("p", '"a"');
+      const root = h("div", [
+        first,
+        h("p", [h("code", '"b"')]),
+        h("aside", [h("p", '"c"')]),
+      ]);
+      expect(collectProseBlocks(root, { skipTags: ["aside"] })).toEqual([first]);
+    });
   });
 
   describe("transform options passthrough", () => {
