@@ -940,6 +940,49 @@ describe("niceQuotes", () => {
       expect(niceQuotes(once, { punctuationStyle: "french" })).toBe(once)
     })
 
+    // A U+2018/U+201C reads as a closer only while a low-9 opener is open. A
+    // straight candidate between them that classifies as that opener's closer
+    // consumes it, so the later glyph is an orphan and must be classified by
+    // position, as the next run reads it.
+    it.each([
+      [
+        `z${SINGLE_LOW_9_QUOTE}^${RIGHT_SINGLE_QUOTE}]]${LEFT_SINGLE_QUOTE}${LEFT_SINGLE_QUOTE}`,
+        `z${SINGLE_LOW_9_QUOTE}^${LEFT_SINGLE_QUOTE}]]${SINGLE_LOW_9_QUOTE}${LEFT_SINGLE_QUOTE}`,
+      ],
+      [
+        `${SINGLE_LOW_9_QUOTE}'] "${LEFT_SINGLE_QUOTE}.`,
+        `${SINGLE_LOW_9_QUOTE}${LEFT_SINGLE_QUOTE}] ${DOUBLE_LOW_9_QUOTE}${RIGHT_SINGLE_QUOTE}.`,
+      ],
+      [
+        `${DOUBLE_LOW_9_QUOTE}${RIGHT_DOUBLE_QUOTE} ${LEFT_DOUBLE_QUOTE}${DOUBLE_LOW_9_QUOTE}, `,
+        `${DOUBLE_LOW_9_QUOTE}${LEFT_DOUBLE_QUOTE} ${DOUBLE_LOW_9_QUOTE}${DOUBLE_LOW_9_QUOTE}, `,
+      ],
+      [
+        `${DOUBLE_LOW_9_QUOTE}." ${LEFT_DOUBLE_QUOTE}a${RIGHT_DOUBLE_QUOTE}`,
+        `${DOUBLE_LOW_9_QUOTE}.${LEFT_DOUBLE_QUOTE} ${DOUBLE_LOW_9_QUOTE}a${LEFT_DOUBLE_QUOTE}`,
+      ],
+    ])("german orphan closer after a consumed opener: %j", (input, expected) => {
+      const once = niceQuotes(input, { punctuationStyle: "german" })
+      expect(once).toBe(expected)
+      expect(niceQuotes(once, { punctuationStyle: "german" })).toBe(once)
+    })
+
+    // A straight quote that classifies as an opener turns the U+201C orphan
+    // after it into that opener's closer on the next run, which also changes
+    // how the single quote after it classifies; the first run must read it so.
+    it.each([
+      [`"${DEFAULT_SEPARATOR}${LEFT_DOUBLE_QUOTE}${LEFT_SINGLE_QUOTE}-`, `${DOUBLE_LOW_9_QUOTE}${DEFAULT_SEPARATOR}${LEFT_DOUBLE_QUOTE}${LEFT_SINGLE_QUOTE}-`],
+      [
+        `${EM_DASH}${LEFT_DOUBLE_QUOTE}8${DEFAULT_SEPARATOR}${LEFT_DOUBLE_QUOTE}${LEFT_SINGLE_QUOTE}-${RIGHT_SINGLE_QUOTE}a1`,
+        `${EM_DASH}${DOUBLE_LOW_9_QUOTE}8${DEFAULT_SEPARATOR}${LEFT_DOUBLE_QUOTE}${LEFT_SINGLE_QUOTE}-${RIGHT_SINGLE_QUOTE}a1`,
+      ],
+    ])("german orphan closer opened across a node boundary: %j", (input, expected) => {
+      const options = { punctuationStyle: "german" as const }
+      const once = viewTransform((view) => niceQuotes(view, options), input)
+      expect(once).toBe(expected)
+      expect(viewTransform((view) => niceQuotes(view, options), once)).toBe(once)
+    })
+
     it("german normalizer re-classifies pre-existing RDQ", () => {
       // RDQ is not used in German — should become German closing double
       const input = `${LEFT_DOUBLE_QUOTE}Hello${RIGHT_DOUBLE_QUOTE}`

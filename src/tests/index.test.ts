@@ -520,6 +520,9 @@ describe("transform", () => {
       [`"She said, 'Hello.'"`, "french" as const],
       // Leading apostrophe — tests the German RSQ normalization fix
       [`'Twas the night before Christmas.`, "german" as const],
+      // A straight candidate closes the low-9 opener before the U+2018 that
+      // would otherwise close it
+      ["z\u201A^\u2019]]\u2018\u2018", "german" as const],
     ])('is idempotent across styles: "%s" [%s]', (input, style) => {
       const first = transform(input, { punctuationStyle: style })
       const second = transform(first, { punctuationStyle: style })

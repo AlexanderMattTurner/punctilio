@@ -234,6 +234,51 @@ function makeItem(boundary: boolean, ch: string, start: number, end: number): It
   return { boundary, ch, start, end, moved: false, anchorOffset: 0, anchorBind: "left" }
 }
 
+/** Count of open German low-9 quotes, per kind. */
+interface GermanDepth {
+  double: number
+  single: number
+}
+
+/**
+ * The internal-alphabet reading of a glyph in German text, or null when German
+ * leaves the glyph alone. Closers are depth-gated: U+201C/U+2018 close only
+ * below an open low-9 quote; orphans and the glyphs German does not use fall
+ * back to straight-quote candidates re-derived by position.
+ */
+function readGermanGlyph(glyph: string, afterDigit: boolean, depth: GermanDepth): string | null {
+  if (glyph === DOUBLE_LOW_9_QUOTE) {
+    depth.double++
+    return LEFT_DOUBLE_QUOTE
+  }
+  if (glyph === LEFT_DOUBLE_QUOTE) {
+    if (depth.double === 0) return '"'
+    depth.double--
+    return RIGHT_DOUBLE_QUOTE
+  }
+  if (glyph === SINGLE_LOW_9_QUOTE) {
+    depth.single++
+    return LEFT_SINGLE_QUOTE
+  }
+  if (glyph === LEFT_SINGLE_QUOTE) {
+    if (depth.single === 0) return "'"
+    depth.single--
+    return RIGHT_SINGLE_QUOTE
+  }
+  // Not used in German typography; re-derive by position.
+  if (glyph === RIGHT_DOUBLE_QUOTE) return '"'
+  if (glyph === RIGHT_SINGLE_QUOTE || glyph === MODIFIER_LETTER_APOSTROPHE) {
+    // U+02BC renders as U+2019, which the next run re-derives by position;
+    // re-derive it the same way now so both runs agree. Directly after a digit
+    // the mark is a separator (Swiss "5’000"), never a German quote glyph: keep
+    // the apostrophe role, which renders U+2019 unchanged. Re-deriving to a
+    // straight quote there hands correct typography to the next run's prime
+    // pass ("5'000" → "5′000"), a destroyed separator and a broken fixed point.
+    return afterDigit ? MODIFIER_LETTER_APOSTROPHE : "'"
+  }
+  return null
+}
+
 /**
  * Builds the working item sequence over the view's clean text, applying the
  * locale's pre-label rows: German low-9/depth-gated quotes and French
@@ -245,11 +290,7 @@ function buildItems(view: ProseView, style: ActiveQuoteStyle): Item[] {
   const boundaries = view.boundaries
   const items: Item[] = []
   let b = 0
-  // German closers are depth-gated: U+201C/U+2018 close only below an open
-  // low-9 quote; orphans fall back to straight-quote candidates re-derived by
-  // position (the depth-0 branch).
-  let doubleDepth = 0
-  let singleDepth = 0
+  const germanDepth: GermanDepth = { double: 0, single: 0 }
 
   let i = 0
   while (i <= text.length) {
@@ -280,32 +321,7 @@ function buildItems(view: ProseView, style: ActiveQuoteStyle): Item[] {
         continue
       }
     } else if (style === "german") {
-      let mapped: string | null = null
-      if (ch === DOUBLE_LOW_9_QUOTE) {
-        mapped = LEFT_DOUBLE_QUOTE
-        doubleDepth++
-      } else if (ch === LEFT_DOUBLE_QUOTE) {
-        mapped = doubleDepth > 0 ? RIGHT_DOUBLE_QUOTE : '"'
-        if (doubleDepth > 0) doubleDepth--
-      } else if (ch === SINGLE_LOW_9_QUOTE) {
-        mapped = LEFT_SINGLE_QUOTE
-        singleDepth++
-      } else if (ch === LEFT_SINGLE_QUOTE) {
-        mapped = singleDepth > 0 ? RIGHT_SINGLE_QUOTE : "'"
-        if (singleDepth > 0) singleDepth--
-      } else if (ch === RIGHT_DOUBLE_QUOTE) {
-        // Not used in German typography — re-derive by position.
-        mapped = '"'
-      } else if (ch === RIGHT_SINGLE_QUOTE || ch === MODIFIER_LETTER_APOSTROPHE) {
-        // U+02BC renders as U+2019, which the next run re-derives by position;
-        // re-derive it the same way now so both runs agree. Directly after a
-        // digit the mark is a separator (Swiss "5’000"), never a German quote
-        // glyph: keep the apostrophe role, which renders U+2019 unchanged.
-        // Re-deriving to a straight quote there hands correct typography to
-        // the next run's prime pass ("5'000" → "5′000") — a destroyed
-        // separator and a broken fixed point.
-        mapped = DIGIT_RE.test(text[i - 1] ?? "") ? MODIFIER_LETTER_APOSTROPHE : "'"
-      }
+      const mapped = readGermanGlyph(ch, DIGIT_RE.test(text[i - 1] ?? ""), germanDepth)
       if (mapped !== null) {
         const item = makeItem(false, mapped, i, i + 1)
         if (mapped === '"' || mapped === "'") item.curlySource = ch
@@ -913,28 +929,8 @@ function classifySinglesBeforeClosingDoubles(items: Item[]): void {
   }
 }
 
-/**
- * German reads its rendered glyphs by depth: a U+201C below an open „ closes
- * it. A curly orphan that kept its source glyph (see {@link Item.curlySource})
- * below a quote opened in this same pass is therefore that quote's closer on
- * the next run; label it one now so both runs agree. Singles need no
- * counterpart: a single opener is only recognized when a closer follows it
- * with no straight single in between, and an orphan U+2018 is one.
- */
-function closeCurlyOrphansBelowOpeners(items: Item[]): void {
-  let depth = 0
-  for (const item of items) {
-    if (item.boundary) continue
-    if (item.ch === LEFT_DOUBLE_QUOTE) {
-      depth++
-    } else if (item.ch === RIGHT_DOUBLE_QUOTE) {
-      if (depth > 0) depth--
-    } else if (item.ch === '"' && item.curlySource === LEFT_DOUBLE_QUOTE && depth > 0) {
-      item.ch = RIGHT_DOUBLE_QUOTE
-      depth--
-    }
-  }
-}
+/** Round limit for {@link classifyItems}' German rereading. */
+const MAX_GERMAN_REREADS = 8
 
 function classifyDoubles(items: Item[], style: ActiveQuoteStyle): void {
   classifyEmptyDoublePairs(items, style)
@@ -1529,6 +1525,51 @@ function queueRenderEdits(view: ProseView, items: Item[], table: Record<QuoteRol
 // ---------------------------------------------------------------------------
 
 /**
+ * The items the next run builds from this pass's rendering. German reads its
+ * rendered glyphs by depth, and re-derives most of them to straight candidates
+ * classified by position, so the next run's readings depend on the roles this
+ * pass assigned to everything before them.
+ */
+function rereadGermanRendering(items: Item[], text: string): Item[] {
+  const rendered = renderTable("german", RIGHT_SINGLE_QUOTE)
+  const depth: GermanDepth = { double: 0, single: 0 }
+  return items.map((item) => {
+    if (item.boundary) return makeItem(true, "", item.start, item.end)
+    const role = ROLE_BY_CHAR.get(item.ch)
+    const glyph = role === undefined ? (item.curlySource ?? item.ch) : rendered[role]
+    const mapped = readGermanGlyph(glyph, DIGIT_RE.test(text[item.start - 1] ?? ""), depth)
+    const reread = makeItem(false, mapped ?? item.ch, item.start, item.end)
+    if (mapped === '"' || mapped === "'") reread.curlySource = glyph
+    return reread
+  })
+}
+
+/** Runs the single- then double-quote classification rules over `items`. */
+function classifyBuiltItems(items: Item[], style: ActiveQuoteStyle): void {
+  classifySingles(items, style)
+  classifyDoubles(items, style)
+}
+
+/**
+ * Builds and classifies the item sequence. German repeats the classification
+ * over its own rereadings until a round assigns the roles it started from: the
+ * next run starts from the first fixed point.
+ */
+function classifyItems(view: ProseView, style: ActiveQuoteStyle): Item[] {
+  let items = buildItems(view, style)
+  classifyBuiltItems(items, style)
+  if (style !== "german") return items
+  for (let round = 0; round < MAX_GERMAN_REREADS; round++) {
+    const reread = rereadGermanRendering(items, view.text)
+    classifyBuiltItems(reread, style)
+    const settled = reread.every((item, index) => item.ch === items[index].ch)
+    items = reread
+    if (settled) break
+  }
+  return items
+}
+
+/**
  * The quote/apostrophe role classifier: one boundary-aware scan over the
  * view's text. Commits its edits.
  */
@@ -1538,10 +1579,7 @@ export function classifyAndRenderQuotes(
   apostrophe: string,
 ): void {
   if (!QUOTE_CANDIDATE_RE.test(view.text)) return
-  const items = buildItems(view, style)
-  classifySingles(items, style)
-  classifyDoubles(items, style)
-  if (style === "german") closeCurlyOrphansBelowOpeners(items)
+  const items = classifyItems(view, style)
   const placed = applyPunctuationPlacement(items, style, apostrophe)
   // Placement can slide a closer past punctuation until it sits directly after
   // an s/S (british/french move the closer left, out of "dogs.'" → "dogs'."),
