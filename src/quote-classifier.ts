@@ -14,6 +14,8 @@ const {
   SINGLE_LOW_9_QUOTE,
   LEFT_GUILLEMET,
   RIGHT_GUILLEMET,
+  INVERTED_EXCLAMATION,
+  INVERTED_QUESTION,
   NBSP,
   NNBSP,
   PRIME,
@@ -103,6 +105,12 @@ interface Item {
    * changes that re-derived shape and breaks the fixed point ("'06,'").
    */
   frozenCloser?: boolean
+  /**
+   * Set on a German item whose curly source glyph was re-derived to a straight
+   * candidate by position. If classification assigns it no role, it renders as
+   * this glyph: the style never downgrades curly text to straight.
+   */
+  curlySource?: string
   /** Insertion anchor (clean-text offset and bind side) once moved. */
   anchorOffset: number
   anchorBind: "left" | "right"
@@ -143,10 +151,11 @@ const SINGLE_ENDING_SET = new Set<string>([".", "!", "?", ";", ":", ",", ")", EM
  * straight double quote belongs with the curly pair: whichever way it curls
  * lands in this set, so deciding as if it already had keeps re-runs (which
  * see the curled glyph) consistent. */
-const SINGLE_OPEN_BEFORE_SET = new Set<string>([LEFT_DOUBLE_QUOTE, RIGHT_DOUBLE_QUOTE, '"', EM_DASH, "-", "("])
+const SINGLE_OPEN_BEFORE_SET = new Set<string>([LEFT_DOUBLE_QUOTE, RIGHT_DOUBLE_QUOTE, '"', EM_DASH, "-", "(", "/", "[", "{", INVERTED_QUESTION, INVERTED_EXCLAMATION])
 
-/** Boundary chars before an opening double quote (plus any \s char). */
-const DOUBLE_OPEN_BEFORE_SET = new Set<string>(["(", "/", "[", "{", "-", EM_DASH])
+/** Boundary chars before an opening double quote (plus any \s char). A
+ * single opener qualifies: a double quoted directly inside a single. */
+const DOUBLE_OPEN_BEFORE_SET = new Set<string>(["(", "/", "[", "{", "-", EM_DASH, LEFT_SINGLE_QUOTE, INVERTED_QUESTION, INVERTED_EXCLAMATION])
 
 /** Ending-context chars that block the opener rule's arm 2 (plus any \s char).
  * ELLIPSIS is deliberately absent: the rule's `...` arm opens, so `…` must too. */
@@ -160,10 +169,10 @@ const DOUBLE_EMPTY_BEFORE_SET = new Set<string>(["(", "[", "{"])
  * rule rejects falls through to opener/closer rules whose after-contexts are
  * the closer set, and the two routes must accept the same shapes or a re-run
  * (which sees the rendered opener, not the whitespace) classifies anew. */
-const DOUBLE_EMPTY_AFTER_SET = new Set<string>([")", "]", "}", ".", "!", "?", ",", ";", ":", "/", "-", "s", EM_DASH, ELLIPSIS, ...FOLDED_TERMINALS])
+const DOUBLE_EMPTY_AFTER_SET = new Set<string>([")", "]", "}", ".", "!", "?", ",", ";", ":", "/", "-", "s", EM_DASH, ELLIPSIS, RIGHT_SINGLE_QUOTE, ...FOLDED_TERMINALS])
 
 /** Ending-context chars after a closing double quote (plus any \s char). */
-const DOUBLE_CLOSE_AFTER_SET = new Set<string>(["/", ")", "]", ".", ",", ";", EM_DASH, ":", "-", "}", "!", "?", "s", ELLIPSIS, ...FOLDED_TERMINALS])
+const DOUBLE_CLOSE_AFTER_SET = new Set<string>(["/", ")", "]", ".", ",", ";", EM_DASH, ":", "-", "}", "!", "?", "s", ELLIPSIS, RIGHT_SINGLE_QUOTE, ...FOLDED_TERMINALS])
 
 /** Builds an `(items, index)` predicate: in range, non-boundary, and `test(ch)`. */
 function makeItemTester(test: (ch: string) => boolean): (items: Item[], index: number) => boolean {
@@ -298,7 +307,9 @@ function buildItems(view: ProseView, style: ActiveQuoteStyle): Item[] {
         mapped = DIGIT_RE.test(text[i - 1] ?? "") ? MODIFIER_LETTER_APOSTROPHE : "'"
       }
       if (mapped !== null) {
-        items.push(makeItem(false, mapped, i, i + 1))
+        const item = makeItem(false, mapped, i, i + 1)
+        if (mapped === '"' || mapped === "'") item.curlySource = ch
+        items.push(item)
         i++
         continue
       }
@@ -346,16 +357,19 @@ function possessiveAfter(items: Item[], index: number): boolean {
 /**
  * `(?<=[^\s“'"])` — the closing/possessive lookbehind. A boundary directly
  * before the quote satisfies it (a boundary is an ordinary non-space char).
- * A straight double quote is excluded along with `“`: it may curl into an
- * opener later in this same pass, which puts the candidate in exactly the
- * nested-opener position the `“` exclusion covers, and deciding against it
- * now keeps re-runs (which see the curled glyph) consistent.
+ * A straight double quote in opener position is excluded along with `“`: it
+ * curls into an opener later in this same pass, which puts the candidate in
+ * exactly the nested-opener position the `“` exclusion covers, and deciding
+ * against it now keeps re-runs (which see the curled glyph) consistent. A
+ * straight double quote outside opener position curls into a closer (`”`,
+ * which passes), so it passes too (`'"Hello"'`).
  */
 function singleCloserBefore(items: Item[], index: number): boolean {
   if (index === 0) return false
   const prev = items[index - 1]
   if (prev.boundary) return true
-  return !SPACE_RE.test(prev.ch) && prev.ch !== LEFT_DOUBLE_QUOTE && prev.ch !== "'" && prev.ch !== '"'
+  if (prev.ch === '"') return !doubleOpenerPrefixOk(items, index - 1)
+  return !SPACE_RE.test(prev.ch) && prev.ch !== LEFT_DOUBLE_QUOTE && prev.ch !== "'"
 }
 
 /** Letter directly before (no boundary) and letter after (one boundary transparent). */
@@ -588,7 +602,7 @@ function classifySingles(items: Item[], style: ActiveQuoteStyle): void {
 // ---------------------------------------------------------------------------
 
 /** Empty (`""`) and whitespace-only (`" "`) double-quote pairs (no boundaries allowed anywhere in or around the match). */
-function classifyEmptyDoublePairs(items: Item[]): void {
+function classifyEmptyDoublePairs(items: Item[], style: ActiveQuoteStyle): void {
   const beforeOk = (index: number): boolean => {
     if (index < 0) return true
     const item = items[index]
@@ -597,7 +611,7 @@ function classifyEmptyDoublePairs(items: Item[]): void {
   const afterOk = (index: number): boolean => {
     if (index >= items.length) return true
     const item = items[index]
-    return !item.boundary && (SPACE_RE.test(item.ch) || DOUBLE_EMPTY_AFTER_SET.has(item.ch))
+    return !item.boundary && (SPACE_RE.test(item.ch) || DOUBLE_EMPTY_AFTER_SET.has(item.ch) || apostropheEndsDouble(item.ch, style))
   }
   for (let i = 0; i < items.length - 1; i++) {
     if (!isCharItem(items, i, '"') || !isCharItem(items, i + 1, '"')) continue
@@ -840,6 +854,16 @@ function isDoubleCloseAfterChar(ch: string): boolean {
 }
 
 /**
+ * An apostrophe directly after a double quote ends it, as the closing single
+ * quote it renders as does. German is the exception: it re-derives the
+ * rendered apostrophe (U+2019) by position, so a re-run can read it as a
+ * closing single quote that the first pass, which saw an apostrophe, did not.
+ */
+function apostropheEndsDouble(ch: string, style: ActiveQuoteStyle): boolean {
+  return ch === MODIFIER_LETTER_APOSTROPHE && style !== "german"
+}
+
+/**
  * Closing double quote by ending context: a non-space/non-paren character (or
  * a boundary) before it, and an ending character, a boundary, or end of input
  * after it. A consumed span can never contain the next match's before-character
@@ -861,7 +885,7 @@ function classifyClosingDoubles(items: Item[], style: ActiveQuoteStyle): void {
     }
     const next = items[i + 1]
     if (foldsToNotEqual(items, i + 1)) continue
-    if (next === undefined || next.boundary || isDoubleCloseAfterChar(next.ch)) {
+    if (next === undefined || next.boundary || isDoubleCloseAfterChar(next.ch) || apostropheEndsDouble(next.ch, style)) {
       item.ch = RIGHT_DOUBLE_QUOTE
     }
   }
@@ -889,8 +913,31 @@ function classifySinglesBeforeClosingDoubles(items: Item[]): void {
   }
 }
 
+/**
+ * German reads its rendered glyphs by depth: a U+201C below an open „ closes
+ * it. A curly orphan that kept its source glyph (see {@link Item.curlySource})
+ * below a quote opened in this same pass is therefore that quote's closer on
+ * the next run; label it one now so both runs agree. Singles need no
+ * counterpart: a single opener is only recognized when a closer follows it
+ * with no straight single in between, and an orphan U+2018 is one.
+ */
+function closeCurlyOrphansBelowOpeners(items: Item[]): void {
+  let depth = 0
+  for (const item of items) {
+    if (item.boundary) continue
+    if (item.ch === LEFT_DOUBLE_QUOTE) {
+      depth++
+    } else if (item.ch === RIGHT_DOUBLE_QUOTE) {
+      if (depth > 0) depth--
+    } else if (item.ch === '"' && item.curlySource === LEFT_DOUBLE_QUOTE && depth > 0) {
+      item.ch = RIGHT_DOUBLE_QUOTE
+      depth--
+    }
+  }
+}
+
 function classifyDoubles(items: Item[], style: ActiveQuoteStyle): void {
-  classifyEmptyDoublePairs(items)
+  classifyEmptyDoublePairs(items, style)
   classifyOpeningDoubles(items, style)
   classifyQuotedPunctuationOpeners(items)
   classifyBraceOpeners(items)
@@ -1463,6 +1510,7 @@ function queueRenderEdits(view: ProseView, items: Item[], table: Record<QuoteRol
       }
       continue
     }
+    if (role === undefined && item.curlySource !== undefined) continue
     // Fast path for ordinary characters; pre-labeled items may have changed
     // `ch` without gaining a role (German orphan closers) and must still diff.
     if (role === undefined && item.ch === text[item.start] && item.end - item.start === 1) continue
@@ -1492,6 +1540,7 @@ export function classifyAndRenderQuotes(
   const items = buildItems(view, style)
   classifySingles(items, style)
   classifyDoubles(items, style)
+  if (style === "german") closeCurlyOrphansBelowOpeners(items)
   const placed = applyPunctuationPlacement(items, style, apostrophe)
   // Placement can slide a closer past punctuation until it sits directly after
   // an s/S (british/french move the closer left, out of "dogs.'" → "dogs'."),
