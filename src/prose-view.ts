@@ -273,6 +273,93 @@ export function splitAtIndices<T>(
   return groups;
 }
 
+/**
+ * Stand-in for removed opaque inline content (a skipped element, an image,
+ * inline code) inside a spanning view. U+FFFC OBJECT REPLACEMENT CHARACTER is
+ * Unicode's placeholder for an embedded object: it is neither space, word
+ * character, nor punctuation, so a pass needing adjacent text never matches
+ * across it (`5<code>c</code>x 3` stays put), while the quote classifier still
+ * sees real content between a quote and its partner (`"<kbd>q</kbd>"` pairs).
+ */
+export const OPAQUE_PLACEHOLDER = "\uFFFC";
+
+/**
+ * Single-quote edge stand-ins. The classifier reads end of text as an ending
+ * context after a closing single quote and as an opening context before an
+ * opening one, but reads {@link OPAQUE_PLACEHOLDER} as neither, so `'hi'` or
+ * `boys'` directly before a gap, or `'hi'` directly after one, would lose the
+ * role the segment edge gives it. A `)` after the quote and a `(` before it
+ * restore those contexts without blocking a pair across the gap
+ * (`'<code>x</code>'` still pairs). They are added only beside a single quote:
+ * double quotes read the placeholder correctly, and `)` would block a double
+ * opener.
+ */
+const SEGMENT_END_STAND_IN = ")";
+const SEGMENT_START_STAND_IN = "(";
+
+/** Straight, curly, modifier-letter and low-9 single-quote characters. */
+const SINGLE_QUOTE_CHARS: ReadonlySet<string> = new Set([
+  "'",
+  "\u2018",
+  "\u2019",
+  "\u02BC",
+  "\u201A",
+]);
+
+/** Gap stand-in for the text between `before` and `after`. */
+function gapPlaceholder(before: string, after: string): string {
+  const afterQuote = SINGLE_QUOTE_CHARS.has(before.slice(-1));
+  const beforeQuote = SINGLE_QUOTE_CHARS.has(after.slice(0, 1));
+  return (
+    (afterQuote ? SEGMENT_END_STAND_IN : "") +
+    OPAQUE_PLACEHOLDER +
+    (beforeQuote ? SEGMENT_START_STAND_IN : "")
+  );
+}
+
+/**
+ * Runs `run` over `nodes` as one view with a placeholder node (see
+ * {@link OPAQUE_PLACEHOLDER}) at each opaque gap (`breakBefore`, as for
+ * {@link splitAtIndices}), so context-sensitive passes such as quote pairing
+ * read across the gap. The view is committed after `run`. If any edit lands in
+ * a placeholder (one that spans, replaces, or is inserted into the gap), the
+ * nodes are restored and `run` goes over each opaque-delimited segment on its
+ * own instead, so no edit ever lands in or through a gap.
+ */
+export function runAcrossOpaqueGaps(
+  nodes: readonly ProseNode[],
+  breakBefore: ReadonlySet<number>,
+  run: (view: ProseView) => void,
+): void {
+  if (nodes.length === 0) return;
+  const originalValues = nodes.map((node) => node.value);
+  const placeholders: { node: ProseNode; value: string }[] = [];
+  const spanning: ProseNode[] = [];
+  nodes.forEach((node, index) => {
+    if (breakBefore.has(index)) {
+      const value = gapPlaceholder(nodes[index - 1].value, node.value);
+      const placeholder = { value };
+      placeholders.push({ node: placeholder, value });
+      spanning.push(placeholder);
+    }
+    spanning.push(node);
+  });
+
+  const spanningView = buildProseView(spanning);
+  run(spanningView);
+  spanningView.commit();
+  if (placeholders.every(({ node, value }) => node.value === value)) return;
+
+  nodes.forEach((node, index) => {
+    node.value = originalValues[index];
+  });
+  for (const group of splitAtIndices(nodes, breakBefore)) {
+    const segmentView = buildProseView(group);
+    run(segmentView);
+    segmentView.commit();
+  }
+}
+
 export interface ReplaceAllOptions {
   /** Opt-in: allow a match that contains an interior node boundary. Default: such matches are skipped. */
   allowBoundaries?: (match: RegExpExecArray, view: ProseView) => boolean;

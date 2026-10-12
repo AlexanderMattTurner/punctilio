@@ -1,4 +1,6 @@
+import type { Link, Paragraph, Root, Text } from "mdast"
 import { unified } from "unified"
+import { visitParents } from "unist-util-visit-parents"
 import remarkParse from "remark-parse"
 import remarkGfm from "remark-gfm"
 import remarkStringify from "remark-stringify"
@@ -8,6 +10,7 @@ import { UNICODE_SYMBOLS } from "../constants.js"
 const {
   LEFT_DOUBLE_QUOTE: LDQ,
   RIGHT_DOUBLE_QUOTE: RDQ,
+  LEFT_SINGLE_QUOTE: LSQ,
   RIGHT_SINGLE_QUOTE: RSQ,
   EM_DASH,
   EN_DASH,
@@ -127,6 +130,150 @@ describe("remarkPunctilio", () => {
       ["image blocks a numeric range", "1![x](y)-5", `1![x](y)${MINUS}5`],
     ])("%s", async (_name, input, expected) => {
       expect(await processMarkdown(input, { nbsp: false })).toEqual(expected)
+    })
+  })
+
+  describe("quotes pair across opaque inline content", () => {
+    it.each([
+      ["inline code", 'Run "`npm i`" now.', `Run ${LDQ}\`npm i\`${RDQ} now.`],
+      ["raw HTML emphasis", '"<em>hi</em>"', `${LDQ}<em>hi</em>${RDQ}`],
+      ["an image", 'See "![x](y)" here', `See ${LDQ}![x](y)${RDQ} here`],
+      ["raw HTML", 'Press "<kbd>q</kbd>" now', `Press ${LDQ}<kbd>q</kbd>${RDQ} now`],
+    ])("%s", async (_name, input, expected) => {
+      const once = await processMarkdown(input, { nbsp: false })
+      expect(once).toEqual(expected)
+      expect(await processMarkdown(once, { nbsp: false })).toEqual(once)
+    })
+  })
+
+  describe("quote direction beside opaque inline content", () => {
+    it.each([
+      ["a closing single quote before more prose", "He called it 'hi'`x` later", `He called it ${LSQ}hi${RSQ}\`x\` later`],
+      ["a closing double quote before more prose", 'He said "hi"`x` later', `He said ${LDQ}hi${RDQ}\`x\` later`],
+      ["an abbreviated opener before the gap", "rock 'n'`x` roll", `rock ${LSQ}n${RSQ}\`x\` roll`],
+      ["a plural possessive before the gap", "the boys'`x` toys", `the boys${RSQ}\`x\` toys`],
+      ["an opening single quote after the gap", "a `x`'hi' there", `a \`x\`${LSQ}hi${RSQ} there`],
+      ["a single quote pair around the gap", "the '`x`' key", `the ${LSQ}\`x\`${RSQ} key`],
+    ])("%s", async (_name, input, expected) => {
+      const once = await processMarkdown(input, { nbsp: false })
+      expect(once).toEqual(expected)
+      expect(await processMarkdown(once, { nbsp: false })).toEqual(once)
+    })
+  })
+
+  describe("raw HTML skip-list tags", () => {
+    // README: "inline HTML [is] left untouched" — that includes the text
+    // between an open and close tag of a skip-listed element.
+    it.each([
+      ["code", '<code>"x" -- y...</code> "z" -- w', `<code>"x" -- y...</code> ${LDQ}z${RDQ}${EM_DASH}w`],
+      ["kbd", '<kbd>"x" -- y</kbd> "z"', `<kbd>"x" -- y</kbd> ${LDQ}z${RDQ}`],
+      ["uppercase tags", '<KBD>"x" -- y</KBD> "z"', `<KBD>"x" -- y</KBD> ${LDQ}z${RDQ}`],
+      ["nested skip tags", 'a <pre><code>"x"</code> "y"</pre> "z"', `a <pre><code>"x"</code> "y"</pre> ${LDQ}z${RDQ}`],
+      ["nested emphasis", '<code>*"x"* -- y</code> "z"', `<code>*"x"* -- y</code> ${LDQ}z${RDQ}`],
+      ["an unclosed tag skips to the end of the paragraph", '<var>"x" "y"', '<var>"x" "y"'],
+      ["an unclosed tag does not leak into the next paragraph", '<var>"x"\n\n"y"', `<var>"x"\n\n${LDQ}y${RDQ}`],
+      ["textarea", 'a <textarea>"b" -- c</textarea> "d"', `a <textarea>"b" -- c</textarea> ${LDQ}d${RDQ}`],
+      ["a stray close tag", '</code> "z"', `</code> ${LDQ}z${RDQ}`],
+      ["a self-closed tag", '<svg/> "z"', `<svg/> ${LDQ}z${RDQ}`],
+      ["non-skip tags", '<span>"x"</span>', `<span>${LDQ}x${RDQ}</span>`],
+      ["a comment", 'a <!-- c --> "z"', `a <!-- c --> ${LDQ}z${RDQ}`],
+    ])("%s", async (_name, input, expected) => {
+      expect(await processMarkdown(input, { nbsp: false })).toEqual(expected)
+    })
+  })
+
+  describe("one raw HTML node holding several tags", () => {
+    it.each([
+      ["a skipped tag after a non-skipped one", "<b><code>", "</code></b>"],
+      ["uppercase tags", "<B><KBD>", "</KBD></B>"],
+      ["a self-closed tag before the skipped one", "<br/><code>", "</code>"],
+    ])("tracks every tag in %s", async (_name, open, close) => {
+      const paragraph: Paragraph = {
+        type: "paragraph",
+        children: [
+          { type: "html", value: open },
+          { type: "text", value: '"x"' },
+          { type: "html", value: close },
+          { type: "text", value: ' "y"' },
+        ],
+      }
+      const tree: Root = { type: "root", children: [paragraph] }
+      await unified().use(remarkPunctilio, { nbsp: false }).run(tree)
+      expect(paragraph.children.filter((child) => child.type === "text").map((child) => child.value))
+        .toEqual(['"x"', ` ${LDQ}y${RDQ}`])
+    })
+  })
+
+  describe("links whose text is the URL", () => {
+    // remark-stringify prints a link whose text is its URL as `<url>`, so bare
+    // URLs and explicit links serialize to that form; only the URL text matters.
+    it.each([
+      ["an autolink", "<https://example.com/a--b...c>", "<https://example.com/a--b...c>"],
+      ["an email autolink", "<me@example.com>", "<me@example.com>"],
+      ["a GFM bare URL", "see https://example.com/a--b...c now", "see <https://example.com/a--b...c> now"],
+      ["a GFM www URL", "see www.example.com/a--b now", "see [www.example.com/a--b](http://www.example.com/a--b) now"],
+      [
+        "an explicit link",
+        "[https://example.com/a--b...c](https://example.com/a--b...c)",
+        "<https://example.com/a--b...c>",
+      ],
+      [
+        "a scheme-less link text",
+        "[example.com/a--b...c](https://example.com/a--b...c)",
+        "[example.com/a--b...c](https://example.com/a--b...c)",
+      ],
+      [
+        "an uppercase URL scheme",
+        "[example.com/a--b](HTTPS://example.com/a--b)",
+        "[example.com/a--b](HTTPS://example.com/a--b)",
+      ],
+      [
+        "an uppercase scheme in the link text",
+        "[HTTPS://example.com/a--b](https://example.com/a--b)",
+        "[HTTPS://example.com/a--b](https://example.com/a--b)",
+      ],
+      [
+        "an uppercase mailto scheme",
+        "[me--x@example.com](MAILTO:me--x@example.com)",
+        "[me--x@example.com](MAILTO:me--x@example.com)",
+      ],
+    ])("leaves %s unchanged", async (_name, input, expected) => {
+      expect(await processGfmMarkdown(input, { nbsp: false })).toEqual(expected)
+    })
+
+    it("still transforms ordinary link text", async () => {
+      expect(await processGfmMarkdown('["a" -- b](https://example.com)', { nbsp: false }))
+        .toEqual(`[${LDQ}a${RDQ}${EM_DASH}b](https://example.com)`)
+    })
+
+    // The parse, not the text, says a link is an autolink: its URL may be
+    // rewritten by another plugin so it no longer equals the visible text.
+    it("leaves an autolink whose URL was rewritten unchanged", async () => {
+      const rewriteUrls = () => (tree: Root) => {
+        visitParents(tree, "link", (node) => {
+          node.url = `${node.url}?ref=x`
+        })
+      }
+      const result = await unified()
+        .use(remarkParse)
+        .use(rewriteUrls)
+        .use(remarkPunctilio, { nbsp: false })
+        .use(remarkStringify)
+        .process("<https://example.com/a--b>")
+      expect(String(result).trimEnd()).toEqual("[https://example.com/a--b](https://example.com/a--b?ref=x)")
+    })
+
+    // Without usable positions a link is judged by its text and URL alone.
+    it.each([
+      ["no position", (link: Link) => { delete link.position }],
+      ["a position into an empty source", () => {}],
+    ])("treats a link with %s as an ordinary link", async (_name, prepare) => {
+      const processor = unified().use(remarkParse).use(remarkPunctilio, { nbsp: false })
+      const tree = processor.parse('["a" -- b](https://example.com)')
+      const link = (tree.children[0] as Paragraph).children[0] as Link
+      prepare(link)
+      await processor.run(tree, "")
+      expect((link.children[0] as Text).value).toEqual(`${LDQ}a${RDQ}${EM_DASH}b`)
     })
   })
 
