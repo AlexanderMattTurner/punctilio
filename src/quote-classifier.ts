@@ -930,9 +930,6 @@ function classifySinglesBeforeClosingDoubles(items: Item[]): void {
   }
 }
 
-/** Round limit for {@link classifyItems}' German rereading. */
-const MAX_GERMAN_REREADS = 8
-
 function classifyDoubles(items: Item[], style: ActiveQuoteStyle): void {
   classifyEmptyDoublePairs(items, style)
   classifyOpeningDoubles(items, style)
@@ -1541,8 +1538,8 @@ function queueRenderEdits(view: ProseView, items: Item[], table: Record<QuoteRol
  * classified by position, so the next run's readings depend on the roles this
  * pass assigned to everything before them.
  */
-function rereadGermanRendering(items: Item[], text: string): Item[] {
-  const rendered = renderTable("german", RIGHT_SINGLE_QUOTE)
+function rereadGermanRendering(items: Item[], text: string, apostrophe: string): Item[] {
+  const rendered = renderTable("german", apostrophe)
   const depth: GermanDepth = { double: 0, single: 0 }
   return items.map((item) => {
     if (item.boundary) return makeItem(true, "", item.start, item.end)
@@ -1561,23 +1558,29 @@ function classifyBuiltItems(items: Item[], style: ActiveQuoteStyle): void {
   classifyDoubles(items, style)
 }
 
+// Loop guard only: reaching a fixed point is expected within a few rounds. The
+// worst case found so far takes 4 (`„“„” „(” ““‚`).
+const MAX_GERMAN_REREADS = 8
+
 /**
  * Builds and classifies the item sequence. German repeats the classification
  * over its own rereadings until a round assigns the roles it started from: the
  * next run starts from the first fixed point.
  */
-function classifyItems(view: ProseView, style: ActiveQuoteStyle): Item[] {
+function classifyItems(view: ProseView, style: ActiveQuoteStyle, apostrophe: string): Item[] {
   let items = buildItems(view, style)
   classifyBuiltItems(items, style)
   if (style !== "german") return items
   for (let round = 0; round < MAX_GERMAN_REREADS; round++) {
-    const reread = rereadGermanRendering(items, view.text)
+    const reread = rereadGermanRendering(items, view.text, apostrophe)
     classifyBuiltItems(reread, style)
     const settled = reread.every((item, index) => item.ch === items[index].ch)
     items = reread
-    if (settled) break
+    if (settled) return items
   }
-  return items
+  /* istanbul ignore next -- defensive: no input found settles in more than 4
+     rounds; a cap hit means the reread no longer converges. */
+  throw new Error(`German quote classification did not settle within ${MAX_GERMAN_REREADS} rereads`)
 }
 
 /**
@@ -1590,7 +1593,7 @@ export function classifyAndRenderQuotes(
   apostrophe: string,
 ): void {
   if (!QUOTE_CANDIDATE_RE.test(view.text)) return
-  const items = classifyItems(view, style)
+  const items = classifyItems(view, style, apostrophe)
   const placed = applyPunctuationPlacement(items, style, apostrophe)
   // Placement can slide a closer past punctuation until it sits directly after
   // an s/S (british/french move the closer left, out of "dogs.'" → "dogs'."),
