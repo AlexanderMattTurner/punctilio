@@ -59,6 +59,12 @@ const FOLDED_FROM_TRAILING_DASH = new Set<string>([
  * dash char (`->` → `→`). */
 const FOLDED_FROM_LEADING_DASH = new Set<string>([UNICODE_SYMBOLS.ARROW_RIGHT])
 
+/** The vulgar fraction glyphs the fraction pass folds digit-led `n/d` pairs into. */
+const FRACTION_GLYPH_CLASS_FRAGMENT = Object.entries(UNICODE_SYMBOLS)
+  .filter(([name]) => name.startsWith("FRACTION_"))
+  .map(([, glyph]) => glyph)
+  .join("")
+
 /**
  * Runs one boundary-gated regex pass over the view and commits it immediately.
  * Committing after every pass sequences the passes so a later pass sees the
@@ -1237,11 +1243,15 @@ function removeSpacesAroundEmDash(view: ProseView): void {
   )
 }
 
-/** Preserve a space after a line-leading em-dash before an uppercase/digit. */
+/**
+ * Preserve a space after a line-leading em-dash before an uppercase/digit. A
+ * vulgar fraction glyph counts as the digit it folds from (`—2/5` and `—⅖`
+ * must agree).
+ */
 function preserveLineLeadingEmDashSpace(view: ProseView): void {
   pass(
     view,
-    cachedRegExp(`^${EM_DASH}(?<after>[A-Z0-9])`, "gm"),
+    cachedRegExp(`^${EM_DASH}(?<after>[A-Z0-9${FRACTION_GLYPH_CLASS_FRAGMENT}])`, "gm"),
     (match, v) => {
       // One boundary is tolerated between the line start and the em-dash; two or
       // more exceed that slot and block the match.

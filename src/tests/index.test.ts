@@ -491,6 +491,8 @@ describe("transform", () => {
       "wait...1-5 minutes",
       // fractions strip the "/" that legalSymbols' path heuristic keys on
       "1/2(tm) and 3/4(r)",
+      // the line-leading em-dash space keys on the digit fractions folds away
+      `${EM_DASH}2/5`,
     ])('is idempotent: "%s"', (input) => {
       const first = transform(input, { fractions: true, degrees: true, superscript: true, ligatures: true })
       const second = transform(first, { fractions: true, degrees: true, superscript: true, ligatures: true })

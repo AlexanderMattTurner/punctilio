@@ -1013,6 +1013,16 @@ describe("ProseView boundary-tolerance edges", () => {
     })
   })
 
+  describe("line-leading em dash before a fraction glyph", () => {
+    it.each([
+      UNICODE_SYMBOLS.FRACTION_1_4,
+      UNICODE_SYMBOLS.FRACTION_2_5,
+      UNICODE_SYMBOLS.FRACTION_7_8,
+    ])("%s reads as the digit it folds from", (glyph) => {
+      expect(hyphenReplace(`${EM_DASH}${glyph}`)).toBe(`${EM_DASH} ${glyph}`)
+    })
+  })
+
   describe("negative and multi-segment ranges across boundaries", () => {
     it.each([
       // A boundary inside the end digits truncates the end; the trailing word
