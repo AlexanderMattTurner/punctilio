@@ -762,12 +762,21 @@ describe("niceQuotes", () => {
       ['""', `${LEFT_DOUBLE_QUOTE}${RIGHT_DOUBLE_QUOTE}`, "empty double"],
       ["' '", `${LEFT_SINGLE_QUOTE} ${RIGHT_SINGLE_QUOTE}`, "whitespace single"],
       ['" "', `${LEFT_DOUBLE_QUOTE} ${RIGHT_DOUBLE_QUOTE}`, "whitespace double"],
-      ...["()", "（）", "［］", "｛｝", "「」"].map((pair): [string, string, string] => [
-        `${pair[0]}""${pair[1]}`,
-        `${pair[0]}${LEFT_DOUBLE_QUOTE}${RIGHT_DOUBLE_QUOTE}${pair[1]}`,
-        "empty double in brackets",
+      ...["()", "（）", "［］", "｛｝", "「」"].flatMap((pair): [string, string, string][] => [
+        [`${pair[0]}""${pair[1]}`, `${pair[0]}${LEFT_DOUBLE_QUOTE}${RIGHT_DOUBLE_QUOTE}${pair[1]}`, "empty double in brackets"],
+        [`${pair[0]}" "${pair[1]}`, `${pair[0]}${LEFT_DOUBLE_QUOTE} ${RIGHT_DOUBLE_QUOTE}${pair[1]}`, "whitespace double in brackets"],
       ]),
     ])("converts %s → %s (%s)", (input, expected) => {
+      expect(niceQuotes(input)).toBe(expected)
+    })
+  })
+
+  describe("fullwidth closing bracket after a double quote", () => {
+    // Each row matches its ASCII `)` counterpart.
+    it.each([
+      ['"）', '"）'],
+      ['He said "no"） ok', `He said ${LEFT_DOUBLE_QUOTE}no${RIGHT_DOUBLE_QUOTE}） ok`],
+    ])("converts %s → %s", (input, expected) => {
       expect(niceQuotes(input)).toBe(expected)
     })
   })

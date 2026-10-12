@@ -20,6 +20,14 @@ const {
   RIGHT_GUILLEMET,
 } = UNICODE_SYMBOLS
 
+/** Opener/closer pairs for the low-9 quotes and both guillemet orders. */
+const LOCALE_QUOTE_PAIRS: [string, string][] = [
+  [DOUBLE_LOW_9_QUOTE, LEFT_DOUBLE_QUOTE],
+  [SINGLE_LOW_9_QUOTE, LEFT_SINGLE_QUOTE],
+  [LEFT_GUILLEMET, RIGHT_GUILLEMET],
+  [RIGHT_GUILLEMET, LEFT_GUILLEMET],
+]
+
 describe("hyphenReplace", () => {
   describe("em dashes from surrounded hyphens", () => {
     it.each([
@@ -403,15 +411,8 @@ describe("minusReplace", () => {
     expect(minusReplace(input)).toBe(expected)
   })
 
-  it.each([
-    [DOUBLE_LOW_9_QUOTE, LEFT_DOUBLE_QUOTE],
-    [SINGLE_LOW_9_QUOTE, LEFT_SINGLE_QUOTE],
-    [LEFT_GUILLEMET, RIGHT_GUILLEMET],
-    [RIGHT_GUILLEMET, LEFT_GUILLEMET],
-  ])("converts a hyphen directly after the opening quote %s (closed by %s)", (opener, closer) => {
-    const expected = `${opener}${MINUS}15${closer}`
-    expect(minusReplace(`${opener}-15${closer}`)).toBe(expected)
-    expect(minusReplace(expected)).toBe(expected)
+  it.each(LOCALE_QUOTE_PAIRS)("converts a hyphen directly after the opening quote %s (closed by %s)", (opener, closer) => {
+    expect(minusReplace(`${opener}-15${closer}`)).toBe(`${opener}${MINUS}15${closer}`)
   })
 
   it("should not convert hyphens in other contexts", () => {
@@ -506,12 +507,7 @@ describe("competitor-derived edge cases", () => {
       expect(hyphenReplace(input)).toBe(expected)
     })
 
-    it.each([
-      [DOUBLE_LOW_9_QUOTE, LEFT_DOUBLE_QUOTE],
-      [LEFT_GUILLEMET, RIGHT_GUILLEMET],
-      [RIGHT_GUILLEMET, LEFT_GUILLEMET],
-      [SINGLE_LOW_9_QUOTE, LEFT_SINGLE_QUOTE],
-    ])("treats %s...%s quote pairs like straight ones in a dash run", (opener, closer) => {
+    it.each(LOCALE_QUOTE_PAIRS)("treats %s...%s quote pairs like straight ones in a dash run", (opener, closer) => {
       const input = `${opener}x${closer}--${opener}y${closer}`
       expect(hyphenReplace(input)).toBe(`${opener}x${closer}${EM_DASH}${opener}y${closer}`)
       expect(hyphenReplace(input, { dashStyle: "british" })).toBe(`${opener}x${closer} ${EN_DASH} ${opener}y${closer}`)

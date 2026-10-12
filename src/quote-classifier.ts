@@ -159,10 +159,10 @@ const DOUBLE_OPEN_BEFORE_SET = new Set<string>(["/", ...OPENING_BRACKETS, "-", E
 
 /** Ending-context chars that block the opener rule's arm 2 (plus any \s char).
  * ELLIPSIS is deliberately absent: the rule's `...` arm opens, so `…` must too. */
-const DOUBLE_OPEN_ENDING_SET = new Set<string>([")", EM_DASH, ",", "!", "?", ";", ":", ".", "}", ...FOLDED_TERMINALS])
+const DOUBLE_OPEN_ENDING_SET = new Set<string>([...CLOSING_BRACKETS, EM_DASH, ",", "!", "?", ";", ":", ".", ...FOLDED_TERMINALS])
 
 /** Chars allowed before an empty double-quote pair (plus any \s char). */
-const DOUBLE_EMPTY_BEFORE_SET = new Set<string>(["(", "[", "{"])
+const DOUBLE_EMPTY_BEFORE_SET = new Set<string>(OPENING_BRACKETS)
 
 /** Chars allowed after an empty double-quote pair (plus any \s char).
  * Aligned to contain {@link DOUBLE_CLOSE_AFTER_SET}: a pair the empty-pair
