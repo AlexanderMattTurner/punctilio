@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+## [5.5.0] - 2026-10-12
+
+### Changed
+- **rehype**: Default skip tags are now extended with user-provided `skipTags` instead of replaced.
+
+### Fixed
+- **remark**: Autolinks now decide URL scheme matching case-insensitively.
+- **remark**: Raw HTML is now tokenized using parse5 instead of regex for improved accuracy.
+- **remark**: Raw HTML textarea content is now properly skipped.
+- **rehype**: Null option values are now treated as absent attributes.
+- **rehype, remark**: Segment-edge quote direction is now preserved beside skipped content.
+- **rehype, remark**: Context is now maintained across skipped inline content.
+
 ## [5.4.10] - 2026-10-12
 
 ### Fixed
