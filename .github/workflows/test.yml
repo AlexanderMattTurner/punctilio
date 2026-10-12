@@ -58,8 +58,17 @@ jobs:
       - name: Install PR-review script dependency
         run: bash .github/scripts/install-input-sanitizer.sh
 
+      # .github/scripts run only on ubuntu runners, where GNU `timeout` exists
+      # (install-claude-cli.sh and others call it); macOS ships no `timeout`, so
+      # their tests run on the Linux and Windows legs. scripts/ holds the
+      # contributor-facing tooling, so macOS still covers it.
       - name: Run script tests
+        if: runner.os != 'macOS'
         run: pnpm test:scripts
+
+      - name: Run contributor script tests
+        if: runner.os == 'macOS'
+        run: node --test scripts/*.test.mjs
 
   benchmark:
     runs-on: ubuntu-latest
