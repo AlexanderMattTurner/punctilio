@@ -18,7 +18,7 @@ pnpm lint        # ESLint over src/ and scripts/
 uvx pre-commit==4.6.0 run --all-files   # ci-truth-serum lints (.pre-commit-config.yaml), as lint.yml runs them
 pnpm benchmark   # build, then run benchmark.mjs against competitor libraries
 pnpm build       # tsc
-pnpm mutation    # Stryker mutation testing (slow; CI runs it on every PR)
+pnpm mutation    # Stryker mutation testing (slow; CI runs it daily)
 pnpm mutation:changed   # Stryker over only the files changed on this branch
 ```
 
@@ -32,7 +32,7 @@ Jest enforces **100% coverage** (branches, functions, lines, statements) via `co
 
 ### Mutation testing
 
-`pnpm mutation` runs [Stryker](https://stryker-mutator.io/) over `src/` using the Jest suite (minus the regex-safety analysis gate and the randomized fuzz file — see `jest.stryker.config.js`). CI runs it on every pull request via `mutation.yml`: a `prep` job plans the shards from `config/mutation-weights.json` — measured test executions per file, refreshed weekly by `refresh-mutation-weights.yml` — so the shard count autoscales and the split stays cost-balanced as the source grows, with no file groups to hand-tune. Each shard keeps a per-shard incremental cache (so only mutants touched by your diff re-run) and publishes its HTML report as an artifact. Surviving mutants point at assertions worth strengthening; aim not to lower the score with new code.
+`pnpm mutation` runs [Stryker](https://stryker-mutator.io/) over `src/` using the Jest suite (minus the regex-safety analysis gate and the randomized fuzz file — see `jest.stryker.config.js`). CI runs it daily (not on pull requests) via `mutation.yml`: a `prep` job plans the shards from `config/mutation-weights.json` — measured test executions per file, refreshed weekly by `refresh-mutation-weights.yml` — so the shard count autoscales and the split stays cost-balanced as the source grows, with no file groups to hand-tune. Each shard keeps a per-shard incremental cache (so only mutants touched since the last run re-run) and publishes its HTML report as an artifact. A failed scheduled run opens or comments on a `ci-failure` issue. Surviving mutants point at assertions worth strengthening; run `pnpm mutation:changed` before opening a PR so new code doesn't lower the score.
 
 ## Regex safety
 
@@ -49,4 +49,4 @@ If your change adds or modifies a regex, expect both gates to weigh in.
 
 ## CI
 
-Pull requests run the test and lint workflows on Node 20, 22, and 24, plus the sharded mutation-testing matrix. GitHub Actions are SHA-pinned, and the lint workflow rejects unpinned `uses:` references.
+Pull requests run the test and lint workflows on Node 20, 22, and 24; the sharded mutation-testing matrix runs daily. GitHub Actions are SHA-pinned, and the lint workflow rejects unpinned `uses:` references.
