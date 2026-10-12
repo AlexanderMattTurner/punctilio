@@ -1,7 +1,8 @@
 name: Mutation testing
 
-# Runs daily (and on demand), not on pull requests: the sharded run is too slow
-# to gate every PR. A failed scheduled run opens or comments on a ci-failure
+# Runs daily (and on demand), not on pull requests: even a changed-files run can
+# take hours on a dense file, so contributors run `pnpm mutation:changed` locally
+# before opening a PR. A failed scheduled run opens or comments on a ci-failure
 # issue via ci-failure-notify.yaml.
 on:
   schedule:
@@ -10,6 +11,8 @@ on:
 
 concurrency:
   group: "${{ github.workflow }}-${{ github.ref }}"
+  # Never cancel: a dropped daily run leaves each shard's incremental cache cold.
+  cancel-in-progress: false
 
 permissions:
   contents: read
