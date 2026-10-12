@@ -2,6 +2,7 @@ import { strict as assert } from "node:assert";
 import { execFileSync, spawnSync } from "node:child_process";
 import {
   chmodSync,
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -85,6 +86,52 @@ function runScript(dir, binDir) {
   });
   assert.equal(res.error, undefined, "failed to spawn the release script");
   return { status: res.status, stderr: res.stderr, stdout: res.stdout };
+}
+
+// `pnpm publish` succeeds offline (running an `on-publish` script beside the
+// stub, if any) and `pnpm exec` runs the repo's real tsx, so the README pin and
+// the CHANGELOG promotion run for real against main.
+const PNPM_STUB = `#!/usr/bin/env bash\nif [[ "$1" == exec ]]; then exec "${join(REPO_ROOT, "node_modules", ".bin")}/$2" "\${@:3}"; fi\nif [[ -x "$(dirname "$0")/on-publish" ]]; then "$(dirname "$0")/on-publish"; fi\n`;
+const README_AT_5 =
+  "# sandbox\n\n- repo: https://github.com/AlexanderMattTurner/punctilio\n  rev: v5.0.0\n";
+const CHANGELOG_AT_5 =
+  "# Changelog\n\n## Unreleased\n\n## [5.0.0] - 2026-01-01\n\n- old\n";
+
+/** A sandbox whose releasable HEAD is pushed to a bare origin's main. */
+function makeReleaseSandbox(changelog = CHANGELOG_AT_5) {
+  const { dir, binDir } = makeSandbox(
+    'if [[ "$2" == *@* ]]; then exit 1; else echo "5.0.0"; fi',
+  );
+  writeFileSync(join(binDir, "pnpm"), PNPM_STUB);
+  chmodSync(join(binDir, "pnpm"), 0o755);
+  // retry_cmd sleeps between attempts; make the failing-push retries instant.
+  writeFileSync(join(binDir, "sleep"), "#!/usr/bin/env bash\nexit 0\n");
+  chmodSync(join(binDir, "sleep"), 0o755);
+  const origin = join(dir, "origin.git");
+  git(dir, "init", "-q", "--bare", origin);
+  git(dir, "remote", "add", "origin", origin);
+  writeFileSync(join(dir, "CHANGELOG.md"), changelog);
+  writeFileSync(join(dir, "README.md"), README_AT_5);
+  git(dir, "add", "CHANGELOG.md", "README.md");
+  git(dir, "commit", "-q", "-m", "feat: releasable work");
+  git(dir, "push", "-q", "origin", "HEAD:main");
+  return { dir, binDir, origin };
+}
+
+function git(cwd, ...args) {
+  return execFileSync("git", args, { cwd, encoding: "utf8" }).trim();
+}
+
+/** Merge a commit to origin's main from another clone, as a PR landing mid-release. */
+function mergeToMain(origin, dir, subject, files) {
+  const other = join(dir, "other");
+  git(dir, "clone", "-q", "--branch", "main", origin, other);
+  for (const [name, content] of Object.entries(files)) {
+    writeFileSync(join(other, name), content);
+  }
+  git(other, "add", "-A");
+  git(other, "-c", "user.name=o", "-c", "user.email=o@o.test", "commit", "-q", "-m", subject);
+  git(other, "push", "-q", "origin", "main");
 }
 
 for (const { name, subject, body } of [
@@ -257,20 +304,15 @@ test("a range containing only release-docs commits is skipped, not re-released",
 const OVERSIZED_UNRELEASED_ENTRY = "- a changelog entry\n";
 
 test("an Unreleased section larger than the pipe buffer does not abort the run", () => {
-  const { dir, binDir } = makeSandbox(NPM_AT_5_STUB);
+  const { dir, binDir } = makeReleaseSandbox(
+    `# Changelog\n\n## Unreleased\n\n${OVERSIZED_UNRELEASED_ENTRY.repeat(
+      (512 * 1024) / OVERSIZED_UNRELEASED_ENTRY.length,
+    )}\n## 0.0.0\n\n- seed\n`,
+  );
   try {
-    execFileSync("git", ["commit", "-q", "--allow-empty", "-m", "fix: y"], {
-      cwd: dir,
-    });
-    writeFileSync(
-      join(dir, "CHANGELOG.md"),
-      `# Changelog\n\n## Unreleased\n\n${OVERSIZED_UNRELEASED_ENTRY.repeat(
-        (512 * 1024) / OVERSIZED_UNRELEASED_ENTRY.length,
-      )}\n## 0.0.0\n\n- seed\n`,
-    );
     const { status, stderr } = runScript(dir, binDir);
     assert.equal(status, 0, stderr.slice(-2000));
-    assert.match(stderr, /New version: 5\.0\.1/);
+    assert.match(stderr, /New version: 5\.1\.0/);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -300,56 +342,10 @@ test("the commit list handed to the changelog drafter is capped at 20 lines, 100
   }
 });
 
-// --- Release docs: built on a fresh main, after the tag lands -------------
-// `pnpm publish` succeeds offline and `pnpm exec` runs the repo's real tsx, so
-// the README pin and the CHANGELOG promotion run for real against main.
-const PNPM_STUB = `#!/usr/bin/env bash\nif [[ "$1" == exec ]]; then exec "${join(REPO_ROOT, "node_modules", ".bin")}/$2" "\${@:3}"; fi\nexit 0\n`;
-const README_AT_5 =
-  "# sandbox\n\n- repo: https://github.com/AlexanderMattTurner/punctilio\n  rev: v5.0.0\n";
-const CHANGELOG_AT_5 =
-  "# Changelog\n\n## Unreleased\n\n## [5.0.0] - 2026-01-01\n\n- old\n";
-
-/** A sandbox whose releasable HEAD is pushed to a bare origin's main. */
-function makeReleaseSandbox() {
-  const { dir, binDir } = makeSandbox(
-    'if [[ "$2" == *@* ]]; then exit 1; else echo "5.0.0"; fi',
-  );
-  writeFileSync(join(binDir, "pnpm"), PNPM_STUB);
-  chmodSync(join(binDir, "pnpm"), 0o755);
-  // retry_cmd sleeps between attempts; make the failing-push retries instant.
-  writeFileSync(join(binDir, "sleep"), "#!/usr/bin/env bash\nexit 0\n");
-  chmodSync(join(binDir, "sleep"), 0o755);
-  const origin = join(dir, "origin.git");
-  git(dir, "init", "-q", "--bare", origin);
-  git(dir, "remote", "add", "origin", origin);
-  writeFileSync(join(dir, "CHANGELOG.md"), CHANGELOG_AT_5);
-  writeFileSync(join(dir, "README.md"), README_AT_5);
-  git(dir, "add", "CHANGELOG.md", "README.md");
-  git(dir, "commit", "-q", "-m", "feat: releasable work");
-  git(dir, "push", "-q", "origin", "HEAD:main");
-  return { dir, binDir, origin };
-}
-
-function git(cwd, ...args) {
-  return execFileSync("git", args, { cwd, encoding: "utf8" }).trim();
-}
-
-/** Merge a commit to origin's main from another clone, as a PR landing mid-release. */
-function mergeToMain(origin, dir, subject, files) {
-  const other = join(dir, "other");
-  git(dir, "clone", "-q", "--branch", "main", origin, other);
-  for (const [name, content] of Object.entries(files)) {
-    writeFileSync(join(other, name), content);
-  }
-  git(other, "add", "-A");
-  git(other, "-c", "user.name=o", "-c", "user.email=o@o.test", "commit", "-q", "-m", subject);
-  git(other, "push", "-q", "origin", "main");
-}
-
 // A docs push that fails after the retries must fail the run, but only after
 // the vX.Y.Z tag reached the remote (otherwise the next run re-reads the
 // climbing npm version and bumps again), and without touching main.
-for (const { name, breakOrigin, expected } of [
+for (const { name, breakOrigin, failure } of [
   {
     name: "the remote rejects the branch push",
     breakOrigin: (origin) => {
@@ -360,36 +356,39 @@ for (const { name, breakOrigin, expected } of [
       );
       chmodSync(preReceive, 0o755);
     },
+    failure: "failed to push the release-docs update",
   },
   {
-    name: "a mid-release merge adds an Unreleased changelog entry",
-    breakOrigin: (origin, dir) =>
-      mergeToMain(origin, dir, "docs: note a change", {
-        "CHANGELOG.md": CHANGELOG_AT_5.replace(
-          "## Unreleased\n",
-          "## Unreleased\n\n- a mid-release entry\n",
-        ),
-      }),
-    expected: /"## Unreleased" changelog block changed during the release/,
+    name: "a merge during the publish adds an Unreleased changelog entry",
+    breakOrigin: (origin, dir, binDir) => {
+      writeFileSync(
+        join(dir, "mid-release-CHANGELOG.md"),
+        CHANGELOG_AT_5.replace("## Unreleased\n", "## Unreleased\n\n- a mid-release entry\n"),
+      );
+      writeFileSync(
+        join(binDir, "on-publish"),
+        `#!/usr/bin/env bash\nset -e\ngit clone -q --branch main "${origin}" "${dir}/other"\ncd "${dir}/other"\ncp "${dir}/mid-release-CHANGELOG.md" CHANGELOG.md\ngit -c user.name=o -c user.email=o@o.test commit -q -am "docs: note a change"\ngit push -q origin main\n`,
+      );
+      chmodSync(join(binDir, "on-publish"), 0o755);
+    },
+    failure: '"## Unreleased" changelog block changed during the release',
   },
 ]) {
   test(`when ${name}, the run fails after the tag landed and leaves main alone`, () => {
     const { dir, binDir, origin } = makeReleaseSandbox();
     try {
-      breakOrigin(origin, dir);
-      const mainBefore = git(dir, "ls-remote", origin, "refs/heads/main");
+      breakOrigin(origin, dir, binDir);
 
       const { status, stderr } = runScript(dir, binDir);
       assert.notEqual(status, 0, "a failed docs push must fail the run");
       const tagIndex = stderr.indexOf("Pushed tag v5.1.0");
-      const docsFailureIndex = stderr.indexOf(
-        "failed to push the release-docs update",
-      );
       assert.ok(tagIndex !== -1, stderr);
-      assert.ok(docsFailureIndex > tagIndex, stderr);
-      if (expected) assert.match(stderr, expected);
+      assert.ok(stderr.indexOf(failure) > tagIndex, stderr);
       assert.match(git(dir, "ls-remote", "--tags", origin), /refs\/tags\/v5\.1\.0/);
-      assert.equal(git(dir, "ls-remote", origin, "refs/heads/main"), mainBefore);
+      assert.doesNotMatch(
+        git(dir, "log", "--format=%s", "-1", "origin/main"),
+        /^docs: release/,
+      );
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -398,8 +397,11 @@ for (const { name, breakOrigin, expected } of [
 
 test("a release that merges to main mid-release gets the docs built on top of it", () => {
   // The previous release's docs commit landed after this run checked out, so
-  // both rewrite the same CHANGELOG anchor and README rev line.
-  const { dir, binDir, origin } = makeReleaseSandbox();
+  // both rewrite the same CHANGELOG anchor and README rev line, and HEAD's
+  // Unreleased entry is one that release already shipped.
+  const { dir, binDir, origin } = makeReleaseSandbox(
+    CHANGELOG_AT_5.replace("## Unreleased\n", "## Unreleased\n\n- fix\n"),
+  );
   try {
     mergeToMain(origin, dir, "docs: release 5.0.1 [skip ci]", {
       "CHANGELOG.md": CHANGELOG_AT_5.replace(
@@ -430,6 +432,35 @@ test("a release that merges to main mid-release gets the docs built on top of it
     assert.equal(
       git(dir, "diff", "--name-only", "origin/main~1", "origin/main"),
       "CHANGELOG.md\nREADME.md",
+    );
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a docs push whose acknowledgment is lost is not promoted twice", () => {
+  const { dir, binDir } = makeReleaseSandbox();
+  try {
+    // The first push to main lands on the remote but reports failure.
+    const realGit = execFileSync("bash", ["-c", "command -v git"], {
+      encoding: "utf8",
+    }).trim();
+    writeFileSync(
+      join(binDir, "git"),
+      `#!/usr/bin/env bash\nif [[ "$1" == push && "$3" == *:refs/heads/main && ! -e "${binDir}/acked" ]]; then\n  touch "${binDir}/acked"\n  "${realGit}" "$@"\n  exit 1\nfi\nexec "${realGit}" "$@"\n`,
+    );
+    chmodSync(join(binDir, "git"), 0o755);
+
+    const { status, stderr } = runScript(dir, binDir);
+    assert.equal(status, 0, stderr);
+    assert.ok(existsSync(join(binDir, "acked")), stderr);
+    assert.deepEqual(git(dir, "log", "--format=%s", "-2", "origin/main").split("\n"), [
+      "docs: release 5.1.0 [skip ci]",
+      "feat: releasable work",
+    ]);
+    assert.equal(
+      git(dir, "show", "origin/main:CHANGELOG.md").match(/^## \[5\.1\.0\]/gm).length,
+      1,
     );
   } finally {
     rmSync(dir, { recursive: true, force: true });
