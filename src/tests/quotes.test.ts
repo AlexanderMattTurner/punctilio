@@ -935,7 +935,9 @@ describe("niceQuotes", () => {
     // NBSP behind, which the closer absorbs. German: U+2018/U+201C close only while a low-9 opener
     // is open, so a glyph whose opener a straight candidate consumed is an
     // orphan classified by position, and a straight quote opening across a
-    // node boundary turns the U+201C orphan after it into its closer.
+    // node boundary turns the U+201C orphan after it into its closer. A comma
+    // placed past a closer gives it an ending character, which changes how the
+    // apostrophe candidate before it reads.
     it.each([
       ["french", `a "${NBSP}${RIGHT_DOUBLE_QUOTE}`, `a ${LEFT_GUILLEMET}${NNBSP}${NNBSP}${RIGHT_GUILLEMET}`],
       ["french", `a "\t${RIGHT_DOUBLE_QUOTE}`, `a ${LEFT_GUILLEMET}${NNBSP}\t${NNBSP}${RIGHT_GUILLEMET}`],
@@ -971,6 +973,16 @@ describe("niceQuotes", () => {
         "german",
         `${DOUBLE_LOW_9_QUOTE}." ${LEFT_DOUBLE_QUOTE}a${RIGHT_DOUBLE_QUOTE}`,
         `${DOUBLE_LOW_9_QUOTE}.${LEFT_DOUBLE_QUOTE} ${DOUBLE_LOW_9_QUOTE}a${LEFT_DOUBLE_QUOTE}`,
+      ],
+      [
+        "german",
+        `${SINGLE_LOW_9_QUOTE}${DOUBLE_LOW_9_QUOTE}${RIGHT_SINGLE_QUOTE}:,${LEFT_SINGLE_QUOTE}(`,
+        `${SINGLE_LOW_9_QUOTE}${DOUBLE_LOW_9_QUOTE}${SINGLE_LOW_9_QUOTE}:${LEFT_SINGLE_QUOTE},(`,
+      ],
+      [
+        "german",
+        `${SINGLE_LOW_9_QUOTE}${DOUBLE_LOW_9_QUOTE}${RIGHT_SINGLE_QUOTE}:,${DEFAULT_SEPARATOR}${LEFT_SINGLE_QUOTE}(`,
+        `${SINGLE_LOW_9_QUOTE}${DOUBLE_LOW_9_QUOTE}${SINGLE_LOW_9_QUOTE}:${DEFAULT_SEPARATOR}${LEFT_SINGLE_QUOTE},(`,
       ],
       // The U+2018 after the apostrophe reads as a closer on the next run, so
       // it renders as the U+2019 that run reads, not the glyph in the source.

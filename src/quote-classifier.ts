@@ -1565,6 +1565,9 @@ function rereadGermanRendering(items: Item[], text: string, apostrophe: string):
     const glyph = role === undefined ? (item.curlySource ?? item.ch) : rendered[role]
     const mapped = readGermanGlyph(glyph, DIGIT_RE.test(text[item.start - 1] ?? ""), depth)
     const reread = makeItem(false, mapped ?? item.ch, item.start, item.end)
+    reread.moved = item.moved
+    reread.anchorOffset = item.anchorOffset
+    reread.anchorBind = item.anchorBind
     if (mapped === '"' || mapped === "'") reread.curlySource = glyph
     return reread
   })
@@ -1581,17 +1584,14 @@ function classifyBuiltItems(items: Item[], style: ActiveQuoteStyle): void {
 const MAX_GERMAN_REREADS = 8
 
 /**
- * Builds and classifies the item sequence. German repeats the classification
- * over its own rereadings until a round assigns the roles it started from: the
- * next run starts from the first fixed point.
+ * Repeats German's classification over its own rereadings until a round
+ * assigns the roles it started from: the next run starts from the first fixed
+ * point.
  */
-function classifyItems(view: ProseView, style: ActiveQuoteStyle, apostrophe: string): Item[] {
-  let items = buildItems(view, style)
-  classifyBuiltItems(items, style)
-  if (style !== "german") return items
+function settleGermanRoles(items: Item[], text: string, apostrophe: string): Item[] {
   for (let round = 0; round < MAX_GERMAN_REREADS; round++) {
-    const reread = rereadGermanRendering(items, view.text, apostrophe)
-    classifyBuiltItems(reread, style)
+    const reread = rereadGermanRendering(items, text, apostrophe)
+    classifyBuiltItems(reread, "german")
     const settled = reread.every((item, index) => item.ch === items[index].ch)
     items = reread
     if (settled) return items
@@ -1599,6 +1599,13 @@ function classifyItems(view: ProseView, style: ActiveQuoteStyle, apostrophe: str
   /* istanbul ignore next -- defensive: no input found settles in more than 4
      rounds; a cap hit means the reread no longer converges. */
   throw new Error(`German quote classification did not settle within ${MAX_GERMAN_REREADS} rereads`)
+}
+
+/** Builds and classifies the item sequence. */
+function classifyItems(view: ProseView, style: ActiveQuoteStyle, apostrophe: string): Item[] {
+  const items = buildItems(view, style)
+  classifyBuiltItems(items, style)
+  return style === "german" ? settleGermanRoles(items, view.text, apostrophe) : items
 }
 
 /**
@@ -1612,7 +1619,8 @@ export function classifyAndRenderQuotes(
 ): void {
   if (!QUOTE_CANDIDATE_RE.test(view.text)) return
   const items = classifyItems(view, style, apostrophe)
-  const placed = applyPunctuationPlacement(items, style, apostrophe)
+  let placed = applyPunctuationPlacement(items, style, apostrophe)
+  if (style === "german" && placed !== items) placed = settleGermanRoles(placed, view.text, apostrophe)
   // Placement can slide a closer past punctuation until it sits directly after
   // an s/S (british/french move the closer left, out of "dogs.'" → "dogs'."),
   // turning it into a plural possessive the pre-placement scan couldn't see. A
