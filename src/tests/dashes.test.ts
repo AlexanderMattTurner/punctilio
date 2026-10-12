@@ -14,6 +14,10 @@ const {
   MULTIPLICATION,
   NBSP,
   SUPERSCRIPT_ST,
+  DOUBLE_LOW_9_QUOTE,
+  SINGLE_LOW_9_QUOTE,
+  LEFT_GUILLEMET,
+  RIGHT_GUILLEMET,
 } = UNICODE_SYMBOLS
 
 describe("hyphenReplace", () => {
@@ -399,6 +403,17 @@ describe("minusReplace", () => {
     expect(minusReplace(input)).toBe(expected)
   })
 
+  it.each([
+    [DOUBLE_LOW_9_QUOTE, LEFT_DOUBLE_QUOTE],
+    [SINGLE_LOW_9_QUOTE, LEFT_SINGLE_QUOTE],
+    [LEFT_GUILLEMET, RIGHT_GUILLEMET],
+    [RIGHT_GUILLEMET, LEFT_GUILLEMET],
+  ])("converts a hyphen directly after the opening quote %s (closed by %s)", (opener, closer) => {
+    const expected = `${opener}${MINUS}15${closer}`
+    expect(minusReplace(`${opener}-15${closer}`)).toBe(expected)
+    expect(minusReplace(expected)).toBe(expected)
+  })
+
   it("should not convert hyphens in other contexts", () => {
     expect(minusReplace("well-known")).toBe("well-known")
     expect(minusReplace("re-read")).toBe("re-read")
@@ -489,6 +504,21 @@ describe("competitor-derived edge cases", () => {
       [`${RIGHT_SINGLE_QUOTE} -- source`, `${RIGHT_SINGLE_QUOTE}${EM_DASH}source`],
     ])('handles spaced dashes after quotes: "%s"', (input, expected) => {
       expect(hyphenReplace(input)).toBe(expected)
+    })
+
+    it.each([
+      [DOUBLE_LOW_9_QUOTE, LEFT_DOUBLE_QUOTE],
+      [LEFT_GUILLEMET, RIGHT_GUILLEMET],
+      [RIGHT_GUILLEMET, LEFT_GUILLEMET],
+      [SINGLE_LOW_9_QUOTE, LEFT_SINGLE_QUOTE],
+    ])("treats %s...%s quote pairs like straight ones in a dash run", (opener, closer) => {
+      const input = `${opener}x${closer}--${opener}y${closer}`
+      expect(hyphenReplace(input)).toBe(`${opener}x${closer}${EM_DASH}${opener}y${closer}`)
+      expect(hyphenReplace(input, { dashStyle: "british" })).toBe(`${opener}x${closer} ${EN_DASH} ${opener}y${closer}`)
+      for (const dashStyle of ["american", "british"] as const) {
+        const once = hyphenReplace(input, { dashStyle })
+        expect(hyphenReplace(once, { dashStyle })).toBe(once)
+      }
     })
 
     it("handles unspaced double dash between quotes", () => {
