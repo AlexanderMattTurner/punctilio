@@ -165,7 +165,7 @@ rehypePunctilio({
 });
 ```
 
-By default the plugin transforms text only inside a curated allowlist of prose-bearing elements (plus custom elements). Set `transformAllElements: true` to invert the model and transform text inside *every* element except those in `skipTags`/`skipClasses` and the form-value elements `<textarea>` and `<input>` (whose text is a literal control value, not prose). `<select>` is skipped as a container, but its `<option>` labels are still transformed. `skipTags` and `skipClasses` continue to take precedence in this mode.
+By default the plugin transforms text only inside a curated allowlist of prose-bearing elements (plus custom elements). Set `transformAllElements: true` to invert the model and transform text inside *every* element except those in `skipTags`/`skipClasses` and the form-value elements `<textarea>` and `<input>` (whose text is a literal control value, not prose). `<select>` is skipped as a container, but the labels of its `<option>` elements that carry a `value` attribute are still transformed. `skipTags` and `skipClasses` continue to take precedence in this mode.
 
 Text with no element ancestor—a bare-string fragment passed straight to `transformHtml`, or loose text sitting among top-level blocks—has no allowlist to consult and is always transformed in both modes. Inline prose siblings merge into that run; block-level and non-allowlisted structural elements (`<html>`/`<body>` under a full-document parse, `<form>` in the default mode) remain boundaries and keep their usual per-element treatment.
 
@@ -210,7 +210,7 @@ prettier --write 'docs/**/*.md'
 # "Hello" -- world.    →    “Hello” – world.
 ```
 
-Code spans, fenced code blocks, and inline HTML are left untouched. The plugin extends Prettier’s `markdown` parser, so it transforms the files Prettier routes there (`*.md`, `*.markdown`); for HTML files, use the [CLI](#cli) or the [`rehype` plugin](#works-with-html-doms-via-boundary-aware-views) below.
+Code spans, fenced code blocks, inline HTML (including the text between the open and close tags of a skipped element such as `<code>` or `<kbd>`), and link text that is its own URL are left untouched. The plugin extends Prettier’s `markdown` parser, so it transforms the files Prettier routes there (`*.md`, `*.markdown`); for HTML files, use the [CLI](#cli) or the [`rehype` plugin](#works-with-html-doms-via-boundary-aware-views) below.
 
 ### CLI
 

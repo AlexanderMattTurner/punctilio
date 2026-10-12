@@ -88,8 +88,8 @@ describe("rehypePunctilio", () => {
       ["button", '<button>"Hi"</button>', `<button>${LDQ}Hi${RDQ}</button>`],
       [
         "option",
-        '<select><option>"Hi"</option></select>',
-        `<select><option>${LDQ}Hi${RDQ}</option></select>`,
+        '<select><option value="1">"Hi"</option></select>',
+        `<select><option value="1">${LDQ}Hi${RDQ}</option></select>`,
       ],
       ["output", '<output>"Hi"</output>', `<output>${LDQ}Hi${RDQ}</output>`],
     ])("transforms %s text", async (_name, html, expected) => {
@@ -172,11 +172,11 @@ describe("rehypePunctilio", () => {
 
     it("skips select but still transforms its option children", async () => {
       expect(
-        await processHtml('<select><option>"Hi"</option></select>', {
+        await processHtml('<select><option value="1">"Hi"</option></select>', {
           nbsp: false,
           transformAllElements: true,
         }),
-      ).toEqual(`<select><option>${LDQ}Hi${RDQ}</option></select>`);
+      ).toEqual(`<select><option value="1">${LDQ}Hi${RDQ}</option></select>`);
     });
 
     it("skipTags still wins in inverted mode", async () => {
@@ -449,6 +449,50 @@ describe("rehypePunctilio", () => {
       expect(await processHtml(html, { nbsp: false })).toEqual(expected);
     });
 
+    // Quote pairing reads across the gap, so quotes around skipped inline
+    // content keep their direction; the gap itself is never written into.
+    it.each([
+      [
+        "skipped elements",
+        '<p>Type "<kbd>q</kbd>" to quit, or "<var>x</var>".</p>',
+        `<p>Type ${LDQ}<kbd>q</kbd>${RDQ} to quit, or ${LDQ}<var>x</var>.${RDQ}</p>`,
+      ],
+      [
+        "an image",
+        '<p>See "<img src="a">" here</p>',
+        `<p>See ${LDQ}<img src="a">${RDQ} here</p>`,
+      ],
+      [
+        "a line break",
+        "<p>He said \"hi<br>there\" ok</p>",
+        `<p>He said ${LDQ}hi<br>there${RDQ} ok</p>`,
+      ],
+      [
+        "an element wrapping a gap",
+        '<p>A "<em>b <code>c</code> d</em>" e</p>',
+        `<p>A ${LDQ}<em>b <code>c</code> d</em>${RDQ} e</p>`,
+      ],
+      [
+        "a skipped element in a bare-text fragment",
+        'Type "<kbd>q</kbd>" now',
+        `Type ${LDQ}<kbd>q</kbd>${RDQ} now`,
+      ],
+      [
+        "an image among loose blockquote text",
+        '<blockquote><p>x</p>Type "<img src="a">" now</blockquote>',
+        `<blockquote><p>x</p>Type ${LDQ}<img src="a">${RDQ} now</blockquote>`,
+      ],
+      [
+        "a gap beside an apostrophe",
+        "<p>The <code>x</code>'s value</p>",
+        `<p>The <code>x</code>${RSQ}s value</p>`,
+      ],
+    ])("quotes pair across %s", async (_name, html, expected) => {
+      const once = await processHtml(html, { nbsp: false });
+      expect(once).toEqual(expected);
+      expect(await processHtml(once, { nbsp: false })).toEqual(once);
+    });
+
     it("skipped-text nodes act as an opaque gap between their neighbors", async () => {
       // The skipped "MID" text separates "5" from "x5", so no × forms across it.
       const skipMid = (t: Text) => t.value === "MID";
@@ -556,6 +600,38 @@ describe("rehypePunctilio", () => {
       expect(await processHtml(`<${tag}>"Hello"</${tag}>`)).toEqual(
         `<${tag}>"Hello"</${tag}>`,
       );
+    });
+
+    it.each([false, true])(
+      "skips iframe fallback content (transformAllElements: %s)",
+      async (transformAllElements) => {
+        const html = '<p>See <iframe>"a" -- b</iframe> now</p>';
+        expect(
+          await processHtml(html, { nbsp: false, transformAllElements }),
+        ).toEqual(html);
+      },
+    );
+
+    // An option without a `value` attribute submits its text as the value.
+    it.each([
+      ["without value", "<option>\"a\" -- b</option>", "<option>\"a\" -- b</option>"],
+      [
+        "with value",
+        '<option value="v">"a" -- b</option>',
+        `<option value="v">${LDQ}a${RDQ}${EM_DASH}b</option>`,
+      ],
+      [
+        "with empty value",
+        '<option value="">"a"</option>',
+        `<option value="">${LDQ}a${RDQ}</option>`,
+      ],
+    ])("option %s", async (_name, option, expected) => {
+      const wrap = (inner: string) => `<select>${inner}</select>`;
+      for (const transformAllElements of [false, true]) {
+        expect(
+          await processHtml(wrap(option), { nbsp: false, transformAllElements }),
+        ).toEqual(wrap(expected));
+      }
     });
 
     it("skips nested content inside code blocks", async () => {

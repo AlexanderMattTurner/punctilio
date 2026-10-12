@@ -130,6 +130,66 @@ describe("remarkPunctilio", () => {
     })
   })
 
+  describe("quotes pair across opaque inline content", () => {
+    it.each([
+      ["inline code", 'Run "`npm i`" now.', `Run ${LDQ}\`npm i\`${RDQ} now.`],
+      ["raw HTML emphasis", '"<em>hi</em>"', `${LDQ}<em>hi</em>${RDQ}`],
+      ["an image", 'See "![x](y)" here', `See ${LDQ}![x](y)${RDQ} here`],
+      ["raw HTML", 'Press "<kbd>q</kbd>" now', `Press ${LDQ}<kbd>q</kbd>${RDQ} now`],
+    ])("%s", async (_name, input, expected) => {
+      const once = await processMarkdown(input, { nbsp: false })
+      expect(once).toEqual(expected)
+      expect(await processMarkdown(once, { nbsp: false })).toEqual(once)
+    })
+  })
+
+  describe("raw HTML skip-list tags", () => {
+    // README: "inline HTML [is] left untouched" — that includes the text
+    // between an open and close tag of a skip-listed element.
+    it.each([
+      ["code", '<code>"x" -- y...</code> "z" -- w', `<code>"x" -- y...</code> ${LDQ}z${RDQ}${EM_DASH}w`],
+      ["kbd", '<kbd>"x" -- y</kbd> "z"', `<kbd>"x" -- y</kbd> ${LDQ}z${RDQ}`],
+      ["uppercase tags", '<KBD>"x" -- y</KBD> "z"', `<KBD>"x" -- y</KBD> ${LDQ}z${RDQ}`],
+      ["nested skip tags", 'a <pre><code>"x"</code> "y"</pre> "z"', `a <pre><code>"x"</code> "y"</pre> ${LDQ}z${RDQ}`],
+      ["nested emphasis", '<code>*"x"* -- y</code> "z"', `<code>*"x"* -- y</code> ${LDQ}z${RDQ}`],
+      ["an unclosed tag skips to the end of the paragraph", '<var>"x" "y"', '<var>"x" "y"'],
+      ["a stray close tag", '</code> "z"', `</code> ${LDQ}z${RDQ}`],
+      ["a self-closed tag", '<svg/> "z"', `<svg/> ${LDQ}z${RDQ}`],
+      ["non-skip tags", '<span>"x"</span>', `<span>${LDQ}x${RDQ}</span>`],
+      ["a comment", 'a <!-- c --> "z"', `a <!-- c --> ${LDQ}z${RDQ}`],
+    ])("%s", async (_name, input, expected) => {
+      expect(await processMarkdown(input, { nbsp: false })).toEqual(expected)
+    })
+  })
+
+  describe("links whose text is the URL", () => {
+    // remark-stringify prints a link whose text is its URL as `<url>`, so bare
+    // URLs and explicit links serialize to that form; only the URL text matters.
+    it.each([
+      ["an autolink", "<https://example.com/a--b...c>", "<https://example.com/a--b...c>"],
+      ["an email autolink", "<me@example.com>", "<me@example.com>"],
+      ["a GFM bare URL", "see https://example.com/a--b...c now", "see <https://example.com/a--b...c> now"],
+      ["a GFM www URL", "see www.example.com/a--b now", "see [www.example.com/a--b](http://www.example.com/a--b) now"],
+      [
+        "an explicit link",
+        "[https://example.com/a--b...c](https://example.com/a--b...c)",
+        "<https://example.com/a--b...c>",
+      ],
+      [
+        "a scheme-less link text",
+        "[example.com/a--b...c](https://example.com/a--b...c)",
+        "[example.com/a--b...c](https://example.com/a--b...c)",
+      ],
+    ])("leaves %s unchanged", async (_name, input, expected) => {
+      expect(await processGfmMarkdown(input, { nbsp: false })).toEqual(expected)
+    })
+
+    it("still transforms ordinary link text", async () => {
+      expect(await processGfmMarkdown('["a" -- b](https://example.com)', { nbsp: false }))
+        .toEqual(`[${LDQ}a${RDQ}${EM_DASH}b](https://example.com)`)
+    })
+  })
+
   describe("element types", () => {
     it.each([
       ["h1", '# "Hello"', `# ${LDQ}Hello${RDQ}`],

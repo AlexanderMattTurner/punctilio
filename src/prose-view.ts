@@ -262,6 +262,58 @@ export function splitAtIndices<T>(
   return groups;
 }
 
+/**
+ * Stand-in for removed opaque inline content (a skipped element, an image,
+ * inline code) inside a spanning view. U+FFFC OBJECT REPLACEMENT CHARACTER is
+ * Unicode's placeholder for an embedded object: it is neither space, word
+ * character, nor punctuation, so a pass needing adjacent text never matches
+ * across it (`5<code>c</code>x 3` stays put), while the quote classifier still
+ * sees real content between a quote and its partner (`"<kbd>q</kbd>"` pairs).
+ */
+export const OPAQUE_PLACEHOLDER = "\uFFFC";
+
+/**
+ * Runs `run` over `nodes` as one view with an {@link OPAQUE_PLACEHOLDER} node
+ * at each opaque gap (`breakBefore`, as for {@link splitAtIndices}), so
+ * context-sensitive passes such as quote pairing read across the gap. The
+ * view is committed after `run`. If any edit lands in a placeholder (one that
+ * spans, replaces, or is inserted into the gap), the nodes are restored and
+ * `run` goes over each opaque-delimited segment on its own instead, so no edit
+ * ever lands in or through a gap.
+ */
+export function runAcrossOpaqueGaps(
+  nodes: readonly ProseNode[],
+  breakBefore: ReadonlySet<number>,
+  run: (view: ProseView) => void,
+): void {
+  if (nodes.length === 0) return;
+  const originalValues = nodes.map((node) => node.value);
+  const placeholders: ProseNode[] = [];
+  const spanning: ProseNode[] = [];
+  nodes.forEach((node, index) => {
+    if (breakBefore.has(index)) {
+      const placeholder = { value: OPAQUE_PLACEHOLDER };
+      placeholders.push(placeholder);
+      spanning.push(placeholder);
+    }
+    spanning.push(node);
+  });
+
+  const spanningView = buildProseView(spanning);
+  run(spanningView);
+  spanningView.commit();
+  if (placeholders.every((node) => node.value === OPAQUE_PLACEHOLDER)) return;
+
+  nodes.forEach((node, index) => {
+    node.value = originalValues[index];
+  });
+  for (const group of splitAtIndices(nodes, breakBefore)) {
+    const segmentView = buildProseView(group);
+    run(segmentView);
+    segmentView.commit();
+  }
+}
+
 export interface ReplaceAllOptions {
   /** Opt-in: allow a match that contains an interior node boundary. Default: such matches are skipped. */
   allowBoundaries?: (match: RegExpExecArray, view: ProseView) => boolean;

@@ -1,10 +1,12 @@
 import {
   boundaryCountAt,
   buildProseView,
+  OPAQUE_PLACEHOLDER,
   overInput,
   type ProseNode,
   type ProseView,
   replaceAllInView,
+  runAcrossOpaqueGaps,
   withProseView,
 } from "../prose-view.js";
 
@@ -428,5 +430,74 @@ describe("boundaryCountAt", () => {
     [5, 0],
   ])("offset %d has %d boundaries", (offset, expected) => {
     expect(boundaryCountAt(view, offset)).toBe(expected);
+  });
+});
+
+describe("runAcrossOpaqueGaps", () => {
+  const PLACEHOLDER_START = 1;
+  const PLACEHOLDER_END = PLACEHOLDER_START + OPAQUE_PLACEHOLDER.length;
+
+  function runWith(
+    values: string[],
+    breakBefore: number[],
+    run: (view: ProseView) => void,
+  ): { values: string[]; texts: string[] } {
+    const nodeList = nodes(...values);
+    const texts: string[] = [];
+    runAcrossOpaqueGaps(nodeList, new Set(breakBefore), (view) => {
+      texts.push(view.text);
+      run(view);
+    });
+    return { values: nodeList.map((node) => node.value), texts };
+  }
+
+  const upperCase = (view: ProseView) =>
+    replaceAllInView(view, /[a-z]/g, (match) => match[0].toUpperCase());
+
+  it.each([
+    ["no nodes", [], [], [], []],
+    ["no gaps: one view over all nodes", ["ab", "cd"], [], ["abcd"], ["AB", "CD"]],
+    [
+      "a gap: one view with a placeholder between the nodes",
+      ["a", "b"],
+      [1],
+      [`a${OPAQUE_PLACEHOLDER}b`],
+      ["A", "B"],
+    ],
+  ])("%s", (_name, values, breakBefore, expectedTexts, expectedValues) => {
+    const result = runWith(values, breakBefore, upperCase);
+    expect(result.texts).toEqual(expectedTexts);
+    expect(result.values).toEqual(expectedValues);
+  });
+
+  // An edit that lands in the gap makes the nodes revert and each
+  // opaque-delimited segment run alone, so nothing is written in or through it.
+  it.each([
+    [
+      "replacing the gap",
+      (view: ProseView) =>
+        view.replace(PLACEHOLDER_START, PLACEHOLDER_END, "-"),
+    ],
+    [
+      "deleting a span across the gap",
+      (view: ProseView) => view.replace(0, PLACEHOLDER_END + 1, ""),
+    ],
+    [
+      "inserting into the gap",
+      (view: ProseView) =>
+        view.replace(PLACEHOLDER_START, PLACEHOLDER_START, "-", {
+          bind: "right",
+        }),
+    ],
+  ])("falls back to separate segments when a pass edits by %s", (_name, writeIntoGap) => {
+    const result = runWith(["a", "b"], [1], (view) => {
+      if (view.text.includes(OPAQUE_PLACEHOLDER)) {
+        writeIntoGap(view);
+        return;
+      }
+      upperCase(view);
+    });
+    expect(result.texts).toEqual([`a${OPAQUE_PLACEHOLDER}b`, "a", "b"]);
+    expect(result.values).toEqual(["A", "B"]);
   });
 });

@@ -1,4 +1,4 @@
-import type { PhrasingContent, Root, Text } from "mdast"
+import type { Link, PhrasingContent, Root, Text } from "mdast"
 import type { Transformer } from "unified"
 
 import { visitParents } from "unist-util-visit-parents"
@@ -6,7 +6,8 @@ import { visitParents } from "unist-util-visit-parents"
 import { transformView } from "./index.js"
 import { TRANSFORM_OPTION_KEYS, type TransformOptions } from "./transform-options.js"
 import { MAX_RECURSION_DEPTH } from "./constants.js"
-import { buildProseView, splitAtIndices } from "./prose-view.js"
+import { runAcrossOpaqueGaps } from "./prose-view.js"
+import { DEFAULT_SKIP_TAGS } from "./rehype.js"
 import { assertKnownOptionKeys } from "./utils.js"
 
 /**
@@ -19,6 +20,10 @@ export type RemarkPunctilioOptions = TransformOptions
 const PHRASING_CONTAINERS = new Set(["paragraph", "heading", "tableCell"])
 
 const SKIP_TYPES = new Set(["inlineCode", "html"])
+
+const SKIPPED_HTML_TAGS: ReadonlySet<string> = new Set(DEFAULT_SKIP_TAGS)
+
+const HTML_TAG_RE = /^<(?<closing>\/)?(?<name>[a-z][a-z0-9-]*)(?=[\s/>])/i
 
 // Leaf phrasing nodes that render atomic content and carry no transformable
 // text. Between two text nodes, one is a real visual separator, so the
@@ -33,6 +38,29 @@ interface ProseCollector {
   // An opaque node was dropped since the last emitted text node; the next
   // emitted node records an opaque gap before it.
   pendingOpaque: boolean
+  // Raw-HTML skip-list tags opened and not yet closed; everything between an
+  // open tag and its close tag is skipped content.
+  openSkippedTags: string[]
+}
+
+/** True for an autolink or bare URL, whose visible text is the URL itself. */
+function isUrlTextLink(node: Link): boolean {
+  if (node.children.length !== 1 || node.children[0].type !== "text") return false
+  const text = node.children[0].value
+  return text === node.url || text === node.url.replace(/^(?:mailto:|https?:\/\/)/, "")
+}
+
+/** Tracks raw-HTML skip-list tags so the text between an open and close tag is skipped. */
+function trackSkippedHtmlTag(html: string, c: ProseCollector): void {
+  const groups = HTML_TAG_RE.exec(html)?.groups
+  const tagName = groups?.name.toLowerCase()
+  if (!groups || !tagName || !SKIPPED_HTML_TAGS.has(tagName)) return
+  if (groups.closing) {
+    const openIndex = c.openSkippedTags.lastIndexOf(tagName)
+    if (openIndex !== -1) c.openSkippedTags.length = openIndex
+    return
+  }
+  if (!html.endsWith("/>")) c.openSkippedTags.push(tagName)
 }
 
 function collectProse(node: PhrasingContent, depth: number, c: ProseCollector): void {
@@ -41,7 +69,14 @@ function collectProse(node: PhrasingContent, depth: number, c: ProseCollector): 
     return
   }
 
-  if (SKIP_TYPES.has(node.type) || OPAQUE_LEAF_TYPES.has(node.type)) {
+  if (node.type === "html") trackSkippedHtmlTag(node.value, c)
+
+  if (
+    SKIP_TYPES.has(node.type) ||
+    OPAQUE_LEAF_TYPES.has(node.type) ||
+    c.openSkippedTags.length > 0 ||
+    (node.type === "link" && isUrlTextLink(node))
+  ) {
     c.pendingOpaque = true
     return
   }
@@ -59,7 +94,7 @@ function collectProse(node: PhrasingContent, depth: number, c: ProseCollector): 
 }
 
 function flattenProse(children: readonly PhrasingContent[]): { nodes: Text[]; opaqueBefore: Set<number> } {
-  const c: ProseCollector = { nodes: [], opaqueBefore: new Set(), pendingOpaque: false }
+  const c: ProseCollector = { nodes: [], opaqueBefore: new Set(), pendingOpaque: false, openSkippedTags: [] }
   for (const child of children) collectProse(child, 0, c)
   return { nodes: c.nodes, opaqueBefore: c.opaqueBefore }
 }
@@ -95,11 +130,9 @@ export function remarkPunctilio(
 
       const { nodes, opaqueBefore } = flattenProse(node.children as PhrasingContent[])
 
-      // Split at opaque gaps (inline code, images, breaks) so no pass rewrites
-      // text as adjacent across content that visually separates it.
-      for (const group of splitAtIndices(nodes, opaqueBefore)) {
-        transformView(buildProseView(group), pluginOptions)
-      }
+      // Opaque gaps (inline code, images, breaks) become placeholders, so
+      // quotes pair across them while no pass rewrites text through them.
+      runAcrossOpaqueGaps(nodes, opaqueBefore, (view) => transformView(view, pluginOptions))
     })
   }
 }

@@ -21,6 +21,7 @@ import {
   buildProseView,
   type ProsePass,
   type ProseView,
+  runAcrossOpaqueGaps,
   splitAtIndices,
 } from "./prose-view.js";
 
@@ -48,7 +49,7 @@ export interface RehypePunctilioOptions
    * HTML tag names to skip when applying transformations.
    * Content inside these elements won't have formatting improvements applied.
    *
-   * Default: ["code", "pre", "script", "style", "kbd", "var", "samp", "template", "math", "svg"]
+   * Default: ["code", "pre", "script", "style", "kbd", "var", "samp", "template", "math", "svg", "iframe"]
    */
   skipTags?: string[];
 
@@ -73,7 +74,7 @@ export interface RehypePunctilioOptions
   transformAllElements?: boolean;
 }
 
-const DEFAULT_SKIP_TAGS = [
+export const DEFAULT_SKIP_TAGS: readonly string[] = [
   "code",
   "pre",
   "script",
@@ -84,6 +85,7 @@ const DEFAULT_SKIP_TAGS = [
   "template",
   "math",
   "svg",
+  "iframe",
 ];
 
 // Form elements whose text content is a literal control value, not prose.
@@ -600,6 +602,12 @@ export interface CollectProseBlocksOptions {
   transformAllElements?: boolean;
 }
 
+// An `<option>` with no `value` attribute submits its text as the value, so
+// the text is a literal control value, not prose.
+function isValueOption(node: Element): boolean {
+  return node.tagName === "option" && node.properties?.value === undefined;
+}
+
 /** Skip predicate and transformable-tag test resolved from the options. */
 interface ResolvedCollectOptions {
   shouldSkip: ElementPredicate;
@@ -641,6 +649,7 @@ function resolveCollectOptions(
   return {
     shouldSkip: (node) =>
       skipTagSet.has(node.tagName) ||
+      isValueOption(node) ||
       hasSkipClass(node) ||
       (shouldSkip?.(node) ?? false),
     // Inverted mode transforms every non-skipped element except non-prose
@@ -837,6 +846,17 @@ function runViewOf(
   return nodes.length === 0 ? null : buildProseView(nodes);
 }
 
+// Runs the full pipeline over flattened prose as one view, with each opaque gap
+// held by a placeholder so quotes pair across it (see `runAcrossOpaqueGaps`).
+function transformProse(
+  { nodes, opaqueBefore }: FlattenedProse,
+  transformOptions: TransformOptions,
+): void {
+  runAcrossOpaqueGaps(nodes, opaqueBefore, (view) =>
+    transformView(view, transformOptions),
+  );
+}
+
 function markDescendants(
   node: Element,
   set: Set<Element>,
@@ -874,14 +894,10 @@ function transformRootProse(
   let run: ElementContent[] = [];
   const flushRun = () => {
     if (runHasProse(run, shouldSkip)) {
-      const { nodes, opaqueBefore } = flattenRootRunProse(
-        run,
-        shouldSkip,
-        viewOptions,
+      transformProse(
+        flattenRootRunProse(run, shouldSkip, viewOptions),
+        transformOptions,
       );
-      for (const group of splitAtIndices(nodes, opaqueBefore)) {
-        transformView(buildProseView(group), transformOptions);
-      }
       for (const child of run) {
         if (child.type === "element") {
           transformed.add(child);
@@ -892,7 +908,8 @@ function transformRootProse(
     run = [];
   };
 
-  // Only bare text and inline prose elements merge into a run. Block elements
+  // Only bare text and inline elements merge into a run: prose elements, plus
+  // opaque ones (`<kbd>`, `<img>`) that quotes must pair across. Block elements
   // and non-transformable structural wrappers (`<html>`/`<head>`/`<body>` under
   // a full-document parse, or a non-allowlisted element in default mode) are
   // boundaries left to the element visitor, so their subtrees keep the same
@@ -904,7 +921,9 @@ function transformRootProse(
       child.type === "comment" ||
       (child.type === "element" &&
         !BLOCK_ELEMENTS.has(child.tagName) &&
-        isTransformable(child.tagName));
+        (isTransformable(child.tagName) ||
+          OPAQUE_VOID_TAGS.has(child.tagName) ||
+          shouldSkip(child)));
     if (isRunMember) {
       run.push(child);
     } else {
@@ -974,23 +993,24 @@ export function rehypePunctilio(
       for (const unit of units) {
         if (unit.kind === "element") {
           if (!transformed.has(unit.element)) {
-            for (const view of proseViewsOf(unit.element, viewOptions)) {
-              transformView(view, transformOptions);
-            }
+            transformProse(
+              flattenProse(unit.element, shouldSkip, viewOptions),
+              transformOptions,
+            );
             transformed.add(unit.element);
             // Mark all descendants as processed since their text was included
             markDescendants(unit.element, transformed);
           }
         } else {
-          const { nodes, opaqueBefore } = flattenRunProse(
-            unit.container,
-            unit.children,
-            shouldSkip,
-            viewOptions,
+          transformProse(
+            flattenRunProse(
+              unit.container,
+              unit.children,
+              shouldSkip,
+              viewOptions,
+            ),
+            transformOptions,
           );
-          for (const group of splitAtIndices(nodes, opaqueBefore)) {
-            transformView(buildProseView(group), transformOptions);
-          }
           // Mark the container so a later visit doesn't re-collect its runs,
           // and mark the run's inline-element members' subtrees.
           transformed.add(unit.container);
