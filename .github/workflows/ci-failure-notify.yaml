@@ -19,24 +19,25 @@ on: # zizmor: ignore[dangerous-triggers]
     types: [completed]
     workflows:
       - Auto-resolve merge conflicts
-      - Auto version bump and publish
+      - Auto Version Bump and Publish
       - CI failure-rate report
       - Claude reviewer-hold sweeper
       - CodeQL
+      - Coverage Badge
       - Format check
       - Gitleaks Secret Scanning
       - Hook lifecycle
       - Lint
       - Mutation testing
       - Nightly fuzz
-      - Node tests
       - Package smoke test
       - PR meta (privileged)
-      - pre-commit
+      - Refresh mutation weights
       - Release canary
       - Weekly Security & Dependency Remediation
       - Sync required status checks
       - Sync from Template
+      - Test
       - Validate config
       - zizmor
     # This notifier only alerts on a push/schedule failure of the default

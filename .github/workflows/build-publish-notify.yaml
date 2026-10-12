@@ -26,7 +26,7 @@ on: # zizmor: ignore[dangerous-triggers]
   workflow_run:
     types: [completed]
     workflows:
-      - Auto version bump and publish
+      - Auto Version Bump and Publish
       - Release canary
     # Both watched workflows run only from the default branch (a push trigger
     # scoped to it, or a manual dispatch conventionally run from it); narrowing

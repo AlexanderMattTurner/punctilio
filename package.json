@@ -51,7 +51,7 @@
   "scripts": {
     "build": "tsc",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
-    "test:scripts": "node --test scripts/*.test.mjs",
+    "test:scripts": "node --test scripts/*.test.mjs .github/scripts/*.test.mjs",
     "lint": "eslint src scripts",
     "typecheck:scripts": "tsc --noEmit -p tsconfig.scripts.json",
     "benchmark": "pnpm run build && node benchmark.mjs",
@@ -118,6 +118,7 @@
     "retext": "9.0.0",
     "retext-smartypants": "6.2.0",
     "seedrandom": "3.0.5",
+    "semver": "7.8.2",
     "smartquotes": "2.3.2",
     "smartypants": "0.2.2",
     "tipograph": "0.7.4",

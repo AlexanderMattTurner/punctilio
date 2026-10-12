@@ -127,7 +127,9 @@ env:
   # auto-version.yaml would race auto-version.yml to publish. The template's
   # release scripts (version-bump.sh, promote-changelog.mjs and its test) are
   # used only by its auto-version.yaml, so they are excluded with it.
-  EXCLUDE_PATHS: ".github/workflows/security-vulnerability-scan.yaml .github/prompts/security-vulnerability-scan.md .github/scripts/auto-resolve .github/workflows/auto-version.yaml .github/workflows/lint.yaml .github/workflows/node-tests.yaml .github/workflows/pre-commit.yaml .github/workflows/claude.yaml .github/scripts/version-bump.sh .github/scripts/promote-changelog.mjs .github/scripts/version-bump.test.mjs"
+  # The markdownlint orphan-table-row rule needs a markdownlint-cli2 config that
+  # punctilio does not have, so it is excluded too.
+  EXCLUDE_PATHS: ".github/workflows/security-vulnerability-scan.yaml .github/prompts/security-vulnerability-scan.md .github/scripts/auto-resolve .github/workflows/auto-version.yaml .github/workflows/lint.yaml .github/workflows/node-tests.yaml .github/workflows/pre-commit.yaml .github/workflows/claude.yaml .github/scripts/version-bump.sh .github/scripts/promote-changelog.mjs .github/scripts/version-bump.test.mjs .github/scripts/markdownlint-orphan-table-row.mjs .github/scripts/markdownlint-orphan-table-row.test.mjs"
   # Files the sync UPDATES but never INTRODUCES. Absent from the child repo they
   # are skipped; present, they sync like anything else. This is the opt-in half
   # of EXCLUDE_PATHS: opting in is creating the file once, opting out is deleting

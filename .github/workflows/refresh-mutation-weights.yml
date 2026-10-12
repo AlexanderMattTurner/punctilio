@@ -2,8 +2,8 @@ name: Refresh mutation weights
 
 # mutation.yml balances its shards from config/mutation-weights.json — a map of
 # measured test executions per source file. That map drifts as source and tests
-# change, so weekly this job remeasures it and commits the result to main if it
-# changed. The map is derived data, not source, so no review gate is needed; an
+# change, so weekly this job remeasures it and opens a PR with the result if it
+# changed (main's required status checks reject a direct push). An
 # untimed newcomer is over-weighted at the known p90 by the planner until the
 # next refresh folds it in, so a stale week only means slightly looser shard
 # balance, never a broken run.
@@ -71,15 +71,20 @@ jobs:
       # is all the measurement needs; a crash leaves no report and the extract
       # step fails loudly on its absence.
       - name: Measure shard (full, no cache)
-        run: pnpm run mutation --mutate "${{ matrix.mutate }}" --reporters json --incrementalFile "reports/fresh-${{ matrix.index }}.json" || echo "stryker exited non-zero; checking for a report"
+        env:
+          MUTATE: ${{ matrix.mutate }}
+          SHARD_INDEX: ${{ matrix.index }}
+        run: pnpm run mutation --mutate "$MUTATE" --reporters json --incrementalFile "reports/fresh-$SHARD_INDEX.json" || echo "stryker exited non-zero; checking for a report"
 
       - name: Extract this shard's weights
+        env:
+          SHARD_INDEX: ${{ matrix.index }}
         run: |
           test -f reports/mutation/mutation.json || {
-            echo "::error::shard ${{ matrix.index }} produced no report — the run crashed"
+            echo "::error::shard $SHARD_INDEX produced no report — the run crashed"
             exit 1
           }
-          node scripts/mutation-weights.mjs report --out "weights-${{ matrix.index }}.json"
+          node scripts/mutation-weights.mjs report --out "weights-$SHARD_INDEX.json"
 
       - name: Upload shard weights
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -89,12 +94,13 @@ jobs:
           if-no-files-found: error
 
   merge:
-    name: Merge weights and push to main
+    name: Merge weights and open a PR
     needs: [prep, measure]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
-      contents: write # push the refreshed map to main
+      contents: write # push the refresh-mutation-weights branch
+      pull-requests: write # open the PR when falling back to GITHUB_TOKEN
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -111,19 +117,23 @@ jobs:
       - name: Merge into the committed map
         run: node scripts/mutation-weights.mjs merge shard-weights/*.json --out config/mutation-weights.json
 
-      - name: Commit and push to main if the map changed
-        env:
-          # PUSH_TOKEN (a PAT/app token allowed to push to protected main) lands
-          # the commit; without it the push falls back to GITHUB_TOKEN, which
-          # branch protection may reject.
-          TOKEN: ${{ secrets.PUSH_TOKEN || secrets.GITHUB_TOKEN }}
-        run: |
-          if git diff --quiet -- config/mutation-weights.json; then
-            echo "mutation weights unchanged; nothing to commit"
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add config/mutation-weights.json
-          git commit -m "chore(ci): refresh mutation weights map [skip ci]"
-          git push "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:main
+      # main is protected by required status checks, so the refreshed map lands
+      # through a PR rather than a direct push. A PR authored under GITHUB_TOKEN
+      # doesn't trigger other on:pull_request workflows (GitHub's recursion
+      # guard), so its required checks would never report; TEMPLATE_SYNC_TOKEN_ORG
+      # gets it real CI. No-op when the map is unchanged.
+      - name: Open a PR if the map changed
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8
+        with:
+          # token-fallback-ok: GITHUB_TOKEN still opens the PR when the org PAT
+          # isn't configured, just without triggering its checks until a push.
+          token: ${{ secrets.TEMPLATE_SYNC_TOKEN_ORG || secrets.GITHUB_TOKEN }}
+          add-paths: config/mutation-weights.json
+          commit-message: "chore(ci): refresh mutation weights map"
+          title: "chore(ci): refresh mutation weights map"
+          body: |
+            Weekly remeasurement of `config/mutation-weights.json` from a
+            cache-disabled sharded mutation run. The map only balances
+            mutation.yml's shards; it never changes what is tested.
+          branch: refresh-mutation-weights
+          delete-branch: true

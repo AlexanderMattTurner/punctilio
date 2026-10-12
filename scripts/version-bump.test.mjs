@@ -51,11 +51,12 @@ const NPM_AT_5_STUB =
   'if [[ "$2" == *@* ]]; then exit 0; else echo "5.0.0"; fi';
 
 /** Build a throwaway git repo tagged v0.0.0 at HEAD, plus a stubbed `npm`. */
-function makeSandbox(npmStubBody) {
+function makeSandbox(npmStubBody, packageExtras = {}) {
   const dir = mkdtempSync(join(tmpdir(), "vbump-"));
   writeFileSync(
     join(dir, "package.json"),
-    JSON.stringify({ name: "sandbox-pkg", version: "0.0.0" }) + "\n",
+    JSON.stringify({ name: "sandbox-pkg", version: "0.0.0", ...packageExtras }) +
+      "\n",
   );
   const binDir = join(dir, "stub-bin");
   mkdirSync(binDir);
@@ -118,3 +119,133 @@ for (const { name, subject, body } of [
     }
   });
 }
+
+// --- Current-version lookup and self-publish guard ------------------------
+// Only npm's E404 for a never-published package means "first release"; any
+// other `npm view` failure must abort, never restart the line at 0.0.1. Each
+// releasable case stops at the "already exists" probe, so nothing publishes.
+const PROBE_EXISTS = 'if [[ "$2" == *@* ]]; then exit 0; fi;';
+for (const { name, npmStub, packageExtras, status, expected, forbidden } of [
+  {
+    name: "an npm 404 starts the first release",
+    npmStub: `${PROBE_EXISTS} echo "npm error code E404" >&2; exit 1`,
+    status: 0,
+    expected: /New version: 0\.0\.1/,
+  },
+  {
+    name: "a non-404 npm failure aborts",
+    npmStub: `${PROBE_EXISTS} echo "npm error code ECONNRESET" >&2; exit 1`,
+    status: 1,
+    expected: /npm view failed for 'sandbox-pkg' \(not a 404 for an unpublished package\):\nnpm error code ECONNRESET/,
+    forbidden: /New version:/,
+  },
+  {
+    name: "a non-semver npm version aborts",
+    npmStub: `${PROBE_EXISTS} echo "5.0.0-beta.1"`,
+    status: 1,
+    expected: /non-semver current version: '5\.0\.0-beta\.1'/,
+    forbidden: /New version:/,
+  },
+  {
+    name: "a private package never publishes",
+    npmStub: "exit 99",
+    packageExtras: { private: true },
+    status: 0,
+    expected: /"private": true; this repo does not publish to npm\. Skipping\./,
+    forbidden: /Current npm version/,
+  },
+]) {
+  test(name, () => {
+    const { dir, binDir } = makeSandbox(npmStub, packageExtras);
+    try {
+      execFileSync("git", ["commit", "-q", "--allow-empty", "-m", "fix: x"], {
+        cwd: dir,
+      });
+      const result = runScript(dir, binDir);
+      assert.equal(result.status, status, result.stderr);
+      assert.match(result.stderr, expected);
+      if (forbidden) assert.doesNotMatch(result.stderr, forbidden);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+}
+
+test("a range containing only release-docs commits is skipped, not re-released", () => {
+  // The tag marks the published commit, so after every successful release HEAD
+  // sits one "docs: release ..." commit past it; a re-dispatch must not read
+  // that commit as releasable work.
+  const { dir, binDir } = makeSandbox(NPM_AT_5_STUB);
+  try {
+    execFileSync(
+      "git",
+      ["commit", "-q", "--allow-empty", "-m", "docs: release 5.0.0 [skip ci]"],
+      { cwd: dir },
+    );
+    const { status, stderr } = runScript(dir, binDir);
+    assert.equal(status, 0, stderr);
+    assert.match(stderr, /Only release-docs commits since v0\.0\.0\. Skipping\./);
+    assert.doesNotMatch(stderr, /New version:/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// --- Tag ordering: the dedup tag lands before the docs push ----------------
+// A docs-push failure (e.g. main moved underneath the run) must still fail the
+// run, but only after the vX.Y.Z tag reached the remote; otherwise the next
+// run re-reads the climbing npm version and bumps again.
+test("tag is pushed before the docs push; a docs-push failure exits non-zero with the tag landed", () => {
+  const { dir, binDir } = makeSandbox(
+    'if [[ "$2" == *@* ]]; then exit 1; else echo "5.0.0"; fi',
+  );
+  try {
+    // `pnpm publish` succeeds offline; `pnpm exec` (the changelog helper)
+    // edits CHANGELOG.md so the run has a release-docs commit to push.
+    writeFileSync(
+      join(binDir, "pnpm"),
+      '#!/usr/bin/env bash\nif [[ "$1" == exec ]]; then echo promoted >> CHANGELOG.md; fi\nexit 0\n',
+    );
+    chmodSync(join(binDir, "pnpm"), 0o755);
+    // retry_cmd sleeps between attempts; make the failing-push retries instant.
+    writeFileSync(join(binDir, "sleep"), "#!/usr/bin/env bash\nexit 0\n");
+    chmodSync(join(binDir, "sleep"), 0o755);
+
+    // Bare origin that accepts tag pushes but rejects branch pushes.
+    const origin = join(dir, "origin.git");
+    execFileSync("git", ["init", "-q", "--bare", origin]);
+    const preReceive = join(origin, "hooks", "pre-receive");
+    writeFileSync(
+      preReceive,
+      '#!/usr/bin/env bash\nwhile read -r _old _new ref; do\n  [[ "$ref" == refs/heads/* ]] && exit 1\ndone\nexit 0\n',
+    );
+    chmodSync(preReceive, 0o755);
+    execFileSync("git", ["remote", "add", "origin", origin], { cwd: dir });
+    writeFileSync(
+      join(dir, "CHANGELOG.md"),
+      "# Changelog\n\n## Unreleased\n\n- a thing\n",
+    );
+    writeFileSync(join(dir, "README.md"), "# sandbox\n");
+    execFileSync("git", ["add", "CHANGELOG.md", "README.md"], { cwd: dir });
+    execFileSync("git", ["commit", "-q", "-m", "feat: releasable work"], {
+      cwd: dir,
+    });
+
+    const { status, stderr } = runScript(dir, binDir);
+    assert.notEqual(status, 0, "a failed docs push must fail the run");
+    const tagIndex = stderr.indexOf("Pushed tag v5.1.0");
+    const docsFailureIndex = stderr.indexOf(
+      "failed to push the release-docs update",
+    );
+    assert.ok(tagIndex !== -1, stderr);
+    assert.ok(docsFailureIndex > tagIndex, stderr);
+    assert.match(
+      execFileSync("git", ["ls-remote", "--tags", origin], {
+        encoding: "utf8",
+      }),
+      /refs\/tags\/v5\.1\.0/,
+    );
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

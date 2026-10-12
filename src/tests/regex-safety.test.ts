@@ -71,13 +71,18 @@ describe("regex safety (runtime introspection)", () => {
       })
     }
 
-    const vulnerable = results.filter((r) => r.result.status === "vulnerable")
-    if (vulnerable.length > 0) {
-      const details = vulnerable
-        .map((v) => `  /${v.source}/${v.flags}`)
+    // Anything short of a "safe" verdict fails: "unknown" (an analysis error or
+    // timeout) proves nothing about the regex, so it must not pass as safe.
+    const notSafe = results.filter((r) => r.result.status !== "safe")
+    if (notSafe.length > 0) {
+      const details = notSafe
+        .map((v) => {
+          const reason = v.result.status === "unknown" ? `: ${v.result.error.message}` : ""
+          return `  [${v.result.status}${reason}] /${v.source}/${v.flags}`
+        })
         .join("\n")
       throw new Error(
-        `recheck flagged ${vulnerable.length} cached regex(es) as ReDoS-vulnerable:\n${details}`,
+        `recheck did not prove ${notSafe.length} cached regex(es) ReDoS-safe:\n${details}`,
       )
     }
   }, 600_000)

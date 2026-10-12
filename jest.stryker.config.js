@@ -6,9 +6,8 @@ import baseConfig from "./jest.config.js"
 // code. regex-safety.test.ts is excluded because it is a recheck ReDoS
 // analysis gate with a 10-minute budget, not a behavioral test, so running
 // it per-mutant gives no mutation-killing signal. fuzz.test.ts is excluded
-// because its properties draw a fresh random seed every run: per-mutant they
-// are slow and kill mutants nondeterministically, which poisons the
-// incremental report.
+// because each property explores thousands of generated inputs, which is too
+// slow to repeat for every mutant.
 /** @type {import('jest').Config} */
 export default {
   ...baseConfig,

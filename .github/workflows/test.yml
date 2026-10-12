@@ -52,6 +52,12 @@ jobs:
       - name: Run tests
         run: pnpm test
 
+      # The PR-review script tests import agent-input-sanitizer, which the
+      # template installs into .github/scripts/node_modules rather than the
+      # repo's own package.json.
+      - name: Install PR-review script dependency
+        run: bash .github/scripts/install-input-sanitizer.sh
+
       - name: Run script tests
         run: pnpm test:scripts
 
@@ -72,8 +78,9 @@ jobs:
       - name: Run benchmark
         run: pnpm build && node benchmark.mjs --min-passes 158
 
-  all-checks-passed:
-    name: All checks passed
+  # Stable Required check: runs even when a needed job is cancelled/skipped, so
+  # a protected branch never gets stuck on a check that never reports.
+  test-passed: # required-check: true
     needs: [test, benchmark]
     runs-on: ubuntu-latest
     timeout-minutes: 5
