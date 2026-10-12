@@ -66,6 +66,30 @@ describe("transformHtml", () => {
     expect(result.toLowerCase()).toContain("<!doctype html>")
   })
 
+  const FULL_DOCUMENT_BODY = '<head><title>T</title></head><body><p>"Hi"</p></body></html>'
+  it.each([
+    ["a doctype", `<!DOCTYPE html><html>${FULL_DOCUMENT_BODY}`, undefined, true],
+    ["a lowercase doctype", `<!doctype html><html>${FULL_DOCUMENT_BODY}`, undefined, true],
+    ["an <html> tag with attributes", `<HTML lang="en">${FULL_DOCUMENT_BODY}`, undefined, true],
+    ["a bare <html> tag", `<html>${FULL_DOCUMENT_BODY}`, undefined, true],
+    ["a BOM and whitespace before the doctype", `\uFEFF \n<!doctype html><html>${FULL_DOCUMENT_BODY}`, undefined, true],
+    ["comments before the doctype", `<!-- a --> <!-- b -->\n<!doctype html><html>${FULL_DOCUMENT_BODY}`, undefined, true],
+    ["a fragment starting with a tag that merely begins with html", `<htmlx>${FULL_DOCUMENT_BODY}`, undefined, false],
+    ["a plain fragment", '<p>"Hi"</p>', undefined, false],
+    ["a comment followed by a fragment", `<!-- c --><p>"Hi"</p>`, undefined, false],
+    ["a doctype with fragment=true", `<!doctype html><html>${FULL_DOCUMENT_BODY}`, true, false],
+    ["a fragment with fragment=false", '<p>"Hi"</p>', false, true],
+  ])("auto-detects full documents: %s", async (_label, input, fragment, keepsDocumentStructure) => {
+    const result = (await transformHtml(input, { fragment, nbsp: false })).toLowerCase()
+    expect(result.includes("<head>")).toBe(keepsDocumentStructure)
+    expect(result.includes("<body>")).toBe(keepsDocumentStructure)
+    expect(result).toContain(`${LDQ}hi${RDQ}`)
+  })
+
+  it("treats an unterminated leading comment as a fragment", async () => {
+    expect(await transformHtml("<!-- <html>", { nbsp: false })).toBe("<!-- <html>-->")
+  })
+
   it("transforms ellipses and em-dashes", async () => {
     const result = await transformHtml(
       "<p>Wait... it's -- complicated.</p>",
