@@ -28,9 +28,8 @@ jobs:
           # which is protected by a required-status-checks ruleset the `[skip ci]`
           # commit can't satisfy. GITHUB_TOKEN is not a bypass actor (its push is
           # rejected with GH013, stranding the tag); TEMPLATE_SYNC_TOKEN_ORG is
-          # the org PAT registered as a ruleset bypass actor. Falls back to
-          # GITHUB_TOKEN only when unset (a fork).
-          # token-fallback-ok: the ruleset-bypass PAT is the push identity; GITHUB_TOKEN is used only in a fork that has no PAT.
+          # the org PAT registered as a ruleset bypass actor.
+          # token-fallback-ok: GITHUB_TOKEN is used only when the PAT is unset (a fork).
           token: ${{ secrets.TEMPLATE_SYNC_TOKEN_ORG || secrets.GITHUB_TOKEN }}
 
       - name: Setup

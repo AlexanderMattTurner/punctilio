@@ -114,15 +114,13 @@ if [ -n "$LAST_TAG" ]; then
   COMMITS_RAW=$(git log "$LAST_TAG"..HEAD --pretty=format:"- %s" --no-merges)
   COMMIT_SUBJECTS=$(git log "$LAST_TAG"..HEAD --pretty=format:%s --no-merges)
   COMMIT_MESSAGES=$(git log "$LAST_TAG"..HEAD --pretty=format:%B --no-merges)
-  # echo-fallback-ok: the diff stat is prompt context for changelog prose only; the bump decision never reads it.
-  DIFF_STAT=$(git diff --stat "$LAST_TAG"..HEAD 2>/dev/null || echo "Unable to get diff")
+  DIFF_STAT=$(git diff --stat "$LAST_TAG"..HEAD)
 else
   # No version tags found — analyze recent commits
   COMMITS_RAW=$(git log --pretty=format:"- %s" --no-merges -20)
   COMMIT_SUBJECTS=$(git log --pretty=format:%s --no-merges -20)
   COMMIT_MESSAGES=$(git log --pretty=format:%B --no-merges -20)
-  # echo-fallback-ok: the diff stat is prompt context for changelog prose only; the bump decision never reads it.
-  DIFF_STAT=$(git show --stat HEAD 2>/dev/null || echo "Unable to get diff")
+  DIFF_STAT=$(git show --stat HEAD)
 fi
 
 # Cap commit-message length: keep 20 lines, truncate each to 100 characters, and
