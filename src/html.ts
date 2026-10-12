@@ -3,7 +3,8 @@ import rehypeParse from "rehype-parse"
 import rehypeStringify from "rehype-stringify"
 import QuickLRU from "quick-lru"
 
-import { REHYPE_ONLY_OPTION_KEYS, REHYPE_OPTION_KEYS, rehypePunctilio, type RehypePunctilioOptions } from "./rehype.js"
+import { rehypePunctilio, type RehypePunctilioOptions } from "./rehype.js"
+import { HTML_ONLY_OPTION_KEYS, HTML_OPTION_KEYS } from "./sink-option-keys.js"
 import { assertKnownOptionKeys, stableStringify } from "./utils.js"
 
 export interface HtmlOptions extends RehypePunctilioOptions {
@@ -15,12 +16,7 @@ export interface HtmlOptions extends RehypePunctilioOptions {
   fragment?: boolean
 }
 
-/** Option keys handled by the HTML pipeline (parser plus rehype plugin)
- * rather than `transform()`. */
-export const HTML_ONLY_OPTION_KEYS: readonly string[] = ["fragment", ...REHYPE_ONLY_OPTION_KEYS]
-
-/** Runtime list of valid `transformHtml` option keys. */
-export const HTML_OPTION_KEYS: readonly string[] = [...REHYPE_OPTION_KEYS, "fragment"]
+export { HTML_ONLY_OPTION_KEYS, HTML_OPTION_KEYS }
 
 function createProcessor(options: HtmlOptions) {
   const { fragment, ...punctilioOptions } = options
