@@ -83,13 +83,15 @@ jobs:
           restore-keys: |
             stryker-incremental-${{ matrix.index }}-
 
+      # stryker.shard.config.mjs drops thresholds.break: Stryker applies it per
+      # shard, so the gate is the aggregate-score step in the weights-map job.
+      # No `--` before the flags: pnpm forwards it literally and Stryker's
+      # CLI rejects it as a positional argument.
       - name: Run mutation tests
-        # No `--` before the flags: pnpm forwards it literally and Stryker's
-        # CLI rejects it as a positional argument.
         env:
           MUTATE: ${{ matrix.mutate }}
           SHARD_INDEX: ${{ matrix.index }}
-        run: pnpm run mutation --mutate "$MUTATE" --incrementalFile "reports/stryker-incremental-$SHARD_INDEX.json"
+        run: pnpm run mutation stryker.shard.config.mjs --mutate "$MUTATE" --incrementalFile "reports/stryker-incremental-$SHARD_INDEX.json"
 
       - name: Upload mutation report
         if: always()
@@ -99,21 +101,25 @@ jobs:
           path: reports/mutation/
           if-no-files-found: ignore
 
-  # Merge every shard's measured weights and print the map between markers, so it
-  # can be read from one job log and committed to config/mutation-weights.json.
-  # The weekly refresh does the same from a clean (cache-disabled) run; this is a
-  # live view of what the current run measured and the seed source for the map.
+  # Print every shard's merged weights between markers (the live seed for
+  # config/mutation-weights.json; the weekly refresh does the same from a clean
+  # run), then gate the run: fail when the pooled score of all shards is under
+  # stryker.config.json's thresholds.break, or when a shard left no report.
   weights-map:
-    name: Merged weights map
-    needs: mutation
+    name: Merged weights map and aggregate score
+    needs: [prep, mutation]
     if: always()
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
+      - name: Setup
+        uses: ./.github/actions/setup
+        with:
+          node-version: 22
       - name: Download shard reports
         uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e # v4.2.1
         with:
@@ -128,3 +134,11 @@ jobs:
           echo "PUNCTILIO_MERGED_WEIGHTS_BEGIN"
           node scripts/mutation-weights.mjs merge shard-reports/mutation-report-*/mutation.json.weights.json
           echo "PUNCTILIO_MERGED_WEIGHTS_END"
+      - name: Gate the aggregate mutation score
+        if: ${{ !cancelled() }}
+        env:
+          SHARDS: ${{ needs.prep.outputs.shards }}
+        run: |
+          shopt -s nullglob
+          node scripts/mutation-score.mjs shard-reports/mutation-report-*/mutation.json \
+            --expect-shards "$(jq length <<<"$SHARDS")"
