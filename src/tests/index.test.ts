@@ -747,6 +747,18 @@ describe("transform", () => {
       )
     })
 
+    it.each([
+      [null, "null"],
+      ["american", "string"],
+      [5, "number"],
+      [true, "boolean"],
+      [[], "an array"],
+    ])("rejects non-object options %j with a clear error", (options, described) => {
+      expect(() => transform("hello", options as never)).toThrow(
+        new TypeError(`transform options must be an object, got ${described}.`)
+      )
+    })
+
     it("coalesces an explicit null style to the default (Required return contract)", () => {
       // JS callers outside the type system can pass null; it must not survive
       // into the resolved options, which are typed Required<TransformOptions>.

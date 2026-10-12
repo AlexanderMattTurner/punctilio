@@ -35,8 +35,9 @@ export interface TransformOptions {
    *   (U+201E/U+201C double, U+201A/U+2018 single). Punctuation outside quotes.
    * - `"french"`: French style. Uses guillemets with NNBSP padding: «\u202F...\u202F»
    *   Single quotes remain as curly quotes. Punctuation outside quotes.
-   * - `"none"`: Skip all quote and punctuation transforms entirely.
-   *   Straight quotes, apostrophes, and prime marks are left unmodified.
+   * - `"none"`: Skip quote classification and prime conversion. Straight
+   *   quotes, apostrophes, and prime marks are left unmodified; a U+02BC
+   *   modifier-letter apostrophe is still normalized to U+2019.
    *
    * Default: "american"
    */
@@ -121,6 +122,14 @@ export type ResolvedTransformOptions = Required<TransformOptions>
 
 /** Validates `options` and fills in the defaults. */
 export function resolveTransformOptions(options: TransformOptions): ResolvedTransformOptions {
+  // JS callers outside the type system can pass null, a string, or an array;
+  // `Object.keys` would otherwise throw an opaque TypeError or enumerate a
+  // string's indices as unknown option names.
+  if (options === null || typeof options !== "object" || Array.isArray(options)) {
+    throw new TypeError(
+      `transform options must be an object, got ${options === null ? "null" : Array.isArray(options) ? "an array" : typeof options}.`
+    )
+  }
   assertKnownOptionKeys(options, TRANSFORM_OPTION_KEYS, "transform")
 
   const punctuationStyle = options.punctuationStyle ?? "american"

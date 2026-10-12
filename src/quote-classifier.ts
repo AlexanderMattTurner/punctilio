@@ -1,4 +1,4 @@
-import { FOLDED_WORD_CHARS, LATIN_LETTER_RE, SPACE_CHAR_RE, TERMINAL_PUNCTUATION, UNICODE_SYMBOLS, WORD_RE } from "./constants.js"
+import { CLOSING_BRACKETS, FOLDED_WORD_CHARS, LATIN_LETTER_RE, OPENING_BRACKETS, SPACE_CHAR_RE, TERMINAL_PUNCTUATION, UNICODE_SYMBOLS, WORD_RE } from "./constants.js"
 import type { ProseView } from "./prose-view.js"
 
 const {
@@ -1034,11 +1034,11 @@ function applyRelocations(order: Item[], moves: Relocation[]): Item[] {
   return result
 }
 
-const OPEN_BRACKETS = new Set<string>(["(", "[", "{"])
-const CLOSE_BRACKETS = new Set<string>([")", "]", "}"])
+const OPEN_BRACKETS = new Set<string>(OPENING_BRACKETS)
+const CLOSE_BRACKETS = new Set<string>(CLOSING_BRACKETS)
 
 /**
- * Unmatched open brackets (`(`, `[`, `{`) strictly before each item — a
+ * Unmatched open brackets (see {@link OPENING_BRACKETS}) strictly before each item — a
  * position is inside a bracket pair when its entry is > 0. Brackets never move
  * during placement, so the depths hold across the fixpoint's rounds. Boundary
  * items are transparent; a closer with no opener above it floors the depth at 0.

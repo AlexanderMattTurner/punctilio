@@ -577,6 +577,10 @@ describe("niceQuotes", () => {
       ['("x") "a", "b"', `(${l}x${r}) ${l}a,${r} ${l}b${r}`],
       // A dangling comma with no following item is not a separator.
       ['("a", ', `(${l}a,${r} `],
+      // Fullwidth and CJK brackets enclose a list exactly like ASCII ones.
+      ...["\uFF08\uFF09", "\uFF3B\uFF3D", "\uFF5B\uFF5D", "\u3008\u3009", "\u300C\u300D", "\u3010\u3011"].map(
+        (pair): [string, string] => [`${pair[0]}${l}a${r}, ${l}b${r}${pair[1]}`, `${pair[0]}${l}a${r}, ${l}b${r}${pair[1]}`],
+      ),
     ])('places list-separator commas outside: "%s"', (input, expected) => {
       expect(niceQuotes(input)).toBe(expected)
       expect(niceQuotes(niceQuotes(input))).toBe(expected)
@@ -734,6 +738,10 @@ describe("niceQuotes", () => {
         ["It's a test"],
       ])("skips all quote transforms: %s", (input) => {
         expect(niceQuotes(input, { punctuationStyle: "none" })).toBe(input)
+      })
+
+      it("still normalizes U+02BC to U+2019", () => {
+        expect(niceQuotes("it\u02BCs 'x'", { punctuationStyle: "none" })).toBe(`it${RIGHT_SINGLE_QUOTE}s 'x'`)
       })
     })
   })
