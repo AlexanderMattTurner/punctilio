@@ -928,11 +928,11 @@ describe("niceQuotes", () => {
     })
 
     // Each row is the output a re-run reproduces, so the first run must reach
-    // it directly. French: a straight quote beside a guillemet reads as an opener
-    // or closer when one space separates them, or two once the guillemet's
-    // padding absorbs the NBSP/NNBSP beside it (a tab stays between the
-    // paddings); punctuation moved out of the quote leaves its NBSP behind, which
-    // the closer absorbs. German: U+2018/U+201C close only while a low-9 opener
+    // it directly. French: after punctuation placement, a straight quote beside
+    // a guillemet reads as an opener or closer when one space separates them, or
+    // two once the guillemet's padding absorbs the NBSP/NNBSP beside it (a tab
+    // stays between the paddings); punctuation moved out of the quote leaves its
+    // NBSP behind, which the closer absorbs. German: U+2018/U+201C close only while a low-9 opener
     // is open, so a glyph whose opener a straight candidate consumed is an
     // orphan classified by position, and a straight quote opening across a
     // node boundary turns the U+201C orphan after it into its closer.
@@ -950,6 +950,8 @@ describe("niceQuotes", () => {
       ["french", `x${NBSP}.${RIGHT_DOUBLE_QUOTE}`, `x${NNBSP}${RIGHT_GUILLEMET}.`],
       ["french", `x${NBSP},${RIGHT_DOUBLE_QUOTE}`, `x${NNBSP}${RIGHT_GUILLEMET},`],
       ["french", `${LEFT_DOUBLE_QUOTE}y${NNBSP}.${RIGHT_DOUBLE_QUOTE}`, `${LEFT_GUILLEMET}${NNBSP}y${NNBSP}${RIGHT_GUILLEMET}.`],
+      ["french", `" .${RIGHT_DOUBLE_QUOTE}`, `${LEFT_GUILLEMET}${NNBSP} ${NNBSP}${RIGHT_GUILLEMET}.`],
+      ["french", `"${NBSP},${RIGHT_DOUBLE_QUOTE}`, `${LEFT_GUILLEMET}${NNBSP}${NNBSP}${RIGHT_GUILLEMET},`],
       [
         "german",
         `z${SINGLE_LOW_9_QUOTE}^${RIGHT_SINGLE_QUOTE}]]${LEFT_SINGLE_QUOTE}${LEFT_SINGLE_QUOTE}`,

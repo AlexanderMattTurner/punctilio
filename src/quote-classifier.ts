@@ -1616,7 +1616,13 @@ export function classifyAndRenderQuotes(
   // re-run over the final order relabels it, so the first transform matches what
   // a re-run reads (classifyApostrophes "dogs.'" → "dogsʼ." in one pass).
   classifyPluralPossessives(placed, style)
-  if (style === "french") absorbGuillemetPadding(placed)
+  if (style === "french") {
+    // Punctuation moved out from between a straight quote's trailing space and
+    // a closer leaves the closer directly after that space, which the opener
+    // rule reads as the closer's padding. Re-run it on the placed order.
+    classifyOpeningDoubles(placed, style)
+    absorbGuillemetPadding(placed)
+  }
   queueRenderEdits(view, placed, renderTable(style, apostrophe))
   view.commit()
 }
