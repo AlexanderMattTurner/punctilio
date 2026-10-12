@@ -1,0 +1,91 @@
+name: CodeQL
+
+# Advanced setup, so the analysis can read .github/codeql/codeql-config.yml.
+# Default setup must be off in Settings → Code security, or this upload fails.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "27 4 * * 1" # weekly, Monday 04:27 UTC
+
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    # Two bounded init attempts (6 + 8 min) plus a minute or two of analysis.
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [javascript-typescript, actions]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      # init downloads the ~700 MB CodeQL bundle when the runner's toolcache
+      # misses it, and that stream has no timeout of its own. Bound it and retry
+      # once rather than letting a stalled download eat the whole job.
+      - name: Initialize CodeQL (attempt 1)
+        id: init1
+        continue-on-error: true
+        timeout-minutes: 6
+        uses: github/codeql-action/init@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
+        with:
+          languages: ${{ matrix.language }}
+          config-file: ./.github/codeql/codeql-config.yml
+
+      # A cut-off extraction leaves a half-written toolcache directory that the
+      # second attempt would adopt as complete, so clear it first.
+      - name: Discard a half-extracted CodeQL toolcache
+        if: steps.init1.outcome == 'failure'
+        run: rm -rf "${RUNNER_TOOL_CACHE:-/opt/hostedtoolcache}/CodeQL"
+
+      - name: Initialize CodeQL (attempt 2, final)
+        if: steps.init1.outcome == 'failure'
+        timeout-minutes: 8
+        uses: github/codeql-action/init@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
+        with:
+          languages: ${{ matrix.language }}
+          config-file: ./.github/codeql/codeql-config.yml
+
+      # A fork PR's token can't be granted security-events: write, so it analyzes
+      # without uploading rather than failing the required check on the upload.
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
+        with:
+          category: "/language:${{ matrix.language }}"
+          upload: ${{ github.event.pull_request.head.repo.fork && 'never' || 'always' }}
+
+  codeql-passed: # required-check: true
+    if: always()
+    needs: [analyze]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          sparse-checkout: |
+            .github/actions/report-job-result
+            .github/scripts
+          persist-credentials: false
+
+      - name: Report result
+        uses: ./.github/actions/report-job-result
+        with:
+          run: "true"
+          decide-result: "success"
+          result: ${{ needs.analyze.result }}

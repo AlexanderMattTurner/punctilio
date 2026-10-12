@@ -1,0 +1,33 @@
+// Renovate opens the routine version updates as ONE grouped pull request a week.
+// Dependabot (.github/dependabot.yml) stays enabled for security updates only:
+// its open-pull-requests-limit of 0 turns its version updates off.
+{
+  $schema: "https://docs.renovatebot.com/renovate-schema.json",
+
+  enabledManagers: ["npm", "github-actions", "nvm"],
+
+  // Slopsquat cooldown: a release must age a week before Renovate proposes it,
+  // so a malicious publish is usually caught and yanked before it lands here.
+  minimumReleaseAge: "7 days",
+
+  schedule: ["before 6am on monday"],
+  timezone: "UTC",
+
+  // Conventional Commits; the prefix is explicit, so don't let Renovate add its own.
+  commitMessagePrefix: "chore(deps):",
+  semanticCommits: "disabled",
+
+  // Majors ride the same branch so a run never splits into a second PR.
+  separateMajorMinor: false,
+
+  // Keep every action digest-pinned (`uses: owner/repo@<sha> # vX.Y.Z`);
+  // Renovate rewrites both the SHA and the version comment on bump.
+  "github-actions": { pinDigests: true },
+
+  packageRules: [
+    {
+      matchManagers: ["npm", "github-actions", "nvm"],
+      groupName: "all dependencies",
+    },
+  ],
+}

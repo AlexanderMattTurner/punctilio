@@ -20,11 +20,15 @@ on: # zizmor: ignore[dangerous-triggers]
       - Auto version bump and publish
       - CI failure-rate report
       - Claude reviewer-hold sweeper
+      - CodeQL
       - Format check
       - Gitleaks Secret Scanning
       - Hook lifecycle
       - Lint
+      - Mutation testing
+      - Nightly fuzz
       - Node tests
+      - Package smoke test
       - PR meta (privileged)
       - pre-commit
       - Release canary
