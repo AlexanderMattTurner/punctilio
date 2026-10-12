@@ -90,6 +90,23 @@ describe("fuzz: transform", () => {
     )
   }, TIMEOUT_MS)
 
+  // Each locale style gets its own run budget: a style drawn at random per
+  // case would dilute the style-specific placement and re-derivation rules.
+  it.each(["american", "british", "german", "french"] as const)(
+    "is idempotent under the %s punctuation style",
+    (punctuationStyle) => {
+      fc.assert(
+        fc.property(ARB_TEXT, ARB_OPTIONS, (text, options) => {
+          const styled = { ...options, punctuationStyle }
+          const once = transform(text, styled)
+          expect(transform(once, styled)).toBe(once)
+        }),
+        fcParams(2000),
+      )
+    },
+    TIMEOUT_MS,
+  )
+
   it("with all opt-in passes enabled is idempotent", () => {
     const allOn: TransformOptions = { degrees: true, fractions: true, ligatures: true, superscript: true }
     fc.assert(
