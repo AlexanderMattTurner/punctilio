@@ -739,6 +739,19 @@ describe("transform", () => {
     })
   })
 
+  // The symbols pass folds a trailing `x` into `×` after the dash rules ran, and
+  // `×` is no range suffix: a range followed by another segment and an `x` must
+  // convert on the first run, as a re-run over the folded glyph would.
+  describe("range decisions agree across the multiplication fold", () => {
+    it.each([
+      ["7-10-1x", `7${EN_DASH}10-1${MULTIPLICATION}`],
+      ["-5-3-1x", `${MINUS}5${EN_DASH}3-1${MULTIPLICATION}`],
+      ["7-10x", `7${EN_DASH}10${MULTIPLICATION}`],
+    ])("transform(%j) is %j", (input, expected) => {
+      expect(transform(input)).toBe(expected)
+    })
+  })
+
   // The fractions pass folds `7/8` into a glyph after the quote pass ran, so
   // the quote pass must read the glyph as the digit it folds from: a straight
   // quote between a digit and a letter stays straight, and a re-run over `⅞'B`

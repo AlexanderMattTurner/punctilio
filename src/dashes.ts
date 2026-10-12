@@ -388,7 +388,7 @@ interface ResolvedTail {
 function resolvePositiveTail(view: ProseView, endPos: number): ResolvedTail | null {
   const candidates = followingCandidates(view, endPos, true)
   for (let i = candidates.length - 1; i >= 0; i--) {
-    const suffixEnd = suffixWbeEnd(view, candidates[i], true)
+    const suffixEnd = suffixWbeEnd(view, candidates[i], true, i === 0)
     if (suffixEnd !== null) {
       return { followingEmpty: i === 0, consumedEnd: suffixEnd }
     }
@@ -463,7 +463,7 @@ function matchNegativeRangeAt(view: ProseView, i: number): number | null {
     const endPos = end.firstDigitStart + len
     const candidates = followingCandidates(view, endPos, false)
     for (let c = candidates.length - 1; c >= 0; c--) {
-      const suffixEnd = suffixWbeEnd(view, candidates[c], false)
+      const suffixEnd = suffixWbeEnd(view, candidates[c], false, c === 0)
       if (suffixEnd === null) continue
       if (c === 0) {
         view.replace(startEnd, negEnd, `${EN_DASH}${hasNeg ? MINUS : ""}`)
@@ -526,8 +526,12 @@ const RANGE_SUFFIX_RE = /[xKBTMCF]/
  * The `(?:[AaPp][Mm]|[xKBTMCF])?${wbe}` suffix at `pos`, with one tolerated
  * boundary before the suffix. Returns the end offset after the optional suffix
  * when the tail completes (wbe passes), or null when it does not.
+ *
+ * `allowMultiplier` admits the lowercase `x`. It folds to `×`, which is no
+ * suffix, so after a non-empty `following` a re-run reads the tail as failing
+ * and converts the leading range: `1-2-3x` must convert like `1-2-3×`.
  */
-function suffixWbeEnd(view: ProseView, pos: number, allowAmPm: boolean): number | null {
+function suffixWbeEnd(view: ProseView, pos: number, allowAmPm: boolean, allowMultiplier: boolean): number | null {
   if (wordBoundaryEndOk(view, pos)) return pos
   // An optional suffix: one tolerated boundary then am/pm or one of
   // {@link RANGE_SUFFIX_RE}'s letters, followed by wbe. The suffix letters sit
@@ -539,7 +543,7 @@ function suffixWbeEnd(view: ProseView, pos: number, allowAmPm: boolean): number 
   if (allowAmPm && /[ap]/i.test(text[pos] ?? "") && /m/i.test(text[pos + 1] ?? "") && !view.hasBoundary(pos + 1)) {
     return wordBoundaryEndOk(view, pos + 2) ? pos + 2 : null
   }
-  if (RANGE_SUFFIX_RE.test(text[pos] ?? "")) {
+  if (RANGE_SUFFIX_RE.test(text[pos] ?? "") && (allowMultiplier || text[pos] !== "x")) {
     return wordBoundaryEndOk(view, pos + 1) ? pos + 1 : null
   }
   return null
