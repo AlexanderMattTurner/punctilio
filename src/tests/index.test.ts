@@ -706,14 +706,16 @@ describe("transform", () => {
     })
   })
 
-  // The nbsp rules leave French guillemet padding (NNBSP) alone: an NBSP glue
-  // is undone by the next quote pass, and which rules fire on the padded word
-  // depends on glue elsewhere in the text.
-  describe("french guillemet padding survives the nbsp rules", () => {
+  // French guillemet padding (NNBSP) is a fixed point: the nbsp rules leave it
+  // alone (an NBSP glue is undone by the next quote pass, and which rules fire
+  // on the padded word depends on glue elsewhere in the text), and a space left
+  // beside a closer by moved punctuation is absorbed into the padding.
+  describe("french guillemet padding is a fixed point", () => {
     it.each([
       ['B";)(8\t&+', `B${NNBSP}${RIGHT_GUILLEMET};)(8${NBSP}&+`],
       [`a${NBSP}${RIGHT_GUILLEMET} b c`, `a${NNBSP}${RIGHT_GUILLEMET} b${NBSP}c`],
       ['foo bar"', `foo bar${NNBSP}${RIGHT_GUILLEMET}`],
+      [`^818_${EN_DASH}${NBSP}.${RIGHT_DOUBLE_QUOTE}`, `^818_${EN_DASH}${NNBSP}${RIGHT_GUILLEMET}.`],
     ])("transform(%j, french) is %j", (input, expected) => {
       expect(transform(input, { punctuationStyle: "french" })).toBe(expected)
     })

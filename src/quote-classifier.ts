@@ -1421,7 +1421,7 @@ function applyPunctuationPlacement(items: Item[], style: ActiveQuoteStyle, apost
 // Rendering
 // ---------------------------------------------------------------------------
 
-/** A one-char unmoved NBSP/NNBSP item textually adjacent at `offset`. */
+/** A one-char unmoved NBSP/NNBSP item. */
 function isPaddingSpaceItem(item: Item | undefined): item is Item {
   return item !== undefined && !item.boundary && !item.moved
     && item.end - item.start === 1 && (item.ch === NBSP || item.ch === NNBSP)
@@ -1429,11 +1429,14 @@ function isPaddingSpaceItem(item: Item | undefined): item is Item {
 
 /**
  * French renders double-quote glyphs with NNBSP padding. A source NBSP/NNBSP
- * directly adjacent to the glyph would collapse with that padding into one
- * space whose type wins by priority (NBSP beats NNBSP), which the next run
- * absorbs as the glyph's padding and re-renders NNBSP — an oscillation.
- * Absorb the adjacent space into the (single-char, i.e. unpadded) glyph item
- * now so its render replaces both with the padded form.
+ * that ends up directly adjacent to the glyph would collapse with that padding
+ * into one space whose type wins by priority (NBSP beats NNBSP), which the next
+ * run absorbs as the glyph's padding and re-renders NNBSP, an oscillation.
+ * Adjacent here means adjacent in the placed order: punctuation that placement
+ * moved out from between the space and the glyph leaves them textually apart.
+ * Absorb the space into the (single-char, i.e. unpadded) glyph item now so its
+ * render replaces both with the padded form, or delete it in place when moved
+ * punctuation still sits between them.
  */
 function absorbGuillemetPadding(items: Item[]): void {
   for (let i = 0; i < items.length; i++) {
@@ -1441,11 +1444,12 @@ function absorbGuillemetPadding(items: Item[]): void {
     if (item.boundary || item.moved || item.end - item.start !== 1) continue
     if (item.ch === RIGHT_DOUBLE_QUOTE) {
       const prev = items[i - 1]
-      if (isPaddingSpaceItem(prev) && prev.end === item.start) {
+      if (!isPaddingSpaceItem(prev)) continue
+      if (prev.end === item.start) {
         item.start = prev.start
         prev.end = prev.start
-        prev.ch = ""
       }
+      prev.ch = ""
     } else if (item.ch === LEFT_DOUBLE_QUOTE) {
       const next = items[i + 1]
       if (isPaddingSpaceItem(next) && next.start === item.end) {

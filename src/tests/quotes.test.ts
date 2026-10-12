@@ -18,6 +18,7 @@ const {
   SINGLE_LOW_9_QUOTE,
   LEFT_GUILLEMET,
   RIGHT_GUILLEMET,
+  NBSP,
   NNBSP,
 } = UNICODE_SYMBOLS
 
@@ -923,6 +924,19 @@ describe("niceQuotes", () => {
       const input = `a " ${RIGHT_DOUBLE_QUOTE}`
       const once = niceQuotes(input, { punctuationStyle: "french" })
       expect(once).toBe(`a ${LEFT_GUILLEMET}${NNBSP} ${NNBSP}${RIGHT_GUILLEMET}`)
+      expect(niceQuotes(once, { punctuationStyle: "french" })).toBe(once)
+    })
+
+    // Moving the period or comma out of the quote leaves the NBSP that preceded
+    // it directly before the closer, where a re-run absorbs it into the
+    // closer's NNBSP padding; the first run must absorb it too.
+    it.each([
+      [`x${NBSP}.${RIGHT_DOUBLE_QUOTE}`, `x${NNBSP}${RIGHT_GUILLEMET}.`],
+      [`x${NBSP},${RIGHT_DOUBLE_QUOTE}`, `x${NNBSP}${RIGHT_GUILLEMET},`],
+      [`${LEFT_DOUBLE_QUOTE}y${NNBSP}.${RIGHT_DOUBLE_QUOTE}`, `${LEFT_GUILLEMET}${NNBSP}y${NNBSP}${RIGHT_GUILLEMET}.`],
+    ])("french closer absorbs the space a moved punctuation mark leaves behind: %j", (input, expected) => {
+      const once = niceQuotes(input, { punctuationStyle: "french" })
+      expect(once).toBe(expected)
       expect(niceQuotes(once, { punctuationStyle: "french" })).toBe(once)
     })
 
