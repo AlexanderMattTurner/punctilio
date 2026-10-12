@@ -350,16 +350,20 @@ describe("replaceAllInView", () => {
     expect(view.text).toBe("a1bX");
   });
 
-  it("terminates on zero-length matches", () => {
-    const ns = nodes("abc");
-    const view = buildProseView(ns);
+  // One zero-length lookahead match before each character; terminates. With
+  // the u/v flags an astral character is one position, never split.
+  it.each([
+    ["no flag", /(?=[\s\S])/g, "abc", [0, 1, 2]],
+    ["u flag, astral char", /(?=[\s\S])/gu, "a😀b", [0, 1, 3]],
+    ["v flag, astral char", /(?=[\s\S])/gv, "a😀b", [0, 1, 3]],
+  ])("terminates on zero-length matches (%s)", (_name, regex, input, expected) => {
+    const view = buildProseView(nodes(input));
     const positions: number[] = [];
-    replaceAllInView(view, /(?=[\s\S])/g, (m) => {
+    replaceAllInView(view, regex, (m) => {
       positions.push(m.index);
       return null;
     });
-    // One zero-length lookahead match before each character; terminates.
-    expect(positions).toEqual([0, 1, 2]);
+    expect(positions).toEqual(expected);
   });
 
   it("passes bind option through for pure-insertion edits", () => {

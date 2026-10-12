@@ -7,6 +7,7 @@ import {
   nbspBeforeLastWord,
   nbspBetweenInitials,
   nbspBetweenNumberAndUnit,
+  nbspTransform,
 } from "../nbsp.js"
 import { UNICODE_SYMBOLS } from "../constants.js"
 import type { ProseView } from "../prose-view.js"
@@ -56,6 +57,7 @@ describe("nbsp boundary tolerance", () => {
     ["boundary inside unit", nbspBetweenNumberAndUnit, `5 k${S}g`],
     ["boundary inside shortWord", nbspAfterShortWords, `a${S}n cat`],
     ["boundary inside lastWord", nbspBeforeLastWord, `hello wor${S}ld`],
+    ["boundary after astral initial", nbspBetweenInitials, `𝐀${S}. 𝐁`],
   ])("blocks two-boundary / split-literal: %s", (_label, fn, input) => {
     expect(viewTransform(fn, input)).toBe(input)
   })
@@ -81,7 +83,8 @@ describe("nbsp boundary tolerance", () => {
     // last word binds directly without disturbing the `x`+NBSP glue.
     expect(viewTransform(nbspBeforeLastWord, `x${NBSP}word${S} end`))
       .toBe(`x${NBSP}word${S}${NBSP}end`)
-    // Without the boundary, the short-word glue on `x` yields to the last word.
-    expect(nbspBeforeLastWord(`x${NBSP}word end`)).toBe(`x word${NBSP}end`)
+    // Without the boundary, the short-word glue the pipeline inserted on `x`
+    // yields to the last word.
+    expect(nbspTransform("x word end")).toBe(`x word${NBSP}end`)
   })
 })

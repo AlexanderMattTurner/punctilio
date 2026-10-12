@@ -253,6 +253,10 @@ describe("nbspBetweenInitials", () => {
     ["the USA. Its people", "the USA. Its people"],
     ["СССР. Это", "СССР. Это"],
     ["Π. Δ. Καλός", `Π.${NBSP}Δ.${NBSP}Καλός`],
+    // Astral (surrogate-pair) capitals: the rejected word-final match resumes
+    // past the whole character.
+    ["𝐀. 𝐁 ok", `𝐀.${NBSP}𝐁 ok`],
+    ["x𝐀. 𝐁 ok", "x𝐀. 𝐁 ok"],
   ])('"%s" → "%s"', (input, expected) => {
     expect(nbspBetweenInitials(input)).toBe(expected)
   })
@@ -265,6 +269,19 @@ describe("nbspBetweenInitials", () => {
 })
 
 describe("nbspTransform", () => {
+  // The last-word rule only yields glue its own pipeline inserted (a no-break
+  // space the author wrote stays), and treats any Unicode letter or digit
+  // before the space as a word.
+  it.each([
+    [`We met in${NBSP}Paris today`, `We${NBSP}met in${NBSP}Paris today`],
+    [`x${NBSP}word end`, `x${NBSP}word end`],
+    ["Je suis all\u00E9 l\u00E0", `Je${NBSP}suis all\u00E9${NBSP}l\u00E0`],
+    ["\u041E\u043D \u043F\u0440\u0438\u0448\u0451\u043B \u0434\u043E\u043C\u043E\u0439", `\u041E\u043D \u043F\u0440\u0438\u0448\u0451\u043B${NBSP}\u0434\u043E\u043C\u043E\u0439`],
+  ])("nbspTransform(%j) is %j and a fixed point", (input, expected) => {
+    expect(nbspTransform(input)).toBe(expected)
+    expect(nbspTransform(expected)).toBe(expected)
+  })
+
   it("applies all nbsp transformations", () => {
     expect(nbspTransform("Dr. Smith wrote Fig. 1 on p. 42"))
       .toBe(`Dr.${NBSP}Smith wrote Fig.${NBSP}1 on p.${NBSP}42`)

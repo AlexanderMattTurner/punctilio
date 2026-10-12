@@ -433,7 +433,7 @@ describe("fold-stability of the != / ellipsis / possessive guards", () => {
     [`'.-2`, `${RIGHT_SINGLE_QUOTE}.-2`],
     // The decade-elision gate reads a folded word glyph like the word char
     // it folds from, so the apostrophe call is stable across the fold.
-    [`{'39${UNICODE_SYMBOLS.MULTIPLICATION}${SEP}'`, `{'39${UNICODE_SYMBOLS.MULTIPLICATION}${SEP}${RIGHT_SINGLE_QUOTE}`],
+    [`~'39${UNICODE_SYMBOLS.MULTIPLICATION}${SEP}'`, `~'39${UNICODE_SYMBOLS.MULTIPLICATION}${SEP}${RIGHT_SINGLE_QUOTE}`],
   ])("niceQuotes(%j) === %j", (input, expected) => {
     const once = viewTransform(niceQuotes, input, SEP)
     expect(once).toBe(expected)

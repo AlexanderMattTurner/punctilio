@@ -264,7 +264,7 @@ repos:
 - The `french` style uses guillemets padded with a narrow no-break space (U+202F), per Unicode CLDR's `fr` locale and the Imprimerie nationale's *Lexique des règles typographiques*: « Bonjour ».
   - Single quotes remain as curly quotes
   - Punctuation outside quotes
-- Setting either style to `none` skips the entire transform category: `punctuationStyle: 'none'` preserves straight quotes, apostrophes, and prime marks; `dashStyle: 'none'` preserves all hyphens, number ranges, date ranges, and minus signs.
+- Setting either style to `none` skips the entire transform category: `punctuationStyle: 'none'` preserves straight quotes, apostrophes, and prime marks (a U+02BC modifier-letter apostrophe is still normalized to U+2019); `dashStyle: 'none'` preserves all hyphens, number ranges, date ranges, and minus signs.
 - `punctilio` is idempotent by design: `transform(transform(text))` always equals `transform(text)`. The test suite verifies the fixed point on every case plus fuzzed mixed content.
 - Use `classifyApostrophes(text)` to distinguish apostrophes from closing single quotes. It returns text with apostrophes as U+02BC (MODIFIER LETTER APOSTROPHE) and closing quotes as U+2019 (RIGHT SINGLE QUOTATION MARK). Per the [Unicode Standard](https://www.unicode.org/versions/Unicode16.0.0/core-spec/chapter-6/#G30602), `transform()` and `niceQuotes()` use U+2019 for both in their output.
 
