@@ -1,3 +1,4 @@
+import { Tokenizer } from "parse5"
 import { unified } from "unified"
 import rehypeParse from "rehype-parse"
 import rehypeStringify from "rehype-stringify"
@@ -20,20 +21,33 @@ export interface HtmlOptions extends RehypePunctilioOptions {
   fragment?: boolean
 }
 
-const FULL_DOCUMENT_START_RE = /^<(?:!doctype|html)(?=[\s>/])/i
-
-/** True when `input` starts a complete document: `<!doctype` or `<html`,
- * optionally preceded by whitespace and comments. */
+/** True when the first token that is not whitespace or a comment is a doctype
+ * or an `<html>` start tag. Stops tokenizing at that token. */
 function startsFullDocument(input: string): boolean {
-  let rest = input
-  for (;;) {
-    rest = rest.trimStart()
-    if (!rest.startsWith("<!--")) break
-    const commentEnd = rest.indexOf("-->", "<!--".length)
-    if (commentEnd === -1) return false
-    rest = rest.slice(commentEnd + "-->".length)
+  let isFullDocument: boolean | undefined
+  // Pausing takes effect after the current token, so a token the tokenizer
+  // emits in the same step (a doctype flushed behind text) must not overwrite
+  // the first verdict.
+  const decide = (verdict: boolean): void => {
+    if (isFullDocument !== undefined) return
+    isFullDocument = verdict
+    tokenizer.pause()
   }
-  return FULL_DOCUMENT_START_RE.test(rest)
+  const tokenizer = new Tokenizer(
+    {},
+    {
+      onComment: () => {},
+      onWhitespaceCharacter: () => {},
+      onEof: () => {},
+      onDoctype: () => decide(true),
+      onStartTag: (token) => decide(token.tagName === "html"),
+      onEndTag: () => decide(false),
+      onCharacter: () => decide(false),
+      onNullCharacter: () => decide(false),
+    },
+  )
+  tokenizer.write(input, true)
+  return isFullDocument === true
 }
 
 function createProcessor(options: HtmlOptions, fragment: boolean) {
