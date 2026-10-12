@@ -553,13 +553,16 @@ function classifyLeadingApostrophes(items: Item[]): void {
 }
 
 /** Opener-position straight single quote → OPEN_SINGLE. */
-function classifyOpeningSingles(items: Item[]): void {
+function classifyOpeningSingles(items: Item[], style: ActiveQuoteStyle): void {
   for (let i = 0; i < items.length; i++) {
     const item = items[i]
     if (item.boundary || item.ch !== "'") continue
-    // Ahead: a boundary item satisfies \S (a boundary is non-space).
+    // Ahead: a boundary item satisfies \S (a boundary is non-space), and a
+    // French space the closer's padding absorbs reads as none on a re-run.
     const next = items[i + 1]
-    if (next === undefined || (!next.boundary && SPACE_RE.test(next.ch))) continue
+    const spaceAhead = next !== undefined && !next.boundary && SPACE_RE.test(next.ch)
+    const blockedBySpace = spaceAhead && !(style === "french" && spaceRunReadsAsSingle(items, i + 1, 1, RIGHT_DOUBLE_QUOTE))
+    if (next === undefined || blockedBySpace) continue
     // Behind: up to one boundary, then line start or an opener-context char.
     const j = prevIndex(items, i, 1)
     if (j >= 0) {
@@ -609,7 +612,7 @@ function classifySingles(items: Item[], style: ActiveQuoteStyle): void {
   classifyPossessivesAndClosers(items)
   classifyContractions(items)
   classifyLeadingApostrophes(items)
-  classifyOpeningSingles(items)
+  classifyOpeningSingles(items, style)
   // The rules above rewrite neighbors the closer/possessive lookbehind keyed
   // on: in a `''` chain the left quote becomes an apostrophe, which renders
   // as U+2019 — exactly the glyph a re-run reads in that slot, where the
@@ -1630,7 +1633,8 @@ export function classifyAndRenderQuotes(
   if (style === "french") {
     // Punctuation moved out from between a straight quote's trailing space and
     // a closer leaves the closer directly after that space, which the opener
-    // rule reads as the closer's padding. Re-run it on the placed order.
+    // rules read as the closer's padding. Re-run them on the placed order.
+    classifyOpeningSingles(placed, style)
     classifyOpeningDoubles(placed, style)
     absorbGuillemetPadding(placed)
   }
