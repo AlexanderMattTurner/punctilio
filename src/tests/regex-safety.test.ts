@@ -1,4 +1,4 @@
-import { check } from "recheck"
+import { check, type Parameters } from "recheck"
 import { transform } from "../index.js"
 import { clearRegexCache, getCachedRegExps } from "../constants.js"
 
@@ -30,6 +30,20 @@ const SAMPLES = [
   "Call 555-1234 or (555) 123-4567 for help.",
 ] as const
 
+// recheck's fuzzing checker (which `auto` picks for lookbehinds, among others)
+// counts a wall-clock timeout during incubation or attack validation as a
+// successful attack. Under CPU load a linear regex can overrun those timeouts
+// and be reported "vulnerable", differently on each run. Disabling them leaves
+// the step-count limits (`incubationLimit`, `attackLimit`) as the only
+// criteria, and the PRNG seed is already fixed by recheck's default, so the
+// verdict no longer depends on machine speed. The overall `timeout` still
+// bounds a runaway analysis, reported as "unknown".
+const RECHECK_PARAMETERS: Parameters = {
+  timeout: 60_000,
+  incubationTimeout: null,
+  attackTimeout: null,
+}
+
 const PUNCTUATION_STYLES = ["american", "british", "german", "french", "none"] as const
 const DASH_STYLES = ["american", "british", "none"] as const
 
@@ -56,18 +70,13 @@ describe("regex safety (runtime introspection)", () => {
     const regexes = getCachedRegExps()
     expect(regexes.length).toBeGreaterThan(0)
 
-    // Run sequentially with a 60 s per-regex budget. recheck combines a
-    // static automaton with a random fuzzer; under the previous 5 s budget
-    // and parallel `Promise.all` execution, contention occasionally let the
-    // fuzzer land on a candidate counterexample that didn't reproduce under
-    // a fresh run, flipping a regex from "safe" to "vulnerable". Sequential
-    // execution and a generous budget make the analysis deterministic.
+    // Run sequentially so concurrent analyses don't compete for CPU.
     const results = []
     for (const re of regexes) {
       results.push({
         source: re.source,
         flags: re.flags,
-        result: await check(re.source, re.flags, { timeout: 60_000 }),
+        result: await check(re.source, re.flags, RECHECK_PARAMETERS),
       })
     }
 
@@ -86,6 +95,17 @@ describe("regex safety (runtime introspection)", () => {
       )
     }
   }, 600_000)
+
+  // Guards against RECHECK_PARAMETERS silencing the checker: genuine ReDoS must
+  // still be reported by both the automaton and the fuzzing checker.
+  it.each([
+    ["nested quantifier (automaton)", "^(a+)+$", "automaton"],
+    ["nested quantifier behind a lookbehind (fuzz)", "(?<![ ])(a+)+b", "fuzz"],
+  ])("recheck still flags real ReDoS: %s", async (_name, source, expectedChecker) => {
+    const result = await check(source, "", RECHECK_PARAMETERS)
+    expect(result.status).toBe("vulnerable")
+    expect(result.checker).toBe(expectedChecker)
+  })
 
   // recheck only analyzes individual regexes; quadratic blowup can also live
   // in the hand-written scan loops that drive sticky regexes or run readers at
