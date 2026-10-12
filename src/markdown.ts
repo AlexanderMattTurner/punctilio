@@ -6,7 +6,7 @@ import QuickLRU from "quick-lru"
 
 import { MARKDOWN_OPTION_KEYS } from "./sink-option-keys.js"
 import { remarkPunctilio, type RemarkPunctilioOptions } from "./remark.js"
-import { assertKnownOptionKeys, stableStringify } from "./utils.js"
+import { assertKnownOptionKeys, stableStringify, transformPreservingBom } from "./utils.js"
 
 export { MARKDOWN_ONLY_OPTION_KEYS, MARKDOWN_OPTION_KEYS } from "./sink-option-keys.js"
 
@@ -75,10 +75,12 @@ export function clearProcessorCache(): void {
 }
 
 // Opening fence → fences that may close the block (YAML accepts `...` too).
-const FRONTMATTER_CLOSING_FENCES: Readonly<Record<string, readonly string[]>> = {
-  "---": ["---", "..."],
-  "+++": ["+++"],
-}
+// A Map, so a first line like `constructor` cannot resolve to an inherited
+// Object.prototype member.
+const FRONTMATTER_CLOSING_FENCES: ReadonlyMap<string, readonly string[]> = new Map([
+  ["---", ["---", "..."]],
+  ["+++", ["+++"]],
+])
 
 /**
  * Length of the YAML (`---`) or TOML (`+++`) front matter block at the very
@@ -93,7 +95,7 @@ function frontmatterLength(input: string): number {
     const lineEnd = newlineIndex === -1 ? input.length : newlineIndex + 1
     const fence = input.slice(lineStart, lineEnd).trimEnd()
     if (closingFences === undefined) {
-      closingFences = FRONTMATTER_CLOSING_FENCES[fence]
+      closingFences = FRONTMATTER_CLOSING_FENCES.get(fence)
       if (closingFences === undefined) return 0
     } else if (closingFences.includes(fence)) {
       return lineEnd
@@ -124,7 +126,10 @@ export async function transformMarkdown(
   options: MarkdownOptions = {}
 ): Promise<string> {
   assertKnownOptionKeys(options, MARKDOWN_OPTION_KEYS, "transformMarkdown")
+  return transformPreservingBom(input, (text) => transformWithFrontmatter(text, options))
+}
 
+async function transformWithFrontmatter(input: string, options: MarkdownOptions): Promise<string> {
   const frontmatterEnd = frontmatterLength(input)
   if (frontmatterEnd === 0) return processMarkdown(input, options)
 

@@ -5,7 +5,7 @@ import QuickLRU from "quick-lru"
 
 import { rehypePunctilio, type RehypePunctilioOptions } from "./rehype.js"
 import { HTML_OPTION_KEYS } from "./sink-option-keys.js"
-import { assertKnownOptionKeys, omitKeys, stableStringify } from "./utils.js"
+import { assertKnownOptionKeys, omitKeys, stableStringify, transformPreservingBom } from "./utils.js"
 
 export { HTML_ONLY_OPTION_KEYS, HTML_OPTION_KEYS } from "./sink-option-keys.js"
 
@@ -14,7 +14,7 @@ export interface HtmlOptions extends RehypePunctilioOptions {
    * Whether to parse the input as an HTML fragment (no implicit `<html>`,
    * `<head>`, or `<body>` wrapping). Set to `false` to parse a complete
    * document. When unset, input that begins with `<!doctype` or `<html`
-   * (after an optional BOM, whitespace, and comments) is parsed as a complete
+   * (after optional whitespace and comments) is parsed as a complete
    * document and anything else as a fragment.
    */
   fragment?: boolean
@@ -23,9 +23,9 @@ export interface HtmlOptions extends RehypePunctilioOptions {
 const FULL_DOCUMENT_START_RE = /^<(?:!doctype|html)(?=[\s>/])/i
 
 /** True when `input` starts a complete document: `<!doctype` or `<html`,
- * optionally preceded by a BOM, whitespace, and comments. */
+ * optionally preceded by whitespace and comments. */
 function startsFullDocument(input: string): boolean {
-  let rest = input.replace(/^\uFEFF/, "")
+  let rest = input
   for (;;) {
     rest = rest.trimStart()
     if (!rest.startsWith("<!--")) break
@@ -60,24 +60,32 @@ export async function transformHtml(
   options: HtmlOptions = {}
 ): Promise<string> {
   assertKnownOptionKeys(options, HTML_OPTION_KEYS, "transformHtml")
-  const fragment = options.fragment ?? !startsFullDocument(input)
+  return transformPreservingBom(input, (text) => processHtml(text, options))
+}
 
-  // Function-valued options aren't JSON-serializable, so the cache key
-  // can't distinguish them. Bypass the cache to avoid returning a
-  // processor wired to a different shouldSkipText.
-  if (typeof options.shouldSkipText === "function") {
-    const result = await createProcessor(options, fragment).process(input)
-    return String(result)
-  }
+/** Function-valued options aren't JSON-serializable, so the cache key
+ * can't distinguish them; those bypass the cache to avoid returning a
+ * processor wired to a different shouldSkipText. */
+function getProcessor(options: HtmlOptions, fragment: boolean) {
+  if (typeof options.shouldSkipText === "function") return createProcessor(options, fragment)
 
   const optionsKey = stableStringify({ ...options, fragment })
-
   let processor = processorCache.get(optionsKey)
   if (!processor) {
     processor = createProcessor(options, fragment)
     processorCache.set(optionsKey, processor)
   }
+  return processor
+}
 
-  const result = await processor.process(input)
-  return String(result)
+// The HTML parser files whitespace after `</html>` inside <body>. Moving the
+// input's final newline back out keeps repeated runs from adding a newline
+// inside <body> each time.
+const NEWLINE_INSIDE_DOCUMENT_END_RE = /\n(?<documentEnd><\/body><\/html>)$/
+
+async function processHtml(input: string, options: HtmlOptions): Promise<string> {
+  const fragment = options.fragment ?? !startsFullDocument(input)
+  const output = String(await getProcessor(options, fragment).process(input))
+  if (fragment || !input.endsWith("\n")) return output
+  return output.replace(NEWLINE_INSIDE_DOCUMENT_END_RE, "$<documentEnd>\n")
 }

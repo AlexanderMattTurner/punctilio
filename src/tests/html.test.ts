@@ -86,6 +86,14 @@ describe("transformHtml", () => {
     expect(result).toContain(`${LDQ}hi${RDQ}`)
   })
 
+  it.each([
+    ["a doctype", '<!doctype html><html><head><title>x</title></head><body><p>"a"</p></body></html>'],
+    ["a doctype and a trailing newline", '<!doctype html><html><head><title>x</title></head><body><p>"a"</p></body></html>\n'],
+  ])("keeps the doctype and head of a BOM-prefixed full document and restores the BOM (%s)", async (_label, document) => {
+    const result = await transformHtml(`\uFEFF${document}`, { nbsp: false })
+    expect(result).toBe(`\uFEFF${document.replace('"a"', `${LDQ}a${RDQ}`)}`)
+  })
+
   it("treats an unterminated leading comment as a fragment", async () => {
     expect(await transformHtml("<!-- <html>", { nbsp: false })).toBe("<!-- <html>-->")
   })
