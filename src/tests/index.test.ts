@@ -31,6 +31,7 @@ const {
   MINUS,
   MODIFIER_LETTER_APOSTROPHE,
   FRACTION_1_2,
+  FRACTION_7_8,
   SUPERSCRIPT_ST,
 } = UNICODE_SYMBOLS
 
@@ -735,6 +736,20 @@ describe("transform", () => {
       ["Il a dit \u00AB-15\u00BB", "american", `Il a dit \u00AB${MINUS}15\u00BB`],
     ] as const)("transform(%j, %s) is %j", (input, punctuationStyle, expected) => {
       expect(transform(input, { punctuationStyle, nbsp: false })).toBe(expected)
+    })
+  })
+
+  // The fractions pass folds `7/8` into a glyph after the quote pass ran, so
+  // the quote pass must read the glyph as the digit it folds from: a straight
+  // quote between a digit and a letter stays straight, and a re-run over `⅞'B`
+  // must not curl it.
+  describe("quote decisions agree across the fraction fold", () => {
+    it.each([
+      ["7/8'B", `${FRACTION_7_8}'B`],
+      ["6^1/2'Z", `6^${FRACTION_1_2}'Z`],
+      [`${FRACTION_1_2}'B`, `${FRACTION_1_2}'B`],
+    ])("transform(%j) is %j", (input, expected) => {
+      expect(transform(input, { fractions: true, punctuationStyle: "british" })).toBe(expected)
     })
   })
 

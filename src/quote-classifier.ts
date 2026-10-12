@@ -1,4 +1,4 @@
-import { CLOSING_BRACKETS, FOLDED_TERMINALS, FOLDED_WORD_CHARS, LATIN_LETTER_RE, OPENING_BRACKETS, QUOTE_GLYPHS, SPACE_CHAR_RE, TERMINAL_PUNCTUATION, UNICODE_SYMBOLS, WORD_RE } from "./constants.js"
+import { CLOSING_BRACKETS, FOLDED_TERMINALS, FOLDED_WORD_CHARS, FRACTION_GLYPHS, LATIN_LETTER_RE, OPENING_BRACKETS, QUOTE_GLYPHS, SPACE_CHAR_RE, TERMINAL_PUNCTUATION, UNICODE_SYMBOLS, WORD_RE } from "./constants.js"
 import type { ProseView } from "./prose-view.js"
 
 const {
@@ -108,6 +108,7 @@ interface Item {
 }
 
 const SPACE_RE = /\s/
+const FRACTION_GLYPH_SET: ReadonlySet<string> = new Set(FRACTION_GLYPHS)
 const DIGIT_RE = /\d/
 
 /** Fast path: text without any quote-like character is returned untouched. */
@@ -176,7 +177,9 @@ function makeItemTester(test: (ch: string) => boolean): (items: Item[], index: n
 
 const isLetterItem = makeItemTester((ch) => LATIN_LETTER_RE.test(ch))
 const isDigitItem = makeItemTester((ch) => DIGIT_RE.test(ch))
-const isWordItem = makeItemTester((ch) => WORD_RE.test(ch) || FOLDED_WORD_CHARS.has(ch))
+/** Word test that reads a vulgar fraction glyph as the digit it folds from
+ * (`7/8'B` and `⅞'B` must agree on the leading-apostrophe gate). */
+const isWordItem = makeItemTester((ch) => WORD_RE.test(ch) || FRACTION_GLYPH_SET.has(ch) || FOLDED_WORD_CHARS.has(ch))
 const isLetterOrDigitItem = makeItemTester((ch) => LATIN_LETTER_RE.test(ch) || DIGIT_RE.test(ch) || FOLDED_WORD_CHARS.has(ch))
 /** Letter test that treats folded word glyphs as the letters they fold from
  * (`X` → `×`, `st` → `ˢᵗ`); see {@link FOLDED_WORD_CHARS}. */
