@@ -606,9 +606,13 @@ export interface CollectProseBlocksOptions {
 }
 
 // An `<option>` with no `value` attribute submits its text as the value, so
-// the text is a literal control value, not prose.
+// the text is a literal control value, not prose. HAST marks an absent
+// property as either `undefined` or `null`.
 function isValueOption(node: Element): boolean {
-  return node.tagName === "option" && node.properties?.value === undefined;
+  return (
+    node.tagName === "option" &&
+    (node.properties?.value === undefined || node.properties.value === null)
+  );
 }
 
 /** Skip predicate and transformable-tag test resolved from the options. */

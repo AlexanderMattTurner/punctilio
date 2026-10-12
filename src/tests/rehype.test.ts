@@ -684,6 +684,21 @@ describe("rehypePunctilio", () => {
       }
     });
 
+    // HAST allows a null property (serializers omit it), which is as absent
+    // as undefined.
+    it.each([null, undefined])(
+      "an option with a %s value property is a literal control value",
+      async (value) => {
+        const option: Element = {
+          ...h("option", {}, '"a" -- b'),
+          properties: { value } as unknown as Element["properties"],
+        };
+        const tree: Root = { type: "root", children: [h("select", [option])] };
+        await unified().use(rehypePunctilio, { nbsp: false }).run(tree);
+        expect((option.children[0] as Text).value).toBe('"a" -- b');
+      },
+    );
+
     it("skips nested content inside code blocks", async () => {
       expect(
         await processHtml('<pre><code>"Hello" -- test...</code></pre>'),
