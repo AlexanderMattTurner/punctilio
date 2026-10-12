@@ -85,7 +85,10 @@ jobs:
       - name: Run mutation tests
         # No `--` before the flags: pnpm forwards it literally and Stryker's
         # CLI rejects it as a positional argument.
-        run: pnpm run mutation --mutate "${{ matrix.mutate }}" --incrementalFile "reports/stryker-incremental-${{ matrix.index }}.json"
+        env:
+          MUTATE: ${{ matrix.mutate }}
+          SHARD_INDEX: ${{ matrix.index }}
+        run: pnpm run mutation --mutate "$MUTATE" --incrementalFile "reports/stryker-incremental-$SHARD_INDEX.json"
 
       - name: Upload mutation report
         if: always()

@@ -35,8 +35,12 @@ if command -v uvx >/dev/null 2>&1; then
   # First match via parameter expansion, NOT `| head -n1`: head exits after one
   # line and SIGPIPEs sed, which `set -o pipefail` reports as a failure —
   # aborting the push the moment the workflow grows a second matching line.
-  pin=$(sed -n 's/.*uvx \(pre-commit==[0-9][0-9.]*\).*/\1/p' \
-    "$git_root/.github/workflows/pre-commit.yaml")
+  # A repo that excludes pre-commit.yaml has no pin to mirror.
+  pin=""
+  if [[ -f "$git_root/.github/workflows/pre-commit.yaml" ]]; then
+    pin=$(sed -n 's/.*uvx \(pre-commit==[0-9][0-9.]*\).*/\1/p' \
+      "$git_root/.github/workflows/pre-commit.yaml")
+  fi
   pin="${pin%%$'\n'*}"
   precommit_cmd=(uvx "${pin:-pre-commit}")
 elif command -v pre-commit >/dev/null 2>&1; then

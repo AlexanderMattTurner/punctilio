@@ -72,8 +72,9 @@ jobs:
       - name: Run actionlint
         run: '"${RUNNER_TEMP}/actionlint" -color'
 
-  all-checks-passed:
-    name: All checks passed
+  # Stable Required check: runs even when a needed job is cancelled/skipped, so
+  # a protected branch never gets stuck on a check that never reports.
+  lint-passed: # required-check: true
     needs: [lint, actionlint]
     runs-on: ubuntu-latest
     timeout-minutes: 5
