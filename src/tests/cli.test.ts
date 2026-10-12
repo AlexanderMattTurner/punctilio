@@ -1,9 +1,23 @@
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import { spawnSync } from "node:child_process"
+import {
+  chmodSync,
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs"
 import { tmpdir } from "node:os"
-import { join } from "node:path"
+import { join, resolve } from "node:path"
 import { Readable, Writable } from "node:stream"
+import { fileURLToPath, pathToFileURL } from "node:url"
 
-import { runCli } from "../cli.js"
+import { atomicWriteFile, isMainModule, runCli } from "../cli.js"
 import { UNICODE_SYMBOLS } from "../constants.js"
 import { clearProcessorCache as clearMarkdownCache } from "../markdown.js"
 import { clearProcessorCache as clearHtmlCache } from "../html.js"
@@ -752,22 +766,73 @@ describe("runCli", () => {
     })
   })
 
-  it("formats an explicitly named file even when .punctilioignore lists it", async () => {
+  // pre-commit passes every staged file by name, so the ignore file must
+  // apply to explicit paths too, not only to glob expansions.
+  it("skips an explicitly named file that .punctilioignore lists", async () => {
     await withTempCwd("punctilio-explicit-ignored-", async (dir) => {
+      writeFileSync(join(dir, "a.md"), '"a"\n')
       writeFileSync(join(dir, "b.md"), '"b"\n')
       writeFileSync(join(dir, ".punctilioignore"), "b.md\n")
       const cap = captureIO()
-      expect(await runCli(["--write", "b.md", "--no-nbsp"], cap.io)).toBe(0)
-      expect(readFileSync(join(dir, "b.md"), "utf8")).toContain(`${LDQ}b${RDQ}`)
+      expect(await runCli(["--write", "a.md", "b.md", "--no-nbsp"], cap.io)).toBe(0)
+      expect(readFileSync(join(dir, "a.md"), "utf8")).toBe(`${LDQ}a${RDQ}\n`)
+      expect(readFileSync(join(dir, "b.md"), "utf8")).toBe('"b"\n')
     })
   })
 
-  it("warns to stderr when a glob matches no files", async () => {
+  it.each([
+    ["--write", ["--write"]],
+    ["--check", ["--check"]],
+    ["stdout mode", []],
+    ["--write with a matching literal path alongside", ["--write", "a.md"]],
+    ["--write with a matching glob alongside", ["--write", "*.md"]],
+  ])("exits 2 without touching files when a glob matches nothing (%s)", async (_label, args) => {
     await withTempCwd("punctilio-glob-empty-", async (dir) => {
       writeFileSync(join(dir, "a.md"), '"a"\n')
       const cap = captureIO()
-      expect(await runCli(["--write", "*.html", "--no-nbsp"], cap.io)).toBe(0)
-      expect(cap.stderr()).toContain("no files matched: *.html")
+      expect(await runCli([...args, "*.html", "--no-nbsp"], cap.io)).toBe(2)
+      expect(cap.stderr()).toBe("Error: no files matched: *.html\n")
+      expect(cap.stdout()).toBe("")
+      expect(readFileSync(join(dir, "a.md"), "utf8")).toBe('"a"\n')
+    })
+  })
+
+  it.each([
+    ["one unmatched glob after a matching one", ["*.md", "*.htlm"], "*.htlm"],
+    ["one unmatched glob before a matching one", ["*.htlm", "*.md"], "*.htlm"],
+    ["every unmatched glob", ["*.nope", "*.md", "*.htlm"], "*.nope *.htlm"],
+    ["a glob whose matches are all negated", ["*.md", "!a.*"], "*.md"],
+    ["only negated globs", ["!a.*"], "!a.*"],
+  ])("exits 2 naming each glob that matches nothing, before writing (%s)", async (_label, patterns, unmatched) => {
+    await withTempCwd("punctilio-glob-each-", async (dir) => {
+      writeFileSync(join(dir, "a.md"), '"a"\n')
+      const cap = captureIO()
+      expect(await runCli(["--write", "--no-nbsp", ...patterns], cap.io)).toBe(2)
+      expect(cap.stderr()).toBe(`Error: no files matched: ${unmatched}\n`)
+      expect(readFileSync(join(dir, "a.md"), "utf8")).toBe('"a"\n')
+    })
+  })
+
+  it("excludes files matched by a negated glob", async () => {
+    await withTempCwd("punctilio-glob-negated-", async (dir) => {
+      writeFileSync(join(dir, "a.md"), '"a"\n')
+      writeFileSync(join(dir, "b.md"), '"b"\n')
+      expect(await runCli(["--write", "--no-nbsp", "*.md", "!b.*"], captureIO().io)).toBe(0)
+      expect(readFileSync(join(dir, "a.md"), "utf8")).toBe(`${LDQ}a${RDQ}\n`)
+      expect(readFileSync(join(dir, "b.md"), "utf8")).toBe('"b"\n')
+    })
+  })
+
+  it("warns about only the glob whose matches are all ignored", async () => {
+    await withTempCwd("punctilio-glob-one-ignored-", async (dir) => {
+      mkdirSync(join(dir, "skipped"))
+      writeFileSync(join(dir, "skipped", "s.md"), '"s"\n')
+      writeFileSync(join(dir, "a.md"), '"a"\n')
+      writeFileSync(join(dir, ".punctilioignore"), "skipped/\n")
+      const cap = captureIO()
+      expect(await runCli(["--write", "--no-nbsp", "*.md", "skipped/*.md"], cap.io)).toBe(0)
+      expect(cap.stderr()).toBe("Warning: every file matched by skipped/*.md is ignored\n")
+      expect(readFileSync(join(dir, "a.md"), "utf8")).toBe(`${LDQ}a${RDQ}\n`)
     })
   })
 
@@ -777,8 +842,20 @@ describe("runCli", () => {
       writeFileSync(join(dir, ".punctilioignore"), "*.md\n")
       const cap = captureIO()
       expect(await runCli(["--write", "*.md", "--no-nbsp"], cap.io)).toBe(0)
-      expect(cap.stderr()).toContain("no files matched")
+      expect(cap.stderr()).toBe("Warning: every file matched by *.md is ignored\n")
       expect(readFileSync(join(dir, "a.md"), "utf8")).toBe('"a"\n')
+    })
+  })
+
+  it.each(["node_modules", ".git"])("glob expansion skips files under %s", async (skippedDir) => {
+    await withTempCwd("punctilio-glob-default-ignores-", async (dir) => {
+      mkdirSync(join(dir, skippedDir, "pkg"), { recursive: true })
+      writeFileSync(join(dir, skippedDir, "pkg", "readme.md"), '"dep"\n')
+      writeFileSync(join(dir, "a.md"), '"a"\n')
+      const cap = captureIO()
+      expect(await runCli(["--write", "--no-cache", "**/*.md", "--no-nbsp"], cap.io)).toBe(0)
+      expect(readFileSync(join(dir, "a.md"), "utf8")).toBe(`${LDQ}a${RDQ}\n`)
+      expect(readFileSync(join(dir, skippedDir, "pkg", "readme.md"), "utf8")).toBe('"dep"\n')
     })
   })
 
@@ -829,4 +906,189 @@ describe("runCli", () => {
     expect(code).toBe(0)
     expect(cap.stdout()).toContain(`${LDQ}Hello.${RDQ}`)
   })
+
+  it("rejects --stdin-filepath combined with file arguments", async () => {
+    const path = tmpFile('"x"\n', "doc.md")
+    const cap = captureIO('"y"')
+    const code = await runCli(["--stdin-filepath", "doc.md", path], cap.io)
+    expect(code).toBe(2)
+    expect(cap.stderr()).toBe("Error: --stdin-filepath cannot be combined with file arguments.\n")
+    expect(cap.stdout()).toBe("")
+  })
+
+  it("validates every file's type before writing any of them", async () => {
+    await withTempCwd("punctilio-unknown-ext-", async (dir) => {
+      writeFileSync(join(dir, "a.md"), '"a"\n')
+      writeFileSync(join(dir, "notes.txt"), '"b"\n')
+      const cap = captureIO()
+      expect(await runCli(["--write", "a.md", "notes.txt", "--no-nbsp"], cap.io)).toBe(2)
+      expect(cap.stderr()).toMatch(/Cannot infer file type from extension ".txt"/)
+      expect(readFileSync(join(dir, "a.md"), "utf8")).toBe('"a"\n')
+    })
+  })
+
+  it.each([
+    ["nbsp", "false", "a boolean"],
+    ["fragment", 0, "a boolean"],
+    ["skipTags", "code", "an array of strings"],
+    ["skipClasses", ["raw", 1], "an array of strings"],
+    ["punctuationStyle", "klingon", `one of ${["american", "british", "german", "french", "none"].join(", ")}`],
+    ["dashStyle", true, "one of american, british, none"],
+    ["emphasisMarker", "$", "one of *, _"],
+    ["bulletMarker", "@", "one of -, *, +"],
+    ["ruleMarker", null, "one of -, *, _"],
+    ["shouldSkipText", "yes", "a function"],
+  ])("rejects a config file whose %s has the wrong type (%p)", async (key, value, expected) => {
+    const configPath = tmpFile(JSON.stringify({ [key]: value }), ".punctiliorc.json")
+    const cap = captureIO('"Hello."')
+    const code = await runCli(["-", "--type", "md", "--config", configPath], cap.io)
+    expect(code).toBe(2)
+    expect(cap.stderr()).toBe(
+      `Error: Invalid value for "${key}" in config file ${configPath}: expected ${expected}, got ${JSON.stringify(value)}.\n`,
+    )
+    expect(cap.stdout()).toBe("")
+  })
+
+  it("treats a config key set to undefined as unset", async () => {
+    const configPath = tmpFile("module.exports = { punctuationStyle: undefined, nbsp: false }", ".punctiliorc.cjs")
+    const cap = captureIO('"Hello."')
+    expect(await runCli(["-", "--type", "md", "--config", configPath], cap.io)).toBe(0)
+    expect(cap.stdout()).toBe(`${LDQ}Hello.${RDQ}`)
+  })
+
+  it.each([["an array", "[]"], ["a string", '"nbsp"']])(
+    "rejects a config file that is %s rather than an object",
+    async (_label, contents) => {
+      const configPath = tmpFile(contents, ".punctiliorc.json")
+      const cap = captureIO('"Hello."')
+      const code = await runCli(["-", "--type", "md", "--config", configPath], cap.io)
+      expect(code).toBe(2)
+      expect(cap.stderr()).toBe(`Error: config file ${configPath} must contain an object of options.\n`)
+    },
+  )
+
+  it.each([
+    ["md file", "file", "md", '\uFEFF"Hello" -- world.\n', `\uFEFF${LDQ}Hello${RDQ}${EM_DASH}world.\n`],
+    ["html file", "file", "html", '\uFEFF<p>"Hello"</p>\n', `\uFEFF<p>${LDQ}Hello${RDQ}</p>\n`],
+    ["md stdin", "stdin", "md", '\uFEFF"Hello" -- world.\n', `\uFEFF${LDQ}Hello${RDQ}${EM_DASH}world.\n`],
+  ])("preserves a leading UTF-8 BOM (%s)", async (_label, source, type, input, expected) => {
+    if (source === "stdin") {
+      const cap = captureIO(input)
+      expect(await runCli(["-", "--type", type, "--no-nbsp"], cap.io)).toBe(0)
+      expect(cap.stdout()).toBe(expected)
+      return
+    }
+    const path = tmpFile(input, `doc.${type}`)
+    expect(await runCli(["--write", "--no-cache", path, "--no-nbsp"], captureIO().io)).toBe(0)
+    expect(readFileSync(path, "utf8")).toBe(expected)
+    const check = captureIO()
+    expect(await runCli(["--check", "--no-cache", path, "--no-nbsp"], check.io)).toBe(0)
+  })
+
+  // The parser drops whitespace after a bare doctype, so the output lacks the
+  // newline the source ended with.
+  it.each([["\n"], ["\r\n"]])("--write restores the final line ending a document's output lacks (%j)", async (eol) => {
+    const path = tmpFile(`<!DOCTYPE html>${eol}`, "page.html")
+    expect(await runCli(["--write", "--no-cache", path], captureIO().io)).toBe(0)
+    expect(readFileSync(path, "utf8")).toBe(`<!doctype html><html><head></head><body></body></html>${eol}`)
+  })
+
+  it("--write updates a symlink's target and keeps the symlink", async () => {
+    await withTempCwd("punctilio-symlink-", async (dir) => {
+      mkdirSync(join(dir, "real"))
+      const target = join(dir, "real", "doc.md")
+      writeFileSync(target, '"Hello."\n')
+      symlinkSync(join("real", "doc.md"), join(dir, "link.md"))
+      expect(await runCli(["--write", "--no-cache", "link.md", "--no-nbsp"], captureIO().io)).toBe(0)
+      expect(lstatSync(join(dir, "link.md")).isSymbolicLink()).toBe(true)
+      expect(readFileSync(target, "utf8")).toBe(`${LDQ}Hello.${RDQ}\n`)
+      expect(readdirSync(join(dir, "real"))).toEqual(["doc.md"])
+    })
+  })
+
+  it.each([0o600, 0o755])("--write preserves file mode %o", async (mode) => {
+    const path = tmpFile('"Hello."\n', "doc.md")
+    chmodSync(path, mode)
+    // Windows cannot set POSIX permission bits, so compare against what the
+    // platform reports rather than the requested mode.
+    const modeBeforeWrite = statSync(path).mode & 0o777
+    expect(await runCli(["--write", "--no-cache", path, "--no-nbsp"], captureIO().io)).toBe(0)
+    expect(readFileSync(path, "utf8")).toBe(`${LDQ}Hello.${RDQ}\n`)
+    expect(statSync(path).mode & 0o777).toBe(modeBeforeWrite)
+  })
+
+  const FULL_DOCUMENT_HEAD = '<!DOCTYPE html>\n<html lang="en">\n<head><title>T</title></head>\n<body class="page">'
+  it.each([
+    ["LF with a trailing newline", "\n", "\n"],
+    ["CRLF with a trailing newline", "\r\n", "\r\n"],
+    ["LF without a trailing newline", "\n", ""],
+    ["CRLF without a trailing newline", "\r\n", ""],
+  ])("--write keeps a full HTML document's structure and trailing newline (%s)", async (_label, eol, finalEol) => {
+    const source = `${FULL_DOCUMENT_HEAD}<p>"Hi" -- there</p></body>\n</html>`.replace(/\n/g, eol) + finalEol
+    const path = tmpFile(source, "page.html")
+    expect(await runCli(["--write", "--no-cache", path, "--no-nbsp"], captureIO().io)).toBe(0)
+    const expected = (
+      `<!doctype html><html lang="en"><head><title>T</title></head>\n<body class="page"><p>${LDQ}Hi${RDQ}${EM_DASH}there</p>\n</body></html>`
+    ).replace(/\n/g, eol) + finalEol
+    expect(readFileSync(path, "utf8")).toBe(expected)
+    // A second run must be a no-op: the trailing newline cannot migrate into <body>.
+    const check = captureIO()
+    expect(await runCli(["--check", "--no-cache", path, "--no-nbsp"], check.io)).toBe(0)
+  })
+})
+
+describe("atomicWriteFile", () => {
+  it("removes its temp file when the final rename fails", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "punctilio-atomic-"))
+    createdDirs.push(dir)
+    // A directory target lets the temp file be written but makes the rename fail.
+    const target = join(dir, "target")
+    mkdirSync(target)
+    await expect(atomicWriteFile(target, "x")).rejects.toThrow()
+    expect(readdirSync(dir)).toEqual(["target"])
+  })
+})
+
+describe("isMainModule", () => {
+  let dir: string
+  let modulePath: string
+
+  beforeAll(() => {
+    dir = mkdtempSync(join(tmpdir(), "punctilio-main-"))
+    createdDirs.push(dir)
+    modulePath = join(dir, "cli.js")
+    writeFileSync(modulePath, "")
+    writeFileSync(join(dir, "other.js"), "")
+    symlinkSync(modulePath, join(dir, "punctilio"))
+  })
+
+  it.each([
+    ["the module's own path", true, () => modulePath],
+    ["a symlink to the module (npm bin link)", true, () => join(dir, "punctilio")],
+    ["a different file", false, () => join(dir, "other.js")],
+    ["a path that does not exist", false, () => join(dir, "missing.js")],
+    ["no entry script", false, () => undefined],
+  ])("given %s → %p", (_label, expected, entryPath) => {
+    expect(isMainModule(pathToFileURL(modulePath).href, entryPath())).toBe(expected)
+  })
+
+  it("fails loudly on an entry path it cannot resolve for a reason other than absence", () => {
+    const loop = join(dir, "loop")
+    symlinkSync(loop, loop)
+    expect(() => isMainModule(pathToFileURL(modulePath).href, loop)).toThrow(/ELOOP/)
+  })
+
+  it("runs the CLI when invoked through a symlink", () => {
+    const projectRoot = resolve(fileURLToPath(new URL(".", import.meta.url)), "../..")
+    const link = join(dir, "punctilio-src")
+    symlinkSync(join(projectRoot, "src", "cli.ts"), link)
+    const result = spawnSync(
+      process.execPath,
+      ["--import", "tsx", link, "-", "--type", "md", "--no-config"],
+      { cwd: projectRoot, encoding: "utf8", input: '"Hi" -- x\n' },
+    )
+    expect(result.stderr).toBe("")
+    expect(result.stdout).toBe(`${LDQ}Hi${RDQ}${EM_DASH}x\n`)
+    expect(result.status).toBe(0)
+  }, 60_000)
 })

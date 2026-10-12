@@ -1,27 +1,59 @@
+import { Tokenizer } from "parse5"
 import { unified } from "unified"
 import rehypeParse from "rehype-parse"
 import rehypeStringify from "rehype-stringify"
 import QuickLRU from "quick-lru"
 
 import { rehypePunctilio, type RehypePunctilioOptions } from "./rehype.js"
-import { HTML_ONLY_OPTION_KEYS, HTML_OPTION_KEYS } from "./sink-option-keys.js"
-import { assertKnownOptionKeys, stableStringify } from "./utils.js"
+import { HTML_OPTION_KEYS } from "./sink-option-keys.js"
+import { assertKnownOptionKeys, omitKeys, stableStringify, transformPreservingBom } from "./utils.js"
+
+export { HTML_ONLY_OPTION_KEYS, HTML_OPTION_KEYS } from "./sink-option-keys.js"
 
 export interface HtmlOptions extends RehypePunctilioOptions {
   /**
    * Whether to parse the input as an HTML fragment (no implicit `<html>`,
    * `<head>`, or `<body>` wrapping). Set to `false` to parse a complete
-   * document. Default: `true`.
+   * document. When unset, input that begins with `<!doctype` or `<html`
+   * (after optional whitespace and comments) is parsed as a complete
+   * document and anything else as a fragment.
    */
   fragment?: boolean
 }
 
-export { HTML_ONLY_OPTION_KEYS, HTML_OPTION_KEYS }
+/** True when the first token that is not whitespace or a comment is a doctype
+ * or an `<html>` start tag. Stops tokenizing at that token. */
+function startsFullDocument(input: string): boolean {
+  let isFullDocument: boolean | undefined
+  // Pausing takes effect after the current token, so a token the tokenizer
+  // emits in the same step (a doctype flushed behind text) must not overwrite
+  // the first verdict.
+  const decide = (verdict: boolean): void => {
+    if (isFullDocument !== undefined) return
+    isFullDocument = verdict
+    tokenizer.pause()
+  }
+  const tokenizer = new Tokenizer(
+    {},
+    {
+      onComment: () => {},
+      onWhitespaceCharacter: () => {},
+      onEof: () => {},
+      onDoctype: () => decide(true),
+      onStartTag: (token) => decide(token.tagName === "html"),
+      onEndTag: () => decide(false),
+      onCharacter: () => decide(false),
+      onNullCharacter: () => decide(false),
+    },
+  )
+  tokenizer.write(input, true)
+  return isFullDocument === true
+}
 
-function createProcessor(options: HtmlOptions) {
-  const { fragment, ...punctilioOptions } = options
+function createProcessor(options: HtmlOptions, fragment: boolean) {
+  const punctilioOptions = omitKeys(options, ["fragment"])
   return unified()
-    .use(rehypeParse, { fragment: fragment ?? true })
+    .use(rehypeParse, { fragment })
     .use(rehypePunctilio, punctilioOptions)
     .use(rehypeStringify)
 }
@@ -42,23 +74,32 @@ export async function transformHtml(
   options: HtmlOptions = {}
 ): Promise<string> {
   assertKnownOptionKeys(options, HTML_OPTION_KEYS, "transformHtml")
+  return transformPreservingBom(input, (text) => processHtml(text, options))
+}
 
-  // Function-valued options aren't JSON-serializable, so the cache key
-  // can't distinguish them. Bypass the cache to avoid returning a
-  // processor wired to a different shouldSkipText.
-  if (typeof options.shouldSkipText === "function") {
-    const result = await createProcessor(options).process(input)
-    return String(result)
-  }
+/** Function-valued options aren't JSON-serializable, so the cache key
+ * can't distinguish them; those bypass the cache to avoid returning a
+ * processor wired to a different shouldSkipText. */
+function getProcessor(options: HtmlOptions, fragment: boolean) {
+  if (typeof options.shouldSkipText === "function") return createProcessor(options, fragment)
 
-  const optionsKey = stableStringify(options)
-
+  const optionsKey = stableStringify({ ...options, fragment })
   let processor = processorCache.get(optionsKey)
   if (!processor) {
-    processor = createProcessor(options)
+    processor = createProcessor(options, fragment)
     processorCache.set(optionsKey, processor)
   }
+  return processor
+}
 
-  const result = await processor.process(input)
-  return String(result)
+// The HTML parser files whitespace after `</html>` inside <body>. Moving the
+// input's final newline back out keeps repeated runs from adding a newline
+// inside <body> each time.
+const NEWLINE_INSIDE_DOCUMENT_END_RE = /\n(?<documentEnd><\/body><\/html>)$/
+
+async function processHtml(input: string, options: HtmlOptions): Promise<string> {
+  const fragment = options.fragment ?? !startsFullDocument(input)
+  const output = String(await getProcessor(options, fragment).process(input))
+  if (fragment || !input.endsWith("\n")) return output
+  return output.replace(NEWLINE_INSIDE_DOCUMENT_END_RE, "$<documentEnd>\n")
 }
