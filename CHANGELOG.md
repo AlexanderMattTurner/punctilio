@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## [5.5.2] - 2026-10-12
+
+### Fixed
+- Quote handling now consistently treats bracket pairs (including low-9 quotes and guillemets) as quote context boundaries.
+- Single-quoted items now correctly end at every closing bracket, not just selected ones.
+- Double-quote bracket sets are now properly derived from shared bracket lists for consistency.
+- Non-breaking space insertion now correctly glues short words after low-9 opening quotes.
+- Dash handling now recognizes low-9 quotes and both guillemets as quote context.
+
 ## [5.5.0] - 2026-10-12
 
 ### Changed
