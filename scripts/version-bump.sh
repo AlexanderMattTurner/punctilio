@@ -314,7 +314,8 @@ log "✅ Published $PACKAGE_NAME@$NEW_VERSION"
 # must land even if the docs push below fails (e.g. main moved underneath us);
 # otherwise the next run would re-read the climbing npm version and bump again.
 git tag "v$NEW_VERSION"
-if ! retry_cmd 4 2 timeout --kill-after=10 120 git push origin "v$NEW_VERSION"; then
+# allow-unbounded: auto-version.yml's job timeout-minutes bounds the release; `timeout` is absent on the macOS runners that run version-bump.test.mjs.
+if ! retry_cmd 4 2 git push origin "v$NEW_VERSION"; then
   log "Error: failed to push tag v$NEW_VERSION after retries. The release is published;"
   log "       push the tag manually so the next run does not re-analyze these commits."
   exit 1
@@ -355,7 +356,8 @@ else
   # Push to main explicitly so this works whether actions/checkout left us on
   # a branch or in detached HEAD state.
   # main-push-ok: the release workflow's ruleset-bypass PAT pushes this [skip ci] docs commit straight to main, after the release is tagged.
-  if ! retry_cmd 4 2 timeout --kill-after=10 120 git push origin HEAD:main; then
+  # allow-unbounded: bounded by the job timeout, as the tag push above.
+  if ! retry_cmd 4 2 git push origin HEAD:main; then
     log "Error: failed to push the release-docs update for v$NEW_VERSION."
     log "       The release is published and tagged; push the release-docs commit manually."
     exit 1
