@@ -184,23 +184,46 @@ test("an unreadable package.json fails closed instead of publishing", () => {
   }
 });
 
-test("a publish rejected as already published is treated as success", () => {
-  const { dir, binDir } = makeSandbox(
-    'if [[ "$2" == *@* ]]; then exit 1; else echo "5.0.0"; fi',
-  );
-  try {
-    writeFileSync(
-      join(binDir, "pnpm"),
-      "#!/usr/bin/env bash\necho 'npm error Cannot publish over previously published version \"5.0.1\"' >&2\nexit 1\n",
+for (const state of ["published", "staged"]) {
+  test(`a publish rejected as already ${state} is treated as success`, () => {
+    const { dir, binDir } = makeSandbox(
+      'if [[ "$2" == *@* ]]; then exit 1; else echo "5.0.0"; fi',
     );
-    chmodSync(join(binDir, "pnpm"), 0o755);
-    execFileSync("git", ["commit", "-q", "--allow-empty", "-m", "fix: x"], {
-      cwd: dir,
-    });
+    try {
+      writeFileSync(
+        join(binDir, "pnpm"),
+        `#!/usr/bin/env bash\necho 'npm error 409 Conflict - Cannot publish over previously ${state} version "5.0.1".' >&2\nexit 1\n`,
+      );
+      chmodSync(join(binDir, "pnpm"), 0o755);
+      execFileSync("git", ["commit", "-q", "--allow-empty", "-m", "fix: x"], {
+        cwd: dir,
+      });
+      const { status, stderr } = runScript(dir, binDir);
+      assert.equal(status, 0, stderr);
+      assert.match(stderr, /already published \(detected at publish time\)/);
+      assert.doesNotMatch(stderr, /Pushed tag/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+}
+
+test("a release tag newer than npm's view sets the floor for the bump", () => {
+  // npm still reports 5.0.0 just after 5.2.0 was published and tagged; bumping
+  // from npm's view would re-publish 5.0.1 / 5.1.0 over an existing line.
+  const { dir, binDir } = makeSandbox(NPM_AT_5_STUB);
+  try {
+    const git = (...args) => execFileSync("git", args, { cwd: dir });
+    git("commit", "-q", "--allow-empty", "-m", "fix: released as 5.2.0");
+    git("tag", "v5.2.0");
+    git("commit", "-q", "--allow-empty", "-m", "fix: x");
     const { status, stderr } = runScript(dir, binDir);
     assert.equal(status, 0, stderr);
-    assert.match(stderr, /already published \(detected at publish time\)/);
-    assert.doesNotMatch(stderr, /Pushed tag/);
+    assert.match(
+      stderr,
+      /npm reports 5\.0\.0, but v5\.2\.0 is already released/,
+    );
+    assert.match(stderr, /New version: 5\.2\.1/);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -278,9 +301,9 @@ test("the commit list handed to the changelog drafter is capped at 20 lines, 100
 });
 
 // --- Tag ordering: the dedup tag lands before the docs push ----------------
-// A docs-push failure (e.g. main moved underneath the run) must still fail the
-// run, but only after the vX.Y.Z tag reached the remote; otherwise the next
-// run re-reads the climbing npm version and bumps again.
+// A docs-push failure (e.g. the remote rejects it) must still fail the run, but
+// only after the vX.Y.Z tag reached the remote; otherwise the next run re-reads
+// the climbing npm version and bumps again.
 test("tag is pushed before the docs push; a docs-push failure exits non-zero with the tag landed", () => {
   const { dir, binDir } = makeSandbox(
     'if [[ "$2" == *@* ]]; then exit 1; else echo "5.0.0"; fi',
@@ -331,6 +354,59 @@ test("tag is pushed before the docs push; a docs-push failure exits non-zero wit
       }),
       /refs\/tags\/v5\.1\.0/,
     );
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a merge that lands on main mid-release gets the docs commit replayed on top", () => {
+  const { dir, binDir } = makeSandbox(
+    'if [[ "$2" == *@* ]]; then exit 1; else echo "5.0.0"; fi',
+  );
+  try {
+    writeFileSync(
+      join(binDir, "pnpm"),
+      '#!/usr/bin/env bash\nif [[ "$1" == exec ]]; then echo promoted >> CHANGELOG.md; fi\nexit 0\n',
+    );
+    chmodSync(join(binDir, "pnpm"), 0o755);
+    const git = (cwd, ...args) =>
+      execFileSync("git", args, { cwd, encoding: "utf8" }).trim();
+    const origin = join(dir, "origin.git");
+    git(dir, "init", "-q", "--bare", origin);
+    git(dir, "remote", "add", "origin", origin);
+    writeFileSync(join(dir, "CHANGELOG.md"), "# Changelog\n\n## Unreleased\n");
+    writeFileSync(join(dir, "README.md"), "# sandbox\n");
+    git(dir, "add", "CHANGELOG.md", "README.md");
+    git(dir, "commit", "-q", "-m", "feat: releasable work");
+    git(dir, "push", "-q", "origin", "HEAD:main");
+    // Another PR merges after the release checkout but before its docs push.
+    const other = join(dir, "other");
+    git(dir, "clone", "-q", "--branch", "main", origin, other);
+    git(
+      other,
+      "-c",
+      "user.name=o",
+      "-c",
+      "user.email=o@o.test",
+      "commit",
+      "-q",
+      "--allow-empty",
+      "-m",
+      "fix: merged mid-release",
+    );
+    git(other, "push", "-q", "origin", "main");
+
+    const { status, stderr } = runScript(dir, binDir);
+    assert.equal(status, 0, stderr);
+    assert.deepEqual(
+      git(dir, "log", "--format=%s", "-3", "origin/main").split("\n"),
+      [
+        "docs: release 5.1.0 [skip ci]",
+        "fix: merged mid-release",
+        "feat: releasable work",
+      ],
+    );
+    assert.match(git(dir, "status", "--porcelain"), /package\.json/);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

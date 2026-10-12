@@ -43,6 +43,36 @@ if [ -z "$ANTHROPIC_API_KEY" ]; then
   log "Note: ANTHROPIC_API_KEY is not set. Changelog prose will fall back to a plain commit list."
 fi
 
+# Succeed when strict X.Y.Z version $1 is greater than $2.
+version_gt() {
+  local -a left right
+  local i
+  IFS=. read -r -a left <<< "$1"
+  IFS=. read -r -a right <<< "$2"
+  for i in 0 1 2; do
+    if (( left[i] != right[i] )); then
+      (( left[i] > right[i] ))
+      return
+    fi
+  done
+  return 1
+}
+
+# Replay the release-docs commit onto the current main and push it. A merge
+# that lands while the release runs moves main, and re-pushing the stale
+# commit is rejected however often it is retried.
+push_release_docs() {
+  # allow-unbounded: bounded by auto-version.yml's job timeout, as the tag push.
+  git fetch --quiet origin main || return
+  if ! git rebase --quiet --autostash origin/main; then
+    git rebase --abort
+    return 1
+  fi
+  # main-push-ok: the release workflow's ruleset-bypass PAT pushes this [skip ci] docs commit straight to main, after the release is tagged.
+  # allow-unbounded: bounded by auto-version.yml's job timeout, as the tag push.
+  git push origin HEAD:main
+}
+
 # Print the semver bump level. $1: commit subject lines (`%s`, one per
 # line) — only these are checked for type prefixes, so prose in a commit
 # body that happens to start with `feat:` can't inflate the bump. $2: full
@@ -101,6 +131,15 @@ log "Current npm version: $CURRENT_VERSION"
 # Find the latest version tag to determine which commits to analyze
 # echo-fallback-ok: git describe exits non-zero when no v* tag exists, and the empty tag selects the first-release path below.
 LAST_TAG=$(git describe --tags --match "v*" --abbrev=0 HEAD 2>/dev/null || echo "")
+
+# npm's registry view can lag a publish by minutes, so a run queued behind a
+# release may read the old version. The tag lands only after a successful
+# publish, so the latest reachable release tag is a floor on what npm holds.
+TAG_VERSION="${LAST_TAG#v}"
+if [[ "$TAG_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] && version_gt "$TAG_VERSION" "$CURRENT_VERSION"; then
+  log "npm reports $CURRENT_VERSION, but $LAST_TAG is already released; bumping from $TAG_VERSION."
+  CURRENT_VERSION="$TAG_VERSION"
+fi
 
 if [ -n "$LAST_TAG" ]; then
   # Skip if HEAD is already tagged (no new commits since last release)
@@ -299,7 +338,8 @@ log "Set package.json to $NEW_VERSION (working directory only)"
 # Handle "already published" (exit code 1, HTTP 400/409) as success — can happen
 # when npm registry caching causes the earlier safety check to miss an existing version
 if ! PUBLISH_OUTPUT=$(pnpm publish --provenance --access public --no-git-checks 2>&1); then
-  if [[ "$PUBLISH_OUTPUT" == *"Cannot publish over previously published version"* ]]; then
+  # npm words this "previously published version" or "previously staged version".
+  if [[ "$PUBLISH_OUTPUT" == *"Cannot publish over previously "* ]]; then
     log "Version $NEW_VERSION already published (detected at publish time). Skipping."
     exit 0
   fi
@@ -344,8 +384,8 @@ fi
 # users see the release notes and an up-to-date pre-commit pin. package.json
 # stays dirty (npm is the source of truth for version). A bot identity and
 # `[skip ci]` keep the resulting push from spawning another workflow run. A
-# push failure fails the run loudly, but the tag above has already landed, so
-# only the release-docs commit needs re-pushing.
+# push that still fails after the retries fails the run loudly, but the tag
+# above has already landed, so only the release-docs commit needs re-pushing.
 git config user.name "github-actions[bot]"
 git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 if git diff --quiet -- CHANGELOG.md README.md; then
@@ -353,11 +393,7 @@ if git diff --quiet -- CHANGELOG.md README.md; then
 else
   git add -- CHANGELOG.md README.md
   git commit -m "docs: release $NEW_VERSION [skip ci]"
-  # Push to main explicitly so this works whether actions/checkout left us on
-  # a branch or in detached HEAD state.
-  # main-push-ok: the release workflow's ruleset-bypass PAT pushes this [skip ci] docs commit straight to main, after the release is tagged.
-  # allow-unbounded: bounded by the job timeout, as the tag push above.
-  if ! retry_cmd 4 2 git push origin HEAD:main; then
+  if ! retry_cmd 4 2 push_release_docs; then
     log "Error: failed to push the release-docs update for v$NEW_VERSION."
     log "       The release is published and tagged; push the release-docs commit manually."
     exit 1
