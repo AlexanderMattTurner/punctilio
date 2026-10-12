@@ -67,14 +67,12 @@ jobs:
 
       # No incremental cache restore, and a per-shard incremental file that never
       # exists, so Stryker re-tests every mutant and its testsCompleted is fresh.
-      # A below-threshold score exits non-zero but still writes the report, which
-      # is all the measurement needs; a crash leaves no report and the extract
-      # step fails loudly on its absence.
+      # The shard config disables the score break, so a non-zero exit is a crash.
       - name: Measure shard (full, no cache)
         env:
           MUTATE: ${{ matrix.mutate }}
           SHARD_INDEX: ${{ matrix.index }}
-        run: pnpm run mutation --mutate "$MUTATE" --reporters json --incrementalFile "reports/fresh-$SHARD_INDEX.json" || echo "stryker exited non-zero; checking for a report"
+        run: pnpm run mutation stryker.shard.config.mjs --mutate "$MUTATE" --reporters json --incrementalFile "reports/fresh-$SHARD_INDEX.json"
 
       - name: Extract this shard's weights
         env:

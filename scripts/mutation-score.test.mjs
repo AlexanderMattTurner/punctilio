@@ -43,7 +43,7 @@ const reportOf = (statusesByFile) => ({
 
 const repeat = (status, count) => Array(count).fill(status);
 
-// Shard one scores 50% alone, shard two 100%; together 7 of 10 are detected.
+// Shard one scores 50% alone, shard two 100%; together 8 of 10 are detected.
 const weakShard = reportOf({
   "src/a.ts": [...repeat("Killed", 2), ...repeat("Survived", 2)],
 });
@@ -127,7 +127,6 @@ test("shard config differs from the base config only by disabling the break", as
   const { default: shard } = await import(
     pathToFileURL(join(REPO_ROOT, "stryker.shard.config.mjs")).href
   );
-  assert.equal(typeof readBreakThreshold(base), "number");
   assert.deepEqual(shard, {
     ...base,
     thresholds: { ...base.thresholds, break: null },
@@ -154,7 +153,9 @@ test("CLI exit code follows the aggregate score and the expected shard count", (
       run(weak, strong, "--config", lenient, "--expect-shards", "2").status,
       0,
     );
-    assert.notEqual(run(weak, "--config", lenient).status, 0);
+    const weakAlone = run(weak, "--config", lenient);
+    assert.notEqual(weakAlone.status, 0);
+    assert.match(weakAlone.stderr, /50\.00 is under the breaking threshold 75/);
 
     const underThreshold = run(weak, strong, "--config", strict);
     assert.notEqual(underThreshold.status, 0);

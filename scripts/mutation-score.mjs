@@ -13,6 +13,7 @@
  */
 import { readFileSync } from "node:fs"
 import { pathToFileURL } from "node:url"
+import { parseArgs } from "node:util"
 
 import {
   aggregateResultsByModule,
@@ -48,18 +49,15 @@ export function assertScoreMeetsThreshold(metrics, threshold) {
     )
 }
 
-function parseArgs(argv) {
-  const reportPaths = []
-  const flags = {}
-  for (let i = 0; i < argv.length; i++) {
-    if (argv[i].startsWith("--")) flags[argv[i].slice(2)] = argv[++i]
-    else reportPaths.push(argv[i])
-  }
-  return { reportPaths, flags }
-}
-
 function main(argv) {
-  const { reportPaths, flags } = parseArgs(argv)
+  const { positionals: reportPaths, values: flags } = parseArgs({
+    args: argv,
+    allowPositionals: true,
+    options: {
+      "expect-shards": { type: "string" },
+      config: { type: "string" },
+    },
+  })
   if (flags["expect-shards"] !== undefined) {
     const expected = Number(flags["expect-shards"])
     if (!Number.isInteger(expected) || expected < 1)
