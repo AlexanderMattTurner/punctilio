@@ -1,4 +1,4 @@
-import { CLOSING_BRACKETS, FOLDED_WORD_CHARS, LATIN_LETTER_RE, OPENING_BRACKETS, QUOTE_GLYPHS, SPACE_CHAR_RE, TERMINAL_PUNCTUATION, UNICODE_SYMBOLS, WORD_RE } from "./constants.js"
+import { CLOSING_BRACKETS, FOLDED_TERMINALS, FOLDED_WORD_CHARS, LATIN_LETTER_RE, OPENING_BRACKETS, QUOTE_GLYPHS, SPACE_CHAR_RE, TERMINAL_PUNCTUATION, UNICODE_SYMBOLS, WORD_RE } from "./constants.js"
 import type { ProseView } from "./prose-view.js"
 
 const {
@@ -24,22 +24,12 @@ const {
   DOUBLE_QUESTION,
   QUESTION_EXCLAMATION,
   EXCLAMATION_QUESTION,
-  DOUBLE_EXCLAMATION,
-  INTERROBANG,
   APPROXIMATE,
   GREATER_EQUAL,
   LESS_EQUAL,
   NOT_EQUAL,
   PLUS_MINUS,
 } = UNICODE_SYMBOLS
-
-/**
- * Glyphs the symbol passes fold `?`/`!` runs and `...` into. The quote rules
- * run before those passes, so every ending-context set that contains the
- * source punctuation must contain the folded glyph too — otherwise a decision
- * gated on `?!` flips once a re-run sees `⁈`.
- */
-const FOLDED_TERMINALS = [DOUBLE_QUESTION, QUESTION_EXCLAMATION, EXCLAMATION_QUESTION, DOUBLE_EXCLAMATION, INTERROBANG] as const
 
 export const PUNCTUATION_STYLES = ["american", "british", "german", "french", "none"] as const
 export type PunctuationStyle = (typeof PUNCTUATION_STYLES)[number]
@@ -286,12 +276,11 @@ function readGermanGlyph(glyph: string, afterDigit: boolean, depth: GermanDepth)
   // Not used in German typography; re-derive by position.
   if (glyph === RIGHT_DOUBLE_QUOTE) return '"'
   if (glyph === RIGHT_SINGLE_QUOTE || glyph === MODIFIER_LETTER_APOSTROPHE) {
-    // U+02BC renders as U+2019, which the next run re-derives by position;
-    // re-derive it the same way now so both runs agree. Directly after a digit
-    // the mark is a separator (Swiss "5’000"), never a German quote glyph: keep
-    // the apostrophe role, which renders U+2019 unchanged. Re-deriving to a
-    // straight quote there hands correct typography to the next run's prime
-    // pass ("5'000" → "5′000"), a destroyed separator and a broken fixed point.
+    // U+02BC and U+2019 read alike: the next run re-derives the rendered U+2019
+    // by position, so re-derive here too. Directly after a digit the mark is a
+    // separator (Swiss "5’000"), so keep the apostrophe role: a straight quote
+    // there would reach the next run's prime pass ("5′000"), destroying the
+    // separator and the fixed point.
     return afterDigit ? MODIFIER_LETTER_APOSTROPHE : "'"
   }
   return null

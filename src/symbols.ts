@@ -1,4 +1,4 @@
-import { cachedRegExp, LATIN_LETTER_RE, LATIN_OR_DIGIT, MAX_BOUNDARY_SEPARATORS, SPACE_CHAR_RE, UNICODE_SYMBOLS, WORD_RE } from "./constants.js"
+import { cachedRegExp, FRACTION_GLYPHS, LATIN_LETTER_RE, LATIN_OR_DIGIT, MAX_BOUNDARY_SEPARATORS, SPACE_CHAR_RE, UNICODE_SYMBOLS, WORD_RE } from "./constants.js"
 import { boundaryCountAt, exceedsSingleBoundary, firstInteriorBoundary, interiorBoundariesWithin, makeProsePass, overInput, type ProseView, replaceAllInView } from "./prose-view.js"
 import { isDashChar } from "./dashes.js"
 import { convertPrimeMarks } from "./quote-classifier.js"
@@ -516,12 +516,7 @@ const BOUNDARY_CONTEXT_COST = 2
 // Vulgar fraction glyphs (½, ¾, …). A fraction folds from `n/m`, which the path
 // heuristic below reads as a path context — so the glyph must read the same way,
 // or `1/2(tm)` (blocked) would convert once fractions strips the slash to `½(tm)`.
-const FRACTION_GLYPH_RE = new RegExp(
-  `[${Object.entries(UNICODE_SYMBOLS)
-    .filter(([key]) => key.startsWith("FRACTION_"))
-    .map(([, glyph]) => glyph)
-    .join("")}]`,
-)
+const FRACTION_GLYPH_RE = new RegExp(`[${FRACTION_GLYPHS}]`)
 
 const isPathContext = (before: string): boolean => {
   const parts = before.split(/\s+/)

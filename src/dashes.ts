@@ -1,4 +1,4 @@
-import { asCharClassContent, cachedRegExp, FOLDED_WORD_CHARS, isWordLike, LATIN_LETTER_RE, LATIN_LETTERS, LATIN_OR_DIGIT, LATIN_OR_DIGIT_RE, MAX_BOUNDARY_SEPARATORS, NBSP_CHARS, OPENING_BRACKETS, QUOTE_GLYPHS, SPACE_CHAR_RE, UNICODE_SYMBOLS } from "./constants.js"
+import { asCharClassContent, cachedRegExp, FOLDED_TERMINALS, FOLDED_WORD_CHARS, FRACTION_GLYPHS, isWordLike, LATIN_LETTER_RE, LATIN_LETTERS, LATIN_OR_DIGIT, LATIN_OR_DIGIT_RE, MAX_BOUNDARY_SEPARATORS, NBSP_CHARS, OPENING_BRACKETS, QUOTE_GLYPHS, SPACE_CHAR_RE, UNICODE_SYMBOLS } from "./constants.js"
 import { boundaryCountAt, exceedsSingleBoundary, firstInteriorBoundary, lastBoundaryBefore, makeProsePass, overInput, type ProseView, replaceAllInView, type ReplaceAllOptions } from "./prose-view.js"
 
 export const DASH_STYLES = ["american", "british", "none"] as const
@@ -55,18 +55,6 @@ const FOLDED_FROM_TRAILING_DASH = new Set<string>([
 /** Mirror of {@link FOLDED_FROM_TRAILING_DASH} for sources starting with a
  * dash char (`->` → `→`). */
 const FOLDED_FROM_LEADING_DASH = new Set<string>([UNICODE_SYMBOLS.ARROW_RIGHT])
-
-/** Glyphs the ellipsis and punctuation-ligature passes fold runs of `.`, `?` and `!` into. */
-const FOLDED_TERMINAL_GLYPHS = new Set<string>([
-  UNICODE_SYMBOLS.ELLIPSIS, UNICODE_SYMBOLS.DOUBLE_QUESTION, UNICODE_SYMBOLS.QUESTION_EXCLAMATION,
-  UNICODE_SYMBOLS.EXCLAMATION_QUESTION, UNICODE_SYMBOLS.DOUBLE_EXCLAMATION, UNICODE_SYMBOLS.INTERROBANG,
-])
-
-/** The vulgar fraction glyphs the fraction pass folds digit-led `n/d` pairs into. */
-const FRACTION_GLYPH_CLASS_FRAGMENT = Object.entries(UNICODE_SYMBOLS)
-  .filter(([name]) => name.startsWith("FRACTION_"))
-  .map(([, glyph]) => glyph)
-  .join("")
 
 /**
  * Runs one boundary-gated regex pass over the view and commits it immediately.
@@ -799,7 +787,7 @@ const MINUS_BEFORE_CLASS_RE = new RegExp(`[\\s${asCharClassContent(OPENING_BRACK
 // ("?|!-0" folds to "⁈|-0" with the hyphen stranded boundary-adjacent).
 const FOLDED_WORD_CLASS_FRAGMENT = [...FOLDED_WORD_CHARS].join("")
 const FOLDED_MATH_CLASS_FRAGMENT = [...FOLDED_MATH_OPERATORS].join("")
-const FOLDED_TERMINAL_CLASS_FRAGMENT = [...FOLDED_TERMINAL_GLYPHS, "!"].join("")
+const FOLDED_TERMINAL_CLASS_FRAGMENT = [UNICODE_SYMBOLS.ELLIPSIS, ...FOLDED_TERMINALS, "!"].join("")
 const NUM_BEFORE_2B_BLOCK_RE = new RegExp(`[\\d.,${LATIN_LETTERS}${FOLDED_WORD_CLASS_FRAGMENT}${FOLDED_MATH_CLASS_FRAGMENT}${FOLDED_TERMINAL_CLASS_FRAGMENT}]`)
 
 /**
@@ -1250,7 +1238,7 @@ function removeSpacesAroundEmDash(view: ProseView): void {
 function preserveLineLeadingEmDashSpace(view: ProseView): void {
   pass(
     view,
-    cachedRegExp(`^${EM_DASH}(?<after>[A-Z0-9${FRACTION_GLYPH_CLASS_FRAGMENT}])`, "gm"),
+    cachedRegExp(`^${EM_DASH}(?<after>[A-Z0-9${FRACTION_GLYPHS}])`, "gm"),
     (match, v) => {
       // One boundary is tolerated between the line start and the em-dash; two or
       // more exceed that slot and block the match.

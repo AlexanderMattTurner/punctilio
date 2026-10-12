@@ -216,6 +216,22 @@ export const WORD_RE = /\w/
 export const SPACE_CHAR_RE = new RegExp(`[${SPACE_CHARS}]`)
 
 /**
+ * Glyphs the punctuation-ligature pass folds `?`/`!` runs into. Rules that run
+ * before it must treat a folded glyph like the characters it folds from, or a
+ * gate decided on `?!` flips once a re-run sees `⁈`.
+ */
+export const FOLDED_TERMINALS = [
+  UNICODE_SYMBOLS.DOUBLE_QUESTION, UNICODE_SYMBOLS.QUESTION_EXCLAMATION, UNICODE_SYMBOLS.EXCLAMATION_QUESTION,
+  UNICODE_SYMBOLS.DOUBLE_EXCLAMATION, UNICODE_SYMBOLS.INTERROBANG,
+] as const
+
+/** The vulgar fraction glyphs the fraction pass folds digit-led `n/d` pairs into. */
+export const FRACTION_GLYPHS = Object.entries(UNICODE_SYMBOLS)
+  .filter(([name]) => name.startsWith("FRACTION_"))
+  .map(([, glyph]) => glyph)
+  .join("")
+
+/**
  * Glyphs the symbol passes fold word characters into (multiplication `x` →
  * `×`, ordinal suffixes → superscripts). Rules that run before those passes
  * must treat a folded glyph like the word character it folds from, or a gate
