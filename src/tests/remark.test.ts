@@ -8,6 +8,7 @@ import { UNICODE_SYMBOLS } from "../constants.js"
 const {
   LEFT_DOUBLE_QUOTE: LDQ,
   RIGHT_DOUBLE_QUOTE: RDQ,
+  LEFT_SINGLE_QUOTE: LSQ,
   RIGHT_SINGLE_QUOTE: RSQ,
   EM_DASH,
   EN_DASH,
@@ -136,6 +137,21 @@ describe("remarkPunctilio", () => {
       ["raw HTML emphasis", '"<em>hi</em>"', `${LDQ}<em>hi</em>${RDQ}`],
       ["an image", 'See "![x](y)" here', `See ${LDQ}![x](y)${RDQ} here`],
       ["raw HTML", 'Press "<kbd>q</kbd>" now', `Press ${LDQ}<kbd>q</kbd>${RDQ} now`],
+    ])("%s", async (_name, input, expected) => {
+      const once = await processMarkdown(input, { nbsp: false })
+      expect(once).toEqual(expected)
+      expect(await processMarkdown(once, { nbsp: false })).toEqual(once)
+    })
+  })
+
+  describe("quote direction beside opaque inline content", () => {
+    it.each([
+      ["a closing single quote before more prose", "He called it 'hi'`x` later", `He called it ${LSQ}hi${RSQ}\`x\` later`],
+      ["a closing double quote before more prose", 'He said "hi"`x` later', `He said ${LDQ}hi${RDQ}\`x\` later`],
+      ["an abbreviated opener before the gap", "rock 'n'`x` roll", `rock ${LSQ}n${RSQ}\`x\` roll`],
+      ["a plural possessive before the gap", "the boys'`x` toys", `the boys${RSQ}\`x\` toys`],
+      ["an opening single quote after the gap", "a `x`'hi' there", `a \`x\`${LSQ}hi${RSQ} there`],
+      ["a single quote pair around the gap", "the '`x`' key", `the ${LSQ}\`x\`${RSQ} key`],
     ])("%s", async (_name, input, expected) => {
       const once = await processMarkdown(input, { nbsp: false })
       expect(once).toEqual(expected)

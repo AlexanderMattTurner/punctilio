@@ -470,6 +470,20 @@ describe("runAcrossOpaqueGaps", () => {
     expect(result.values).toEqual(expectedValues);
   });
 
+  // Beside a single quote the gap carries a stand-in for the segment edge the
+  // classifier would otherwise read there; double quotes get the bare placeholder.
+  it.each([
+    ["a closing single quote before the gap", ["a'", "b"], `a')${OPAQUE_PLACEHOLDER}b`],
+    ["an opening single quote after the gap", ["a", "'b"], `a${OPAQUE_PLACEHOLDER}('b`],
+    ["single quotes on both sides", ["a'", "'b"], `a')${OPAQUE_PLACEHOLDER}('b`],
+    ["a curly single quote before the gap", ["a\u2019", "b"], `a\u2019)${OPAQUE_PLACEHOLDER}b`],
+    ["a double quote before the gap", ['a"', "b"], `a"${OPAQUE_PLACEHOLDER}b`],
+    ["a double quote after the gap", ["a", '"b'], `a${OPAQUE_PLACEHOLDER}"b`],
+    ["a quote away from the gap", ["'a", "b'"], `'a${OPAQUE_PLACEHOLDER}b'`],
+  ])("the placeholder beside %s", (_name, values, expectedText) => {
+    expect(runWith(values, [1], () => {}).texts).toEqual([expectedText]);
+  });
+
   // An edit that lands in the gap makes the nodes revert and each
   // opaque-delimited segment run alone, so nothing is written in or through it.
   it.each([

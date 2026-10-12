@@ -20,6 +20,7 @@ import { UNICODE_SYMBOLS } from "../constants.js";
 const {
   LEFT_DOUBLE_QUOTE: LDQ,
   RIGHT_DOUBLE_QUOTE: RDQ,
+  LEFT_SINGLE_QUOTE: LSQ,
   RIGHT_SINGLE_QUOTE: RSQ,
   EM_DASH,
   EN_DASH,
@@ -488,6 +489,55 @@ describe("rehypePunctilio", () => {
         `<p>The <code>x</code>${RSQ}s value</p>`,
       ],
     ])("quotes pair across %s", async (_name, html, expected) => {
+      const once = await processHtml(html, { nbsp: false });
+      expect(once).toEqual(expected);
+      expect(await processHtml(once, { nbsp: false })).toEqual(once);
+    });
+
+    // A quote at the edge of a gap keeps the direction the segment edge gives
+    // it, while a pair around the gap still pairs.
+    it.each([
+      [
+        "a closing single quote before more prose",
+        "<p>He called it 'hi'<code>x</code> later</p>",
+        `<p>He called it ${LSQ}hi${RSQ}<code>x</code> later</p>`,
+      ],
+      [
+        "a closing double quote before more prose",
+        '<p>He said "hi"<code>x</code> later</p>',
+        `<p>He said ${LDQ}hi${RDQ}<code>x</code> later</p>`,
+      ],
+      [
+        "a closing single quote at the end of the block",
+        "<p>He called it 'hi'<code>x</code></p>",
+        `<p>He called it ${LSQ}hi${RSQ}<code>x</code></p>`,
+      ],
+      [
+        "an abbreviated opener before the gap",
+        "<p>rock 'n'<code>x</code> roll</p>",
+        `<p>rock ${LSQ}n${RSQ}<code>x</code> roll</p>`,
+      ],
+      [
+        "a plural possessive before the gap",
+        "<p>the boys'<code>x</code> toys</p>",
+        `<p>the boys${RSQ}<code>x</code> toys</p>`,
+      ],
+      [
+        "an opening single quote after the gap",
+        "<p>a <code>x</code>'hi' there</p>",
+        `<p>a <code>x</code>${LSQ}hi${RSQ} there</p>`,
+      ],
+      [
+        "a single quote pair around the gap",
+        "<p>the '<code>x</code>' key</p>",
+        `<p>the ${LSQ}<code>x</code>${RSQ} key</p>`,
+      ],
+      [
+        "closing and opening single quotes on both sides of a gap",
+        "<p>say 'a'<code>x</code>'b' ok</p>",
+        `<p>say ${LSQ}a${RSQ}<code>x</code>${LSQ}b${RSQ} ok</p>`,
+      ],
+    ])("quote direction is kept beside %s", async (_name, html, expected) => {
       const once = await processHtml(html, { nbsp: false });
       expect(once).toEqual(expected);
       expect(await processHtml(once, { nbsp: false })).toEqual(once);
