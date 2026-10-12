@@ -19,7 +19,8 @@ const UNICODE_UPPERCASE = "\\p{Lu}"
 // A word-forming character (any Unicode letter or number). Used for the
 // abbreviation-family word-start guard, which must span the same alphabets the
 // initial/honorific rules glue on (they key off `\p{Lu}`), so a non-Latin
-// acronym like "СССР." is guarded exactly as "NASA." is.
+// acronym like "СССР." is guarded exactly as "NASA." is, and for the last-word
+// rule's check that a word precedes the space.
 const WORD_CHAR_RE = /[\p{L}\p{N}]/u
 
 /** Only specific abbreviations are matched to avoid false positives. */
@@ -168,7 +169,10 @@ function nextWordGluesForward(text: string, start: number): boolean {
 // glued onward.
 export const nbspAfterShortWords = makeProsePass(nbspAfterShortWordsOverView)
 
-function nbspAfterShortWordsOverView(view: ProseView): void {
+// Returns the offsets of the spaces this pass turned into no-break spaces, so
+// the last-word rule can tell its own pipeline's glue from the author's.
+function nbspAfterShortWordsOverView(view: ProseView): ReadonlySet<number> {
+  const insertedGlue = new Set<number>()
   const pattern = cachedRegExp(
     `(?<=^|${SPACE}|${PUNCTUATION_OR_QUOTE}|>)(?<shortWord>[${LATIN_LETTERS}]{1,2})${SPACE}`,
     "gmu"
@@ -191,7 +195,9 @@ function nbspAfterShortWordsOverView(view: ProseView): void {
         if (nextWordGluesForward(clean, offset + match[0].length)) return null
         previousMatchEnd = offset + match[0].length
         // Edit only the space so any boundary keeps its side of the NBSP.
-        v.replace(offset + match[0].length - 1, offset + match[0].length, NBSP)
+        const spaceOffset = offset + match[0].length - 1
+        if (!NBSP_CHARS.includes(clean[spaceOffset])) insertedGlue.add(spaceOffset)
+        v.replace(spaceOffset, spaceOffset + 1, NBSP)
         return null
       },
       {
@@ -203,6 +209,7 @@ function nbspAfterShortWordsOverView(view: ProseView): void {
     )
   }
   view.commit()
+  return insertedGlue
 }
 
 export const nbspBetweenNumberAndUnit = makeProsePass(nbspBetweenNumberAndUnitOverView)
@@ -260,35 +267,14 @@ function precedingGlueNbsp(view: ProseView, spaceOffset: number): number {
   return j >= 0 && NBSP_CHARS.includes(text[j]) ? j : -1
 }
 
-/**
- * True when the word immediately before the NBSP at `nbspIndex` is a 1–2 letter
- * Latin word whose own left edge is a word boundary — an aesthetic short-word
- * glue that yields to last-word protection. Semantic glues (honorific `Dr.`,
- * abbreviation, unit `12`) carry a "."/digit/symbol right before the NBSP, so
- * the backward letter scan finds zero letters and returns false. The scan is
- * capped at three letters so it stays bounded on a long preceding word.
- */
-function isShortWordGlue(view: ProseView, nbspIndex: number): boolean {
-  const text = view.text
-  let k = nbspIndex - 1
-  let letters = 0
-  while (k >= 0 && letters <= 2 && !view.hasBoundary(k + 1) && LATIN_LETTER_RE.test(text[k])) {
-    k--
-    letters++
-  }
-  if (letters === 0 || letters > 2 || view.hasBoundary(k + 1)) return false
-  // The short word's left edge must be a real word boundary, matching
-  // nbspAfterShortWords' lookbehind — not another NBSP.
-  return !(k >= 0 && NBSP_CHARS.includes(text[k]))
-}
+// When the second-to-last word is already glued backwards, a short-word glue
+// that `nbspAfterShortWords` inserted yields (reverts to a space) so the last
+// word binds instead, keeping the non-breaking run to two words. Any other
+// glue there (a semantic glue, or a no-break space the author wrote) blocks.
+export const nbspBeforeLastWord = makeProsePass((view) => nbspBeforeLastWordOverView(view, new Set()))
 
-// When the second-to-last word is already glued backwards, an aesthetic
-// short-word glue yields (reverts to a space) so the last word binds instead,
-// keeping the non-breaking run to two words; a semantic glue there blocks.
-export const nbspBeforeLastWord = makeProsePass(nbspBeforeLastWordOverView)
-
-function nbspBeforeLastWordOverView(view: ProseView): void {
-  // The `(?<=\w|boundary)` lookbehind and the preceding-glue resolution are
+function nbspBeforeLastWordOverView(view: ProseView, insertedShortWordGlue: ReadonlySet<number>): void {
+  // The word-char-or-boundary lookbehind and the preceding-glue resolution are
   // enforced in the replacer, where boundaries are visible.
   const pattern = cachedRegExp(
     `${SPACE}(?<lastWord>(?:(?!\\s).){1,${MAX_LAST_WORD_LENGTH}})(?<ending>\\n\\n|$)`,
@@ -302,12 +288,12 @@ function nbspBeforeLastWordOverView(view: ProseView): void {
       (match, v) => {
         const start = match.index
         const end = start + match[0].length
-        // `(?<=\w|sep)`: a word char before the space, or a boundary there.
-        const precededByWord = start > 0 && /\w/.test(clean[start - 1])
+        // A word char before the space, or a boundary there.
+        const precededByWord = start > 0 && WORD_CHAR_RE.test(clean[start - 1])
         if (!precededByWord && !view.hasBoundary(start)) return null
         const glueNbsp = precedingGlueNbsp(v, start)
         if (glueNbsp >= 0) {
-          if (!isShortWordGlue(v, glueNbsp)) return null
+          if (!insertedShortWordGlue.has(glueNbsp)) return null
           // Revert the short word's glue so the last word binds in its place.
           v.replace(glueNbsp, glueNbsp + 1, " ")
         }
@@ -425,7 +411,8 @@ export const nbspAfterCopyrightSymbols = makeProsePass(nbspAfterCopyrightSymbols
 
 export const nbspBetweenInitials = makeProsePass(nbspBetweenInitialsOverView)
 
-// Specific patterns first so they claim matches before generic nbspAfterShortWords.
+// Specific patterns first so they claim matches before the generic short-word
+// rule, which nbspTransform runs after them.
 const NBSP_TRANSFORMS: ((view: ProseView) => void)[] = [
   nbspAfterHonorificsOverView,
   nbspAfterReferenceAbbreviationsOverView,
@@ -433,8 +420,6 @@ const NBSP_TRANSFORMS: ((view: ProseView) => void)[] = [
   nbspAfterCopyrightSymbolsOverView,
   nbspBetweenInitialsOverView,
   nbspBetweenNumberAndUnitOverView,
-  nbspAfterShortWordsOverView,
-  nbspBeforeLastWordOverView,
 ]
 
 export function nbspTransform(input: string): string
@@ -448,5 +433,6 @@ export function nbspTransform(input: string | ProseView): string | void {
     for (const fn of NBSP_TRANSFORMS) {
       fn(view)
     }
+    nbspBeforeLastWordOverView(view, nbspAfterShortWordsOverView(view))
   })
 }
