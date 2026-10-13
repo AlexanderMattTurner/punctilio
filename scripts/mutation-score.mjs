@@ -3,13 +3,10 @@
  *
  *   node scripts/mutation-score.mjs <mutation.json...> [--expect-shards <n>] [--config <stryker.config.json>]
  *
- * Stryker applies `thresholds.break` per process, so a shard that happens to hold
- * a few weakly-tested files fails even when the project-wide score is healthy.
- * Shards run with the break disabled (stryker.shard.config.mjs); this script
- * merges their JSON reports and applies the same `thresholds.break` from
- * stryker.config.json to the combined score. The score comes from
- * mutation-testing-metrics, the package Stryker itself uses, so the formula is
- * Stryker's own.
+ * Shards run with the break disabled (stryker.shard.config.mjs), since Stryker
+ * applies `thresholds.break` per process. This merges their reports and applies
+ * the config's `thresholds.break` to the pooled score, computed by
+ * mutation-testing-metrics (Stryker's own formula).
  */
 import { readFileSync } from "node:fs"
 import { pathToFileURL } from "node:url"
@@ -61,7 +58,7 @@ function main(argv) {
   if (flags["expect-shards"] !== undefined) {
     const expected = Number(flags["expect-shards"])
     if (!Number.isInteger(expected) || expected < 1)
-      throw new Error(`--expect-shards must be a positive integer`)
+      throw new Error("--expect-shards must be a positive integer")
     if (reportPaths.length !== expected)
       throw new Error(
         `expected ${expected} shard reports but found ${reportPaths.length}; a shard produced no report`,

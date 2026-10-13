@@ -43,8 +43,7 @@ if [ -z "$ANTHROPIC_API_KEY" ]; then
   log "Note: ANTHROPIC_API_KEY is not set. Changelog prose will fall back to a plain commit list."
 fi
 
-# Print the body of the "## Unreleased" block of the CHANGELOG on stdin: the
-# lines after its heading, up to the next "## " heading or end of file.
+# Print the body of the "## Unreleased" block of the CHANGELOG on stdin.
 unreleased_body() {
   awk '
     /^## Unreleased[[:space:]]*$/ { collecting = 1; next }

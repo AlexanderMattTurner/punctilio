@@ -260,10 +260,9 @@ test("a release tag newer than npm's view sets the floor for the bump", () => {
   // from npm's view would re-publish 5.0.1 / 5.1.0 over an existing line.
   const { dir, binDir } = makeSandbox(NPM_AT_5_STUB);
   try {
-    const git = (...args) => execFileSync("git", args, { cwd: dir });
-    git("commit", "-q", "--allow-empty", "-m", "fix: released as 5.2.0");
-    git("tag", "v5.2.0");
-    git("commit", "-q", "--allow-empty", "-m", "fix: x");
+    git(dir, "commit", "-q", "--allow-empty", "-m", "fix: released as 5.2.0");
+    git(dir, "tag", "v5.2.0");
+    git(dir, "commit", "-q", "--allow-empty", "-m", "fix: x");
     const { status, stderr } = runScript(dir, binDir);
     assert.equal(status, 0, stderr);
     assert.match(

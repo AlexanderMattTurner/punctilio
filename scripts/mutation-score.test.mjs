@@ -77,11 +77,8 @@ for (const { name, reports, expected } of [
   },
 ]) {
   test(`aggregateMetrics ${name}`, () => {
-    const metrics = aggregateMetrics(reports);
-    assert.equal(metrics.killed, expected.killed);
-    assert.equal(metrics.timeout, expected.timeout);
-    assert.equal(metrics.survived, expected.survived);
-    assert.equal(metrics.mutationScore, expected.score);
+    const { killed, timeout, survived, mutationScore: score } = aggregateMetrics(reports);
+    assert.deepEqual({ killed, timeout, survived, score }, expected);
   });
 }
 
