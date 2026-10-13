@@ -43,6 +43,76 @@ if [ -z "$ANTHROPIC_API_KEY" ]; then
   log "Note: ANTHROPIC_API_KEY is not set. Changelog prose will fall back to a plain commit list."
 fi
 
+# Print the body of the "## Unreleased" block of the CHANGELOG on stdin.
+unreleased_body() {
+  awk '
+    /^## Unreleased[[:space:]]*$/ { collecting = 1; next }
+    collecting && /^## / { collecting = 0 }
+    collecting { print }
+  '
+}
+
+# Update origin/main to the remote's main. The explicit refspec updates the
+# remote-tracking ref whatever remote.origin.fetch says.
+fetch_main() {
+  # allow-unbounded: bounded by auto-version.yml's job timeout, as the tag push.
+  git fetch --quiet origin +refs/heads/main:refs/remotes/origin/main
+}
+
+# Build the release-docs commit (README rev pin + CHANGELOG promotion) on top of
+# a fresh fetch of main and push it. Rebuilding on each attempt means a merge
+# that lands mid-release, another release's docs commit included, is built upon
+# rather than conflicted with. A scratch index assembles the commit, so HEAD and
+# the dirty package.json stay untouched.
+push_release_docs() {
+  local doc docs_index docs_tree docs_commit
+  fetch_main || return
+  # A push whose acknowledgment was lost has already landed; promoting again
+  # would add a second section for this version.
+  if [ -n "$(git log --fixed-strings --grep="docs: release $NEW_VERSION [skip ci]" --format=%H "v$NEW_VERSION..origin/main")" ]; then
+    return 0
+  fi
+  for doc in CHANGELOG.md README.md; do
+    if [ -f "$doc" ]; then
+      git show "origin/main:$doc" > "$doc" || return
+    fi
+  done
+  # Promotion replaces the Unreleased body with the drafted notes, so an entry
+  # merged mid-release would be filed under this version or dropped. Retrying
+  # cannot change that, so this exits rather than returns.
+  if [ -f CHANGELOG.md ] && [[ "$(unreleased_body < CHANGELOG.md)" != "$RELEASE_UNRELEASED" ]]; then
+    log "Error: main's \"## Unreleased\" changelog block changed during the release."
+    log "       v$NEW_VERSION is published and tagged; promote its changelog by hand."
+    exit 1
+  fi
+  if [ -f README.md ]; then
+    NEW_VERSION="$NEW_VERSION" pnpm exec tsx "$SCRIPT_DIR/pin-readme-rev.ts" || return
+  fi
+  if [ -f CHANGELOG.md ] && [ -n "$CHANGELOG_SECTION" ]; then
+    NEW_VERSION="$NEW_VERSION" \
+    RELEASE_DATE="$RELEASE_DATE" \
+    CHANGELOG_SECTION="$CHANGELOG_SECTION" \
+      pnpm exec tsx "$SCRIPT_DIR/promote-changelog.ts" || return
+  fi
+
+  docs_index="$(git rev-parse --absolute-git-dir)/release-docs.index"
+  GIT_INDEX_FILE="$docs_index" git read-tree origin/main || return
+  for doc in CHANGELOG.md README.md; do
+    if [ -f "$doc" ]; then
+      GIT_INDEX_FILE="$docs_index" git add -- "$doc" || return
+    fi
+  done
+  docs_tree=$(GIT_INDEX_FILE="$docs_index" git write-tree) || return
+  if [[ "$docs_tree" == "$(git rev-parse 'origin/main^{tree}')" ]]; then
+    log "No release-docs changes to commit."
+    return 0
+  fi
+  docs_commit=$(git commit-tree "$docs_tree" -p origin/main -m "docs: release $NEW_VERSION [skip ci]") || return
+  # main-push-ok: the release workflow's ruleset-bypass PAT pushes this [skip ci] docs commit straight to main, after the release is tagged.
+  # allow-unbounded: bounded by auto-version.yml's job timeout, as the tag push.
+  git push origin "$docs_commit:refs/heads/main"
+}
+
 # Print the semver bump level. $1: commit subject lines (`%s`, one per
 # line) — only these are checked for type prefixes, so prose in a commit
 # body that happens to start with `feat:` can't inflate the bump. $2: full
@@ -102,6 +172,26 @@ log "Current npm version: $CURRENT_VERSION"
 # echo-fallback-ok: git describe exits non-zero when no v* tag exists, and the empty tag selects the first-release path below.
 LAST_TAG=$(git describe --tags --match "v*" --abbrev=0 HEAD 2>/dev/null || echo "")
 
+# npm's registry view can lag a publish by minutes, so a run queued behind a
+# release may read the old version. The tag lands only after a successful
+# publish, so the latest reachable release tag is a floor on what npm holds.
+TAG_VERSION="${LAST_TAG#v}"
+if [[ "$TAG_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  TAG_IS_NEWER=0
+  "$SCRIPT_DIR/../node_modules/.bin/semver" --range ">$CURRENT_VERSION" "$TAG_VERSION" > /dev/null || TAG_IS_NEWER=$?
+  case "$TAG_IS_NEWER" in
+    0)
+      log "npm reports $CURRENT_VERSION, but $LAST_TAG is already released; bumping from $TAG_VERSION."
+      CURRENT_VERSION="$TAG_VERSION"
+      ;;
+    1) ;;
+    *)
+      log "Error: semver failed (exit $TAG_IS_NEWER) comparing $LAST_TAG with npm's $CURRENT_VERSION."
+      exit 1
+      ;;
+  esac
+fi
+
 if [ -n "$LAST_TAG" ]; then
   # Skip if HEAD is already tagged (no new commits since last release)
   LAST_TAG_SHA=$(git rev-list -1 "$LAST_TAG")
@@ -152,19 +242,19 @@ log "$COMMITS"
 BUMP=$(determine_bump "$COMMIT_SUBJECTS" "$COMMIT_MESSAGES")
 log "Conventional Commits bump level: $BUMP"
 
-# Extract the current "## Unreleased" block from CHANGELOG.md, if present.
-# The block runs from the "## Unreleased" heading up to (but not including) the
-# next "## " heading or end of file.
-UNRELEASED_CONTENT=""
+# The Unreleased block this release drafts from, read from main: HEAD can
+# predate the docs commit of a release that ran while this one was queued, so
+# its Unreleased block can hold entries that release already shipped.
+RELEASE_UNRELEASED=""
 if [ -f CHANGELOG.md ]; then
-  UNRELEASED_CONTENT=$(awk '
-    /^## Unreleased[[:space:]]*$/ { collecting = 1; next }
-    collecting && /^## / { collecting = 0 }
-    collecting { print }
-  ' CHANGELOG.md)
-  # Capped after capture so no early-exiting reader can SIGPIPE the writer.
-  UNRELEASED_CONTENT="${UNRELEASED_CONTENT:0:4000}"
+  if ! retry_cmd 4 2 fetch_main; then
+    log "Error: failed to fetch main to read its Unreleased changelog block."
+    exit 1
+  fi
+  RELEASE_UNRELEASED=$(git show origin/main:CHANGELOG.md | unreleased_body)
 fi
+# Capped after capture so no early-exiting reader can SIGPIPE the writer.
+UNRELEASED_CONTENT="${RELEASE_UNRELEASED:0:4000}"
 
 # Draft the changelog body. The Claude API is used only for prose — any
 # failure here (missing key, network error, malformed response) falls back to
@@ -299,7 +389,8 @@ log "Set package.json to $NEW_VERSION (working directory only)"
 # Handle "already published" (exit code 1, HTTP 400/409) as success — can happen
 # when npm registry caching causes the earlier safety check to miss an existing version
 if ! PUBLISH_OUTPUT=$(pnpm publish --provenance --access public --no-git-checks 2>&1); then
-  if [[ "$PUBLISH_OUTPUT" == *"Cannot publish over previously published version"* ]]; then
+  if [[ "$PUBLISH_OUTPUT" == *"Cannot publish over previously published version"* ||
+    "$PUBLISH_OUTPUT" == *"Cannot publish over previously staged version"* ]]; then
     log "Version $NEW_VERSION already published (detected at publish time). Skipping."
     exit 0
   fi
@@ -311,8 +402,8 @@ log "✅ Published $PACKAGE_NAME@$NEW_VERSION"
 
 # Tag the published commit immediately, before any docs work. The tag is the
 # dedup guard that stops the next run from re-analyzing these commits, so it
-# must land even if the docs push below fails (e.g. main moved underneath us);
-# otherwise the next run would re-read the climbing npm version and bump again.
+# must land even if the docs push below fails; otherwise the next run would
+# re-read the climbing npm version and bump again.
 git tag "v$NEW_VERSION"
 # allow-unbounded: auto-version.yml's job timeout-minutes bounds the release; `timeout` is absent on the macOS runners that run version-bump.test.mjs.
 if ! retry_cmd 4 2 git push origin "v$NEW_VERSION"; then
@@ -322,44 +413,16 @@ if ! retry_cmd 4 2 git push origin "v$NEW_VERSION"; then
 fi
 log "Pushed tag v$NEW_VERSION"
 
-# Pin the README's pre-commit `rev:` to this release so the documented version
-# never lags behind what's published. The helper touches only the line inside
-# punctilio's own pre-commit repo block, and warns rather than failing the
-# (already-published) release if it can't find that block.
-if [ -f README.md ]; then
-  NEW_VERSION="$NEW_VERSION" pnpm exec tsx scripts/pin-readme-rev.ts
-fi
-
-# Promote "## Unreleased" to a dated version section in CHANGELOG.md, using
-# the drafted body.
-if [ -f CHANGELOG.md ] && [ -n "$CHANGELOG_SECTION" ]; then
-  RELEASE_DATE=$(date -u +%Y-%m-%d)
-  NEW_VERSION="$NEW_VERSION" \
-  RELEASE_DATE="$RELEASE_DATE" \
-  CHANGELOG_SECTION="$CHANGELOG_SECTION" \
-    pnpm exec tsx scripts/promote-changelog.ts
-fi
-
-# Commit the release docs (CHANGELOG entry + README rev pin) back to main so
-# users see the release notes and an up-to-date pre-commit pin. package.json
-# stays dirty (npm is the source of truth for version). A bot identity and
-# `[skip ci]` keep the resulting push from spawning another workflow run. A
-# push failure fails the run loudly, but the tag above has already landed, so
-# only the release-docs commit needs re-pushing.
+# Commit the release docs (README rev pin + CHANGELOG entry) back to main so
+# users see the release notes and an up-to-date pre-commit pin. A bot identity
+# and `[skip ci]` keep the push from spawning another workflow run. A push that
+# still fails after the retries fails the run loudly, but the tag above has
+# already landed, so only the release docs need pushing by hand.
+RELEASE_DATE=$(date -u +%Y-%m-%d)
 git config user.name "github-actions[bot]"
 git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-if git diff --quiet -- CHANGELOG.md README.md; then
-  log "No release-docs changes to commit."
-else
-  git add -- CHANGELOG.md README.md
-  git commit -m "docs: release $NEW_VERSION [skip ci]"
-  # Push to main explicitly so this works whether actions/checkout left us on
-  # a branch or in detached HEAD state.
-  # main-push-ok: the release workflow's ruleset-bypass PAT pushes this [skip ci] docs commit straight to main, after the release is tagged.
-  # allow-unbounded: bounded by the job timeout, as the tag push above.
-  if ! retry_cmd 4 2 git push origin HEAD:main; then
-    log "Error: failed to push the release-docs update for v$NEW_VERSION."
-    log "       The release is published and tagged; push the release-docs commit manually."
-    exit 1
-  fi
+if ! retry_cmd 4 2 push_release_docs; then
+  log "Error: failed to push the release-docs update for v$NEW_VERSION."
+  log "       The release is published and tagged; push the release docs manually."
+  exit 1
 fi
