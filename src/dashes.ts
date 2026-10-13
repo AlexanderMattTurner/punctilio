@@ -592,14 +592,14 @@ function endsFoldableEllipsisDots(view: ProseView, dotIndex: number): boolean {
  */
 function notAfterDashOk(view: ProseView, startOffset: number): boolean {
   if (startOffset === 0) return true
-  if (boundaryCountAt(view, startOffset) > 0) return true
   const prev = view.text[startOffset - 1]
   // A multiplication sign one space slot further left blocks like the `x` it
-  // folds from: the multiplication pass renders `5x8` as `5 × 8`, so a range
-  // blocked at `x8-6` must stay blocked at `× 8-6`.
+  // folds from, even across a node boundary: the multiplication pass renders
+  // `5x8` as `5 × 8`, so a range blocked at `x8-6` must stay blocked at `× 8-6`.
   if (prev !== undefined && SPACE_CHAR_RE.test(prev) && view.text[startOffset - 2] === MULTIPLICATION) {
     return false
   }
+  if (boundaryCountAt(view, startOffset) > 0) return true
   if (prev === undefined || !NOT_AFTER_DASH_RE.test(prev)) return true
   if (prev === "." && endsFoldableEllipsisDots(view, startOffset - 1)) return true
   const dashIndex = startOffset - 1

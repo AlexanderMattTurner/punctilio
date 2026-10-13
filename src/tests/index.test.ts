@@ -752,6 +752,22 @@ describe("transform", () => {
     })
   })
 
+  // The multiplication fold pads `x` with a space, so a node boundary after the
+  // `x` becomes a boundary after the space. The range start stays blocked behind
+  // the `×` either way, and a re-run over the padded form must not convert it.
+  describe("range start decisions agree across the multiplication fold and a node boundary", () => {
+    const sep = DEFAULT_SEPARATOR
+
+    it.each([
+      [`8 x${sep}0-5`, `8 ${MULTIPLICATION} ${sep}0-5`],
+      [`8 ${MULTIPLICATION} ${sep}0-5`, `8 ${MULTIPLICATION} ${sep}0-5`],
+    ])("transformOverView(%j) is %j", (input, expected) => {
+      const first = transformOverView(input)
+      expect(first).toBe(expected)
+      expect(transformOverView(first)).toBe(first)
+    })
+  })
+
   // The fractions pass folds `7/8` into a glyph after the quote pass ran, so
   // the quote pass must read the glyph as the digit it folds from: a straight
   // quote between a digit and a letter stays straight, and a re-run over `⅞'B`

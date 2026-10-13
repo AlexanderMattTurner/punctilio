@@ -632,6 +632,13 @@ describe("idempotency", () => {
     expect(enDashNumberRange(expected)).toBe(expected)
   })
 
+  // A range start one space after a multiplication sign blocks across a node
+  // boundary too, as the fold pads `x` with a space the boundary then follows.
+  it("range start behind a multiplication sign blocks across a boundary", () => {
+    const input = `5 ${MULTIPLICATION} ${DEFAULT_SEPARATOR}8-6`
+    expect(viewTransform(enDashNumberRange, input)).toBe(input)
+  })
+
   // A range end one space before a multiplication sign blocks like the word
   // char the sign folds from ("3-5X 8" renders as "3-5 × 8" and must not
   // become a range on the re-run).
