@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+## [5.5.5] - 2026-10-13
+
+### Fixed
+
+- Improve release process robustness by drafting from main's Unreleased block and rebuilding release docs on a fresh main instead of rebasing.
+- Fix release process to survive merge conflicts or stale npm reads.
+- Override vulnerable transitive dev dependencies.
+
+### Security
+
+- Override vulnerable transitive dev dependencies.
+
 ## [5.5.2] - 2026-10-12
 
 ### Fixed
