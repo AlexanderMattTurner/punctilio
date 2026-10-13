@@ -91,6 +91,20 @@
     "node": ">=20.0.0"
   },
   "packageManager": "pnpm@10.28.1",
+  "pnpm": {
+    "overrides": {
+      "handlebars": "^4.7.10",
+      "fast-uri": "^3.1.4",
+      "brace-expansion@1": "^1.1.16",
+      "brace-expansion@5": "^5.0.7",
+      "js-yaml@3": "^3.15.0",
+      "js-yaml@4": "^4.3.0",
+      "browserslist": "^4.28.7",
+      "qs": "^6.16.0",
+      "@humanfs/node": "^0.16.8",
+      "baseline-browser-mapping": "^2.11.0"
+    }
+  },
   "devDependencies": {
     "@eslint/js": "9.39.4",
     "@stryker-mutator/core": "9.6.1",
