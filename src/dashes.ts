@@ -1,4 +1,4 @@
-import { asCharClassContent, cachedRegExp, FOLDED_TERMINALS, FOLDED_WORD_CHARS, FRACTION_GLYPHS, isWordLike, LATIN_LETTER_RE, LATIN_LETTERS, LATIN_OR_DIGIT, LATIN_OR_DIGIT_RE, MAX_BOUNDARY_SEPARATORS, NBSP_CHARS, OPENING_BRACKETS, QUOTE_GLYPHS, SPACE_CHAR_RE, UNICODE_SYMBOLS } from "./constants.js"
+import { asCharClassContent, cachedRegExp, FOLDED_TERMINALS, FOLDED_WORD_CHARS, FRACTION_GLYPHS, isWordLike, LATIN_LETTER_RE, LATIN_LETTERS, LATIN_OR_DIGIT, LATIN_OR_DIGIT_RE, MAX_BOUNDARY_SEPARATORS, NBSP_CHARS, OPENING_BRACKETS, OPERATOR_SPACE, QUOTE_GLYPHS, SPACE_CHAR_RE, UNICODE_SYMBOLS } from "./constants.js"
 import { boundaryCountAt, exceedsSingleBoundary, firstInteriorBoundary, lastBoundaryBefore, makeProsePass, overInput, type ProseView, replaceAllInView, type ReplaceAllOptions } from "./prose-view.js"
 
 export const DASH_STYLES = ["american", "british", "none"] as const
@@ -529,9 +529,12 @@ const RANGE_SUFFIX_RE = /[xKBTMCF]/
  *
  * `allowMultiplier` admits the lowercase `x`. It folds to `×`, which is no
  * suffix, so after a non-empty `following` a re-run reads the tail as failing
- * and converts the leading range: `1-2-3x` must convert like `1-2-3×`.
+ * and converts the leading range: `1-2-3x` must convert like `1-2-3×`. An
+ * operator the multiplication pass folds in place (`1-2-3*4`, `1-2-3 x 4`)
+ * fails the tail the same way.
  */
 function suffixWbeEnd(view: ProseView, pos: number, allowAmPm: boolean, allowMultiplier: boolean): number | null {
+  if (!allowMultiplier && foldsToMultiplication(view.text, pos)) return null
   if (wordBoundaryEndOk(view, pos)) return pos
   // An optional suffix: one tolerated boundary then am/pm or one of
   // {@link RANGE_SUFFIX_RE}'s letters, followed by wbe. The suffix letters sit
@@ -547,6 +550,13 @@ function suffixWbeEnd(view: ProseView, pos: number, allowAmPm: boolean, allowMul
     return wordBoundaryEndOk(view, pos + 1) ? pos + 1 : null
   }
   return null
+}
+
+/** True iff an `x`, `X` or `*` operator with an operand digit after it starts at `pos`. */
+function foldsToMultiplication(text: string, pos: number): boolean {
+  const operator = cachedRegExp(`${OPERATOR_SPACE}[xX*]${OPERATOR_SPACE}\\d`, "y")
+  operator.lastIndex = pos
+  return operator.test(text)
 }
 
 const NOT_AFTER_DASH_RE = new RegExp(`[${DISALLOWED_PREFIX_CLASS_FRAGMENT}${LATIN_LETTERS}${MULTIPLICATION}${PLUS_MINUS}.+]`)

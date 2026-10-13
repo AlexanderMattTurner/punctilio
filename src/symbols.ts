@@ -1,4 +1,4 @@
-import { cachedRegExp, FRACTION_GLYPHS, LATIN_LETTER_RE, LATIN_OR_DIGIT, MAX_BOUNDARY_SEPARATORS, SPACE_CHAR_RE, UNICODE_SYMBOLS, WORD_RE } from "./constants.js"
+import { cachedRegExp, FRACTION_GLYPHS, LATIN_LETTER_RE, LATIN_OR_DIGIT, MAX_BOUNDARY_SEPARATORS, OPERATOR_SPACE, SPACE_CHAR_RE, UNICODE_SYMBOLS, WORD_RE } from "./constants.js"
 import { boundaryCountAt, exceedsSingleBoundary, firstInteriorBoundary, interiorBoundariesWithin, makeProsePass, overInput, type ProseView, replaceAllInView } from "./prose-view.js"
 import { isDashChar } from "./dashes.js"
 import { convertPrimeMarks } from "./quote-classifier.js"
@@ -158,10 +158,6 @@ const DIGIT_SUFFIX = `(?:${PRIME_ALT}|${UNIT_ALT})?`
 // (1e5x3 — the `e` is a letter) and model SKUs (Surface5x3, RTX3060x2);
 // signed exponents (1e-5x3, 3.5E+10x2) are unambiguously scientific, their
 // operand is preceded by a sign, and they convert.
-//
-// Operator spacing is horizontal whitespace only: an operator across a line
-// break is a list marker (`Step 1\n* 2 cups`), not multiplication.
-const OPERATOR_SPACE = "[^\\S\\n\\v\\f\\r\\u2028\\u2029]*"
 const MULTIPLICATION_CHAIN = `(?<firstNum>\\d+${DIGIT_SUFFIX})(?<rest>(?:${OPERATOR_SPACE}[xX*]${OPERATOR_SPACE}\\d+${DIGIT_SUFFIX})+)`
 const MULTIPLICATION_SEGMENT = `(?<spaceBefore>${OPERATOR_SPACE})[xX*](?<spaceAfter>${OPERATOR_SPACE})(?<num>\\d+${DIGIT_SUFFIX})`
 

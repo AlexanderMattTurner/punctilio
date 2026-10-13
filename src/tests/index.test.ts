@@ -747,6 +747,10 @@ describe("transform", () => {
       ["7-10-1x", `7${EN_DASH}10-1${MULTIPLICATION}`],
       ["-5-3-1x", `${MINUS}5${EN_DASH}3-1${MULTIPLICATION}`],
       ["7-10x", `7${EN_DASH}10${MULTIPLICATION}`],
+      // `*` and spaced operators fold in place too, so they fail the tail like `x`.
+      ["4-0-6*3", `4${EN_DASH}0-6${MULTIPLICATION}3`],
+      ["4-0-6 x 3", `4${EN_DASH}0-6 ${MULTIPLICATION} 3`],
+      ["-4-0-6 * 3", `${MINUS}4${EN_DASH}0-6 ${MULTIPLICATION} 3`],
     ])("transform(%j) is %j", (input, expected) => {
       expect(transform(input)).toBe(expected)
     })

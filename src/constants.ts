@@ -243,6 +243,12 @@ export const FOLDED_WORD_CHARS = new Set<string>([
   ...UNICODE_SYMBOLS.SUPERSCRIPT_RD, ...UNICODE_SYMBOLS.SUPERSCRIPT_TH,
 ])
 
+/**
+ * Horizontal whitespace around a multiplication operator. An operator across a
+ * line break is a list marker (`Step 1\n* 2 cups`), not multiplication.
+ */
+export const OPERATOR_SPACE = "[^\\S\\n\\v\\f\\r\\u2028\\u2029]*"
+
 /** `\w` extended with {@link FOLDED_WORD_CHARS} for fold-stable `\b` checks. */
 export function isWordLike(ch: string | undefined): boolean {
   return ch !== undefined && (WORD_RE.test(ch) || FOLDED_WORD_CHARS.has(ch))
