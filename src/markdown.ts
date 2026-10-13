@@ -53,7 +53,13 @@ function stringifyOptions({ emphasisMarker, strongMarker, bulletMarker, ruleMark
 }
 
 function createProcessor(options: MarkdownOptions) {
-  const { emphasisMarker, strongMarker, bulletMarker, ruleMarker, ...punctilioOptions } = options
+  const {
+    emphasisMarker,
+    strongMarker,
+    bulletMarker,
+    ruleMarker,
+    ...punctilioOptions
+  } = options
 
   return unified()
     .use(remarkParse)

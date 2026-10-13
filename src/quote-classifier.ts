@@ -1476,14 +1476,11 @@ function absorbSpaceRunBeforeCloser(items: Item[], closerIndex: number): void {
 
 /**
  * French renders double-quote glyphs with NNBSP padding. A source NBSP/NNBSP
- * that ends up directly adjacent to the glyph would collapse with that padding
+ * adjacent to the glyph in the placed order would collapse with that padding
  * into one space whose type wins by priority (NBSP beats NNBSP), which the next
  * run absorbs as the glyph's padding and re-renders NNBSP, an oscillation.
- * Adjacent here means adjacent in the placed order: punctuation that placement
- * moved out from between the space and the glyph leaves them textually apart.
  * Absorb the space into the (single-char, i.e. unpadded) glyph item now so its
- * render replaces both with the padded form, or delete it in place when moved
- * punctuation still sits between them.
+ * render replaces both with the padded form.
  */
 function absorbGuillemetPadding(items: Item[]): void {
   for (let i = 0; i < items.length; i++) {
@@ -1623,13 +1620,6 @@ function settleGermanRoles(items: Item[], text: string, apostrophe: string): Ite
   throw new Error(`German quote classification did not settle within ${MAX_GERMAN_REREADS} rereads`)
 }
 
-/** Builds and classifies the item sequence. */
-function classifyItems(view: ProseView, style: ActiveQuoteStyle, apostrophe: string): Item[] {
-  const items = buildItems(view, style)
-  classifyBuiltItems(items, style)
-  return style === "german" ? settleGermanRoles(items, view.text, apostrophe) : items
-}
-
 /**
  * The quote/apostrophe role classifier: one boundary-aware scan over the
  * view's text. Commits its edits.
@@ -1640,7 +1630,9 @@ export function classifyAndRenderQuotes(
   apostrophe: string,
 ): void {
   if (!QUOTE_CANDIDATE_RE.test(view.text)) return
-  const items = classifyItems(view, style, apostrophe)
+  let items = buildItems(view, style)
+  classifyBuiltItems(items, style)
+  if (style === "german") items = settleGermanRoles(items, view.text, apostrophe)
   let placed = applyPunctuationPlacement(items, style, apostrophe)
   if (style === "german" && placed !== items) placed = settleGermanRoles(placed, view.text, apostrophe)
   // Placement can slide a closer past punctuation until it sits directly after
