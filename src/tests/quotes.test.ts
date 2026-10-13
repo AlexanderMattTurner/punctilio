@@ -955,6 +955,9 @@ describe("niceQuotes", () => {
       ["french", `${LEFT_DOUBLE_QUOTE}y${NNBSP}.${RIGHT_DOUBLE_QUOTE}`, `${LEFT_GUILLEMET}${NNBSP}y${NNBSP}${RIGHT_GUILLEMET}.`],
       ["french", `" .${RIGHT_DOUBLE_QUOTE}`, `${LEFT_GUILLEMET}${NNBSP} ${NNBSP}${RIGHT_GUILLEMET}.`],
       ["french", `"${NBSP},${RIGHT_DOUBLE_QUOTE}`, `${LEFT_GUILLEMET}${NNBSP}${NNBSP}${RIGHT_GUILLEMET},`],
+      // Moved punctuation leaves an NBSP/NNBSP apart from the closer's space; the padding absorbs both.
+      ["french", `a${NBSP}, ${RIGHT_DOUBLE_QUOTE}`, `a ${NNBSP}${RIGHT_GUILLEMET},`],
+      ["french", `a${NNBSP}. ${RIGHT_DOUBLE_QUOTE}`, `a ${NNBSP}${RIGHT_GUILLEMET}.`],
       // Two spaces before the closer reduce to one once its padding absorbs the NBSP beside it.
       ["french", `x,${NBSP}${NBSP}${RIGHT_DOUBLE_QUOTE}5`, `x${NBSP}${NNBSP}${RIGHT_GUILLEMET},5`],
       ["french", `x.${NNBSP}${NNBSP}${RIGHT_DOUBLE_QUOTE}`, `x${NNBSP}${NNBSP}${RIGHT_GUILLEMET}.`],

@@ -1452,6 +1452,29 @@ function isPaddingSpaceItem(item: Item | undefined): item is Item {
 }
 
 /**
+ * The closer at `closerIndex` takes the padding space directly before it, or
+ * deletes it when moved punctuation leaves them textually apart. A padding
+ * space further left in the same run, textually apart from the next member,
+ * is deleted too: the collapse pass would merge it with the closer's padding
+ * into an NBSP, which a re-run absorbs as the padding and renders NNBSP.
+ */
+function absorbSpaceRunBeforeCloser(items: Item[], closerIndex: number): void {
+  const closer = items[closerIndex]
+  for (let j = closerIndex - 1; j >= 0; j--) {
+    const member = items[j]
+    if (member.boundary || member.moved || member.end - member.start !== 1 || !SPACE_CHAR_RE.test(member.ch)) return
+    const gapAfter = member.end !== items[j + 1].start
+    if (isPaddingSpaceItem(member) && (j === closerIndex - 1 || gapAfter)) {
+      if (!gapAfter) {
+        closer.start = member.start
+        member.end = member.start
+      }
+      member.ch = ""
+    }
+  }
+}
+
+/**
  * French renders double-quote glyphs with NNBSP padding. A source NBSP/NNBSP
  * that ends up directly adjacent to the glyph would collapse with that padding
  * into one space whose type wins by priority (NBSP beats NNBSP), which the next
@@ -1467,13 +1490,7 @@ function absorbGuillemetPadding(items: Item[]): void {
     const item = items[i]
     if (item.boundary || item.moved || item.end - item.start !== 1) continue
     if (item.ch === RIGHT_DOUBLE_QUOTE) {
-      const prev = items[i - 1]
-      if (!isPaddingSpaceItem(prev)) continue
-      if (prev.end === item.start) {
-        item.start = prev.start
-        prev.end = prev.start
-      }
-      prev.ch = ""
+      absorbSpaceRunBeforeCloser(items, i)
     } else if (item.ch === LEFT_DOUBLE_QUOTE) {
       const next = items[i + 1]
       if (isPaddingSpaceItem(next) && next.start === item.end) {
