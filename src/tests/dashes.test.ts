@@ -616,9 +616,14 @@ describe("idempotency", () => {
     // The multiple-dash rule keeps the spaces before a following dash;
     // consuming them would fuse the rendered em dash with it into a run.
     [`a${EM_DASH}- ${EM_DASH}b`, `a${EM_DASH} ${EM_DASH}b`],
+    // A boundary-led run right of a converted dash stays a hyphen: the
+    // multiple-dash rule consumes the spaces that left `- 61` boundary-led,
+    // and a re-run must read that tail as it was read before.
+    [`x${EM_DASH}- ${DEFAULT_SEPARATOR}- 61`, `x${EM_DASH}${DEFAULT_SEPARATOR}- 61`],
+    [`x${EM_DASH}${DEFAULT_SEPARATOR}- 61`, `x${EM_DASH}${DEFAULT_SEPARATOR}- 61`],
   ])('fold-stable: "%s" → "%s"', (input, expected) => {
-    expect(hyphenReplace(input)).toBe(expected)
-    expect(hyphenReplace(expected)).toBe(expected)
+    expect(viewTransform(hyphenReplace, input)).toBe(expected)
+    expect(viewTransform(hyphenReplace, expected)).toBe(expected)
   })
 
   // An en dash behind spaces reaching text start converts the range (the

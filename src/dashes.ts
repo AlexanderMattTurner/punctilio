@@ -1073,10 +1073,12 @@ function convertBoundaryLedDashes(view: ProseView, rendered: string): void {
     // clean char immediately left. A folded math operator there marks the
     // fold-stranded configuration: the math pass consumes the `=` that blocked
     // this rule across the junction (`=|~—` folds to `≈|—`), so converting now
-    // would diverge from that blocked first pass.
+    // would diverge from that blocked first pass. An en or em dash there is the
+    // head of an already-converted run, and this run is its tail (the
+    // spaced-dash rule's dash-tail guard).
     if (stackedHere < 2) {
       const before = text[b - 1]
-      if (before === undefined || /\s/.test(before) || FOLDED_MATH_OPERATORS.has(before)) continue
+      if (before === undefined || /\s/.test(before) || FOLDED_MATH_OPERATORS.has(before) || before === EN_DASH || before === EM_DASH) continue
     }
     // Dash run from the boundary, not crossing a further boundary.
     let runEnd = b + 1
