@@ -53,9 +53,9 @@ describe("transformHtml", () => {
     expect(result).toContain(expected)
   })
 
-  it.each([
-    ['<p>8;a"<em>z :0;</em></p><pre><code>4-</code></pre>', `<p>8;a${NNBSP}${RIGHT_GUILLEMET}<em>z${NBSP}:0;</em></p><pre><code>4-</code></pre>`],
-  ])("french guillemet padding survives the nbsp rules across nodes: %s", async (input, expected) => {
+  it("french guillemet padding survives the nbsp rules across nodes", async () => {
+    const input = '<p>8;a"<em>z :0;</em></p><pre><code>4-</code></pre>'
+    const expected = `<p>8;a${NNBSP}${RIGHT_GUILLEMET}<em>z${NBSP}:0;</em></p><pre><code>4-</code></pre>`
     const once = await transformHtml(input, { punctuationStyle: "french" })
     expect(once).toBe(expected)
     expect(await transformHtml(once, { punctuationStyle: "french" })).toBe(once)

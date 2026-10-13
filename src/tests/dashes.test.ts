@@ -628,20 +628,16 @@ describe("idempotency", () => {
 
   // An en dash behind spaces reaching text start converts the range (the
   // spaced-dash rule makes it a padded line-leading em dash); spaces that
-  // stop short of the start do not.
+  // stop short of the start do not. A range start one space after a
+  // multiplication sign blocks across a node boundary too, as the fold pads
+  // `x` with a space the boundary then follows.
   it.each([
     [` ${EN_DASH}6-2`, ` ${EN_DASH}6${EN_DASH}2`],
     [`x ${EN_DASH}6-2`, `x ${EN_DASH}6-2`],
+    [`5 ${MULTIPLICATION} ${DEFAULT_SEPARATOR}8-6`, `5 ${MULTIPLICATION} ${DEFAULT_SEPARATOR}8-6`],
   ])('range behind leading spaces: "%s" → "%s"', (input, expected) => {
-    expect(enDashNumberRange(input)).toBe(expected)
-    expect(enDashNumberRange(expected)).toBe(expected)
-  })
-
-  // A range start one space after a multiplication sign blocks across a node
-  // boundary too, as the fold pads `x` with a space the boundary then follows.
-  it("range start behind a multiplication sign blocks across a boundary", () => {
-    const input = `5 ${MULTIPLICATION} ${DEFAULT_SEPARATOR}8-6`
-    expect(viewTransform(enDashNumberRange, input)).toBe(input)
+    expect(viewTransform(enDashNumberRange, input)).toBe(expected)
+    expect(viewTransform(enDashNumberRange, expected)).toBe(expected)
   })
 
   // A range end one space before a multiplication sign blocks like the word
@@ -1020,37 +1016,29 @@ describe("ProseView boundary-tolerance edges", () => {
   })
 
   describe("line-leading em-dash spacing across boundaries", () => {
-    it.each([
-      // One boundary at the line-start `${chr}?` slot before the em-dash.
-      ["boundary before a line-leading em-dash", `${sep}${EM_DASH}Apple`, `${sep}${EM_DASH} Apple`],
-    ])("%s", (_desc, input, expected) => {
-      expect(viewTransform(hyphenReplace, input, sep)).toBe(expected)
-    })
-  })
-
-  // An author-typed terminal glyph before a boundary-led dash blocks nothing:
-  // the dash converts as it does after any other non-space character.
-  describe("boundary-led dash after an author-typed terminal glyph", () => {
-    const sep = DEFAULT_SEPARATOR
-    it.each([
+    const authorTypedTerminals = [
       ELLIPSIS,
       UNICODE_SYMBOLS.DOUBLE_QUESTION,
       UNICODE_SYMBOLS.QUESTION_EXCLAMATION,
       UNICODE_SYMBOLS.EXCLAMATION_QUESTION,
       UNICODE_SYMBOLS.DOUBLE_EXCLAMATION,
       UNICODE_SYMBOLS.INTERROBANG,
-    ])("%s", (glyph) => {
-      expect(viewTransform(hyphenReplace, `a${glyph}${sep}${EN_DASH} b`, sep)).toBe(`a${glyph}${sep}${EM_DASH}b`)
-    })
-  })
-
-  describe("line-leading em dash before a fraction glyph", () => {
-    it.each([
+    ]
+    // A vulgar fraction glyph reads as the digit it folds from.
+    const fractionGlyphs = [
       UNICODE_SYMBOLS.FRACTION_1_4,
       UNICODE_SYMBOLS.FRACTION_2_5,
       UNICODE_SYMBOLS.FRACTION_7_8,
-    ])("%s reads as the digit it folds from", (glyph) => {
-      expect(hyphenReplace(`${EM_DASH}${glyph}`)).toBe(`${EM_DASH} ${glyph}`)
+    ]
+    it.each([
+      // One boundary at the line-start `${chr}?` slot before the em-dash.
+      ["boundary before a line-leading em-dash", `${sep}${EM_DASH}Apple`, `${sep}${EM_DASH} Apple`],
+      ...fractionGlyphs.map((glyph) => [`line-leading em dash before ${glyph}`, `${EM_DASH}${glyph}`, `${EM_DASH} ${glyph}`]),
+      // An author-typed terminal glyph before a boundary-led dash blocks
+      // nothing: the dash converts as it does after any other non-space char.
+      ...authorTypedTerminals.map((glyph) => [`boundary-led dash after ${glyph}`, `a${glyph}${sep}${EN_DASH} b`, `a${glyph}${sep}${EM_DASH}b`]),
+    ])("%s", (_desc, input, expected) => {
+      expect(viewTransform(hyphenReplace, input, sep)).toBe(expected)
     })
   })
 

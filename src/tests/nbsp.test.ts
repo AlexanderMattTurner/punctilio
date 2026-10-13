@@ -281,14 +281,8 @@ describe("nbspTransform", () => {
     [`x${NBSP}word end`, `x${NBSP}word end`],
     ["Je suis all\u00E9 l\u00E0", `Je${NBSP}suis all\u00E9${NBSP}l\u00E0`],
     ["\u041E\u043D \u043F\u0440\u0438\u0448\u0451\u043B \u0434\u043E\u043C\u043E\u0439", `\u041E\u043D \u043F\u0440\u0438\u0448\u0451\u043B${NBSP}\u0434\u043E\u043C\u043E\u0439`],
-  ])("nbspTransform(%j) is %j and a fixed point", (input, expected) => {
-    expect(nbspTransform(input)).toBe(expected)
-    expect(nbspTransform(expected)).toBe(expected)
-  })
-
-  // A narrow no-break space (the padding French quote styling inserts) is
-  // already non-breaking; every glue rule leaves it in place.
-  it.each([
+    // A narrow no-break space (the padding French quote styling inserts) is
+    // already non-breaking; every glue rule leaves it in place.
     [`B${NNBSP}\u00BB;)(8\t&+`, `B${NNBSP}\u00BB;)(8${NBSP}&+`],
     [`foo bar${NNBSP}\u00BB`, `foo bar${NNBSP}\u00BB`],
     [`5${NNBSP}kg`, `5${NNBSP}kg`],
@@ -296,7 +290,7 @@ describe("nbspTransform", () => {
     [`Fig.${NNBSP}1`, `Fig.${NNBSP}1`],
     [`${COPYRIGHT}${NNBSP}2024`, `${COPYRIGHT}${NNBSP}2024`],
     [`J.${NNBSP}K.`, `J.${NNBSP}K.`],
-  ])("nbspTransform(%j) keeps the narrow no-break space: %j", (input, expected) => {
+  ])("nbspTransform(%j) is %j and a fixed point", (input, expected) => {
     expect(nbspTransform(input)).toBe(expected)
     expect(nbspTransform(expected)).toBe(expected)
   })

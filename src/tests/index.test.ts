@@ -470,26 +470,6 @@ describe("transform", () => {
       const input = `72${sep} F`
       expect(transformOverView(input, { degrees: true, nbsp: false })).toBe(`72${sep} ${DEGREE}F`)
     })
-
-    // A fold that would absorb the character between a boundary and a dash is
-    // skipped (the dash pass blocked on that character); a glyph the author
-    // typed leaves the boundary-led dash free to convert.
-    it.each([
-      ["american", `a?${sep}!${EN_DASH} `, `a?${sep}!${EN_DASH} `],
-      ["british", `a?${sep}!${EN_DASH} `, `a?${sep}!${EN_DASH} `],
-      ["american", `a.${sep}..${EN_DASH} b`, `a.${sep}..${EN_DASH} b`],
-      ["american", `a..${sep}.${EN_DASH} b`, `a..${sep}.${EN_DASH} b`],
-      ["american", `Hmm${ELLIPSIS}${sep}${EN_DASH} yes`, `Hmm${ELLIPSIS}${sep}${EM_DASH}yes`],
-      ["american", `Wait${ELLIPSIS}${sep}-- no`, `Wait${ELLIPSIS}${sep}${EM_DASH}no`],
-      ["american", `Wait...${sep}-- no`, `Wait${ELLIPSIS}${sep}${EM_DASH}no`],
-      ["british", `Hmm${ELLIPSIS}${sep}${EN_DASH} yes`, `Hmm${ELLIPSIS}${sep} ${EN_DASH} yes`],
-      ["american", `a${QUESTION_EXCLAMATION}${sep}${EN_DASH} b`, `a${QUESTION_EXCLAMATION}${sep}${EM_DASH}b`],
-    ] as const)("%s dashes: %j with ligatures reads %j", (dashStyle, input, expected) => {
-      const options = { dashStyle, ligatures: true, nbsp: false }
-      const once = transformOverView(input, options)
-      expect(once).toBe(expected)
-      expect(transformOverView(once, options)).toBe(once)
-    })
   })
 
   describe("additional idempotency", () => {
@@ -560,13 +540,6 @@ describe("transform", () => {
     ])('range abutting a superscript ordinal is idempotent: "%s"', (input) => {
       const first = transform(input, { superscript: true })
       expect(transform(first, { superscript: true })).toBe(first)
-    })
-
-    // The quote pass renders U+02BC as U+2019, so the minus rule reads both alike.
-    it.each([
-      [`x ${MODIFIER_LETTER_APOSTROPHE}-5`, `x ${RIGHT_SINGLE_QUOTE}${MINUS}5`],
-    ])("converts a hyphen after a modifier apostrophe in one run: %j", (input, expected) => {
-      expect(transform(input, { nbsp: false })).toBe(expected)
     })
 
     it.each([
@@ -739,72 +712,66 @@ describe("transform", () => {
     })
   })
 
-  // The symbols pass folds a trailing `x` into `×` after the dash rules ran, and
-  // `×` is no range suffix: a range followed by another segment and an `x` must
-  // convert on the first run, as a re-run over the folded glyph would.
-  describe("range decisions agree across the multiplication fold", () => {
-    it.each([
-      ["7-10-1x", `7${EN_DASH}10-1${MULTIPLICATION}`],
-      ["-5-3-1x", `${MINUS}5${EN_DASH}3-1${MULTIPLICATION}`],
-      ["7-10x", `7${EN_DASH}10${MULTIPLICATION}`],
-      // `*` and spaced operators fold in place too, so they fail the tail like `x`.
-      ["4-0-6*3", `4${EN_DASH}0-6${MULTIPLICATION}3`],
-      ["4-0-6 x 3", `4${EN_DASH}0-6 ${MULTIPLICATION} 3`],
-      ["-4-0-6 * 3", `${MINUS}4${EN_DASH}0-6 ${MULTIPLICATION} 3`],
-    ])("transform(%j) is %j", (input, expected) => {
-      expect(transform(input)).toBe(expected)
-    })
-  })
-
-  // The multiplication fold pads `x` with a space, so a node boundary after the
-  // `x` becomes a boundary after the space. The range start stays blocked behind
-  // the `×` either way, and a re-run over the padded form must not convert it.
-  describe("range start decisions agree across the multiplication fold and a node boundary", () => {
+  // Each row is the output a re-run over its own folded output reproduces, so
+  // a decision made before a later pass folds a character must read that
+  // character as the one it folds from (assertions: exact output, then a fixed
+  // point over the multi-node view).
+  describe("decisions agree across later folds on the first run", () => {
     const sep = DEFAULT_SEPARATOR
-
+    const french = { punctuationStyle: "french" } as const
+    const fractionBritish = { fractions: true, punctuationStyle: "british" } as const
+    const ligatures = (dashStyle: "american" | "british") => ({ dashStyle, ligatures: true, nbsp: false }) as const
     it.each([
-      [`8 x${sep}0-5`, `8 ${MULTIPLICATION} ${sep}0-5`],
-      [`8 ${MULTIPLICATION} ${sep}0-5`, `8 ${MULTIPLICATION} ${sep}0-5`],
-    ])("transformOverView(%j) is %j", (input, expected) => {
-      const first = transformOverView(input)
-      expect(first).toBe(expected)
-      expect(transformOverView(first)).toBe(first)
-    })
-  })
-
-  // The fractions pass folds `7/8` into a glyph after the quote pass ran, so
-  // the quote pass must read the glyph as the digit it folds from: a straight
-  // quote between a digit and a letter stays straight, and a re-run over `⅞'B`
-  // must not curl it.
-  describe("quote decisions agree across the fraction fold", () => {
-    it.each([
-      ["7/8'B", `${FRACTION_7_8}'B`],
-      ["6^1/2'Z", `6^${FRACTION_1_2}'Z`],
-      [`${FRACTION_1_2}'B`, `${FRACTION_1_2}'B`],
-    ])("transform(%j) is %j", (input, expected) => {
-      expect(transform(input, { fractions: true, punctuationStyle: "british" })).toBe(expected)
-    })
-  })
-
-  // French guillemet padding (NNBSP) is a fixed point: the nbsp rules leave it
-  // alone (an NBSP glue is undone by the next quote pass, and which rules fire
-  // on the padded word depends on glue elsewhere in the text), and a space left
-  // beside a closer by moved punctuation is absorbed into the padding. A quote
-  // before a space that merges into a closer's padding opens, as a re-run reads it.
-  describe("french guillemet padding is a fixed point", () => {
-    it.each([
-      ['B";)(8\t&+', `B${NNBSP}${RIGHT_GUILLEMET};)(8${NBSP}&+`],
-      [`a${NBSP}${RIGHT_GUILLEMET} b c`, `a${NNBSP}${RIGHT_GUILLEMET} b${NBSP}c`],
-      ['foo bar"', `foo bar${NNBSP}${RIGHT_GUILLEMET}`],
-      [`^818_${EN_DASH}${NBSP}.${RIGHT_DOUBLE_QUOTE}`, `^818_${EN_DASH}${NNBSP}${RIGHT_GUILLEMET}.`],
-      [`${RIGHT_DOUBLE_QUOTE}${NBSP}"\t${NBSP}${RIGHT_DOUBLE_QUOTE},`, `${NNBSP}${RIGHT_GUILLEMET}${NBSP}${LEFT_GUILLEMET}${NNBSP}${RIGHT_GUILLEMET},`],
-      [`' ${RIGHT_DOUBLE_QUOTE}'`, `${LEFT_SINGLE_QUOTE}${NNBSP}${RIGHT_GUILLEMET}${RIGHT_SINGLE_QUOTE}`],
-      [`' ,${RIGHT_DOUBLE_QUOTE}'`, `${LEFT_SINGLE_QUOTE}${NNBSP}${RIGHT_GUILLEMET}${RIGHT_SINGLE_QUOTE},`],
-    ])("transform(%j, french) is %j", (input, expected) => {
-      const french = { punctuationStyle: "french" } as const
-      const once = transform(input, french)
+      // `x` folds to `×`, which is no range suffix: a range followed by another
+      // segment and an `x` converts as a re-run over the folded glyph would.
+      // `*` and spaced operators fold in place too, so they fail the tail like `x`.
+      ["7-10-1x", {}, `7${EN_DASH}10-1${MULTIPLICATION}`],
+      ["-5-3-1x", {}, `${MINUS}5${EN_DASH}3-1${MULTIPLICATION}`],
+      ["7-10x", {}, `7${EN_DASH}10${MULTIPLICATION}`],
+      ["4-0-6*3", {}, `4${EN_DASH}0-6${MULTIPLICATION}3`],
+      ["4-0-6 x 3", {}, `4${EN_DASH}0-6 ${MULTIPLICATION} 3`],
+      ["-4-0-6 * 3", {}, `${MINUS}4${EN_DASH}0-6 ${MULTIPLICATION} 3`],
+      // The multiplication fold pads `x` with a space, so a node boundary after
+      // the `x` becomes a boundary after the space; the range start stays
+      // blocked behind the `×` either way.
+      [`8 x${sep}0-5`, {}, `8 ${MULTIPLICATION} ${sep}0-5`],
+      [`8 ${MULTIPLICATION} ${sep}0-5`, {}, `8 ${MULTIPLICATION} ${sep}0-5`],
+      // The fractions pass folds `7/8` into a glyph after the quote pass ran: a
+      // straight quote between a digit and a letter stays straight.
+      ["7/8'B", fractionBritish, `${FRACTION_7_8}'B`],
+      ["6^1/2'Z", fractionBritish, `6^${FRACTION_1_2}'Z`],
+      [`${FRACTION_1_2}'B`, fractionBritish, `${FRACTION_1_2}'B`],
+      // The quote pass renders U+02BC as U+2019, so the minus rule reads both alike.
+      [`x ${MODIFIER_LETTER_APOSTROPHE}-5`, { nbsp: false }, `x ${RIGHT_SINGLE_QUOTE}${MINUS}5`],
+      // French guillemet padding (NNBSP) is a fixed point: the nbsp rules leave
+      // it alone (an NBSP glue is undone by the next quote pass, and which rules
+      // fire on the padded word depends on glue elsewhere in the text), and a
+      // space left beside a closer by moved punctuation is absorbed into the
+      // padding. A quote before a space that merges into a closer's padding
+      // opens, as a re-run reads it.
+      ['B";)(8\t&+', french, `B${NNBSP}${RIGHT_GUILLEMET};)(8${NBSP}&+`],
+      [`a${NBSP}${RIGHT_GUILLEMET} b c`, french, `a${NNBSP}${RIGHT_GUILLEMET} b${NBSP}c`],
+      ['foo bar"', french, `foo bar${NNBSP}${RIGHT_GUILLEMET}`],
+      [`^818_${EN_DASH}${NBSP}.${RIGHT_DOUBLE_QUOTE}`, french, `^818_${EN_DASH}${NNBSP}${RIGHT_GUILLEMET}.`],
+      [`${RIGHT_DOUBLE_QUOTE}${NBSP}"\t${NBSP}${RIGHT_DOUBLE_QUOTE},`, french, `${NNBSP}${RIGHT_GUILLEMET}${NBSP}${LEFT_GUILLEMET}${NNBSP}${RIGHT_GUILLEMET},`],
+      [`' ${RIGHT_DOUBLE_QUOTE}'`, french, `${LEFT_SINGLE_QUOTE}${NNBSP}${RIGHT_GUILLEMET}${RIGHT_SINGLE_QUOTE}`],
+      [`' ,${RIGHT_DOUBLE_QUOTE}'`, french, `${LEFT_SINGLE_QUOTE}${NNBSP}${RIGHT_GUILLEMET}${RIGHT_SINGLE_QUOTE},`],
+      // A fold that would absorb the character between a boundary and a dash is
+      // skipped (the dash pass blocked on that character); a glyph the author
+      // typed leaves the boundary-led dash free to convert.
+      [`a?${sep}!${EN_DASH} `, ligatures("american"), `a?${sep}!${EN_DASH} `],
+      [`a?${sep}!${EN_DASH} `, ligatures("british"), `a?${sep}!${EN_DASH} `],
+      [`a.${sep}..${EN_DASH} b`, ligatures("american"), `a.${sep}..${EN_DASH} b`],
+      [`a..${sep}.${EN_DASH} b`, ligatures("american"), `a..${sep}.${EN_DASH} b`],
+      [`Hmm${ELLIPSIS}${sep}${EN_DASH} yes`, ligatures("american"), `Hmm${ELLIPSIS}${sep}${EM_DASH}yes`],
+      [`Wait${ELLIPSIS}${sep}-- no`, ligatures("american"), `Wait${ELLIPSIS}${sep}${EM_DASH}no`],
+      [`Wait...${sep}-- no`, ligatures("american"), `Wait${ELLIPSIS}${sep}${EM_DASH}no`],
+      [`Hmm${ELLIPSIS}${sep}${EN_DASH} yes`, ligatures("british"), `Hmm${ELLIPSIS}${sep} ${EN_DASH} yes`],
+      [`a${QUESTION_EXCLAMATION}${sep}${EN_DASH} b`, ligatures("american"), `a${QUESTION_EXCLAMATION}${sep}${EM_DASH}b`],
+    ] as readonly (readonly [string, TransformOptions, string])[])("transformOverView(%j, %j) is %j", (input, options, expected) => {
+      const once = transformOverView(input, options)
       expect(once).toBe(expected)
-      expect(transform(once, french)).toBe(once)
+      expect(transformOverView(once, options)).toBe(once)
     })
   })
 

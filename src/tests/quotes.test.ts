@@ -928,17 +928,11 @@ describe("niceQuotes", () => {
       expect(niceQuotes(once, { punctuationStyle: "french" })).toBe(once)
     })
 
-    // Each row is the output a re-run reproduces, so the first run must reach
-    // it directly. French: after punctuation placement, a straight quote beside
-    // a guillemet reads as an opener or closer when one space separates them, or
-    // two once the guillemet's padding absorbs the NBSP/NNBSP beside it (a tab
-    // stays between the paddings); punctuation moved out of the quote leaves its
-    // NBSP behind, which the closer absorbs. German: U+2018/U+201C close only while a low-9 opener
-    // is open, so a glyph whose opener a straight candidate consumed is an
-    // orphan classified by position, and a straight quote opening across a
-    // node boundary turns the U+201C orphan after it into its closer. A comma
-    // placed past a closer gives it an ending character, which changes how the
-    // apostrophe candidate before it reads.
+    // Each row is the output a re-run reproduces. French: a straight quote reads
+    // as an opener or closer across one space from a guillemet, or two once the
+    // guillemet's padding absorbs the NBSP/NNBSP beside it. German: U+2018/U+201C
+    // close only while a low-9 opener is open, so an orphan whose opener a
+    // straight candidate consumed is classified by position.
     it.each([
       ["french", `a "${NBSP}${RIGHT_DOUBLE_QUOTE}`, `a ${LEFT_GUILLEMET}${NNBSP}${NNBSP}${RIGHT_GUILLEMET}`],
       ["french", `a "\t${RIGHT_DOUBLE_QUOTE}`, `a ${LEFT_GUILLEMET}${NNBSP}\t${NNBSP}${RIGHT_GUILLEMET}`],
