@@ -23,7 +23,7 @@ import {
   transformView,
 } from "../index.js"
 import { transformHtml } from "../html.js"
-import { transformMarkdown } from "../markdown.js"
+import { remarkRoundTrip, transformMarkdown } from "../markdown.js"
 import { type ProseNode } from "../prose-view.js"
 
 // Default seed is verified green across the suite's run counts; override with
@@ -36,10 +36,11 @@ function fcParams(numRuns: number): fc.Parameters<unknown> {
   return { numRuns: runs, seed: SEED, path: process.env.FUZZ_PATH, endOnFailure: true }
 }
 
-/** Characters weighted toward every transform trigger: quotes, dashes,
- * ellipses, primes, arrows, fractions, ordinals, units, and whitespace. */
+/** Characters weighted toward every transform trigger: quotes (straight, curly,
+ * low-9, guillemets, and U+02BC), dashes, ellipses, primes, arrows, fractions,
+ * ordinals, units, and whitespace. */
 const TYPOGRAPHY_CHAR = fc.constantFrom(
-  ..."\"'`-–—.…!?xX*/\\<>()[]{}0123456789aAbBzZ   ,;:\n\t$%&#@^~_|+=",
+  ..."\"'`-–—.…!?xX*/\\<>()[]{}0123456789aAbBzZ   ,;:\n\t$%&#@^~_|+=\u201C\u201D\u2018\u2019\u201E\u201A\u00AB\u00BB\u02BC",
 )
 
 /** Arbitrary text: plain ASCII, raw UTF-16 (including lone surrogates), and
@@ -267,7 +268,7 @@ describe("fuzz: transformHtml", () => {
   // typography passes are the subject here.
   const ARB_HTML_TEXT = fc.string({
     maxLength: 40,
-    unit: fc.constantFrom(..."\"'-–—.!?x/()0123456789abz ,;:"),
+    unit: fc.constantFrom(..."\"'-–—.!?x/()0123456789abz ,;:\u201C\u201D\u2018\u2019\u201E\u201A\u00AB\u00BB\u02BC"),
   })
 
   it("is idempotent and leaves code blocks untouched", async () => {
@@ -292,14 +293,17 @@ describe("fuzz: transformHtml", () => {
 describe("fuzz: transformMarkdown", () => {
   const ARB_MARKDOWN_TEXT = fc.string({
     maxLength: 50,
-    unit: fc.constantFrom(..."\"'-.!?x/()0123456789abz ,;:\n*_`[]#>"),
+    unit: fc.constantFrom(..."\"'-.!?x/()0123456789abz ,;:\n*_`[]#>\u201C\u201D\u2018\u2019\u201E\u201A\u00AB\u00BB\u02BC"),
   })
 
+  // Remark's own parse+stringify is not a fixed point (`_)_*!*)` → `*)**!*)` →
+  // `*)\*\*!*)`), so a second run is held to remark's plain round trip of the
+  // first output; the property targets punctilio's changes, not remark's.
   it("is idempotent", async () => {
     await fc.assert(
       fc.asyncProperty(ARB_MARKDOWN_TEXT, async (text) => {
         const once = await transformMarkdown(text)
-        expect(await transformMarkdown(once)).toBe(once)
+        expect(await transformMarkdown(once)).toBe(await remarkRoundTrip(once))
       }),
       fcParams(300),
     )

@@ -18,6 +18,7 @@ const {
   SINGLE_LOW_9_QUOTE,
   LEFT_GUILLEMET,
   RIGHT_GUILLEMET,
+  MODIFIER_LETTER_APOSTROPHE,
 } = UNICODE_SYMBOLS
 
 /** Opener/closer pairs for the low-9 quotes and both guillemet orders. */
@@ -403,6 +404,8 @@ describe("minusReplace", () => {
     // Curly quotes (pre-transformed text)
     [`${LEFT_DOUBLE_QUOTE}-5${RIGHT_DOUBLE_QUOTE}`, `${LEFT_DOUBLE_QUOTE}${MINUS}5${RIGHT_DOUBLE_QUOTE}`],
     [`${LEFT_SINGLE_QUOTE}-5${RIGHT_SINGLE_QUOTE}`, `${LEFT_SINGLE_QUOTE}${MINUS}5${RIGHT_SINGLE_QUOTE}`],
+    // U+02BC reads as the U+2019 the quote pass renders it to
+    [`x ${MODIFIER_LETTER_APOSTROPHE}-5`, `x ${MODIFIER_LETTER_APOSTROPHE}${MINUS}5`],
     // Spaced math subtraction (digit before)
     ["5 - 3", `5 ${MINUS} 3`],
     ["10 - 5 = 5", `10 ${MINUS} 5 = 5`],
@@ -613,20 +616,28 @@ describe("idempotency", () => {
     // The multiple-dash rule keeps the spaces before a following dash;
     // consuming them would fuse the rendered em dash with it into a run.
     [`a${EM_DASH}- ${EM_DASH}b`, `a${EM_DASH} ${EM_DASH}b`],
+    // A boundary-led run right of a converted dash stays a hyphen: the
+    // multiple-dash rule consumes the spaces that left `- 61` boundary-led,
+    // and a re-run must read that tail as it was read before.
+    [`x${EM_DASH}- ${DEFAULT_SEPARATOR}- 61`, `x${EM_DASH}${DEFAULT_SEPARATOR}- 61`],
+    [`x${EM_DASH}${DEFAULT_SEPARATOR}- 61`, `x${EM_DASH}${DEFAULT_SEPARATOR}- 61`],
   ])('fold-stable: "%s" → "%s"', (input, expected) => {
-    expect(hyphenReplace(input)).toBe(expected)
-    expect(hyphenReplace(expected)).toBe(expected)
+    expect(viewTransform(hyphenReplace, input)).toBe(expected)
+    expect(viewTransform(hyphenReplace, expected)).toBe(expected)
   })
 
   // An en dash behind spaces reaching text start converts the range (the
   // spaced-dash rule makes it a padded line-leading em dash); spaces that
-  // stop short of the start do not.
+  // stop short of the start do not. A range start one space after a
+  // multiplication sign blocks across a node boundary too, as the fold pads
+  // `x` with a space the boundary then follows.
   it.each([
     [` ${EN_DASH}6-2`, ` ${EN_DASH}6${EN_DASH}2`],
     [`x ${EN_DASH}6-2`, `x ${EN_DASH}6-2`],
+    [`5 ${MULTIPLICATION} ${DEFAULT_SEPARATOR}8-6`, `5 ${MULTIPLICATION} ${DEFAULT_SEPARATOR}8-6`],
   ])('range behind leading spaces: "%s" → "%s"', (input, expected) => {
-    expect(enDashNumberRange(input)).toBe(expected)
-    expect(enDashNumberRange(expected)).toBe(expected)
+    expect(viewTransform(enDashNumberRange, input)).toBe(expected)
+    expect(viewTransform(enDashNumberRange, expected)).toBe(expected)
   })
 
   // A range end one space before a multiplication sign blocks like the word
@@ -1005,9 +1016,27 @@ describe("ProseView boundary-tolerance edges", () => {
   })
 
   describe("line-leading em-dash spacing across boundaries", () => {
+    const authorTypedTerminals = [
+      ELLIPSIS,
+      UNICODE_SYMBOLS.DOUBLE_QUESTION,
+      UNICODE_SYMBOLS.QUESTION_EXCLAMATION,
+      UNICODE_SYMBOLS.EXCLAMATION_QUESTION,
+      UNICODE_SYMBOLS.DOUBLE_EXCLAMATION,
+      UNICODE_SYMBOLS.INTERROBANG,
+    ]
+    // A vulgar fraction glyph reads as the digit it folds from.
+    const fractionGlyphs = [
+      UNICODE_SYMBOLS.FRACTION_1_4,
+      UNICODE_SYMBOLS.FRACTION_2_5,
+      UNICODE_SYMBOLS.FRACTION_7_8,
+    ]
     it.each([
       // One boundary at the line-start `${chr}?` slot before the em-dash.
       ["boundary before a line-leading em-dash", `${sep}${EM_DASH}Apple`, `${sep}${EM_DASH} Apple`],
+      ...fractionGlyphs.map((glyph) => [`line-leading em dash before ${glyph}`, `${EM_DASH}${glyph}`, `${EM_DASH} ${glyph}`]),
+      // An author-typed terminal glyph before a boundary-led dash blocks
+      // nothing: the dash converts as it does after any other non-space char.
+      ...authorTypedTerminals.map((glyph) => [`boundary-led dash after ${glyph}`, `a${glyph}${sep}${EN_DASH} b`, `a${glyph}${sep}${EM_DASH}b`]),
     ])("%s", (_desc, input, expected) => {
       expect(viewTransform(hyphenReplace, input, sep)).toBe(expected)
     })

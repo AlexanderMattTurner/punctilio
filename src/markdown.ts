@@ -1,7 +1,7 @@
 import { unified } from "unified"
 import remarkParse from "remark-parse"
 import remarkGfm from "remark-gfm"
-import remarkStringify from "remark-stringify"
+import remarkStringify, { type Options as StringifyOptions } from "remark-stringify"
 import QuickLRU from "quick-lru"
 
 import { MARKDOWN_OPTION_KEYS } from "./sink-option-keys.js"
@@ -35,6 +35,23 @@ export interface MarkdownOptions extends RemarkPunctilioOptions {
   ruleMarker?: "-" | "*" | "_"
 }
 
+/** Stringify settings shared by {@link createProcessor} and {@link remarkRoundTrip}. */
+function stringifyOptions({ emphasisMarker, strongMarker, bulletMarker, ruleMarker }: MarkdownOptions): StringifyOptions {
+  return {
+    emphasis: emphasisMarker ?? "*",
+    strong: strongMarker ?? "*",
+    bullet: bulletMarker ?? "-",
+    rule: ruleMarker ?? "-",
+    // Use 4 dashes (----) for thematic breaks to avoid ambiguity with
+    // YAML front matter delimiters (---) during re-parsing
+    ...(ruleMarker === "-" || ruleMarker === undefined ? { ruleRepetition: 4 } : {}),
+    // remark-stringify escapes opening brackets but not closing brackets,
+    // producing `\[1]` instead of `\[1\]`. This can cause issues when the
+    // output is re-parsed by markdown renderers.
+    unsafe: [{ character: "]", inConstruct: "phrasing" }],
+  }
+}
+
 function createProcessor(options: MarkdownOptions) {
   const {
     emphasisMarker,
@@ -48,19 +65,7 @@ function createProcessor(options: MarkdownOptions) {
     .use(remarkParse)
     .use(remarkGfm)
     .use(remarkPunctilio, punctilioOptions)
-    .use(remarkStringify, {
-      emphasis: emphasisMarker ?? "*",
-      strong: strongMarker ?? "*",
-      bullet: bulletMarker ?? "-",
-      rule: ruleMarker ?? "-",
-      // Use 4 dashes (----) for thematic breaks to avoid ambiguity with
-      // YAML front matter delimiters (---) during re-parsing
-      ...(ruleMarker === "-" || ruleMarker === undefined ? { ruleRepetition: 4 } : {}),
-      // remark-stringify escapes opening brackets but not closing brackets,
-      // producing `\[1]` instead of `\[1\]`. This can cause issues when the
-      // output is re-parsed by markdown renderers.
-      unsafe: [{ character: "]", inConstruct: "phrasing" }],
-    })
+    .use(remarkStringify, stringifyOptions({ emphasisMarker, strongMarker, bulletMarker, ruleMarker }))
 }
 
 const MAX_PROCESSOR_CACHE_SIZE = 8
@@ -126,17 +131,30 @@ export async function transformMarkdown(
   options: MarkdownOptions = {}
 ): Promise<string> {
   assertKnownOptionKeys(options, MARKDOWN_OPTION_KEYS, "transformMarkdown")
-  return transformPreservingBom(input, (text) => transformWithFrontmatter(text, options))
+  return transformPreservingBom(input, (text) => transformWithFrontmatter(text, (body) => processMarkdown(body, options)))
 }
 
-async function transformWithFrontmatter(input: string, options: MarkdownOptions): Promise<string> {
+/**
+ * @internal Parse, then stringify, with no punctilio pass: the output
+ * `transformMarkdown` is held to on a second run (remark's own round trip is
+ * not always a fixed point).
+ */
+export async function remarkRoundTrip(
+  input: string,
+  options: MarkdownOptions = {}
+): Promise<string> {
+  const processor = unified().use(remarkParse).use(remarkGfm).use(remarkStringify, stringifyOptions(options))
+  return transformPreservingBom(input, (text) => transformWithFrontmatter(text, async (body) => String(await processor.process(body))))
+}
+
+async function transformWithFrontmatter(input: string, processBody: (body: string) => Promise<string>): Promise<string> {
   const frontmatterEnd = frontmatterLength(input)
-  if (frontmatterEnd === 0) return processMarkdown(input, options)
+  if (frontmatterEnd === 0) return processBody(input)
 
   // Front matter is data (YAML/TOML), not prose; remark would parse it as a
   // thematic break plus a heading and rewrite it.
   const body = input.slice(frontmatterEnd)
   const blankLines = LEADING_BLANK_LINES_RE.exec(body)![0]
-  const transformedBody = await processMarkdown(body.slice(blankLines.length), options)
+  const transformedBody = await processBody(body.slice(blankLines.length))
   return input.slice(0, frontmatterEnd) + blankLines + transformedBody
 }

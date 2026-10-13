@@ -1,4 +1,4 @@
-import { CLOSING_BRACKETS, FOLDED_WORD_CHARS, LATIN_LETTER_RE, OPENING_BRACKETS, QUOTE_GLYPHS, SPACE_CHAR_RE, TERMINAL_PUNCTUATION, UNICODE_SYMBOLS, WORD_RE } from "./constants.js"
+import { CLOSING_BRACKETS, FOLDED_TERMINALS, FOLDED_WORD_CHARS, FRACTION_GLYPHS, LATIN_LETTER_RE, OPENING_BRACKETS, QUOTE_GLYPHS, SPACE_CHAR_RE, TERMINAL_PUNCTUATION, UNICODE_SYMBOLS, WORD_RE } from "./constants.js"
 import type { ProseView } from "./prose-view.js"
 
 const {
@@ -24,22 +24,12 @@ const {
   DOUBLE_QUESTION,
   QUESTION_EXCLAMATION,
   EXCLAMATION_QUESTION,
-  DOUBLE_EXCLAMATION,
-  INTERROBANG,
   APPROXIMATE,
   GREATER_EQUAL,
   LESS_EQUAL,
   NOT_EQUAL,
   PLUS_MINUS,
 } = UNICODE_SYMBOLS
-
-/**
- * Glyphs the symbol passes fold `?`/`!` runs and `...` into. The quote rules
- * run before those passes, so every ending-context set that contains the
- * source punctuation must contain the folded glyph too — otherwise a decision
- * gated on `?!` flips once a re-run sees `⁈`.
- */
-const FOLDED_TERMINALS = [DOUBLE_QUESTION, QUESTION_EXCLAMATION, EXCLAMATION_QUESTION, DOUBLE_EXCLAMATION, INTERROBANG] as const
 
 export const PUNCTUATION_STYLES = ["american", "british", "german", "french", "none"] as const
 export type PunctuationStyle = (typeof PUNCTUATION_STYLES)[number]
@@ -106,8 +96,9 @@ interface Item {
    */
   frozenCloser?: boolean
   /**
-   * Set on a German item whose curly source glyph was re-derived to a straight
-   * candidate by position. If classification assigns it no role, it renders as
+   * Set on a German item whose curly glyph was re-derived to a straight
+   * candidate by position: the source glyph, or the one the previous round's
+   * rendering gives it. If classification assigns it no role, it renders as
    * this glyph: the style never downgrades curly text to straight.
    */
   curlySource?: string
@@ -117,6 +108,7 @@ interface Item {
 }
 
 const SPACE_RE = /\s/
+const FRACTION_GLYPH_SET: ReadonlySet<string> = new Set(FRACTION_GLYPHS)
 const DIGIT_RE = /\d/
 
 /** Fast path: text without any quote-like character is returned untouched. */
@@ -185,7 +177,9 @@ function makeItemTester(test: (ch: string) => boolean): (items: Item[], index: n
 
 const isLetterItem = makeItemTester((ch) => LATIN_LETTER_RE.test(ch))
 const isDigitItem = makeItemTester((ch) => DIGIT_RE.test(ch))
-const isWordItem = makeItemTester((ch) => WORD_RE.test(ch) || FOLDED_WORD_CHARS.has(ch))
+/** Word test that reads a vulgar fraction glyph as the digit it folds from
+ * (`7/8'B` and `⅞'B` must agree on the leading-apostrophe gate). */
+const isWordItem = makeItemTester((ch) => WORD_RE.test(ch) || FRACTION_GLYPH_SET.has(ch) || FOLDED_WORD_CHARS.has(ch))
 const isLetterOrDigitItem = makeItemTester((ch) => LATIN_LETTER_RE.test(ch) || DIGIT_RE.test(ch) || FOLDED_WORD_CHARS.has(ch))
 /** Letter test that treats folded word glyphs as the letters they fold from
  * (`X` → `×`, `st` → `ˢᵗ`); see {@link FOLDED_WORD_CHARS}. */
@@ -195,6 +189,23 @@ function isCharItem(items: Item[], index: number, ch: string): boolean {
   if (index < 0 || index >= items.length) return false
   const item = items[index]
   return !item.boundary && item.ch === ch
+}
+
+/**
+ * French only: whether the run of space items from `start` (walking by `step`)
+ * ends at a `glyph` item and collapses to one space once an unpadded glyph's
+ * padding absorbs the NBSP/NNBSP beside it. A re-run reads that space between
+ * the straight quote and the padded glyph, so the first run must too.
+ */
+function spaceRunReadsAsSingle(items: Item[], start: number, step: 1 | -1, glyph: string): boolean {
+  let index = start
+  while (index >= 0 && index < items.length && !items[index].boundary && SPACE_CHAR_RE.test(items[index].ch)) index += step
+  const runLength = (index - start) * step
+  if (!isCharItem(items, index, glyph)) return false
+  // A glyph the source already pads absorbs nothing further.
+  const glyphSide = items[index - step].ch
+  const absorbs = items[index].end - items[index].start === 1 && (glyphSide === NBSP || glyphSide === NNBSP)
+  return runLength === 1 || (runLength === 2 && absorbs)
 }
 
 /**
@@ -234,6 +245,50 @@ function makeItem(boundary: boolean, ch: string, start: number, end: number): It
   return { boundary, ch, start, end, moved: false, anchorOffset: 0, anchorBind: "left" }
 }
 
+/** Count of open German low-9 quotes, per kind. */
+interface GermanDepth {
+  double: number
+  single: number
+}
+
+/**
+ * The internal-alphabet reading of a glyph in German text, or null when German
+ * leaves the glyph alone. Closers are depth-gated: U+201C/U+2018 close only
+ * below an open low-9 quote; orphans and the glyphs German does not use fall
+ * back to straight-quote candidates re-derived by position.
+ */
+function readGermanGlyph(glyph: string, afterDigit: boolean, depth: GermanDepth): string | null {
+  if (glyph === DOUBLE_LOW_9_QUOTE) {
+    depth.double++
+    return LEFT_DOUBLE_QUOTE
+  }
+  if (glyph === LEFT_DOUBLE_QUOTE) {
+    if (depth.double === 0) return '"'
+    depth.double--
+    return RIGHT_DOUBLE_QUOTE
+  }
+  if (glyph === SINGLE_LOW_9_QUOTE) {
+    depth.single++
+    return LEFT_SINGLE_QUOTE
+  }
+  if (glyph === LEFT_SINGLE_QUOTE) {
+    if (depth.single === 0) return "'"
+    depth.single--
+    return RIGHT_SINGLE_QUOTE
+  }
+  // Not used in German typography; re-derive by position.
+  if (glyph === RIGHT_DOUBLE_QUOTE) return '"'
+  if (glyph === RIGHT_SINGLE_QUOTE || glyph === MODIFIER_LETTER_APOSTROPHE) {
+    // U+02BC and U+2019 read alike: the next run re-derives the rendered U+2019
+    // by position, so re-derive here too. Directly after a digit the mark is a
+    // separator (Swiss "5’000"), so keep the apostrophe role: a straight quote
+    // there would reach the next run's prime pass ("5′000"), destroying the
+    // separator and the fixed point.
+    return afterDigit ? MODIFIER_LETTER_APOSTROPHE : "'"
+  }
+  return null
+}
+
 /**
  * Builds the working item sequence over the view's clean text, applying the
  * locale's pre-label rows: German low-9/depth-gated quotes and French
@@ -245,11 +300,7 @@ function buildItems(view: ProseView, style: ActiveQuoteStyle): Item[] {
   const boundaries = view.boundaries
   const items: Item[] = []
   let b = 0
-  // German closers are depth-gated: U+201C/U+2018 close only below an open
-  // low-9 quote; orphans fall back to straight-quote candidates re-derived by
-  // position (the depth-0 branch).
-  let doubleDepth = 0
-  let singleDepth = 0
+  const germanDepth: GermanDepth = { double: 0, single: 0 }
 
   let i = 0
   while (i <= text.length) {
@@ -280,32 +331,7 @@ function buildItems(view: ProseView, style: ActiveQuoteStyle): Item[] {
         continue
       }
     } else if (style === "german") {
-      let mapped: string | null = null
-      if (ch === DOUBLE_LOW_9_QUOTE) {
-        mapped = LEFT_DOUBLE_QUOTE
-        doubleDepth++
-      } else if (ch === LEFT_DOUBLE_QUOTE) {
-        mapped = doubleDepth > 0 ? RIGHT_DOUBLE_QUOTE : '"'
-        if (doubleDepth > 0) doubleDepth--
-      } else if (ch === SINGLE_LOW_9_QUOTE) {
-        mapped = LEFT_SINGLE_QUOTE
-        singleDepth++
-      } else if (ch === LEFT_SINGLE_QUOTE) {
-        mapped = singleDepth > 0 ? RIGHT_SINGLE_QUOTE : "'"
-        if (singleDepth > 0) singleDepth--
-      } else if (ch === RIGHT_DOUBLE_QUOTE) {
-        // Not used in German typography — re-derive by position.
-        mapped = '"'
-      } else if (ch === RIGHT_SINGLE_QUOTE || ch === MODIFIER_LETTER_APOSTROPHE) {
-        // U+02BC renders as U+2019, which the next run re-derives by position;
-        // re-derive it the same way now so both runs agree. Directly after a
-        // digit the mark is a separator (Swiss "5’000"), never a German quote
-        // glyph: keep the apostrophe role, which renders U+2019 unchanged.
-        // Re-deriving to a straight quote there hands correct typography to
-        // the next run's prime pass ("5'000" → "5′000") — a destroyed
-        // separator and a broken fixed point.
-        mapped = DIGIT_RE.test(text[i - 1] ?? "") ? MODIFIER_LETTER_APOSTROPHE : "'"
-      }
+      const mapped = readGermanGlyph(ch, DIGIT_RE.test(text[i - 1] ?? ""), germanDepth)
       if (mapped !== null) {
         const item = makeItem(false, mapped, i, i + 1)
         if (mapped === '"' || mapped === "'") item.curlySource = ch
@@ -527,13 +553,16 @@ function classifyLeadingApostrophes(items: Item[]): void {
 }
 
 /** Opener-position straight single quote → OPEN_SINGLE. */
-function classifyOpeningSingles(items: Item[]): void {
+function classifyOpeningSingles(items: Item[], style: ActiveQuoteStyle): void {
   for (let i = 0; i < items.length; i++) {
     const item = items[i]
     if (item.boundary || item.ch !== "'") continue
-    // Ahead: a boundary item satisfies \S (a boundary is non-space).
+    // Ahead: a boundary item satisfies \S (a boundary is non-space), and a
+    // French space the closer's padding absorbs reads as none on a re-run.
     const next = items[i + 1]
-    if (next === undefined || (!next.boundary && SPACE_RE.test(next.ch))) continue
+    const spaceAhead = next !== undefined && !next.boundary && SPACE_RE.test(next.ch)
+    const blockedBySpace = spaceAhead && !(style === "french" && spaceRunReadsAsSingle(items, i + 1, 1, RIGHT_DOUBLE_QUOTE))
+    if (next === undefined || blockedBySpace) continue
     // Behind: up to one boundary, then line start or an opener-context char.
     const j = prevIndex(items, i, 1)
     if (j >= 0) {
@@ -583,7 +612,7 @@ function classifySingles(items: Item[], style: ActiveQuoteStyle): void {
   classifyPossessivesAndClosers(items)
   classifyContractions(items)
   classifyLeadingApostrophes(items)
-  classifyOpeningSingles(items)
+  classifyOpeningSingles(items, style)
   // The rules above rewrite neighbors the closer/possessive lookbehind keyed
   // on: in a `''` chain the left quote becomes an apostrophe, which renders
   // as U+2019 — exactly the glyph a re-run reads in that slot, where the
@@ -771,7 +800,7 @@ function classifyOpeningDoubles(items: Item[], style: ActiveQuoteStyle): void {
         const j = nextIndex(items, i, 1)
         if (j < items.length && !items[j].boundary) {
           const ch = items[j].ch
-          const absorbedIntoCloser = style === "french" && ch === " " && isCharItem(items, j + 1, RIGHT_DOUBLE_QUOTE)
+          const absorbedIntoCloser = style === "french" && spaceRunReadsAsSingle(items, j, 1, RIGHT_DOUBLE_QUOTE)
           opens = isEllipsisDots(items, j) || foldsToNotEqual(items, j)
             || (!SPACE_RE.test(ch) && !DOUBLE_OPEN_ENDING_SET.has(ch))
             || absorbedIntoCloser
@@ -880,7 +909,7 @@ function classifyClosingDoubles(items: Item[], style: ActiveQuoteStyle): void {
     if (item.boundary || item.ch !== '"') continue
     const before = items[i - 1]
     if (!before.boundary && (SPACE_RE.test(before.ch) || OPEN_BRACKETS.has(before.ch))) {
-      const absorbedIntoOpener = style === "french" && before.ch === " " && isCharItem(items, i - 2, LEFT_DOUBLE_QUOTE)
+      const absorbedIntoOpener = style === "french" && spaceRunReadsAsSingle(items, i - 1, -1, LEFT_DOUBLE_QUOTE)
       if (!absorbedIntoOpener) continue
     }
     const next = items[i + 1]
@@ -909,29 +938,6 @@ function classifySinglesBeforeClosingDoubles(items: Item[]): void {
     if (item.boundary || item.ch !== "'") continue
     if (isCharItem(items, i + 1, RIGHT_DOUBLE_QUOTE)) {
       item.ch = RIGHT_SINGLE_QUOTE
-    }
-  }
-}
-
-/**
- * German reads its rendered glyphs by depth: a U+201C below an open „ closes
- * it. A curly orphan that kept its source glyph (see {@link Item.curlySource})
- * below a quote opened in this same pass is therefore that quote's closer on
- * the next run; label it one now so both runs agree. Singles need no
- * counterpart: a single opener is only recognized when a closer follows it
- * with no straight single in between, and an orphan U+2018 is one.
- */
-function closeCurlyOrphansBelowOpeners(items: Item[]): void {
-  let depth = 0
-  for (const item of items) {
-    if (item.boundary) continue
-    if (item.ch === LEFT_DOUBLE_QUOTE) {
-      depth++
-    } else if (item.ch === RIGHT_DOUBLE_QUOTE) {
-      if (depth > 0) depth--
-    } else if (item.ch === '"' && item.curlySource === LEFT_DOUBLE_QUOTE && depth > 0) {
-      item.ch = RIGHT_DOUBLE_QUOTE
-      depth--
     }
   }
 }
@@ -1122,7 +1128,7 @@ function movePunctuationInside(order: Item[], isMovable: (items: Item[], index: 
     // suffix would be quadratic on long closer runs. The position-dependent
     // lookbehinds (terminal char, A-side wall) instead retry one level in,
     // where the preceding item is a closer and can no longer block.
-    if (punctIndex >= order.length || order[punctIndex].boundary || !isMovable(order, punctIndex)) {
+    if (punctIndex >= order.length || order[punctIndex].boundary || isWholeNodeText(order, punctIndex) || !isMovable(order, punctIndex)) {
       position = Math.max(runEnd, position + 1)
       continue
     }
@@ -1199,7 +1205,10 @@ const CHAIN_PUNCT_SET = new Set<string>([".", ",", ELLIPSIS])
  *    dot triple, which the double-opener rule reads as `…`;
  *  - `.` + digit at the removal site: a period directly before a digit blocks
  *    the dash pass's number-range detection, so vacating the slot converts a
- *    range this run left alone.
+ *    range this run left alone;
+ *  - a closer directly after a still-straight `'` + two digits: that adjacency
+ *    is what keeps {@link isDecadeElision} from reading the quote as an
+ *    elision, so the re-run of `.'47,’` would turn it into `’`.
  */
 function insideMoveFlipsContext(order: Item[], runStart: number, punctIndex: number): boolean {
   if (order[punctIndex].ch === ".") {
@@ -1208,7 +1217,15 @@ function insideMoveFlipsContext(order: Item[], runStart: number, punctIndex: num
     const afterPunct = nextIndex(order, punctIndex, 1)
     if (afterPunct < order.length && !order[afterPunct].boundary && DIGIT_RE.test(order[afterPunct].ch)) return true
   }
-  return false
+  return closesStraightQuotedDigits(order, runStart)
+}
+
+/** `'` + two digits, then the single closer at `runStart`. */
+function closesStraightQuotedDigits(order: Item[], runStart: number): boolean {
+  return isCharItem(order, runStart, RIGHT_SINGLE_QUOTE)
+    && isDigitItem(order, runStart - 1)
+    && isDigitItem(order, runStart - 2)
+    && isCharItem(order, runStart - 3, "'")
 }
 
 /** True iff the run [start, end) contains a single-quote closer or apostrophe. */
@@ -1222,9 +1239,8 @@ function runContainsSingleCloser(order: Item[], start: number, end: number): boo
 
 /**
  * Mirror of {@link singleEndingAfter} at the run end as the post-move item
- * sequence reads it: the vacating punctuation leaves its surrounding boundary
- * items behind (an emptied node stacks them), and they all count against the
- * lookahead's one-boundary budget.
+ * sequence reads it: the vacating punctuation leaves the boundary items around
+ * it behind, and they all count against the lookahead's one-boundary budget.
  */
 function endingContextAfterMove(order: Item[], runEnd: number, punctIndex: number): boolean {
   let boundaries = 0
@@ -1299,6 +1315,16 @@ function moveWallAt(items: Item[], index: number): boolean {
 }
 
 /**
+ * True iff the item at `index` is the only text of its node: a boundary or the
+ * view edge on each side. Moving it would empty the node, and an emptied inline
+ * mark (`_,_`) serializes as bare delimiters that the next run reads as literal
+ * text.
+ */
+function isWholeNodeText(order: Item[], index: number): boolean {
+  return (order[index - 1]?.boundary ?? true) && (order[index + 1]?.boundary ?? true)
+}
+
+/**
  * British/German/French: a period or comma directly before a closing-quote
  * run moves past the whole run. No terminal-punctuation guard.
  *
@@ -1313,7 +1339,7 @@ function movePunctuationOutside(order: Item[], punctChar: string, closingSet: Re
   let position = 0
   while (position < order.length) {
     const item = order[position]
-    if (item.boundary || item.ch !== punctChar) {
+    if (item.boundary || item.ch !== punctChar || isWholeNodeText(order, position)) {
       position++
       continue
     }
@@ -1361,10 +1387,8 @@ function movePunctuationOutside(order: Item[], punctChar: string, closingSet: Re
       // Any collapsible space char qualifies, not just a plain space: the
       // collapse pass merges tabs and NBSPs into the closer's NNBSP padding
       // the same way.
-      if (spaceBeforePaddedCloser && k < order.length && !order[k].boundary
-        && order[k].ch.length === 1 && SPACE_CHAR_RE.test(order[k].ch)
-        && isCharItem(order, k + 1, RIGHT_DOUBLE_QUOTE)) {
-        k++
+      if (spaceBeforePaddedCloser && spaceRunReadsAsSingle(order, k, 1, RIGHT_DOUBLE_QUOTE)) {
+        while (SPACE_CHAR_RE.test(order[k].ch)) k++
       }
       if (k >= order.length || order[k].boundary || !closingRunMemberAt(order, k, closingSet)) break
       last = k
@@ -1421,31 +1445,49 @@ function applyPunctuationPlacement(items: Item[], style: ActiveQuoteStyle, apost
 // Rendering
 // ---------------------------------------------------------------------------
 
-/** A one-char unmoved NBSP/NNBSP item textually adjacent at `offset`. */
+/** A one-char unmoved NBSP/NNBSP item. */
 function isPaddingSpaceItem(item: Item | undefined): item is Item {
   return item !== undefined && !item.boundary && !item.moved
     && item.end - item.start === 1 && (item.ch === NBSP || item.ch === NNBSP)
 }
 
 /**
+ * The closer at `closerIndex` takes the padding space directly before it, or
+ * deletes it when moved punctuation leaves them textually apart. A padding
+ * space further left in the same run, textually apart from the next member,
+ * is deleted too: the collapse pass would merge it with the closer's padding
+ * into an NBSP, which a re-run absorbs as the padding and renders NNBSP.
+ */
+function absorbSpaceRunBeforeCloser(items: Item[], closerIndex: number): void {
+  const closer = items[closerIndex]
+  for (let j = closerIndex - 1; j >= 0; j--) {
+    const member = items[j]
+    if (member.boundary || member.moved || member.end - member.start !== 1 || !SPACE_CHAR_RE.test(member.ch)) return
+    const gapAfter = member.end !== items[j + 1].start
+    if (isPaddingSpaceItem(member) && (j === closerIndex - 1 || gapAfter)) {
+      if (!gapAfter) {
+        closer.start = member.start
+        member.end = member.start
+      }
+      member.ch = ""
+    }
+  }
+}
+
+/**
  * French renders double-quote glyphs with NNBSP padding. A source NBSP/NNBSP
- * directly adjacent to the glyph would collapse with that padding into one
- * space whose type wins by priority (NBSP beats NNBSP), which the next run
- * absorbs as the glyph's padding and re-renders NNBSP — an oscillation.
- * Absorb the adjacent space into the (single-char, i.e. unpadded) glyph item
- * now so its render replaces both with the padded form.
+ * adjacent to the glyph in the placed order would collapse with that padding
+ * into one space whose type wins by priority (NBSP beats NNBSP), which the next
+ * run absorbs as the glyph's padding and re-renders NNBSP, an oscillation.
+ * Absorb the space into the (single-char, i.e. unpadded) glyph item now so its
+ * render replaces both with the padded form.
  */
 function absorbGuillemetPadding(items: Item[]): void {
   for (let i = 0; i < items.length; i++) {
     const item = items[i]
     if (item.boundary || item.moved || item.end - item.start !== 1) continue
     if (item.ch === RIGHT_DOUBLE_QUOTE) {
-      const prev = items[i - 1]
-      if (isPaddingSpaceItem(prev) && prev.end === item.start) {
-        item.start = prev.start
-        prev.end = prev.start
-        prev.ch = ""
-      }
+      absorbSpaceRunBeforeCloser(items, i)
     } else if (item.ch === LEFT_DOUBLE_QUOTE) {
       const next = items[i + 1]
       if (isPaddingSpaceItem(next) && next.start === item.end) {
@@ -1490,7 +1532,7 @@ function queueRenderEdits(view: ProseView, items: Item[], table: Record<QuoteRol
   for (const item of items) {
     if (item.boundary) continue
     const role = ROLE_BY_CHAR.get(item.ch)
-    const rendered = role === undefined ? item.ch : table[role]
+    const rendered = role === undefined ? (item.curlySource ?? item.ch) : table[role]
     if (item.moved) {
       view.replace(item.start, item.end, "")
       const key = `${item.anchorOffset}|${item.anchorBind}`
@@ -1507,10 +1549,9 @@ function queueRenderEdits(view: ProseView, items: Item[], table: Record<QuoteRol
       }
       continue
     }
-    if (role === undefined && item.curlySource !== undefined) continue
     // Fast path for ordinary characters; pre-labeled items may have changed
     // `ch` without gaining a role (German orphan closers) and must still diff.
-    if (role === undefined && item.ch === text[item.start] && item.end - item.start === 1) continue
+    if (role === undefined && item.curlySource === undefined && item.ch === text[item.start] && item.end - item.start === 1) continue
     if (rendered !== text.slice(item.start, item.end)) {
       view.replace(item.start, item.end, rendered)
     }
@@ -1525,6 +1566,61 @@ function queueRenderEdits(view: ProseView, items: Item[], table: Record<QuoteRol
 // ---------------------------------------------------------------------------
 
 /**
+ * The items the next run builds from this pass's rendering. German reads its
+ * rendered glyphs by depth, and re-derives most of them to straight candidates
+ * classified by position, so the next run's readings depend on the roles this
+ * pass assigned to everything before them. The next run's prime pass turns
+ * the digit-adjacent straight quotes this pass leaves straight into primes,
+ * so they are primes here too.
+ */
+function rereadGermanRendering(items: Item[], text: string, apostrophe: string): Item[] {
+  const rendered = renderTable("german", apostrophe)
+  const depth: GermanDepth = { double: 0, single: 0 }
+  const reread = items.map((item) => {
+    if (item.boundary) return makeItem(true, "", item.start, item.end)
+    const role = ROLE_BY_CHAR.get(item.ch)
+    const glyph = role === undefined ? (item.curlySource ?? item.ch) : rendered[role]
+    const mapped = readGermanGlyph(glyph, DIGIT_RE.test(text[item.start - 1] ?? ""), depth)
+    const next = makeItem(false, mapped ?? item.ch, item.start, item.end)
+    next.moved = item.moved
+    next.anchorOffset = item.anchorOffset
+    next.anchorBind = item.anchorBind
+    if (mapped === '"' || mapped === "'") next.curlySource = glyph
+    return next
+  })
+  convertPrimes(reread, new Set())
+  return reread
+}
+
+/** Runs the single- then double-quote classification rules over `items`. */
+function classifyBuiltItems(items: Item[], style: ActiveQuoteStyle): void {
+  classifySingles(items, style)
+  classifyDoubles(items, style)
+}
+
+// Loop guard only: reaching a fixed point is expected within a few rounds. The
+// worst case found so far takes 4 (`„“„” „(” ““‚`).
+const MAX_GERMAN_REREADS = 8
+
+/**
+ * Repeats German's classification over its own rereadings until a round
+ * assigns the roles it started from: the next run starts from the first fixed
+ * point.
+ */
+function settleGermanRoles(items: Item[], text: string, apostrophe: string): Item[] {
+  for (let round = 0; round < MAX_GERMAN_REREADS; round++) {
+    const reread = rereadGermanRendering(items, text, apostrophe)
+    classifyBuiltItems(reread, "german")
+    const settled = reread.every((item, index) => item.ch === items[index].ch)
+    items = reread
+    if (settled) return items
+  }
+  /* istanbul ignore next -- defensive: no input found settles in more than 4
+     rounds; a cap hit means the reread no longer converges. */
+  throw new Error(`German quote classification did not settle within ${MAX_GERMAN_REREADS} rereads`)
+}
+
+/**
  * The quote/apostrophe role classifier: one boundary-aware scan over the
  * view's text. Commits its edits.
  */
@@ -1534,18 +1630,25 @@ export function classifyAndRenderQuotes(
   apostrophe: string,
 ): void {
   if (!QUOTE_CANDIDATE_RE.test(view.text)) return
-  const items = buildItems(view, style)
-  classifySingles(items, style)
-  classifyDoubles(items, style)
-  if (style === "german") closeCurlyOrphansBelowOpeners(items)
-  const placed = applyPunctuationPlacement(items, style, apostrophe)
+  let items = buildItems(view, style)
+  classifyBuiltItems(items, style)
+  if (style === "german") items = settleGermanRoles(items, view.text, apostrophe)
+  let placed = applyPunctuationPlacement(items, style, apostrophe)
+  if (style === "german" && placed !== items) placed = settleGermanRoles(placed, view.text, apostrophe)
   // Placement can slide a closer past punctuation until it sits directly after
   // an s/S (british/french move the closer left, out of "dogs.'" → "dogs'."),
   // turning it into a plural possessive the pre-placement scan couldn't see. A
   // re-run over the final order relabels it, so the first transform matches what
   // a re-run reads (classifyApostrophes "dogs.'" → "dogsʼ." in one pass).
   classifyPluralPossessives(placed, style)
-  if (style === "french") absorbGuillemetPadding(placed)
+  if (style === "french") {
+    // Punctuation moved out from between a straight quote's trailing space and
+    // a closer leaves the closer directly after that space, which the opener
+    // rules read as the closer's padding. Re-run them on the placed order.
+    classifyOpeningSingles(placed, style)
+    classifyOpeningDoubles(placed, style)
+    absorbGuillemetPadding(placed)
+  }
   queueRenderEdits(view, placed, renderTable(style, apostrophe))
   view.commit()
 }
@@ -1589,7 +1692,7 @@ function convertPrimes(items: Item[], swissSeparators: ReadonlySet<number>): voi
     let balance = 0
     for (let i = 0; i < items.length; i++) {
       const item = items[i]
-      if (item.boundary || item.ch !== quote) continue
+      if (item.boundary || item.ch !== quote || item.curlySource !== undefined) continue
       // A Swiss/Liechtenstein digit-group separator (5'000) is an apostrophe,
       // not a foot/minute prime; curl it and leave the quote balance untouched.
       if (quote === "'" && swissSeparators.has(item.start)) {

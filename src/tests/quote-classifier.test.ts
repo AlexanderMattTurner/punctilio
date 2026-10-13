@@ -52,6 +52,9 @@ describe("quote classifier role-stream regressions", () => {
     ["'37'x", `${RIGHT_SINGLE_QUOTE}37'x`],
     // Without its own closer the elision fires as before.
     ["'37 x", `${RIGHT_SINGLE_QUOTE}37 x`],
+    // The closer must stay adjacent to the digits: a comma moved inside it
+    // would read as an elision on the next run.
+    [".'47',", `.'47${RIGHT_SINGLE_QUOTE},`],
   ])("quoted numbers are not decade elisions: niceQuotes(%j) === %j", (input, expected) => {
     expect(niceQuotes(input)).toBe(expected)
     expect(niceQuotes(expected)).toBe(expected)
@@ -344,10 +347,16 @@ describe("placement and opener stability across boundaries", () => {
   // Each case pins the fixed point of a fold/boundary configuration: the
   // first application must already produce the state a re-run reproduces.
   it.each([
-    // The period's node empties if it moves, stacking two boundaries after
-    // the closer; the leading-apostrophe scan then stops reading it as a
-    // closer, so the period stays put.
+    // A trailing boundary after the period leaves the closer's ending context
+    // intact, so the period moves inside.
+    [`~'^'.${SEP}`, `~'^.${RIGHT_SINGLE_QUOTE}${SEP}`],
+    // A period that is the whole of its node stays put: moving it would empty
+    // the node.
     [`~'^'${SEP}.${SEP}`, `~'^${RIGHT_SINGLE_QUOTE}${SEP}.${SEP}`],
+    // Moving the period would stack two boundaries after the closer; the
+    // leading-apostrophe scan then stops reading it as a closer, so the period
+    // stays put.
+    [`~'^'.${SEP}${SEP}z`, `~'^${RIGHT_SINGLE_QUOTE}.${SEP}${SEP}z`],
     // Same shape with a non-ending follower after the period.
     [`~'^'${SEP}.2`, `~'^${RIGHT_SINGLE_QUOTE}${SEP}.2`],
     // An ending follower keeps the run a closer for the scan, so the period
@@ -369,9 +378,8 @@ describe("placement and opener stability across boundaries", () => {
     // the unresolved straight quote does not pin the period.
     [`5'x${SEP}"q"${SEP}.2`, `5'x${SEP}${LEFT_DOUBLE_QUOTE}q${RIGHT_DOUBLE_QUOTE}${SEP}.2`],
     [`5'x${SEP}"q"${SEP}.z`, `5'x${SEP}${LEFT_DOUBLE_QUOTE}q.${RIGHT_DOUBLE_QUOTE}${SEP}z`],
-    // A single trailing boundary keeps the run a closer for the re-run's
-    // scan, so the period still moves inside.
-    [`~'^'${SEP}.`, `~'^.${RIGHT_SINGLE_QUOTE}${SEP}`],
+    // A period that is the whole of the view's last node stays put too.
+    [`~'^'${SEP}.`, `~'^${RIGHT_SINGLE_QUOTE}${SEP}.`],
     // Two stacked boundaries hide the dot from the terminal lookbehind; the
     // landing-site dot-gap probe then reads through the boundary pair.
     [`q.${SEP}${SEP}".`, `q.${SEP}${SEP}.${RIGHT_DOUBLE_QUOTE}`],

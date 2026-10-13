@@ -1,4 +1,4 @@
-import { asCharClassContent, cachedRegExp, FOLDED_WORD_CHARS, isWordLike, LATIN_LETTER_RE, LATIN_LETTERS, LATIN_OR_DIGIT, LATIN_OR_DIGIT_RE, LOCALE_QUOTE_MARKS, MAX_BOUNDARY_SEPARATORS, NBSP_CHARS, OPENING_BRACKETS, QUOTE_GLYPHS, SPACE_CHAR_RE, UNICODE_SYMBOLS } from "./constants.js"
+import { asCharClassContent, cachedRegExp, FOLDED_TERMINALS, FOLDED_WORD_CHARS, FRACTION_GLYPHS, isWordLike, LATIN_LETTER_RE, LATIN_LETTERS, LATIN_OR_DIGIT, LATIN_OR_DIGIT_RE, MAX_BOUNDARY_SEPARATORS, NBSP_CHARS, OPENING_BRACKETS, OPERATOR_SPACE, QUOTE_GLYPHS, SPACE_CHAR_RE, UNICODE_SYMBOLS } from "./constants.js"
 import { boundaryCountAt, exceedsSingleBoundary, firstInteriorBoundary, lastBoundaryBefore, makeProsePass, overInput, type ProseView, replaceAllInView, type ReplaceAllOptions } from "./prose-view.js"
 
 export const DASH_STYLES = ["american", "british", "none"] as const
@@ -9,10 +9,7 @@ export interface DashOptions {
   dashStyle?: DashStyle
 }
 
-const {
-  EN_DASH, EM_DASH, MINUS, MULTIPLICATION, PLUS_MINUS,
-  LEFT_DOUBLE_QUOTE, RIGHT_DOUBLE_QUOTE, LEFT_SINGLE_QUOTE, RIGHT_SINGLE_QUOTE,
-} = UNICODE_SYMBOLS
+const { EN_DASH, EM_DASH, MINUS, MULTIPLICATION, PLUS_MINUS } = UNICODE_SYMBOLS
 
 // Prevents false-positive ranges in model names like "Llama-2-7B".
 export const numberRangeDisallowedPrefixes = ["-", EN_DASH, EM_DASH, MINUS] as const
@@ -391,7 +388,7 @@ interface ResolvedTail {
 function resolvePositiveTail(view: ProseView, endPos: number): ResolvedTail | null {
   const candidates = followingCandidates(view, endPos, true)
   for (let i = candidates.length - 1; i >= 0; i--) {
-    const suffixEnd = suffixWbeEnd(view, candidates[i], true)
+    const suffixEnd = suffixWbeEnd(view, candidates[i], true, i === 0)
     if (suffixEnd !== null) {
       return { followingEmpty: i === 0, consumedEnd: suffixEnd }
     }
@@ -466,7 +463,7 @@ function matchNegativeRangeAt(view: ProseView, i: number): number | null {
     const endPos = end.firstDigitStart + len
     const candidates = followingCandidates(view, endPos, false)
     for (let c = candidates.length - 1; c >= 0; c--) {
-      const suffixEnd = suffixWbeEnd(view, candidates[c], false)
+      const suffixEnd = suffixWbeEnd(view, candidates[c], false, c === 0)
       if (suffixEnd === null) continue
       if (c === 0) {
         view.replace(startEnd, negEnd, `${EN_DASH}${hasNeg ? MINUS : ""}`)
@@ -529,8 +526,15 @@ const RANGE_SUFFIX_RE = /[xKBTMCF]/
  * The `(?:[AaPp][Mm]|[xKBTMCF])?${wbe}` suffix at `pos`, with one tolerated
  * boundary before the suffix. Returns the end offset after the optional suffix
  * when the tail completes (wbe passes), or null when it does not.
+ *
+ * `allowMultiplier` admits the lowercase `x`. It folds to `×`, which is no
+ * suffix, so after a non-empty `following` a re-run reads the tail as failing
+ * and converts the leading range: `1-2-3x` must convert like `1-2-3×`. An
+ * operator the multiplication pass folds in place (`1-2-3*4`, `1-2-3 x 4`)
+ * fails the tail the same way.
  */
-function suffixWbeEnd(view: ProseView, pos: number, allowAmPm: boolean): number | null {
+function suffixWbeEnd(view: ProseView, pos: number, allowAmPm: boolean, allowMultiplier: boolean): number | null {
+  if (!allowMultiplier && foldsToMultiplication(view.text, pos)) return null
   if (wordBoundaryEndOk(view, pos)) return pos
   // An optional suffix: one tolerated boundary then am/pm or one of
   // {@link RANGE_SUFFIX_RE}'s letters, followed by wbe. The suffix letters sit
@@ -542,10 +546,17 @@ function suffixWbeEnd(view: ProseView, pos: number, allowAmPm: boolean): number 
   if (allowAmPm && /[ap]/i.test(text[pos] ?? "") && /m/i.test(text[pos + 1] ?? "") && !view.hasBoundary(pos + 1)) {
     return wordBoundaryEndOk(view, pos + 2) ? pos + 2 : null
   }
-  if (RANGE_SUFFIX_RE.test(text[pos] ?? "")) {
+  if (RANGE_SUFFIX_RE.test(text[pos] ?? "") && (allowMultiplier || text[pos] !== "x")) {
     return wordBoundaryEndOk(view, pos + 1) ? pos + 1 : null
   }
   return null
+}
+
+/** True iff an `x`, `X` or `*` operator with an operand digit after it starts at `pos`. */
+function foldsToMultiplication(text: string, pos: number): boolean {
+  const operator = cachedRegExp(`${OPERATOR_SPACE}[xX*]${OPERATOR_SPACE}\\d`, "y")
+  operator.lastIndex = pos
+  return operator.test(text)
 }
 
 const NOT_AFTER_DASH_RE = new RegExp(`[${DISALLOWED_PREFIX_CLASS_FRAGMENT}${LATIN_LETTERS}${MULTIPLICATION}${PLUS_MINUS}.+]`)
@@ -591,14 +602,14 @@ function endsFoldableEllipsisDots(view: ProseView, dotIndex: number): boolean {
  */
 function notAfterDashOk(view: ProseView, startOffset: number): boolean {
   if (startOffset === 0) return true
-  if (boundaryCountAt(view, startOffset) > 0) return true
   const prev = view.text[startOffset - 1]
   // A multiplication sign one space slot further left blocks like the `x` it
-  // folds from: the multiplication pass renders `5x8` as `5 × 8`, so a range
-  // blocked at `x8-6` must stay blocked at `× 8-6`.
+  // folds from, even across a node boundary: the multiplication pass renders
+  // `5x8` as `5 × 8`, so a range blocked at `x8-6` must stay blocked at `× 8-6`.
   if (prev !== undefined && SPACE_CHAR_RE.test(prev) && view.text[startOffset - 2] === MULTIPLICATION) {
     return false
   }
+  if (boundaryCountAt(view, startOffset) > 0) return true
   if (prev === undefined || !NOT_AFTER_DASH_RE.test(prev)) return true
   if (prev === "." && endsFoldableEllipsisDots(view, startOffset - 1)) return true
   const dashIndex = startOffset - 1
@@ -781,7 +792,7 @@ function minusSubtractionPrefixOk(match: RegExpExecArray, view: ProseView, prefi
   return NUM_BODY_RE.test(view.text.slice(numStart, truncatedEnd))
 }
 
-const MINUS_BEFORE_CLASS_RE = new RegExp(`[\\s${asCharClassContent(OPENING_BRACKETS)}"'${LEFT_DOUBLE_QUOTE}${RIGHT_DOUBLE_QUOTE}${LEFT_SINGLE_QUOTE}${RIGHT_SINGLE_QUOTE}${LOCALE_QUOTE_MARKS}]`)
+const MINUS_BEFORE_CLASS_RE = new RegExp(`[\\s${asCharClassContent(OPENING_BRACKETS)}${QUOTE_GLYPHS}]`)
 // The folded word glyphs block like the word chars they fold from ("1x|-0"
 // and "1×|-0" must agree), the folded math operators block like the operator
 // chars they fold from (the `!=` → `≠` fold consumes the `=` that blocked
@@ -790,10 +801,7 @@ const MINUS_BEFORE_CLASS_RE = new RegExp(`[\\s${asCharClassContent(OPENING_BRACK
 // ("?|!-0" folds to "⁈|-0" with the hyphen stranded boundary-adjacent).
 const FOLDED_WORD_CLASS_FRAGMENT = [...FOLDED_WORD_CHARS].join("")
 const FOLDED_MATH_CLASS_FRAGMENT = [...FOLDED_MATH_OPERATORS].join("")
-const FOLDED_TERMINAL_CLASS_FRAGMENT = [
-  UNICODE_SYMBOLS.ELLIPSIS, UNICODE_SYMBOLS.DOUBLE_QUESTION, UNICODE_SYMBOLS.QUESTION_EXCLAMATION,
-  UNICODE_SYMBOLS.EXCLAMATION_QUESTION, UNICODE_SYMBOLS.DOUBLE_EXCLAMATION, UNICODE_SYMBOLS.INTERROBANG, "!",
-].join("")
+const FOLDED_TERMINAL_CLASS_FRAGMENT = [UNICODE_SYMBOLS.ELLIPSIS, ...FOLDED_TERMINALS, "!"].join("")
 const NUM_BEFORE_2B_BLOCK_RE = new RegExp(`[\\d.,${LATIN_LETTERS}${FOLDED_WORD_CLASS_FRAGMENT}${FOLDED_MATH_CLASS_FRAGMENT}${FOLDED_TERMINAL_CLASS_FRAGMENT}]`)
 
 /**
@@ -862,7 +870,7 @@ function convertParentheticalDashes(view: ProseView, style: DashStyle): void {
 
 const DASH_RUN_CHARS = new Set(["-", EN_DASH, EM_DASH])
 
-function isDashChar(ch: string | undefined): boolean {
+export function isDashChar(ch: string | undefined): boolean {
   return ch !== undefined && DASH_RUN_CHARS.has(ch)
 }
 
@@ -1072,14 +1080,13 @@ function convertBoundaryLedDashes(view: ProseView, rendered: string): void {
     if (b < lastProcessedEnd) continue
     if (!isDashChar(text[b])) continue
     // Non-space before the boundary: ≥2 stacked boundaries, or a non-space
-    // clean char immediately left. A folded math operator there marks the
-    // fold-stranded configuration: the math pass consumes one character
-    // across this junction (`=` + `~—` folds to `≈` + `—`), so the character
-    // that blocked this rule on the source text is gone, and converting now
-    // would diverge from that blocked first pass.
+    // clean char immediately left. Blocked there: a folded math operator (the
+    // math pass consumes the `=` that blocked this rule: `=|~—` folds to
+    // `≈|—`), and an en/em dash, the head of an already-converted run whose
+    // tail this is.
     if (stackedHere < 2) {
       const before = text[b - 1]
-      if (before === undefined || /\s/.test(before) || FOLDED_MATH_OPERATORS.has(before)) continue
+      if (before === undefined || /\s/.test(before) || FOLDED_MATH_OPERATORS.has(before) || before === EN_DASH || before === EM_DASH) continue
     }
     // Dash run from the boundary, not crossing a further boundary.
     let runEnd = b + 1
@@ -1237,11 +1244,15 @@ function removeSpacesAroundEmDash(view: ProseView): void {
   )
 }
 
-/** Preserve a space after a line-leading em-dash before an uppercase/digit. */
+/**
+ * Preserve a space after a line-leading em-dash before an uppercase/digit. A
+ * vulgar fraction glyph counts as the digit it folds from (`—2/5` and `—⅖`
+ * must agree).
+ */
 function preserveLineLeadingEmDashSpace(view: ProseView): void {
   pass(
     view,
-    cachedRegExp(`^${EM_DASH}(?<after>[A-Z0-9])`, "gm"),
+    cachedRegExp(`^${EM_DASH}(?<after>[A-Z0-9${FRACTION_GLYPHS}])`, "gm"),
     (match, v) => {
       // One boundary is tolerated between the line start and the em-dash; two or
       // more exceed that slot and block the match.

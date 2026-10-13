@@ -15,9 +15,11 @@ const {
   EM_DASH,
   ELLIPSIS,
   DOUBLE_LOW_9_QUOTE,
+  DOUBLE_PRIME,
   SINGLE_LOW_9_QUOTE,
   LEFT_GUILLEMET,
   RIGHT_GUILLEMET,
+  NBSP,
   NNBSP,
 } = UNICODE_SYMBOLS
 
@@ -924,6 +926,93 @@ describe("niceQuotes", () => {
       const once = niceQuotes(input, { punctuationStyle: "french" })
       expect(once).toBe(`a ${LEFT_GUILLEMET}${NNBSP} ${NNBSP}${RIGHT_GUILLEMET}`)
       expect(niceQuotes(once, { punctuationStyle: "french" })).toBe(once)
+    })
+
+    // Each row is the output a re-run reproduces. French: a straight quote reads
+    // as an opener or closer across one space from a guillemet, or two once the
+    // guillemet's padding absorbs the NBSP/NNBSP beside it. German: U+2018/U+201C
+    // close only while a low-9 opener is open, so an orphan whose opener a
+    // straight candidate consumed is classified by position.
+    it.each([
+      ["french", `a "${NBSP}${RIGHT_DOUBLE_QUOTE}`, `a ${LEFT_GUILLEMET}${NNBSP}${NNBSP}${RIGHT_GUILLEMET}`],
+      ["french", `a "\t${RIGHT_DOUBLE_QUOTE}`, `a ${LEFT_GUILLEMET}${NNBSP}\t${NNBSP}${RIGHT_GUILLEMET}`],
+      ["french", `${LEFT_DOUBLE_QUOTE}${NBSP}".`, `${LEFT_GUILLEMET}${NNBSP}${NNBSP}${RIGHT_GUILLEMET}.`],
+      ["french", `${LEFT_DOUBLE_QUOTE}${NNBSP}" b`, `${LEFT_GUILLEMET}${NNBSP}${NNBSP}${RIGHT_GUILLEMET} b`],
+      ["french", `${LEFT_DOUBLE_QUOTE}${NNBSP}\t"]`, `${LEFT_GUILLEMET}${NNBSP}\t${NNBSP}${RIGHT_GUILLEMET}]`],
+      ["french", `${LEFT_DOUBLE_QUOTE}${NBSP}${NNBSP}"]`, `${LEFT_GUILLEMET}${NNBSP}${NNBSP}${RIGHT_GUILLEMET}]`],
+      ["french", `"${NNBSP}${NNBSP}${RIGHT_DOUBLE_QUOTE}`, `${LEFT_GUILLEMET}${NNBSP}${NNBSP}${RIGHT_GUILLEMET}`],
+      ["french", `"\t${NNBSP}${RIGHT_DOUBLE_QUOTE}`, `${LEFT_GUILLEMET}${NNBSP}\t${NNBSP}${RIGHT_GUILLEMET}`],
+      // A third space survives the absorption, so the quote stays straight.
+      ["french", `"${NNBSP}${NNBSP}${NNBSP}${RIGHT_DOUBLE_QUOTE}`, `"${NNBSP}${NNBSP}${NNBSP}${RIGHT_GUILLEMET}`],
+      ["french", `x${NBSP}.${RIGHT_DOUBLE_QUOTE}`, `x${NNBSP}${RIGHT_GUILLEMET}.`],
+      ["french", `x${NBSP},${RIGHT_DOUBLE_QUOTE}`, `x${NNBSP}${RIGHT_GUILLEMET},`],
+      ["french", `${LEFT_DOUBLE_QUOTE}y${NNBSP}.${RIGHT_DOUBLE_QUOTE}`, `${LEFT_GUILLEMET}${NNBSP}y${NNBSP}${RIGHT_GUILLEMET}.`],
+      ["french", `" .${RIGHT_DOUBLE_QUOTE}`, `${LEFT_GUILLEMET}${NNBSP} ${NNBSP}${RIGHT_GUILLEMET}.`],
+      ["french", `"${NBSP},${RIGHT_DOUBLE_QUOTE}`, `${LEFT_GUILLEMET}${NNBSP}${NNBSP}${RIGHT_GUILLEMET},`],
+      // Moved punctuation leaves an NBSP/NNBSP apart from the closer's space; the padding absorbs both.
+      ["french", `a${NBSP}, ${RIGHT_DOUBLE_QUOTE}`, `a ${NNBSP}${RIGHT_GUILLEMET},`],
+      ["french", `a${NNBSP}. ${RIGHT_DOUBLE_QUOTE}`, `a ${NNBSP}${RIGHT_GUILLEMET}.`],
+      // Two spaces before the closer reduce to one once its padding absorbs the NBSP beside it.
+      ["french", `x,${NBSP}${NBSP}${RIGHT_DOUBLE_QUOTE}5`, `x${NBSP}${NNBSP}${RIGHT_GUILLEMET},5`],
+      ["french", `x.${NNBSP}${NNBSP}${RIGHT_DOUBLE_QUOTE}`, `x${NNBSP}${NNBSP}${RIGHT_GUILLEMET}.`],
+      // A tab does not merge into the padding, so a third space keeps the punctuation in place.
+      ["french", `x.${NNBSP}\t${NBSP}${RIGHT_DOUBLE_QUOTE}`, `x.${NNBSP}\t${NNBSP}${RIGHT_GUILLEMET}`],
+      [
+        "german",
+        `z${SINGLE_LOW_9_QUOTE}^${RIGHT_SINGLE_QUOTE}]]${LEFT_SINGLE_QUOTE}${LEFT_SINGLE_QUOTE}`,
+        `z${SINGLE_LOW_9_QUOTE}^${LEFT_SINGLE_QUOTE}]]${SINGLE_LOW_9_QUOTE}${LEFT_SINGLE_QUOTE}`,
+      ],
+      [
+        "german",
+        `${SINGLE_LOW_9_QUOTE}'] "${LEFT_SINGLE_QUOTE}.`,
+        `${SINGLE_LOW_9_QUOTE}${LEFT_SINGLE_QUOTE}] ${DOUBLE_LOW_9_QUOTE}${RIGHT_SINGLE_QUOTE}.`,
+      ],
+      [
+        "german",
+        `${DOUBLE_LOW_9_QUOTE}${RIGHT_DOUBLE_QUOTE} ${LEFT_DOUBLE_QUOTE}${DOUBLE_LOW_9_QUOTE}, `,
+        `${DOUBLE_LOW_9_QUOTE}${LEFT_DOUBLE_QUOTE} ${DOUBLE_LOW_9_QUOTE}${DOUBLE_LOW_9_QUOTE}, `,
+      ],
+      [
+        "german",
+        `${DOUBLE_LOW_9_QUOTE}." ${LEFT_DOUBLE_QUOTE}a${RIGHT_DOUBLE_QUOTE}`,
+        `${DOUBLE_LOW_9_QUOTE}.${LEFT_DOUBLE_QUOTE} ${DOUBLE_LOW_9_QUOTE}a${LEFT_DOUBLE_QUOTE}`,
+      ],
+      [
+        "german",
+        `${SINGLE_LOW_9_QUOTE}${DOUBLE_LOW_9_QUOTE}${RIGHT_SINGLE_QUOTE}:,${LEFT_SINGLE_QUOTE}(`,
+        `${SINGLE_LOW_9_QUOTE}${DOUBLE_LOW_9_QUOTE}${SINGLE_LOW_9_QUOTE}:${LEFT_SINGLE_QUOTE},(`,
+      ],
+      [
+        "german",
+        `${SINGLE_LOW_9_QUOTE}${DOUBLE_LOW_9_QUOTE}${RIGHT_SINGLE_QUOTE}:,${DEFAULT_SEPARATOR}${LEFT_SINGLE_QUOTE}(`,
+        `${SINGLE_LOW_9_QUOTE}${DOUBLE_LOW_9_QUOTE}${SINGLE_LOW_9_QUOTE}:${DEFAULT_SEPARATOR}${LEFT_SINGLE_QUOTE},(`,
+      ],
+      // The U+2018 after the apostrophe reads as a closer on the next run, so
+      // it renders as the U+2019 that run reads, not the glyph in the source.
+      [
+        "german",
+        `${LEFT_SINGLE_QUOTE}1${RIGHT_SINGLE_QUOTE} ${RIGHT_SINGLE_QUOTE}${LEFT_SINGLE_QUOTE}${LEFT_SINGLE_QUOTE}]${RIGHT_SINGLE_QUOTE}`,
+        `${SINGLE_LOW_9_QUOTE}1${RIGHT_SINGLE_QUOTE} ${RIGHT_SINGLE_QUOTE}${RIGHT_SINGLE_QUOTE}${LEFT_SINGLE_QUOTE}]${LEFT_SINGLE_QUOTE}`,
+      ],
+      ["german", `"${DEFAULT_SEPARATOR}${LEFT_DOUBLE_QUOTE}${LEFT_SINGLE_QUOTE}-`, `${DOUBLE_LOW_9_QUOTE}${DEFAULT_SEPARATOR}${LEFT_DOUBLE_QUOTE}${LEFT_SINGLE_QUOTE}-`],
+      [
+        "german",
+        `${EM_DASH}${LEFT_DOUBLE_QUOTE}8${DEFAULT_SEPARATOR}${LEFT_DOUBLE_QUOTE}${LEFT_SINGLE_QUOTE}-${RIGHT_SINGLE_QUOTE}a1`,
+        `${EM_DASH}${DOUBLE_LOW_9_QUOTE}8${DEFAULT_SEPARATOR}${LEFT_DOUBLE_QUOTE}${LEFT_SINGLE_QUOTE}-${RIGHT_SINGLE_QUOTE}a1`,
+      ],
+      // A digit-adjacent straight quote the pass leaves straight is a prime on the
+      // next run, so it is not the opener position that blocks the closer reading.
+      ["german", `"4${DEFAULT_SEPARATOR}"${RIGHT_SINGLE_QUOTE}`, `${DOUBLE_LOW_9_QUOTE}4${DEFAULT_SEPARATOR}${DOUBLE_PRIME}${LEFT_SINGLE_QUOTE}`],
+      [
+        "german",
+        `"4${DEFAULT_SEPARATOR}"${RIGHT_SINGLE_QUOTE}!2"4`,
+        `${DOUBLE_LOW_9_QUOTE}4${DEFAULT_SEPARATOR}${DOUBLE_PRIME}${LEFT_SINGLE_QUOTE}!2${DOUBLE_PRIME}4`,
+      ],
+    ] as const)("%s: %j reaches its fixed point in one run", (punctuationStyle, input, expected) => {
+      const run = (text: string): string => viewTransform((view) => niceQuotes(view, { punctuationStyle }), text, DEFAULT_SEPARATOR)
+      const once = run(input)
+      expect(once).toBe(expected)
+      expect(run(once)).toBe(once)
     })
 
     it("german normalizer re-classifies pre-existing RDQ", () => {

@@ -7,6 +7,9 @@ const {
   RIGHT_SINGLE_QUOTE: RSQ,
   EM_DASH,
   ELLIPSIS,
+  NBSP,
+  NNBSP,
+  RIGHT_GUILLEMET,
 } = UNICODE_SYMBOLS
 
 describe("transformHtml", () => {
@@ -48,6 +51,14 @@ describe("transformHtml", () => {
       nbsp: false,
     })
     expect(result).toContain(expected)
+  })
+
+  it("french guillemet padding survives the nbsp rules across nodes", async () => {
+    const input = '<p>8;a"<em>z :0;</em></p><pre><code>4-</code></pre>'
+    const expected = `<p>8;a${NNBSP}${RIGHT_GUILLEMET}<em>z${NBSP}:0;</em></p><pre><code>4-</code></pre>`
+    const once = await transformHtml(input, { punctuationStyle: "french" })
+    expect(once).toBe(expected)
+    expect(await transformHtml(once, { punctuationStyle: "french" })).toBe(once)
   })
 
   it("respects skipTags", async () => {

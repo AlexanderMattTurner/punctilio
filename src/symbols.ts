@@ -1,5 +1,6 @@
-import { cachedRegExp, LATIN_LETTER_RE, LATIN_OR_DIGIT, MAX_BOUNDARY_SEPARATORS, SPACE_CHAR_RE, UNICODE_SYMBOLS, WORD_RE } from "./constants.js"
+import { cachedRegExp, FRACTION_GLYPHS, LATIN_LETTER_RE, LATIN_OR_DIGIT, MAX_BOUNDARY_SEPARATORS, OPERATOR_SPACE, SPACE_CHAR_RE, UNICODE_SYMBOLS, WORD_RE } from "./constants.js"
 import { boundaryCountAt, exceedsSingleBoundary, firstInteriorBoundary, interiorBoundariesWithin, makeProsePass, overInput, type ProseView, replaceAllInView } from "./prose-view.js"
+import { isDashChar } from "./dashes.js"
 import { convertPrimeMarks } from "./quote-classifier.js"
 
 export interface SymbolOptions {
@@ -79,6 +80,16 @@ function ellipsisNextDot(view: ProseView, text: string, afterDot: number): numbe
 }
 
 /**
+ * Whether folding `[from, to)` would absorb a node boundary into the glyph and
+ * leave a dash directly after it. The dash pass keyed on the unfolded text, where
+ * a character sat between the boundary and the dash; the fold removes that
+ * character, so a re-run would read the dash as boundary-led and convert it.
+ */
+function foldStrandsDash(view: ProseView, from: number, to: number): boolean {
+  return firstInteriorBoundary(view, from, to) >= 0 && isDashChar(view.text[to]) && !view.hasBoundary(to)
+}
+
+/**
  * Fold `...`, `. . .`, and the cross-boundary variants into `…`, scanning
  * left-to-right so a blocked leftmost triple still lets the next valid triple
  * fold. Each fold replaces the whole `. gap . gap .` span with `…`; consumed
@@ -92,7 +103,7 @@ function ellipsisFoldDots(view: ProseView): void {
     const secondDot = ellipsisNextDot(view, text, i + 1)
     if (secondDot < 0) { i++; continue }
     const thirdDot = ellipsisNextDot(view, text, secondDot + 1)
-    if (thirdDot < 0) { i++; continue }
+    if (thirdDot < 0 || foldStrandsDash(view, i, thirdDot + 1)) { i++; continue }
     view.replace(i, thirdDot + 1, ELLIPSIS)
     i = thirdDot + 1
   }
@@ -147,10 +158,6 @@ const DIGIT_SUFFIX = `(?:${PRIME_ALT}|${UNIT_ALT})?`
 // (1e5x3 — the `e` is a letter) and model SKUs (Surface5x3, RTX3060x2);
 // signed exponents (1e-5x3, 3.5E+10x2) are unambiguously scientific, their
 // operand is preceded by a sign, and they convert.
-//
-// Operator spacing is horizontal whitespace only: an operator across a line
-// break is a list marker (`Step 1\n* 2 cups`), not multiplication.
-const OPERATOR_SPACE = "[^\\S\\n\\v\\f\\r\\u2028\\u2029]*"
 const MULTIPLICATION_CHAIN = `(?<firstNum>\\d+${DIGIT_SUFFIX})(?<rest>(?:${OPERATOR_SPACE}[xX*]${OPERATOR_SPACE}\\d+${DIGIT_SUFFIX})+)`
 const MULTIPLICATION_SEGMENT = `(?<spaceBefore>${OPERATOR_SPACE})[xX*](?<spaceAfter>${OPERATOR_SPACE})(?<num>\\d+${DIGIT_SUFFIX})`
 
@@ -505,12 +512,7 @@ const BOUNDARY_CONTEXT_COST = 2
 // Vulgar fraction glyphs (½, ¾, …). A fraction folds from `n/m`, which the path
 // heuristic below reads as a path context — so the glyph must read the same way,
 // or `1/2(tm)` (blocked) would convert once fractions strips the slash to `½(tm)`.
-const FRACTION_GLYPH_RE = new RegExp(
-  `[${Object.entries(UNICODE_SYMBOLS)
-    .filter(([key]) => key.startsWith("FRACTION_"))
-    .map(([, glyph]) => glyph)
-    .join("")}]`,
-)
+const FRACTION_GLYPH_RE = new RegExp(`[${FRACTION_GLYPHS}]`)
 
 const isPathContext = (before: string): boolean => {
   const parts = before.split(/\s+/)
@@ -967,7 +969,7 @@ function punctuationLigaturesOverView(view: ProseView): void {
         end = afterSep + 1
         consumed++
       }
-      if (consumed === 0) { i++; continue }
+      if (consumed === 0 || foldStrandsDash(view, i, end)) { i++; continue }
       view.replace(i, end, replacement)
       i = end
     }

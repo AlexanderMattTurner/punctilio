@@ -30,7 +30,7 @@
         "american": "<p>“She said, <em>‘yes’</em> and <em>‘no.’</em>”</p>",
         "british": "<p>“She said, <em>‘yes’</em> and <em>‘no’</em>”.</p>",
         "german": "<p>„She said, <em>‚yes‘</em> and <em>‚no‘</em>“.</p>",
-        "french": "<p>« She said, <em>‘yes’</em> and <em>‘no’</em> ».</p>"
+        "french": "<p>« She said, <em>‘yes’</em> and <em>‘no’</em> ».</p>"
       }
     },
     {
@@ -129,7 +129,7 @@
         "american": "<div><p>“This is the first paragraph of dialogue.</p><p>“And this is the second.”</p></div>",
         "british": "<div><p>“This is the first paragraph of dialogue.</p><p>“And this is the second”.</p></div>",
         "german": "<div><p>„This is the first paragraph of dialogue.</p><p>„And this is the second“.</p></div>",
-        "french": "<div><p>« This is the first paragraph of dialogue.</p><p>« And this is the second ».</p></div>"
+        "french": "<div><p>« This is the first paragraph of dialogue.</p><p>« And this is the second ».</p></div>"
       }
     },
     {
@@ -138,7 +138,7 @@
         "american": "<blockquote><p>“Outer quote with </p><blockquote><p>“inner quote”</p></blockquote> embedded.”<p></p></blockquote>",
         "british": "<blockquote><p>“Outer quote with </p><blockquote><p>“inner quote”</p></blockquote> embedded”.<p></p></blockquote>",
         "german": "<blockquote><p>„Outer quote with </p><blockquote><p>„inner quote“</p></blockquote> embedded“.<p></p></blockquote>",
-        "french": "<blockquote><p>« Outer quote with </p><blockquote><p>« inner quote »</p></blockquote> embedded ».<p></p></blockquote>"
+        "french": "<blockquote><p>« Outer quote with </p><blockquote><p>« inner quote »</p></blockquote> embedded ».<p></p></blockquote>"
       }
     },
     {
@@ -156,7 +156,7 @@
         "american": "<p>“See <a href=\"#ref\">here</a> for more.”</p>",
         "british": "<p>“See <a href=\"#ref\">here</a> for more”.</p>",
         "german": "<p>„See <a href=\"#ref\">here</a> for more“.</p>",
-        "french": "<p>« See <a href=\"#ref\">here</a> for more ».</p>"
+        "french": "<p>« See <a href=\"#ref\">here</a> for more ».</p>"
       }
     },
     {
@@ -174,7 +174,7 @@
         "american": "<p>“Use <code>transform(\"hello\")</code> to apply.”</p>",
         "british": "<p>“Use <code>transform(\"hello\")</code> to apply”.</p>",
         "german": "<p>„Use <code>transform(\"hello\")</code> to apply“.</p>",
-        "french": "<p>« Use <code>transform(\"hello\")</code> to apply ».</p>"
+        "french": "<p>« Use <code>transform(\"hello\")</code> to apply ».</p>"
       }
     },
     {
@@ -192,7 +192,7 @@
         "american": "<p>Type “<kbd>q</kbd>” to quit, or “<var>x</var>.”</p>",
         "british": "<p>Type “<kbd>q</kbd>” to quit, or “<var>x</var>”.</p>",
         "german": "<p>Type „<kbd>q</kbd>“ to quit, or „<var>x</var>“.</p>",
-        "french": "<p>Type « <kbd>q</kbd> » to quit, or « <var>x</var> ».</p>"
+        "french": "<p>Type « <kbd>q</kbd> » to quit, or « <var>x</var> ».</p>"
       }
     },
     {
@@ -228,7 +228,7 @@
         "american": "<p>Er sagte, “Das ist <em>‘gut.’</em>”</p>",
         "british": "<p>Er sagte, “Das ist <em>‘gut’</em>”.</p>",
         "german": "<p>Er sagte, „Das ist <em>‚gut‘</em>“.</p>",
-        "french": "<p>Er sagte, « Das ist <em>‘gut’</em> ».</p>"
+        "french": "<p>Er sagte, « Das ist <em>‘gut’</em> ».</p>"
       }
     },
     {
@@ -237,7 +237,7 @@
         "american": "<p>Il dit, “C’est <em>‘bien.’</em>”</p>",
         "british": "<p>Il dit, “C’est <em>‘bien’</em>”.</p>",
         "german": "<p>Il dit, „C’est <em>‚bien‘</em>“.</p>",
-        "french": "<p>Il dit, « C’est <em>‘bien’</em> ».</p>"
+        "french": "<p>Il dit, « C’est <em>‘bien’</em> ».</p>"
       }
     },
     {
@@ -318,7 +318,7 @@
         "american": "<p>“He told me, <em>‘She said, “hello.”’</em>”</p>",
         "british": "<p>“He told me, <em>‘She said, “hello”’</em>”.</p>",
         "german": "<p>„He told me, <em>‚She said, „hello“‘</em>.“</p>",
-        "french": "<p>« He told me, <em>‘She said, « hello »’</em> ».</p>"
+        "french": "<p>« He told me, <em>‘She said, « hello »’</em> ».</p>"
       }
     }
   ]
