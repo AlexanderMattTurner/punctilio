@@ -29,10 +29,11 @@ import {
   rmSync,
   unlinkSync,
 } from "node:fs";
-import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
 
 import {
+  hookSpecificOutput,
+  hookStateDir,
   isMain,
   readStdinJson,
   sessionStatePath,
@@ -89,8 +90,7 @@ export function promptFor(sessionId, segment) {
  */
 export function statePath(
   sessionId,
-  dir = process.env.BULLSHIT_CHECK_STATE_DIR ||
-    join(tmpdir(), "claude-bullshit-check"),
+  dir = hookStateDir("BULLSHIT_CHECK_STATE_DIR", "claude-bullshit-check"),
 ) {
   return sessionStatePath(sessionId, dir, ".segment");
 }
@@ -349,12 +349,11 @@ if (isMain(import.meta.url)) {
     // fired.
     if (prompt !== null)
       process.stdout.write(
-        JSON.stringify({
-          hookSpecificOutput: {
-            hookEventName: carryingEvent(payload),
+        JSON.stringify(
+          hookSpecificOutput(carryingEvent(payload), {
             additionalContext: prompt,
-          },
-        }),
+          }),
+        ),
       );
   } catch {
     // Advisory only: a malformed payload or an unwritable state directory costs

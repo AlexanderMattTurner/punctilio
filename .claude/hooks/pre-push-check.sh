@@ -1,6 +1,8 @@
 #!/bin/bash
-# Pre-push/PR hook: Runs configured checks before pushing or creating PRs
-# Only runs scripts that exist and are properly configured in package.json
+# Runs the configured checks (package.json build/lint/check/test, then ruff) and
+# exits 1 when any fails. push-gate.mjs runs it before a push or a PR create and
+# turns that exit into a deny body: an exit 1 from a PreToolUse hook does NOT
+# block in Claude Code, so this script is never registered as a hook itself.
 
 set -uo pipefail
 
@@ -46,4 +48,4 @@ if [[ -f pyproject.toml ]] || [[ -f uv.lock ]]; then
   fi
 fi
 
-exit $FAILED
+exit "$FAILED"

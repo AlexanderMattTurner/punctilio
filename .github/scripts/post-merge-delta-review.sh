@@ -2,7 +2,7 @@
 # Fold the Sonnet merge-delta reviewer's findings INTO the remerge-diff
 # supervision comment (the "Hand-authored merge-resolution deltas" sticky) so a
 # reviewer reads the deltas and their review in ONE comment instead of two. The
-# review is a delimited block ($REVIEW_START..$REVIEW_END) appended to that
+# review is a delimited block ($STICKY_REVIEW_START..$STICKY_REVIEW_END) appended to that
 # comment; the remerge-diff renderer (remerge-diff-comment.sh) preserves the
 # block when it refreshes the deltas, so the two workflows cooperate on one
 # comment without clobbering each other.
@@ -32,19 +32,16 @@
 # module path.
 set -euo pipefail
 
-# shellcheck source=.github/scripts/lib/merge-delta-verdict.bash
-source "$(dirname "${BASH_SOURCE[0]}")/lib/merge-delta-verdict.bash"
-
 : "${PR:?PR number required}"
 : "${GH_REPO:?GH_REPO required}"
 : "${PR_INPUT_DIR:?PR_INPUT_DIR required}"
 
-DELTA_MARKER="<!-- remerge-diff-report -->"
-# These review-block markers MUST stay byte-identical to the preserver's in
-# remerge-diff-comment.sh — a drifted marker there matches nothing, so a delta
-# refresh silently drops the review this script folds in.
-REVIEW_START="<!-- merge-delta-review -->"
-REVIEW_END="<!-- /merge-delta-review -->"
+LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/lib" && pwd)"
+# shellcheck source=.github/scripts/lib/merge-delta-verdict.bash
+source "${LIB_DIR}/merge-delta-verdict.bash"
+# shellcheck source=.github/scripts/lib/sticky-comment.bash
+source "${LIB_DIR}/sticky-comment.bash"
+
 review="${PR_INPUT_DIR}/merge-review.md"
 
 had_deltas=true
@@ -54,16 +51,17 @@ had_deltas=true
 # remerge-diff comment, or posted standalone in the fallback.
 block="$(mktemp)"
 {
-  printf '%s\n' "$REVIEW_START"
+  printf '%s\n' "$STICKY_REVIEW_START"
   printf '## Merge-resolution review (Sonnet 5)\n\n'
   if [[ "$had_deltas" == "true" ]]; then
-    # Sanitize the model output before it reaches the comment.
-    node .github/scripts/sanitize-pr-input.mjs <"$review"
+    # Clean the model output before it reaches the comment: a `<!--` it echoed from the
+    # merge deltas could otherwise close this block early with a forged $STICKY_REVIEW_END.
+    node .github/scripts/sanitize-pr-input.mjs --model-text <"$review"
   else
     printf 'No merge-resolution deltas on the current head.\n'
   fi
   printf '\n<sub>Advisory review of this PR'\''s hand-authored merge-resolution deltas (git show --remerge-diff) — the one channel an evil merge can hide in. Non-blocking.</sub>\n'
-  printf '%s\n' "$REVIEW_END"
+  printf '%s\n' "$STICKY_REVIEW_END"
 } >"$block"
 
 # Only a *findings* body warrants CREATING the standalone fallback; a clean
@@ -79,19 +77,8 @@ fi
 
 # Capture each listing on its own line so an auth/list failure is
 # distinguishable from "no such comment" — masking both would double-post.
-delta_list="$(gh api --paginate "repos/${GH_REPO}/issues/${PR}/comments" \
-  --jq ".[] | select(.body | startswith(\"$DELTA_MARKER\")) | .id")"
+delta_list="$(sticky_comment_ids "$GH_REPO" "$PR" "$STICKY_DELTA_MARKER")"
 delta_id="${delta_list%%$'\n'*}"
-
-# Drop any existing review block (start..end inclusive) from stdin. index()==1
-# tolerates a trailing CR on the marker line.
-strip_review_block() {
-  awk -v s="$REVIEW_START" -v e="$REVIEW_END" '
-    index($0, s) == 1 { inb = 1 }
-    !inb { print }
-    index($0, e) == 1 { inb = 0 }
-  '
-}
 
 if [[ -n "$delta_id" ]]; then
   # Fold: splice the fresh review block onto the remerge-diff comment, replacing
@@ -100,7 +87,7 @@ if [[ -n "$delta_id" ]]; then
   stripped="$(mktemp)"
   merged="$(mktemp)"
   gh api "repos/${GH_REPO}/issues/comments/${delta_id}" --jq .body |
-    strip_review_block >"$stripped"
+    sticky_strip_review_block >"$stripped"
   {
     printf '%s\n\n' "$(cat "$stripped")"
     cat "$block"
@@ -110,8 +97,7 @@ if [[ -n "$delta_id" ]]; then
 
   # Clean up any orphan standalone review sticky left by a pre-fold run so the
   # review shows in exactly one place.
-  orphans="$(gh api --paginate "repos/${GH_REPO}/issues/${PR}/comments" \
-    --jq ".[] | select(.body | startswith(\"$REVIEW_START\")) | .id")"
+  orphans="$(sticky_comment_ids "$GH_REPO" "$PR" "$STICKY_REVIEW_START")"
   while IFS= read -r orphan; do
     [[ -n "$orphan" ]] || continue
     gh api -X DELETE "repos/${GH_REPO}/issues/comments/${orphan}" >/dev/null
@@ -122,8 +108,7 @@ fi
 
 # Fallback: no remerge-diff comment (fork PR / race). Keep the review on its own
 # sticky so the findings are never lost.
-review_list="$(gh api --paginate "repos/${GH_REPO}/issues/${PR}/comments" \
-  --jq ".[] | select(.body | startswith(\"$REVIEW_START\")) | .id")"
+review_list="$(sticky_comment_ids "$GH_REPO" "$PR" "$STICKY_REVIEW_START")"
 existing="${review_list%%$'\n'*}"
 
 if [[ -n "$existing" ]]; then

@@ -17,9 +17,7 @@ if ! git diff --cached --check; then
   exit 1
 fi
 
-if [[ -d "$git_root/.venv/bin" ]]; then
-  export PATH="$git_root/.venv/bin:$PATH"
-fi
+gate_path_add_venv "$git_root"
 
 # Durable recovery snapshot before the destructive part. lint-staged (and the
 # pre-commit auto-fixers it drives) hide your UNSTAGED tracked edits in an internal

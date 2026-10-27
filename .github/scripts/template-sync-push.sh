@@ -34,8 +34,7 @@ for f in "${resolved[@]}"; do
 done
 
 git_auth_header "$GITHUB_TOKEN"
-git config user.name "github-actions[bot]"
-git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+git_bot_identity
 
 git add -- "${resolved[@]}"
 git diff --cached --quiet && {

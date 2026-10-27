@@ -56,14 +56,15 @@ jobs:
   # what the calling job holds, so a caller that grants less ends the run in
   # `startup_failure` before any job starts.
   #
-  # THE TITLE SKIP IS GATED ON A TRUSTED AUTHOR, and the same guard appears
-  # verbatim on auto-approve-skipped below. A PR title is written by the PR
-  # AUTHOR, so on its own it is an attacker-chosen string that decides whether
+  # THE TITLE AND BOT SKIPS ARE GATED ON A TRUSTED AUTHOR, and the same guard
+  # appears verbatim on auto-approve-skipped below. A PR title is written by the
+  # PR AUTHOR, so on its own it is an attacker-chosen string that decides whether
   # this repo reviews the PR at all: an outside contributor titling a fork PR
   # `chore: bump` skipped the review AND collected the auto-approval, clearing
-  # three merge levers with one string. The guard is the pair GitHub sets, not
-  # the author: `head.repo.full_name` (same-repo branch, so the author already
-  # has push access) or `author_association` in OWNER/MEMBER/COLLABORATOR.
+  # three merge levers with one string. A Bot author is no better: any GitHub App
+  # can open a fork PR. The guard is the pair GitHub sets, not the author:
+  # `head.repo.full_name` (same-repo branch, so the author already has push
+  # access) or `author_association` in OWNER/MEMBER/COLLABORATOR.
   #
   # It must gate BOTH jobs or neither. Guarding only the approval leaves an
   # untrusted `chore:` PR skipped here and approved by nobody — reviewed by
@@ -90,68 +91,15 @@ jobs:
     if: >-
       github.event.label.name == 'needs-auto-review' ||
       (
-      github.event.action != 'labeled' &&
-      github.event.pull_request.draft == false &&
-      github.event.pull_request.user.type != 'Bot' &&
-      (
+        github.event.action != 'labeled' &&
+        github.event.pull_request.draft == false &&
         !(
-          github.event.pull_request.head.repo.full_name == github.repository ||
-          contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.pull_request.author_association)
-        ) ||
-        (
-          !startsWith(github.event.pull_request.title, 'chore:') &&
-          !startsWith(github.event.pull_request.title, 'chore(') &&
-          !startsWith(github.event.pull_request.title, 'style:') &&
-          !startsWith(github.event.pull_request.title, 'style(') &&
-          !startsWith(github.event.pull_request.title, 'release:') &&
-          !startsWith(github.event.pull_request.title, 'release(')
-        )
-      )
-      )
-    permissions:
-      contents: read # the reviewer checks out this repository's default branch
-      pull-requests: write # post the review
-      statuses: write # the reviewer reports its own verdict on the head
-      actions: read # the owed-review re-check lists this workflow's in-flight runs
-      checks: read # the owed-review re-check reads the head's check runs
-    uses: AlexanderMattTurner/agent-review/.github/workflows/review.yaml@8fd4317a10020e28b8e721a11a2c9857b0027fc3 # pin-comment-ok: agent-review cuts no release yet; re-pin at its first vX.Y
-    with:
-      reviewer-repository: AlexanderMattTurner/agent-review
-      # The SAME sha the `uses:` line above pins. Change both together. Leaving
-      # it unset reads the pin out of `github.job_workflow_sha`, which resolves
-      # to the EMPTY string in the expression context: the reviewer's own guard
-      # then refuses to clone rather than run unpinned code, and the review never
-      # runs.
-      reviewer-ref: 8fd4317a10020e28b8e721a11a2c9857b0027fc3
-      review-prompt: .github/prompts/claude-pr-review.md
-    secrets:
-      # ANTHROPIC_API_KEY fills the first tier: a metered key is spent
-      # unconditionally, the dedicated tokens are reached only once it errors,
-      # and CLAUDE_CODE_OAUTH_TOKEN — the operator's personal account — comes
-      # last, once every dedicated token is dead. A rung left unset is empty and
-      # is skipped, so a repository that configures only the last one reaches it
-      # with no wasted attempt.
-      rung_1: ${{ secrets.ANTHROPIC_API_KEY }}
-      rung_2: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN_FALLBACK }}
-      rung_3: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN_FALLBACK_2 }}
-      rung_4: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN_FALLBACK_3 }}
-      rung_5: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN_FALLBACK_4 }}
-      rung_6: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN_FALLBACK_5 }}
-      rung_7: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN_FALLBACK_6 }}
-      rung_8: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-  auto-approve-skipped:
-    name: Auto-approve low-risk and bot PRs the reviewer skips
-    if: >-
-      (github.event.action == 'opened' || github.event.action == 'ready_for_review') &&
-      github.event.pull_request.draft == false &&
-      (
-        github.event.pull_request.user.type == 'Bot' ||
-        (
           (
             github.event.pull_request.head.repo.full_name == github.repository ||
             contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.pull_request.author_association)
           ) &&
           (
+            github.event.pull_request.user.type == 'Bot' ||
             startsWith(github.event.pull_request.title, 'chore:') ||
             startsWith(github.event.pull_request.title, 'chore(') ||
             startsWith(github.event.pull_request.title, 'style:') ||
@@ -161,11 +109,61 @@ jobs:
           )
         )
       )
+    permissions:
+      contents: read # the reviewer checks out this repository's default branch
+      pull-requests: write # post the review
+      statuses: write # the reviewer reports its own verdict on the head
+      actions: read # the owed-review re-check lists this workflow's in-flight runs
+      checks: read # the owed-review re-check reads the head's check runs
+    uses: AlexanderMattTurner/agent-review/.github/workflows/review.yaml@667f5f240c84496a55b09763a03c94927878733b # pin-comment-ok: agent-review cuts no release yet; re-pin at its first vX.Y
+    with:
+      reviewer-repository: AlexanderMattTurner/agent-review
+      # The SAME sha the `uses:` line above pins. Change both together. Leaving
+      # it unset reads the pin out of `github.job_workflow_sha`, which resolves
+      # to the EMPTY string in the expression context: the reviewer's own guard
+      # then refuses to clone rather than run unpinned code, and the review never
+      # runs.
+      reviewer-ref: 667f5f240c84496a55b09763a03c94927878733b
+      review-prompt: .github/prompts/claude-pr-review.md
+      # The review posts with the Actions token, whose events start no workflow
+      # run, so review-gate.yaml never hears of it and "Automated review posted"
+      # holds at pending until the next push. Re-run the gate on the reviewed head.
+      post-review-command: HEAD_SHA="$REPORT_SHA" bash .github/scripts/review-gate.sh
+    secrets:
+      # Every repository that calls the reviewer passes these seven
+      # subscription tokens in this order. No rung holds a metered API key, so
+      # a review never bills; the reviewer tries one last if a rung ever does.
+      rung_1: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN_FALLBACK }}
+      rung_2: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN_FALLBACK_2 }}
+      rung_3: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN_FALLBACK_3 }}
+      rung_4: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN_FALLBACK_4 }}
+      rung_5: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN_FALLBACK_5 }}
+      rung_6: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN_FALLBACK_6 }}
+      rung_7: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+  auto-approve-skipped:
+    name: Auto-approve low-risk and bot PRs the reviewer skips
+    if: >-
+      (github.event.action == 'opened' || github.event.action == 'ready_for_review') &&
+      github.event.pull_request.draft == false &&
+      (
+        github.event.pull_request.head.repo.full_name == github.repository ||
+        contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.pull_request.author_association)
+      ) &&
+      (
+        github.event.pull_request.user.type == 'Bot' ||
+        startsWith(github.event.pull_request.title, 'chore:') ||
+        startsWith(github.event.pull_request.title, 'chore(') ||
+        startsWith(github.event.pull_request.title, 'style:') ||
+        startsWith(github.event.pull_request.title, 'style(') ||
+        startsWith(github.event.pull_request.title, 'release:') ||
+        startsWith(github.event.pull_request.title, 'release(')
+      )
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
-      contents: read # sparse-checkout the trusted approval script
-      pull-requests: write # submit an approving review; no other scope
+      contents: read # sparse-checkout the trusted approval and gate scripts
+      pull-requests: write # submit an approving review, and read reviews for the gate
+      statuses: write # re-post the "Automated review posted" gate on the head
     steps:
       - name: Checkout base (trusted) approval script
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -175,11 +173,13 @@ jobs:
           # merge-delta reviewer: the script is trusted repo content, no PR code runs.
           ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
-          # Both files: the script sources the retry library, and a list that
-          # names only the entrypoint leaves the runner without it.
+          # Each script with the library it sources: a list that names only the
+          # entrypoint leaves the runner without the library.
           sparse-checkout: |
             .github/scripts/auto-approve-skipped-pr.sh
             .github/scripts/lib-post-review-with-retry.sh
+            .github/scripts/review-gate.sh
+            .github/scripts/lib/reviewer-login.bash
           sparse-checkout-cone-mode: false
       - name: Approve so a review-required ruleset doesn't strand a skipped PR
         env:
@@ -187,6 +187,18 @@ jobs:
           GH_REPO: ${{ github.repository }}
           PR: ${{ github.event.pull_request.number }}
         run: bash .github/scripts/auto-approve-skipped-pr.sh
+      # The approval posts with the Actions token, which starts no workflow run,
+      # so review-gate.yaml never re-evaluates. `always()` re-runs the gate even
+      # after a failed approval, so the head carries the current verdict.
+      - name: Re-run the automated-review gate on the head
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: bash .github/scripts/review-gate.sh
 
   # ────────────────────────────────────────────────────────────────────────────
   # Claude merge-delta review (Sonnet)

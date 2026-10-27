@@ -11,7 +11,13 @@
 // exfil-URL scan is run separately and NON-destructively: suspicious URLs are
 // reported, never removed.
 //
-// Usage: node sanitize-pr-input.mjs < raw.txt > cleaned.txt 2> report.txt
+// `--model-text` is for text a MODEL wrote, bound for a posted body that also holds the
+// poster's own `<!-- … -->` delimiters and markers. It then also turns every `<!--` into
+// `&lt;!--`, so the text opens no HTML comment and forges no marker. The defuse runs AFTER
+// the strip: `<`, U+200B, `!--` holds no `<!--` until the strip removes the U+200B. A diff
+// bound for the model never takes the flag, so its own HTML comments stay byte-faithful.
+//
+// Usage: node sanitize-pr-input.mjs [--model-text] < raw.txt > cleaned.txt 2> report.txt
 import { sanitize } from "agent-input-sanitizer";
 import { detectExfil } from "agent-input-sanitizer/html";
 
@@ -30,7 +36,10 @@ const exfilReasons = [
   ),
 ];
 
-process.stdout.write(cleaned);
+const modelText = process.argv.slice(2).includes("--model-text");
+process.stdout.write(
+  modelText ? cleaned.replaceAll("<!--", "&lt;!--") : cleaned,
+);
 
 const report = [...warnings];
 if (found.length > 0)

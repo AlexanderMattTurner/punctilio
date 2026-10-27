@@ -1,6 +1,6 @@
 # shellcheck shell=bash
 # One source of truth for "is this review / thread / comment the automated
-# reviewer's?" — the identity predicate four scripts key their safety on.
+# reviewer's?" — the identity predicate every reviewer script keys its safety on.
 #
 # PROBLEM CLASS — two API dialects spell the same bot two ways. REST returns an
 # app bot's login WITH the `[bot]` suffix (`github-actions[bot]`); GraphQL
