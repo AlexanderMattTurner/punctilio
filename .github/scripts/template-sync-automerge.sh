@@ -27,9 +27,8 @@
 #      does not change that file, so CHANGED_PATHS never names it.
 #
 # Any clause failing is not an error — the PR is simply left for a human, which
-# is exactly today's behavior. Set the repository variable
-# TEMPLATE_SYNC_AUTOMERGE=false to disable this step entirely (the workflow's
-# `if:` reads it), with no code change and nothing to re-sync from the template.
+# is exactly today's behavior. A caller that passes `automerge: false` to the
+# reusable workflow skips this step entirely.
 #
 # Env: PR_NUMBER, GH_TOKEN, GH_REPO; HAS_CONFLICTS, HAS_DELETIONS,
 # HAS_DOWNGRADES, ALL_DETERMINISTIC, CHANGED_PATHS, MARKERLESS_FILES from the sync + resolve steps.
@@ -85,7 +84,7 @@ gh pr merge "$PR_NUMBER" --squash --auto
 # still report success, which would leave a PR nobody is waiting on and nobody
 # is merging.
 if [[ "$(gh pr view "$PR_NUMBER" --json autoMergeRequest --jq '.autoMergeRequest != null')" != "true" ]]; then
-  echo "::error::auto-merge did not stick on PR #${PR_NUMBER}. Enable 'Allow auto-merge' in the repository settings, or set TEMPLATE_SYNC_AUTOMERGE=false."
+  echo "::error::auto-merge did not stick on PR #${PR_NUMBER}. Enable 'Allow auto-merge' in the repository settings, or pass \`automerge: false\` to the reusable sync workflow."
   exit 1
 fi
 echo "Auto-merge armed. The required checks still gate the merge."

@@ -1,7 +1,7 @@
 name: CI failure-rate report
 
 # Observability reporter (NOT a required check, NOT pull_request-triggered).
-# Weekly it samples recent completed main workflow-run jobs, aggregates each
+# Weekly it samples recent completed default-branch workflow-run jobs, aggregates each
 # check/job NAME's failure rate over the window, and writes the Markdown table to
 # the run's job summary — surfacing which required checks fail most (and cost the
 # most re-runs) so maintainers can target CI-iteration-time spend with data

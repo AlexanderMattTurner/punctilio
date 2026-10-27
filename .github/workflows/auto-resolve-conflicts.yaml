@@ -72,16 +72,6 @@ on:
 
 permissions: {}
 
-# WHERE THE RESOLVER COMES FROM, named once for both jobs that need it. `discover`
-# clones it below; `resolve` passes the same pair to the reusable workflow, which
-# cannot read these (a `with:` value may not reference `env`), so the two literals
-# there must match these. A consumer repository points both at this repository and
-# pins `ref` to the SHA its `uses:` line names, so the workflow and the scripts it
-# runs come from one commit.
-env:
-  RESOLVER_REPOSITORY: AlexanderMattTurner/agent-resolve-merge-conflicts
-  RESOLVER_REF: 6e8ef6110fd27a4402a964d4c65c596a0ce7e938
-
 jobs:
   discover:
     name: Discover PRs to auto-resolve
@@ -105,14 +95,39 @@ jobs:
       statuses: read # the per-head attempt mark is a commit status
     outputs:
       prs: ${{ steps.discover.outputs.prs }}
+      resolver-repository: ${{ steps.pin.outputs.repository }}
     steps:
-      # NO checkout of this repository. discover reads GitHub, never the tree, and
-      # a pull_request event checks out the MERGE REF by default — the PR-authored
-      # copy of the script whose `prs` output drives the write-token resolve job.
-      # Cloning the resolver instead removes that substitution entirely: the code
-      # comes from a repository the pull request cannot write, on every event.
+      # WHICH resolver runs is read from the `resolve` job's `uses:` line below,
+      # the one place GitHub requires a literal and Dependabot moves. This checks
+      # out only that file and its reader, at the commit this run's workflow file
+      # came from, so it trusts no author the `uses:` line did not already trust.
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
+          sparse-checkout: |
+            .github/workflows/auto-resolve-conflicts.yaml
+            .github/scripts/resolver-ref.py
+            .github/scripts/run-with-pyyaml.sh
+            .github/tool-versions.sh
+          sparse-checkout-cone-mode: false
+      # run-with-pyyaml.sh fetches PyYAML through uv. No cache: this job holds
+      # credentials, and a cache another run wrote is input it never reviewed.
+      - uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+        with:
+          enable-cache: false
+      - name: Read the resolver pin
+        id: pin
+        run: bash .github/scripts/run-with-pyyaml.sh .github/scripts/resolver-ref.py --github-output
+
+      # discover.py comes from the resolver repository, never this tree: a
+      # pull_request event's merge ref is PR-authored, and the script's `prs`
+      # output drives the write-token resolve job.
       - name: Check out the resolver from its own repository
         id: resolver
+        env:
+          RESOLVER_REPOSITORY: ${{ steps.pin.outputs.repository }}
+          RESOLVER_REF: ${{ steps.pin.outputs.ref }}
         run: |
           dest="${RUNNER_TEMP}/resolver"
           git clone --no-tags "https://github.com/${RESOLVER_REPOSITORY}.git" "${dest}"
@@ -137,8 +152,8 @@ jobs:
           # Which repository and ref hold the resolver, so the handoff-mark probe
           # asks THAT repository when the resolver's own code last changed rather
           # than scanning a tree that no longer carries it.
-          AUTO_RESOLVE_RESOLVER_REPO: ${{ env.RESOLVER_REPOSITORY }}
-          AUTO_RESOLVE_RESOLVER_REF: ${{ env.RESOLVER_REF }}
+          AUTO_RESOLVE_RESOLVER_REPO: ${{ steps.pin.outputs.repository }}
+          AUTO_RESOLVE_RESOLVER_REF: ${{ steps.pin.outputs.ref }}
           # Read as a name rather than expanded into the `run:` body below. A
           # step's own `env:` outranks the job environment, so a write to
           # $GITHUB_ENV cannot repoint which tree this step executes.
@@ -189,10 +204,9 @@ jobs:
     # pull requests to hand it and what this repository can do.
     #
     # Pinned by SHA, never by tag: the resolver runs with this repository's
-    # secrets, so a moving ref would let its owner change what runs here. That
-    # sha is written TWICE — here and in `env.RESOLVER_REF` above, which
-    # `discover` checks out before any called workflow exists to read
-    # `github.job_workflow_sha`. Move both, or the two jobs run different code.
+    # secrets, so a moving ref would let its owner change what runs here. This
+    # line is the ONLY place the pin is written: `discover`, the merge-conflict
+    # labeler and template-sync all read it through .github/scripts/resolver-ref.py.
     # The CEILING on what the called workflow may hold, not a grant to this file.
     # It must cover the UNION of the resolver's two jobs, because a calling job that
     # names less silently narrows them: this workflow sets `permissions: {}` at the
@@ -206,12 +220,10 @@ jobs:
       issues: write # `gh label create` for auto-resolve-blocked rides the issues API
       statuses: write # the per-head attempt mark is a commit status
       actions: write # `land` re-dispatches the resolver after a lost race
-    uses: AlexanderMattTurner/agent-resolve-merge-conflicts/.github/workflows/auto-resolve.yaml@6e8ef6110fd27a4402a964d4c65c596a0ce7e938 # v1.13.5
+    uses: AlexanderMattTurner/agent-resolve-merge-conflicts/.github/workflows/auto-resolve.yaml@f6dea60f29ba915171ac9bf96e7dbcdcc4c819a0 # v1.40.2
     with:
       pr: ${{ matrix.pr.number }}
-      # The literals from this file's `env:` block, repeated because a reusable
-      # workflow's `with:` cannot read `env`. Change both together.
-      resolver-repository: AlexanderMattTurner/agent-resolve-merge-conflicts
+      resolver-repository: ${{ needs.discover.outputs.resolver-repository }}
       # This repository ships no scripts/lib_marked_region.py, and its regen rule
       # table (config/auto-resolve-regen-rules.json) ships EMPTY — so the
       # generated-region pre-pass and the deterministic pre-pass both stay off and

@@ -9,43 +9,13 @@
  *
  * A REMINDER, not a containment boundary — which is what bounds its scope. It checks
  * that the Skill tool was called, not that the compress-critique-fix loop ran, and it
- * covers only those two tools. Deliberately out of scope, named so nobody reads this
- * as covering them: `gh api` to `repos/…/pulls` or the `createPullRequest` GraphQL
- * mutation, `curl` to the same endpoint, a script whose body runs `gh pr create`, the
- * web UI. Each is some HTTP client, so matching them means matching arbitrary
- * programs. The deny text claims only the two tools above.
+ * covers only the routes `opensPullRequest` names. The deny text claims only those.
  */
-import { createSkillGate, GH_AT_COMMAND_POSITION } from "./lib-skill-gate.mjs";
+import { createSkillGate } from "./lib-skill-gate.mjs";
+import { opensPullRequest } from "./lib-shell-intent.mjs";
 
 /** The skill whose invocation this reminder requires. */
 export const REQUIRED_SKILL = "pr-creation";
-
-/** Suffix-matched: the same tool arrives as `mcp__github__…` or `mcp__github_remote__…`. */
-const PR_MCP_TOOL_RE = /^mcp__.*create_pull_request$/;
-
-/**
- * `create\b` counts `create-draft` and not `creates`; the shared anchor rejects
- * `mygh pr create` and, equally, a quoted MENTION of the command in some other
- * program's argument.
- */
-const GH_PR_CREATE_RE = new RegExp(
-  GH_AT_COMMAND_POSITION + String.raw`pr\s+create\b`,
-);
-
-/**
- * Does this payload open a pull request, by either covered route?
- * @param {any} payload @returns {boolean}
- */
-export function createsPullRequest(payload) {
-  if (typeof payload?.tool_name !== "string") return false;
-  if (PR_MCP_TOOL_RE.test(payload.tool_name)) return true;
-  const command = payload?.tool_input?.command;
-  return (
-    payload.tool_name === "Bash" &&
-    typeof command === "string" &&
-    GH_PR_CREATE_RE.test(command)
-  );
-}
 
 /**
  * The deny text. It names the step to take and nothing else: a message that also
@@ -68,6 +38,6 @@ export function denyReason(toolName) {
  */
 export const judgePrSkill = createSkillGate({
   skill: REQUIRED_SKILL,
-  triggered: createsPullRequest,
+  triggered: opensPullRequest,
   reason: denyReason,
 });

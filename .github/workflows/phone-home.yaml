@@ -63,8 +63,27 @@ jobs:
           chmod +x /usr/local/bin/gitleaks
           gitleaks detect --no-git -s /tmp/phone-home -v
 
-      - name: Submit to template repo
+      # Filing the issue needs TEMPLATE_SYNC_TOKEN, except in the template itself,
+      # where GITHUB_TOKEN reaches its own repo. phone-home-submit.js throws on a
+      # failed call, so without this step every merged PR with lessons turns red
+      # in a consumer that never set the secret. `secrets.*` is not readable in
+      # `if:`, so the presence arrives here as an env value.
+      - name: Check that this repo can file the lessons issue
+        id: route
         if: steps.extract.outputs.has_lessons == 'true'
+        env:
+          HAS_SYNC_TOKEN: ${{ secrets.TEMPLATE_SYNC_TOKEN != '' }}
+          IS_TEMPLATE: ${{ github.repository == env.TEMPLATE_REPO }}
+        run: |
+          if [[ "$HAS_SYNC_TOKEN" == true || "$IS_TEMPLATE" == true ]]; then
+            echo "submit=true" >>"$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "::warning title=Lessons not filed::Set the TEMPLATE_SYNC_TOKEN secret to file this PR's lessons on ${TEMPLATE_REPO}."
+          echo "submit=false" >>"$GITHUB_OUTPUT"
+
+      - name: Submit to template repo
+        if: steps.route.outputs.submit == 'true'
         env:
           # Opening an issue on TEMPLATE_REPO needs write access to a DIFFERENT
           # repo than the one running this job, which GITHUB_TOKEN cannot reach

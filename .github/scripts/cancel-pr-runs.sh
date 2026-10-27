@@ -52,13 +52,16 @@ if [[ "${#ids[@]}" -eq 0 ]]; then
 fi
 
 echo "Cancelling ${#ids[@]} in-flight run(s) on ${HEAD_SHA:0:8}:"
-# A cancel can lose a benign race (the run just finished → gh exits non-zero);
-# that is the one recovery we swallow, and only with a reported reason, so a real
-# permission/API failure is still visible in the log.
+# A cancel can lose a benign race (the run just finished, so gh exits non-zero).
+# That is the one failure this loop goes past, and it prints gh's own stderr as a
+# warning, so a permission or API failure still reads as itself in the log.
+err="$(mktemp)"
+trap 'rm -f "$err"' EXIT
 for id in "${ids[@]}"; do
-  if gh run cancel "$id" --repo "$REPO"; then
+  if gh run cancel "$id" --repo "$REPO" 2>"$err"; then
     echo "  cancelled ${id}"
   else
-    echo "  ${id}: could not cancel (already completed?)"
+    rc=$?
+    echo "::warning::could not cancel run ${id} (exit ${rc}): $(tr '\n' ' ' <"$err")"
   fi
 done
