@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## [5.6.0] - 2026-11-01
+
 ### Added
 
 - **markdown**: `transformMarkdownSync`, a synchronous `transformMarkdown`.
