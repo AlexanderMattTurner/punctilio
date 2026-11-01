@@ -250,8 +250,9 @@ export function buildProseView(nodes: ProseNode[]): ProseView {
 
 /**
  * Partitions `items` into contiguous groups, breaking before every index in
- * `breakBefore` (indices 1..n-1). With no break indices the whole list is one
- * group; an empty list yields no groups. Used to isolate opaque-delimited
+ * `breakBefore` (indices 1..n-1; index 0, a gap before the first item, starts
+ * no group of its own). With no break indices the whole list is one group; an
+ * empty list yields no groups. Used to isolate opaque-delimited
  * segments so a pass never sees text as adjacent across removed content.
  */
 export function splitAtIndices<T>(
@@ -317,43 +318,63 @@ function gapPlaceholder(before: string, after: string): string {
   );
 }
 
+const LEADING_GAP: ReadonlySet<number> = new Set([0]);
+
 /**
- * Runs `run` over `nodes` as one view with a placeholder node (see
- * {@link OPAQUE_PLACEHOLDER}) at each opaque gap (`breakBefore`, as for
- * {@link splitAtIndices}), so context-sensitive passes such as quote pairing
- * read across the gap. The view is committed after `run`. If any edit lands in
- * a placeholder (one that spans, replaces, or is inserted into the gap), the
- * nodes are restored and `run` goes over each opaque-delimited segment on its
- * own instead, so no edit ever lands in or through a gap.
+ * Runs `run` over `nodes` as one view with a placeholder before each index in
+ * `gapsBefore` and commits it. True when no edit touched a placeholder;
+ * otherwise the nodes are restored and the result is false.
  */
-export function runAcrossOpaqueGaps(
+function runWithGapPlaceholders(
   nodes: readonly ProseNode[],
-  breakBefore: ReadonlySet<number>,
+  gapsBefore: ReadonlySet<number>,
   run: (view: ProseView) => void,
-): void {
-  if (nodes.length === 0) return;
+): boolean {
   const originalValues = nodes.map((node) => node.value);
   const placeholders: { node: ProseNode; value: string }[] = [];
   const spanning: ProseNode[] = [];
   nodes.forEach((node, index) => {
-    if (breakBefore.has(index)) {
-      const value = gapPlaceholder(nodes[index - 1].value, node.value);
+    if (gapsBefore.has(index)) {
+      const value = gapPlaceholder(index === 0 ? "" : nodes[index - 1].value, node.value);
       const placeholder = { value };
       placeholders.push({ node: placeholder, value });
       spanning.push(placeholder);
     }
     spanning.push(node);
   });
-
-  const spanningView = buildProseView(spanning);
-  run(spanningView);
-  spanningView.commit();
-  if (placeholders.every(({ node, value }) => node.value === value)) return;
-
+  const view = buildProseView(spanning);
+  run(view);
+  view.commit();
+  if (placeholders.every(({ node, value }) => node.value === value)) return true;
   nodes.forEach((node, index) => {
     node.value = originalValues[index];
   });
+  return false;
+}
+
+/**
+ * Runs `run` over `nodes` as one view with a placeholder node (see
+ * {@link OPAQUE_PLACEHOLDER}) at each opaque gap (`breakBefore`, as for
+ * {@link splitAtIndices}, plus index 0 for content before the first node), so
+ * context-sensitive passes such as quote pairing read across the gap and text
+ * after a gap is never read as the start of the text. The view is committed
+ * after `run`. If any edit lands in a placeholder (one that spans, replaces,
+ * or is inserted into the gap), the nodes are restored and `run` goes over
+ * each opaque-delimited segment on its own instead, a segment after a gap
+ * still opening with a placeholder (dropped in turn if an edit lands in it),
+ * so no edit ever lands in or through a gap.
+ */
+export function runAcrossOpaqueGaps(
+  nodes: readonly ProseNode[],
+  breakBefore: ReadonlySet<number>,
+  run: (view: ProseView) => void,
+): void {
+  if (nodes.length === 0 || runWithGapPlaceholders(nodes, breakBefore, run)) return;
+  let segmentStart = 0;
   for (const group of splitAtIndices(nodes, breakBefore)) {
+    const gapBefore = breakBefore.has(segmentStart);
+    segmentStart += group.length;
+    if (gapBefore && runWithGapPlaceholders(group, LEADING_GAP, run)) continue;
     const segmentView = buildProseView(group);
     run(segmentView);
     segmentView.commit();

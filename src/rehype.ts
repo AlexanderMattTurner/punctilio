@@ -128,9 +128,10 @@ export const REHYPE_OPTION_KEYS: readonly string[] = [
 ];
 
 // Void/replaced inline elements that render atomic content (or a hard break)
-// and carry no transformable text. When one sits between two text nodes it is a
-// real visual separator, so the flattener records an opaque gap there.
-const OPAQUE_VOID_TAGS = new Set([
+// and carry no transformable text. Each is a real visual separator, so the
+// flattener records an opaque gap before the next text node, whether or not
+// text comes before it. @internal
+export const OPAQUE_VOID_TAGS: ReadonlySet<string> = new Set([
   "img",
   "br",
   "wbr",
@@ -145,10 +146,10 @@ const OPAQUE_VOID_TAGS = new Set([
   "keygen",
 ]);
 
-/** Flattened text nodes plus the opaque gaps that fell between adjacent ones. */
+/** Flattened text nodes plus the opaque gaps that fell before or between them. */
 export interface FlattenedProse {
   nodes: Text[];
-  /** Indices into `nodes` (1..n-1) with removed opaque content immediately before them. */
+  /** Indices into `nodes` (0..n-1) with removed opaque content immediately before them. */
   opaqueBefore: Set<number>;
 }
 
@@ -202,8 +203,7 @@ function collectProse(
       c.pendingOpaque = true;
       return;
     }
-    if (c.pendingOpaque && c.nodes.length > 0)
-      c.opaqueBefore.add(c.nodes.length);
+    if (c.pendingOpaque) c.opaqueBefore.add(c.nodes.length);
     c.pendingOpaque = false;
     c.nodes.push(node);
   }

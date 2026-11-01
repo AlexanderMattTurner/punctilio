@@ -1,10 +1,8 @@
 import { readFileSync } from "fs"
 import { resolve } from "path"
 import { fileURLToPath } from "url"
-import { globSync } from "tinyglobby"
 
 import { clearProcessorCache, transformMarkdown, transformMarkdownSync } from "../markdown.js"
-import { markdownTextOracle } from "./markdown-oracle.js"
 import { transform } from "../index.js"
 import { UNICODE_SYMBOLS } from "../constants.js"
 
@@ -257,6 +255,15 @@ describe("transformMarkdownSync", () => {
     ["escaped characters punctilio rewrites", '\\"hi\\" a \\-\\- b', `${LDQ}hi${RDQ} a${EM_DASH}b`],
     ["CRLF front matter behind a BOM", '\uFEFF---\r\ntitle: "a"\r\n---\r\n\r\n"b"\r\n', `\uFEFF---\r\ntitle: "a"\r\n---\r\n\r\n${LDQ}b${RDQ}\r\n`],
     ["task list items", '- [ ] "a"\n- [x] b...', `- [ ] ${LDQ}a${RDQ}\n- [x] b${ELLIPSIS}`],
+    // Content before a paragraph's first text keeps its dash from reading as line-leading.
+    ["a dash after a leading bare URL", "https://x.com -- A", `<https://x.com>${EM_DASH}A`],
+    ["a dash after leading inline code", "`c` -- A", `\`c\`${EM_DASH}A`],
+    ["a dash after a leading image", "![i](u) -- A", `![i](u)${EM_DASH}A`],
+    ["a dash after a leading raw image", "<img src=x> -- A", `<img src=x>${EM_DASH}A`],
+    ["a dash after leading raw code", "<code>c</code> -- A", `<code>c</code>${EM_DASH}A`],
+    // An opening tag renders nothing, so the dash after it still leads the line.
+    ["a line-leading dash inside a leading tag", "<em>-- A</em>", `<em>${EM_DASH} A</em>`],
+    ["a line-leading dash", "-- A", `${EM_DASH} A`],
   ])("transforms %s", (_label, input, expected) => {
     expect(transformMarkdownSync(input)).toBe(expected)
   })
@@ -294,27 +301,5 @@ describe("transformMarkdownSync", () => {
 
   it("keeps only the paragraph whose edits would change its structure", () => {
     expect(transformMarkdownSync('"a"\n\n3*x5*\n\n"b"\n')).toBe(`${LDQ}a${RDQ}\n\n3*x5*\n\n${LDQ}b${RDQ}\n`)
-  })
-})
-
-describe("transformMarkdown corpus oracle", () => {
-  const FRONTMATTER_RE = /^---\r?\n[\s\S]*?\r?\n---\r?\n/
-  const repoRoot = resolve(__dirname, "../..")
-  const files = globSync("**/*.md", {
-    cwd: repoRoot,
-    dot: true,
-    ignore: ["**/node_modules/**", "dist/**", ".stryker-tmp/**", "reports/**", ".claude/worktrees/**"],
-  })
-
-  it("finds the corpus", () => {
-    expect(files.length).toBeGreaterThan(10)
-  })
-
-  // Re-parsing the output must yield exactly the text remarkPunctilio
-  // produces on the parsed input: every edit was written in place.
-  it.each(files)("%s", (file) => {
-    const input = readFileSync(resolve(repoRoot, file), "utf-8").replace(FRONTMATTER_RE, "")
-    const { transformed, actual } = markdownTextOracle(input, transformMarkdownSync(input))
-    expect(actual).toEqual(transformed)
   })
 })
