@@ -99,23 +99,34 @@ describe("textNodeEdits", () => {
     ["insertion at end", "ab", "abX", [{ start: 12, end: 12, text: "X" }]],
     ["deletion of a final line break", "a\n", "a", [{ start: 11, end: 12, text: "" }]],
     ["insertion after a final line break", "a\n", "a\nX", [{ start: 12, end: 12, text: "X" }]],
-    // Runs of letters and digits anchor the diff; a rewritten run (a superscript) is diffed with its neighbors.
-    [
-      "replacement of a word run",
-      'the 1st "one"',
-      "the 1\u02E2\u1D57 \u201Cone\u201D",
-      [{ start: 15, end: 17, text: "\u02E2\u1D57" }, { start: 18, end: 19, text: "\u201C" }, { start: 22, end: 23, text: "\u201D" }],
-    ],
   ])("produces a %s edit", (_label, original, transformed, expected) => {
     expect(textNodeEdits(identity(original.length), original, transformed)).toEqual(expected)
   })
 
-  // Ten rewritten runs in a row exceed the run-matching window, so the rest
-  // of the value is diffed character by character.
-  it("diffs past more rewritten runs than the matching window spans", () => {
-    const original = "a b c d e f g h i j k"
-    const expected = "ABCDEFGHIJ".split("").map((letter, index) => ({ start: 10 + 2 * index, end: 11 + 2 * index, text: letter }))
-    expect(textNodeEdits(identity(original.length), original, "A B C D E F G H I J k")).toEqual(expected)
+  // A line too long for an exact diff is diffed between paired runs of
+  // letters, digits, and spaces; the padding makes it that long.
+  const PADDING = " word".repeat(500)
+  it.each([
+    [
+      "a rewritten run between paired ones",
+      'the 1st "one"',
+      "the 1\u02E2\u1D57 \u201Cone\u201D",
+      [{ start: 15, end: 17, text: "\u02E2\u1D57" }, { start: 18, end: 19, text: "\u201C" }, { start: 22, end: 23, text: "\u201D" }],
+    ],
+    [
+      "more rewritten runs than the pairing window spans",
+      "a b c d e f g h i j k",
+      "A B C D E F G H I J k",
+      "ABCDEFGHIJ".split("").map((letter, index) => ({ start: 10 + 2 * index, end: 11 + 2 * index, text: letter })),
+    ],
+    // `2x3` becomes `2×3`, splitting one run in two; its "2" is not paired
+    // with the fraction's "2", which follows a different character.
+    ["an equal run out of context", "2x3 a 1/2", "2\u00D73 a \u00BD", [{ start: 11, end: 12, text: "\u00D7" }, { start: 16, end: 19, text: "\u00BD" }]],
+    // The space runs after "aaaaa" and after "aaaa" skip equally many runs;
+    // the one that keeps the offsets aligned wins.
+    ["a tie between equally near pairs", "aaaaa", "aaaa ", [{ start: 14, end: 15, text: "" }, { start: 16, end: 16, text: " " }]],
+  ])("diffs a long line: %s", (_label, original, transformed, expected) => {
+    expect(textNodeEdits(identity(original.length + PADDING.length), original + PADDING, transformed + PADDING)).toEqual(expected)
   })
 
   // Source "a \n> b": the parser trims the space and the `> ` prefix from the value "a\nb".

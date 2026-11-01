@@ -324,12 +324,18 @@ describe("fuzz: transformMarkdown", () => {
 
   // Every character the output drops was text in the source, never syntax.
   it("deletes only characters of text", () => {
+    const ARB_EDITING_OPTIONS = fc.record({
+      punctuationStyle: fc.constantFrom(...PUNCTUATION_STYLES),
+      fractions: fc.boolean(),
+      superscript: fc.boolean(),
+      nbsp: fc.boolean(),
+    })
     fc.assert(
-      fc.property(ARB_MARKDOWN, fc.constantFrom(...PUNCTUATION_STYLES), (text, punctuationStyle) => {
+      fc.property(ARB_MARKDOWN, ARB_EDITING_OPTIONS, (text, options) => {
         const textOffsets = new Set(tokenizeSource(text).flatMap(({ start, end }) => Array.from({ length: end - start }, (_, i) => start + i)))
         const deleted: number[] = []
         let offset = 0
-        for (const change of diffChars(text, transformMarkdownSync(text, { punctuationStyle }))) {
+        for (const change of diffChars(text, transformMarkdownSync(text, options))) {
           if (change.added) continue
           if (change.removed) deleted.push(...Array.from({ length: change.value.length }, (_, i) => offset + i))
           offset += change.value.length
