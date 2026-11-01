@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed
+
+- A spaced dash after content that opens a paragraph (a bare URL, inline code, an image, a skipped HTML element) closes up like any other (`https://x.com -- A` → `<https://x.com>—A`, not `— A`); the text after such content is no longer read as the start of a line.
+
 ## [5.6.0] - 2026-11-01
 
 ### Added
