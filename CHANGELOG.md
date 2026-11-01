@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Changed
+
+- **rehype**: Content that opens a paragraph (an image, or a skipped element such as `<code>`) counts as the word before the last-word no-break space, so `<p><code>code</code> "Hello"</p>` gains one, as `<p>x <code>code</code> "Hello"</p>` already did.
+
 ### Fixed
 
 - A spaced dash after content that opens a paragraph (a bare URL, inline code, an image, a skipped HTML element) closes up like any other (`https://x.com -- A` → `<https://x.com>—A`, not `— A`); the text after such content is no longer read as the start of a line.

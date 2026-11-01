@@ -8,7 +8,7 @@ import { transformView } from "./index.js"
 import { TRANSFORM_OPTION_KEYS, type TransformOptions } from "./transform-options.js"
 import { MAX_RECURSION_DEPTH } from "./constants.js"
 import { runAcrossOpaqueGaps } from "./prose-view.js"
-import { DEFAULT_SKIP_TAGS, RAW_TEXT_FORM_TAG } from "./rehype.js"
+import { DEFAULT_SKIP_TAGS, OPAQUE_VOID_TAGS, RAW_TEXT_FORM_TAG } from "./rehype.js"
 import { assertKnownOptionKeys } from "./utils.js"
 
 /**
@@ -26,8 +26,9 @@ const SKIP_TYPES = new Set(["inlineCode", "html"])
 const SKIPPED_HTML_TAGS: ReadonlySet<string> = new Set([...DEFAULT_SKIP_TAGS, RAW_TEXT_FORM_TAG])
 
 // Leaf phrasing nodes that render atomic content and carry no transformable
-// text. Between two text nodes, one is a real visual separator, so the
-// flattener records an opaque gap there (mirroring skipped `inlineCode`/`html`).
+// text. Each is a real visual separator, so the flattener records an opaque gap
+// before the next text node, whether or not text comes before it (mirroring
+// skipped `inlineCode`/`html`).
 const OPAQUE_LEAF_TYPES = new Set([
   "image", "imageReference", "break", "footnoteReference", "inlineMath",
 ])
@@ -85,9 +86,16 @@ function isLabelReference(node: PhrasingContent): boolean {
 
 const ignoreToken = (): void => {}
 
-/** Tracks raw-HTML skip-list tags so the text between an open and close tag is skipped. */
-function trackSkippedHtmlTags(html: string, c: ProseCollector): void {
+/**
+ * Tracks raw-HTML skip-list tags so the text between an open and close tag is
+ * skipped. Returns whether the HTML renders anything itself, as a void element
+ * such as `<img>` does (an `<em>` or a comment does not); remark gives inline
+ * HTML one node per tag, so its text is never part of the node.
+ */
+function trackSkippedHtmlTags(html: string, c: ProseCollector): boolean {
+  let renders = false
   const openTag = (token: Token.TagToken): void => {
+    if (OPAQUE_VOID_TAGS.has(token.tagName)) renders = true
     if (!token.selfClosing && SKIPPED_HTML_TAGS.has(token.tagName)) c.openSkippedTags.push(token.tagName)
   }
   const closeTag = (token: Token.TagToken): void => {
@@ -108,6 +116,7 @@ function trackSkippedHtmlTags(html: string, c: ProseCollector): void {
     }
   )
   tokenizer.write(html, true)
+  return renders
 }
 
 function collectProse(node: PhrasingContent, depth: number, c: ProseCollector): void {
@@ -116,7 +125,9 @@ function collectProse(node: PhrasingContent, depth: number, c: ProseCollector): 
     return
   }
 
-  if (node.type === "html") trackSkippedHtmlTags(node.value, c)
+  // HTML that renders nothing before a paragraph's first text (`<em>` in
+  // `<em>-- A</em>`) leaves that text at the start of the line.
+  if (node.type === "html" && !trackSkippedHtmlTags(node.value, c) && c.nodes.length === 0) return
 
   if (
     SKIP_TYPES.has(node.type) ||

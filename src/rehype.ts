@@ -128,9 +128,10 @@ export const REHYPE_OPTION_KEYS: readonly string[] = [
 ];
 
 // Void/replaced inline elements that render atomic content (or a hard break)
-// and carry no transformable text. When one sits between two text nodes it is a
-// real visual separator, so the flattener records an opaque gap there.
-const OPAQUE_VOID_TAGS = new Set([
+// and carry no transformable text. Each is a real visual separator, so the
+// flattener records an opaque gap before the next text node, whether or not
+// text comes before it. @internal
+export const OPAQUE_VOID_TAGS: ReadonlySet<string> = new Set([
   "img",
   "br",
   "wbr",

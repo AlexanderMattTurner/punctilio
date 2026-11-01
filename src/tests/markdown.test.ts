@@ -259,6 +259,10 @@ describe("transformMarkdownSync", () => {
     ["a dash after a leading bare URL", "https://x.com -- A", `<https://x.com>${EM_DASH}A`],
     ["a dash after leading inline code", "`c` -- A", `\`c\`${EM_DASH}A`],
     ["a dash after a leading image", "![i](u) -- A", `![i](u)${EM_DASH}A`],
+    ["a dash after a leading raw image", "<img src=x> -- A", `<img src=x>${EM_DASH}A`],
+    ["a dash after leading raw code", "<code>c</code> -- A", `<code>c</code>${EM_DASH}A`],
+    // An opening tag renders nothing, so the dash after it still leads the line.
+    ["a line-leading dash inside a leading tag", "<em>-- A</em>", `<em>${EM_DASH} A</em>`],
     ["a line-leading dash", "-- A", `${EM_DASH} A`],
   ])("transforms %s", (_label, input, expected) => {
     expect(transformMarkdownSync(input)).toBe(expected)
