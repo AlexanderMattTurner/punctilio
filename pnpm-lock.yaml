@@ -23,9 +23,21 @@ importers:
       cosmiconfig:
         specifier: 9.0.1
         version: 9.0.1(typescript@5.9.3)
+      diff:
+        specifier: 9.0.0
+        version: 9.0.0
       ignore:
         specifier: 7.0.5
         version: 7.0.5
+      micromark:
+        specifier: 4.0.2
+        version: 4.0.2
+      micromark-extension-gfm:
+        specifier: 3.0.0
+        version: 3.0.0
+      micromark-util-decode-string:
+        specifier: 2.0.1
+        version: 2.0.1
       parse5:
         specifier: 7.3.0
         version: 7.3.0
@@ -1421,6 +1433,10 @@ packages:
   diff-sequences@29.6.3:
     resolution: {integrity: sha512-EjePK1srD3P08o2j4f0ExnylqRs5B9tJjcp9t1krH2qRi8CCdsYfwe9JgSLurFBWwq4uOlipzfk5fHNvwFKr8Q==}
     engines: {node: ^14.15.0 || ^16.10.0 || >=18.0.0}
+
+  diff@9.0.0:
+    resolution: {integrity: sha512-svtcdpS8CgJyqAjEQIXdb3OjhFVVYjzGAPO8WGCmRbrml64SPw/jJD4GoE98aR7r25A0XcgrK3F02yw9R/vhQw==}
+    engines: {node: '>=0.3.1'}
 
   dunder-proto@1.0.1:
     resolution: {integrity: sha512-KIN/nDJBQRcXw0MLVhZE9iQHmG68qAVIBg9CqmUYjmQIhgij9U5MFvrqkUL5FbtyyzZuOeOt0zdeRe4UY7ct+A==}
@@ -4576,6 +4592,8 @@ snapshots:
   diff-match-patch@1.0.5: {}
 
   diff-sequences@29.6.3: {}
+
+  diff@9.0.0: {}
 
   dunder-proto@1.0.1:
     dependencies:

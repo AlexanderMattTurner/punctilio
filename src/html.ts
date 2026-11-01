@@ -6,7 +6,7 @@ import QuickLRU from "quick-lru"
 
 import { rehypePunctilio, type RehypePunctilioOptions } from "./rehype.js"
 import { HTML_OPTION_KEYS } from "./sink-option-keys.js"
-import { assertKnownOptionKeys, omitKeys, stableStringify, transformPreservingBom } from "./utils.js"
+import { assertKnownOptionKeys, omitKeys, splitByteOrderMark, stableStringify } from "./utils.js"
 
 export { HTML_ONLY_OPTION_KEYS, HTML_OPTION_KEYS } from "./sink-option-keys.js"
 
@@ -74,7 +74,8 @@ export async function transformHtml(
   options: HtmlOptions = {}
 ): Promise<string> {
   assertKnownOptionKeys(options, HTML_OPTION_KEYS, "transformHtml")
-  return transformPreservingBom(input, (text) => processHtml(text, options))
+  const { bom, body } = splitByteOrderMark(input)
+  return bom + (await processHtml(body, options))
 }
 
 /** Function-valued options aren't JSON-serializable, so the cache key

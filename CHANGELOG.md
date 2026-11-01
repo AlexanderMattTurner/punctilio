@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+### Changed
+
+- **markdown**: `transformMarkdown` preserves the source. The output is the input byte for byte except for punctilio's edits to prose, so escapes, list markers, emphasis delimiters, tables, and links keep their spelling, and the CLI and pre-commit hook no longer reformat Markdown files on their first run. A bare URL directly followed by an edited character becomes `<url>` so the edit doesn't join the URL; a paragraph whose edits would still change how it parses is left as written.
+- **markdown**: Add `transformMarkdownSync`, a synchronous `transformMarkdown`.
+- **dashes**: A spaced dash before a line break converts like one at the end of text (`a --\nb` → `a—\nb`), and a dash run that can't convert whole stays as written instead of leaving a stray hyphen.
+
+### Fixed
+
+- **remark**: Leave shortcut (`[label]`) and collapsed (`[label][]`) reference text unchanged, since it is also the identifier matching its definition.
+
+### Removed
+
+- **markdown**: The `emphasisMarker`, `strongMarker`, `bulletMarker`, and `ruleMarker` options and their CLI flags are gone, along with the `remark-stringify` peer dependency; Markdown keeps the markers it was written with.
+
 ## [5.5.5] - 2026-10-13
 
 ### Fixed

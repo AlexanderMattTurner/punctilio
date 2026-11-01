@@ -1,7 +1,10 @@
 import { readFileSync } from "fs"
 import { resolve } from "path"
 import { fileURLToPath } from "url"
-import { clearProcessorCache, remarkRoundTrip, transformMarkdown } from "../markdown.js"
+import { globSync } from "tinyglobby"
+
+import { clearProcessorCache, transformMarkdown, transformMarkdownSync } from "../markdown.js"
+import { markdownTextOracle } from "./markdown-oracle.js"
 import { transform } from "../index.js"
 import { UNICODE_SYMBOLS } from "../constants.js"
 
@@ -54,7 +57,6 @@ describe("transformMarkdown", () => {
       `It${RSQ}s great${EM_DASH}isn${RSQ}t it?`,
       "",
       `Wait${ELLIPSIS}`,
-      "", // remark-stringify adds trailing newline
     ].join("\n")
 
     expect(await transformMarkdown(input, { nbsp: false })).toEqual(expected)
@@ -73,30 +75,9 @@ describe("transformMarkdown", () => {
     expect(british.trimEnd()).toEqual(`${LDQ}Hello${RDQ}.`)
   })
 
-  it.each([
-    ["bulletMarker", "- item", { bulletMarker: "+" as const }, "+ item"],
-    ["emphasisMarker", "*italic*", { emphasisMarker: "_" as const }, "_italic_"],
-    ["strongMarker", "**bold**", { strongMarker: "_" as const }, "__bold__"],
-    ["ruleMarker", "---", { ruleMarker: "*" as const }, "***"],
-  ])("passes through %s option", async (_name, input, options, expected) => {
-    expect((await transformMarkdown(input, { ...options, nbsp: false })).trimEnd()).toEqual(expected)
-  })
-
-  it("uses 4-dash thematic break with default ruleMarker to avoid YAML front matter ambiguity", async () => {
-    const result = await transformMarkdown("---", { nbsp: false })
-    expect(result.trimEnd()).toEqual("----")
-  })
-
   it("uses default options when none provided", async () => {
     const result = await transformMarkdown('"Hello"')
     expect(result.trimEnd()).toEqual(`${LDQ}Hello${RDQ}`)
-  })
-
-  it("escapes both opening and closing brackets in phrasing content", async () => {
-    const result = await transformMarkdown("See references [1][4][5][6] for details.", {
-      nbsp: false,
-    })
-    expect(result.trimEnd()).toEqual("See references \\[1\\]\\[4\\]\\[5\\]\\[6\\] for details.")
   })
 
   it.each([
@@ -154,12 +135,12 @@ describe("transformMarkdown", () => {
   })
 
   // Punctuation that is the only text of a mark stays in it: moving it out
-  // would leave an empty mark, which serializes as bare delimiters.
+  // would leave an empty mark, which is bare delimiters in the source.
   it.each([
-    ['"x"_,_ y\n', `${LDQ}x${RDQ}*,* y\n`, "american"],
-    ['"x"**_,_** y\n', `${LDQ}x${RDQ}***,*** y\n`, "american"],
+    ['"x"_,_ y\n', `${LDQ}x${RDQ}_,_ y\n`, "american"],
+    ['"x"**_,_** y\n', `${LDQ}x${RDQ}**_,_** y\n`, "american"],
     ['"x"~~.~~ y\n', `${LDQ}x${RDQ}~~.~~ y\n`, "american"],
-    ['"a"[_,_](u) b\n', `${LDQ}a${RDQ}[*,*](u) b\n`, "american"],
+    ['"a"[_,_](u) b\n', `${LDQ}a${RDQ}[_,_](u) b\n`, "american"],
     ['"x *,*" y\n', `${LDQ}x *,*${RDQ} y\n`, "british"],
   ] as const)("keeps a mark whose only text is movable punctuation: %j", async (input, expected, punctuationStyle) => {
     const once = await transformMarkdown(input, { punctuationStyle })
@@ -167,20 +148,10 @@ describe("transformMarkdown", () => {
     expect(await transformMarkdown(once, { punctuationStyle })).toBe(once)
   })
 
-  // Remark's own round trip changes `*)**!*)` to `*)\*\*!*)`: a second
-  // transform must match that plain round trip, not the first output.
-  it.each([
-    ['"Hi" -- *x*\n', '"Hi" -- *x*\n', {}],
-    ["*)**!*)\n", "*)\\*\\*!*)\n", {}],
-    ["\uFEFF---\ntitle: \"a\"\n---\n\n*x*\n", "\uFEFF---\ntitle: \"a\"\n---\n\n_x_\n", { emphasisMarker: "_" }],
-  ] as const)("remarkRoundTrip(%j) applies no punctilio pass: %j", async (input, expected, options) => {
-    expect(await remarkRoundTrip(input, options)).toBe(expected)
-  })
-
-  it("transforms to a fixed point modulo remark's round trip", async () => {
+  it("transforms to a fixed point", async () => {
     const once = await transformMarkdown("_)_*!*)")
-    expect(once).toBe("*)**!*)\n")
-    expect(await transformMarkdown(once)).toBe(await remarkRoundTrip(once))
+    expect(once).toBe("_)_*!*)")
+    expect(await transformMarkdown(once)).toBe(once)
   })
 
   const BODY_IN = '"Hello" -- *world*.\n'
@@ -235,5 +206,105 @@ describe("transformMarkdown", () => {
       const transformed = transform(line, { nbsp: false, collapseSpaces: false })
       expect(transformed).toBe(line)
     }
+  })
+})
+
+describe("transformMarkdownSync", () => {
+  it.each([
+    ["bare brackets", "See [note] and [^1] and [[wiki]] and [1][4][5]."],
+    ["links", 'A [link](http://x.com "title") here.'],
+    ["underscores", "snake_case_name"],
+    ["list markers", "- one\n+ two\n"],
+    ["tables", "| a | b |\n|---|:-:|\n| x | y |\n"],
+    ["thematic breaks", "a\n\n***\n\nb\n\n---\n"],
+    ["inline code", 'Use `"raw"` here'],
+    ["angle autolinks", "<https://x.com/a...b>"],
+    ["autolinks with references", "<https://a.com/?x&amp;y...>"],
+    ["shortcut references", "[foo--bar]\n\n[foo--bar]: /u"],
+    ["collapsed references", "[foo--bar][]\n\n[foo--bar]: /u"],
+    ["a missing final newline", "*a*"],
+  ])("preserves %s verbatim", (_label, input) => {
+    expect(transformMarkdownSync(input)).toBe(input)
+  })
+
+  it.each([
+    ["quotes and em dash", 'She said "hi" --- [a] *b*', `She said ${LDQ}hi${RDQ}${EM_DASH}[a] *b*`],
+    ["escaped brackets kept", 'Say "hi" \\[x\\] "bye"', `Say ${LDQ}hi${RDQ} \\[x\\] ${LDQ}bye${RDQ}`],
+    ["character reference replaced", "&quot;hi&quot;", `${LDQ}hi${RDQ}`],
+    ["blockquote continuation", '> "a\n> b"', `> ${LDQ}a\n> b${RDQ}`],
+    ["list item text", '- "one" -- two\n* x', `- ${LDQ}one${RDQ}${EM_DASH}two\n* x`],
+    ["table cell", '| "a" |\n|---|\n| b... |\n', `| ${LDQ}a${RDQ} |\n|---|\n| b${ELLIPSIS} |\n`],
+    ["quote spanning emphasis", '"*hi*"', `${LDQ}*hi*${RDQ}`],
+    ["literal autolink beside prose", 'see https://x.com/2020-2021 "q"', `see https://x.com/2020-2021 ${LDQ}q${RDQ}`],
+    ["a quoted shortcut reference", '"[foo]" bar\n\n[foo]: /u', `${LDQ}[foo]${RDQ} bar\n\n[foo]: /u`],
+    ["full reference label", "[a--b][r]\n\n[r]: /u", `[a${EM_DASH}b][r]\n\n[r]: /u`],
+    ["inline link text", "[x--y](http://u--v)", `[x${EM_DASH}y](http://u--v)`],
+    ["escaped > after blockquote marker", "> a\n> \\>= b", "> a\n> \u2265 b"],
+    ["nested containers", '> - "a\n>   b"', `> - ${LDQ}a\n>   b${RDQ}`],
+    ["CRLF line endings", '"a"\r\n"b"', `${LDQ}a${RDQ}\r\n${LDQ}b${RDQ}`],
+    ["astral characters", '"\u{1F600} x"', `${LDQ}\u{1F600} x${RDQ}`],
+    ["URL found by the autolink transform", 'He said "see https://x.com/a...b"', `He said ${LDQ}see <https://x.com/a...b>${RDQ}`],
+    ["transform URL between siblings", '*a* "|https://x.com/a--b" *c*', `*a* ${LDQ}|<https://x.com/a--b>${RDQ} *c*`],
+    ["transform email after an escape", '"hi" a\\_b@example.com...', `${LDQ}hi${RDQ} a\\_b@example.com${ELLIPSIS}`],
+    ["paragraph that is wholly a transform run", 'a\\_b@example.com "q"', `a\\_b@example.com ${LDQ}q${RDQ}`],
+    ["a setext heading made of a bare link run", '"www.x.co"\n--', `${LDQ}[www.x.co](http://www.x.co)${RDQ}\n--`],
+    ["a task list item with a bare link run", '- [ ] see www.x.co "q"', `- [ ] see www.x.co ${LDQ}q${RDQ}`],
+    ["a setext heading after a definition", '[r]: /u\n\nsee www.x.co "q"\n--', `[r]: /u\n\nsee www.x.co ${LDQ}q${RDQ}\n--`],
+    ["an ellipsis that empties the text after an emphasis", "_._..", `_${ELLIPSIS}_`],
+    ["task list items", '- [ ] "a"\n- [x] b...', `- [ ] ${LDQ}a${RDQ}\n- [x] b${ELLIPSIS}`],
+  ])("transforms %s", (_label, input, expected) => {
+    expect(transformMarkdownSync(input)).toBe(expected)
+  })
+
+  // A bare link would swallow the edit after it, so it is written as an
+  // explicit link with the same URL and text.
+  it.each([
+    ["a URL before an em dash", "see https://x.com -- it's", `see <https://x.com>${EM_DASH}it${RSQ}s`],
+    ["a URL before an ellipsis", "see https://x.com/a... ok", `see <https://x.com/a>${ELLIPSIS} ok`],
+    ["a www link", "see www.x.com... ok", `see [www.x.com](http://www.x.com)${ELLIPSIS} ok`],
+    ["a mailto link", '"mailto:a@b.com" -- x', `${LDQ}mailto:a@b.com${RDQ}${EM_DASH}x`],
+    ["a URL in a heading", "# see https://x.com -- b", `# see <https://x.com>${EM_DASH}b`],
+  ])("delimits %s", (_label, input, expected) => {
+    expect(transformMarkdownSync(input)).toBe(expected)
+  })
+
+  // These edits would change which characters delimit emphasis.
+  it.each([
+    ["a multiplication sign beside an emphasis delimiter", "3*x5*"],
+    ["an em dash that makes a delimiter run both-flanking", '**"a"* -- b*'],
+    ["a paragraph whose bare link is not the cause", "see https://x.com 3*x5*"],
+  ])("keeps a paragraph as written when its edits would change its structure: %s", (_label, input) => {
+    expect(transformMarkdownSync(input)).toBe(input)
+  })
+
+  it("keeps only the paragraph whose edits would change its structure", () => {
+    expect(transformMarkdownSync('"a"\n\n3*x5*\n\n"b"\n')).toBe(`${LDQ}a${RDQ}\n\n3*x5*\n\n${LDQ}b${RDQ}\n`)
+  })
+
+  it("rejects unknown option keys", () => {
+    expect(() => transformMarkdownSync("hi", { emphasisMarker: "_" } as never))
+      .toThrow('Unknown option "emphasisMarker" for transformMarkdown')
+  })
+})
+
+describe("transformMarkdown corpus oracle", () => {
+  const FRONTMATTER_RE = /^---\n[\s\S]*?\n---\n/
+  const repoRoot = resolve(__dirname, "../..")
+  const files = globSync("**/*.md", {
+    cwd: repoRoot,
+    dot: true,
+    ignore: ["**/node_modules/**", "dist/**", ".stryker-tmp/**", "reports/**", ".claude/worktrees/**"],
+  })
+
+  it("finds the corpus", () => {
+    expect(files.length).toBeGreaterThan(10)
+  })
+
+  // Re-parsing the output must yield exactly the text remarkPunctilio
+  // produces on the parsed input: every edit was written in place.
+  it.each(files)("%s", (file) => {
+    const input = readFileSync(resolve(repoRoot, file), "utf-8").replace(FRONTMATTER_RE, "")
+    const { transformed, actual } = markdownTextOracle(input, transformMarkdownSync(input))
+    expect(actual).toEqual(transformed)
   })
 })

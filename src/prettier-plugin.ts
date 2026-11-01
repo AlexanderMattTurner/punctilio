@@ -5,25 +5,20 @@ import type { Parser, Plugin } from "prettier"
 import type { Root } from "mdast"
 import { cosmiconfig } from "cosmiconfig"
 
-import { HTML_ONLY_OPTION_KEYS, MARKDOWN_ONLY_OPTION_KEYS } from "./sink-option-keys.js"
+import { HTML_ONLY_OPTION_KEYS } from "./sink-option-keys.js"
 import { remarkPunctilio, type RemarkPunctilioOptions } from "./remark.js"
 import { omitKeys } from "./utils.js"
 
 const upstreamMarkdown = prettierMarkdown.parsers.markdown as Parser<Root>
 const explorer = cosmiconfig("punctilio")
 
-// A config file may be shared with the CLI, so it can carry markdown-only
-// keys (prettier controls stringification itself) and HTML-only keys. Strip
-// those; unknown keys still fail loudly inside remarkPunctilio.
-const INAPPLICABLE_CONFIG_KEYS: readonly string[] = [
-  ...MARKDOWN_ONLY_OPTION_KEYS,
-  ...HTML_ONLY_OPTION_KEYS,
-]
+// A config file may be shared with the CLI, so it can carry HTML-only keys.
+// Strip those; unknown keys still fail loudly inside remarkPunctilio.
 
 async function loadPunctilioConfig(searchFrom: string): Promise<RemarkPunctilioOptions> {
   const result = await explorer.search(searchFrom)
   if (!result || result.isEmpty) return {}
-  return omitKeys(result.config as RemarkPunctilioOptions, INAPPLICABLE_CONFIG_KEYS)
+  return omitKeys(result.config as RemarkPunctilioOptions, HTML_ONLY_OPTION_KEYS)
 }
 
 async function runRemarkPunctilio(opts: RemarkPunctilioOptions, ast: Root): Promise<void> {

@@ -13,7 +13,7 @@ export interface SinkTransformers {
 
 /** The optional peer dependencies each sink needs at runtime. */
 export const SINK_PEER_DEPENDENCIES: Readonly<Record<SinkType, readonly string[]>> = {
-  md: ["unified", "remark-parse", "remark-gfm", "remark-stringify"],
+  md: ["unified", "remark-parse", "remark-gfm"],
   html: ["unified", "rehype-parse", "rehype-stringify"],
 }
 
