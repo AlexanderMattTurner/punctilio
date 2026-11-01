@@ -94,12 +94,28 @@ describe("textNodeEdits", () => {
   it.each([
     ["replacement", "a...", "a…", [{ start: 11, end: 14, text: "…" }]],
     ["deletion", "a  b", "a b", [{ start: 12, end: 13, text: "" }]],
+    ["insertion at the start", "ab", "Xab", [{ start: 10, end: 10, text: "X" }]],
     ["insertion mid-value", "ab", "aXb", [{ start: 11, end: 11, text: "X" }]],
     ["insertion at end", "ab", "abX", [{ start: 12, end: 12, text: "X" }]],
     ["deletion of a final line break", "a\n", "a", [{ start: 11, end: 12, text: "" }]],
     ["insertion after a final line break", "a\n", "a\nX", [{ start: 12, end: 12, text: "X" }]],
+    // Runs of letters and digits anchor the diff; a rewritten run (a superscript) is diffed with its neighbors.
+    [
+      "replacement of a word run",
+      'the 1st "one"',
+      "the 1\u02E2\u1D57 \u201Cone\u201D",
+      [{ start: 15, end: 17, text: "\u02E2\u1D57" }, { start: 18, end: 19, text: "\u201C" }, { start: 22, end: 23, text: "\u201D" }],
+    ],
   ])("produces a %s edit", (_label, original, transformed, expected) => {
     expect(textNodeEdits(identity(original.length), original, transformed)).toEqual(expected)
+  })
+
+  // Ten rewritten runs in a row exceed the run-matching window, so the rest
+  // of the value is diffed character by character.
+  it("diffs past more rewritten runs than the matching window spans", () => {
+    const original = "a b c d e f g h i j k"
+    const expected = "ABCDEFGHIJ".split("").map((letter, index) => ({ start: 10 + 2 * index, end: 11 + 2 * index, text: letter }))
+    expect(textNodeEdits(identity(original.length), original, "A B C D E F G H I J k")).toEqual(expected)
   })
 
   // Source "a \n> b": the parser trims the space and the `> ` prefix from the value "a\nb".

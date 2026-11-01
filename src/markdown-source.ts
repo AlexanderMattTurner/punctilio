@@ -152,21 +152,71 @@ export function trailingPieces(pieces: readonly SourcePiece[], range: SourceRang
 
 const LEADING_LINE_BREAK_RE = /^\r?\n/
 
-/** `value`'s lines, each with the line break that ends it. */
-function linesOf(value: string): string[] {
-  return value.split("\n").map((line, index, lines) => (index < lines.length - 1 ? `${line}\n` : line))
+const WORD_RUN_RE = /[\p{L}\p{N}]+/gu
+
+/** Each run of letters and digits in `value`, with its offset. */
+function wordRuns(value: string): { text: string; start: number }[] {
+  return Array.from(value.matchAll(WORD_RUN_RE), (match) => ({ text: match[0], start: match.index }))
+}
+
+// How far apart, in runs, two equal runs may sit and still resynchronize the
+// match; punctilio's edits rewrite at most a few runs in a row.
+const RUN_MATCH_WINDOW = 8
+
+/**
+ * Index pairs of equal runs, both ascending: equal runs pair in order, and
+ * after a mismatch the nearest equal pair within {@link RUN_MATCH_WINDOW}
+ * resumes the match. Runs past an unmatched stretch longer than that stay
+ * unpaired.
+ */
+function matchRuns(original: readonly string[], transformed: readonly string[]): [number, number][] {
+  const pairs: [number, number][] = []
+  let i = 0
+  let j = 0
+  while (i < original.length && j < transformed.length) {
+    const skip = nearestEqualPair(original, transformed, i, j)
+    if (skip === undefined) break
+    i += skip[0]
+    j += skip[1]
+    pairs.push([i++, j++])
+  }
+  return pairs
+}
+
+/** The smallest skip `[di, dj]` with `original[i + di] === transformed[j + dj]`, within the window. */
+function nearestEqualPair(original: readonly string[], transformed: readonly string[], i: number, j: number): [number, number] | undefined {
+  for (let distance = 0; distance <= RUN_MATCH_WINDOW; distance++) {
+    for (let di = 0; di <= distance; di++) {
+      if (original[i + di] !== undefined && original[i + di] === transformed[j + distance - di]) return [di, distance - di]
+    }
+  }
+  return undefined
 }
 
 /**
- * The character diff of `original` and `transformed`, line by line when they
- * have as many lines (as punctilio's edits nearly always leave them), since
- * diffing a long, densely edited node whole is quadratic.
+ * The character diff of `original` and `transformed`. A diff of the whole
+ * value is quadratic in a long, densely edited node, so its runs of letters
+ * and digits (which punctilio's edits rarely touch) are paired first, and
+ * only the stretches between paired runs are diffed character by character.
  */
 function characterChanges(original: string, transformed: string): Change[] {
-  const originalLines = linesOf(original)
-  const transformedLines = linesOf(transformed)
-  if (originalLines.length !== transformedLines.length) return diffChars(original, transformed)
-  return originalLines.flatMap((line, index) => diffChars(line, transformedLines[index]))
+  const originalRuns = wordRuns(original)
+  const transformedRuns = wordRuns(transformed)
+  const changes: Change[] = []
+  let originalEnd = 0
+  let transformedEnd = 0
+  const pairs = matchRuns(originalRuns.map(({ text }) => text), transformedRuns.map(({ text }) => text))
+  for (const [originalIndex, transformedIndex] of pairs) {
+    const run = originalRuns[originalIndex]
+    const transformedRun = transformedRuns[transformedIndex]
+    changes.push(
+      ...diffChars(original.slice(originalEnd, run.start), transformed.slice(transformedEnd, transformedRun.start)),
+      { value: run.text, count: run.text.length, added: false, removed: false },
+    )
+    originalEnd = run.start + run.text.length
+    transformedEnd = transformedRun.start + transformedRun.text.length
+  }
+  return [...changes, ...diffChars(original.slice(originalEnd), transformed.slice(transformedEnd))]
 }
 
 /** Source edits that turn a text value into `transformed`, in ascending order. @internal */
