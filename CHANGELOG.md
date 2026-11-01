@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## [5.6.1] - 2026-11-01
+
 ### Changed
 
 - **rehype**: Content that opens a paragraph (an image, or a skipped element such as `<code>`) counts as the word before the last-word no-break space, so `<p><code>code</code> "Hello"</p>` gains one, as `<p>x <code>code</code> "Hello"</p>` already did.
