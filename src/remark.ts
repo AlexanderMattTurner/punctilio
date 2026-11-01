@@ -130,7 +130,7 @@ function collectProse(node: PhrasingContent, depth: number, c: ProseCollector): 
   }
 
   if (node.type === "text") {
-    if (c.pendingOpaque && c.nodes.length > 0) c.opaqueBefore.add(c.nodes.length)
+    if (c.pendingOpaque) c.opaqueBefore.add(c.nodes.length)
     c.pendingOpaque = false
     c.nodes.push(node)
     return

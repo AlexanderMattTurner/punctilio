@@ -468,6 +468,13 @@ describe("runAcrossOpaqueGaps", () => {
       [`a${OPAQUE_PLACEHOLDER}b`],
       ["A", "B"],
     ],
+    [
+      "a gap before the first node: one view opening with a placeholder",
+      ["a", "b"],
+      [0],
+      [`${OPAQUE_PLACEHOLDER}ab`],
+      ["A", "B"],
+    ],
   ])("%s", (_name, values, breakBefore, expectedTexts, expectedValues) => {
     const result = runWith(values, breakBefore, upperCase);
     expect(result.texts).toEqual(expectedTexts);
@@ -489,7 +496,8 @@ describe("runAcrossOpaqueGaps", () => {
   });
 
   // An edit that lands in the gap makes the nodes revert and each
-  // opaque-delimited segment run alone, so nothing is written in or through it.
+  // opaque-delimited segment run alone, so nothing is written in or through
+  // it; the segment after the gap still opens with a placeholder.
   it.each([
     [
       "replacing the gap",
@@ -509,13 +517,25 @@ describe("runAcrossOpaqueGaps", () => {
     ],
   ])("falls back to separate segments when a pass edits by %s", (_name, writeIntoGap) => {
     const result = runWith(["a", "b"], [1], (view) => {
-      if (view.text.includes(OPAQUE_PLACEHOLDER)) {
+      if (view.text === `a${OPAQUE_PLACEHOLDER}b`) {
         writeIntoGap(view);
         return;
       }
       upperCase(view);
     });
-    expect(result.texts).toEqual([`a${OPAQUE_PLACEHOLDER}b`, "a", "b"]);
+    expect(result.texts).toEqual([`a${OPAQUE_PLACEHOLDER}b`, "a", `${OPAQUE_PLACEHOLDER}b`]);
     expect(result.values).toEqual(["A", "B"]);
+  });
+
+  it("runs a segment bare when an edit lands in its leading placeholder too", () => {
+    const result = runWith(["b"], [0], (view) => {
+      if (view.text.startsWith(OPAQUE_PLACEHOLDER)) {
+        view.replace(0, OPAQUE_PLACEHOLDER.length, "-");
+        return;
+      }
+      upperCase(view);
+    });
+    expect(result.texts).toEqual([`${OPAQUE_PLACEHOLDER}b`, `${OPAQUE_PLACEHOLDER}b`, "b"]);
+    expect(result.values).toEqual(["B"]);
   });
 });

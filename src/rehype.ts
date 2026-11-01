@@ -145,10 +145,10 @@ const OPAQUE_VOID_TAGS = new Set([
   "keygen",
 ]);
 
-/** Flattened text nodes plus the opaque gaps that fell between adjacent ones. */
+/** Flattened text nodes plus the opaque gaps that fell before or between them. */
 export interface FlattenedProse {
   nodes: Text[];
-  /** Indices into `nodes` (1..n-1) with removed opaque content immediately before them. */
+  /** Indices into `nodes` (0..n-1) with removed opaque content immediately before them. */
   opaqueBefore: Set<number>;
 }
 
@@ -202,8 +202,7 @@ function collectProse(
       c.pendingOpaque = true;
       return;
     }
-    if (c.pendingOpaque && c.nodes.length > 0)
-      c.opaqueBefore.add(c.nodes.length);
+    if (c.pendingOpaque) c.opaqueBefore.add(c.nodes.length);
     c.pendingOpaque = false;
     c.nodes.push(node);
   }

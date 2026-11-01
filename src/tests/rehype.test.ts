@@ -635,6 +635,15 @@ describe("rehypePunctilio", () => {
   });
 
   describe("skipped elements", () => {
+    // Skipped content before the first text keeps a dash after it from
+    // reading as line-leading, whether or not text precedes it.
+    it.each([
+      ["first", "<p><code>c</code> -- A</p>"],
+      ["after text", "<p>x <code>c</code> -- A</p>"],
+    ])("closes up a dash after skipped content that comes %s", async (_label, input) => {
+      expect(await processHtml(input, { nbsp: false })).toEqual(input.replace(" -- ", EM_DASH))
+    });
+
     it.each([
       "code",
       "pre",
@@ -725,9 +734,11 @@ describe("rehypePunctilio", () => {
       ).toEqual("<p>Formula: <math><mi>x</mi><mo>!=</mo><mn>5</mn></math></p>");
     });
 
+    // Skipped content before the text is a word for the last-word glue, as
+    // it is when text comes before it too.
     it("transforms siblings of skipped elements", async () => {
       expect(await processHtml('<p><code>code</code> "Hello"</p>')).toEqual(
-        `<p><code>code</code> ${LDQ}Hello${RDQ}</p>`,
+        `<p><code>code</code>\u00A0${LDQ}Hello${RDQ}</p>`,
       );
     });
   });

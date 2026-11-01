@@ -257,6 +257,11 @@ describe("transformMarkdownSync", () => {
     ["escaped characters punctilio rewrites", '\\"hi\\" a \\-\\- b', `${LDQ}hi${RDQ} a${EM_DASH}b`],
     ["CRLF front matter behind a BOM", '\uFEFF---\r\ntitle: "a"\r\n---\r\n\r\n"b"\r\n', `\uFEFF---\r\ntitle: "a"\r\n---\r\n\r\n${LDQ}b${RDQ}\r\n`],
     ["task list items", '- [ ] "a"\n- [x] b...', `- [ ] ${LDQ}a${RDQ}\n- [x] b${ELLIPSIS}`],
+    // Content before a paragraph's first text keeps its dash from reading as line-leading.
+    ["a dash after a leading bare URL", "https://x.com -- A", `<https://x.com>${EM_DASH}A`],
+    ["a dash after leading inline code", "`c` -- A", `\`c\`${EM_DASH}A`],
+    ["a dash after a leading image", "![i](u) -- A", `![i](u)${EM_DASH}A`],
+    ["a line-leading dash", "-- A", `${EM_DASH} A`],
   ])("transforms %s", (_label, input, expected) => {
     expect(transformMarkdownSync(input)).toBe(expected)
   })
