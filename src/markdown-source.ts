@@ -1,6 +1,6 @@
 import type { Nodes, Parents, Root, RootContent, Text } from "mdast"
 
-import { diffChars } from "diff"
+import { diffArrays, diffChars } from "diff"
 import { parse, postprocess, preprocess } from "micromark"
 import { gfm } from "micromark-extension-gfm"
 import { decodeString } from "micromark-util-decode-string"
@@ -381,11 +381,23 @@ function signature(entries: readonly NodeEntry[], reverted: ReadonlySet<Nodes>):
   return { lines, containers }
 }
 
-/** Index of the first entry where `actual` departs from `expected`, or -1. */
-function firstMismatch(expected: readonly string[], actual: readonly string[]): number {
-  const length = Math.max(expected.length, actual.length)
-  for (let i = 0; i < length; i++) if (expected[i] !== actual[i]) return i
-  return -1
+/**
+ * Lines of `expected` where `actual` departs from it: the first line of each
+ * run `actual` lacks, and the line just before each run `actual` adds (the
+ * root's line always matches, so one exists).
+ */
+function mismatches(expected: string[], actual: string[]): number[] {
+  const departures: number[] = []
+  let index = 0
+  for (const change of diffArrays(expected, actual)) {
+    if (change.added) {
+      departures.push(index - 1)
+      continue
+    }
+    if (change.removed) departures.push(index)
+    index += change.count
+  }
+  return departures
 }
 
 /**
@@ -422,9 +434,10 @@ export function spliceTextChanges(
     const [open, close] = delimitLink(link)
     return [{ edit: open, container: link.container, rank: 2 }, { edit: close, container: link.container, rank: 0 }]
   })
+  const linkContainers = new Set(links.map(({ container }) => container))
   const delimited = new Set<Nodes>()
   const reverted = new Set<Nodes>()
-  // Each pass delimits a culprit's bare links or else keeps it as written.
+  // Each pass delimits each culprit's bare links or else keeps it as written.
   // Reverting every container reproduces `source`, which parses to the
   // original text, so the loop ends.
   for (;;) {
@@ -433,26 +446,25 @@ export function spliceTextChanges(
       .sort((a, b) => a.edit.start - b.edit.start || a.rank - b.rank)
     const output = applyEdits(source, kept.map(({ edit }) => edit))
     const expected = signature(entries, reverted)
-    const mismatch = firstMismatch(expected.lines, signature(nodeEntries(parse(output)), new Set()).lines)
-    if (mismatch === -1) return output
-    const culprit = culpritContainer(new Set(kept.map(({ container }) => container)), expected.containers, mismatch)
-    const canDelimit = !delimited.has(culprit) && links.some(({ container }) => container === culprit)
-    if (canDelimit) delimited.add(culprit)
-    else reverted.add(culprit)
+    const departures = mismatches(expected.lines, signature(nodeEntries(parse(output)), new Set()).lines)
+    if (departures.length === 0) return output
+    const candidates = new Set(kept.map(({ container }) => container))
+    for (const culprit of culpritContainers(candidates, expected.containers, departures)) {
+      if (linkContainers.has(culprit) && !delimited.has(culprit)) delimited.add(culprit)
+      else reverted.add(culprit)
+    }
   }
 }
 
 /**
- * The container to keep as written when the structure first departs at entry
- * `mismatch`: the last candidate (a container with edits still applied) that
- * starts at or before that entry, since everything before it still matches,
- * else the first candidate. `candidates` is non-empty and in source order.
+ * The containers to repair where the parse departs from `containers`' lines
+ * at each of `departures`: for each, the last candidate (a container with
+ * edits still applied) starting at or before it, since every line before it
+ * matched, else the first candidate. `candidates` is non-empty and in source
+ * order.
  */
-function culpritContainer(candidates: ReadonlySet<Nodes>, containers: readonly Nodes[], mismatch: number): Nodes {
-  let [culprit] = candidates
-  for (const [index, container] of containers.entries()) {
-    if (index > mismatch) break
-    if (candidates.has(container)) culprit = container
-  }
-  return culprit
+function culpritContainers(candidates: ReadonlySet<Nodes>, containers: readonly Nodes[], departures: readonly number[]): Set<Nodes> {
+  let [latest] = candidates
+  const latestAt = containers.map((container) => (latest = candidates.has(container) ? container : latest))
+  return new Set(departures.map((departure) => latestAt[departure]))
 }

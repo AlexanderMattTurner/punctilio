@@ -277,6 +277,11 @@ describe("transformMarkdownSync", () => {
     expect(transformMarkdownSync(input)).toBe(input)
   })
 
+  it("repairs every paragraph that parses differently", () => {
+    expect(transformMarkdownSync("a https://x.com -- b\n\n3*x5*\n\n> c https://y.com -- d\n"))
+      .toBe(`a <https://x.com>${EM_DASH}b\n\n3*x5*\n\n> c <https://y.com>${EM_DASH}d\n`)
+  })
+
   it("keeps only the paragraph whose edits would change its structure", () => {
     expect(transformMarkdownSync('"a"\n\n3*x5*\n\n"b"\n')).toBe(`${LDQ}a${RDQ}\n\n3*x5*\n\n${LDQ}b${RDQ}\n`)
   })
