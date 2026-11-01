@@ -913,7 +913,7 @@ function convertSpacedDashes(view: ProseView, rendered: string): void {
       // after it (binary search, not a per-match scan of every boundary).
       const boundaryBeforeDash = lastBoundaryBefore(view, firstDash)
       if (boundaryBeforeDash > matchStart) matchStart = boundaryBeforeDash
-      /* istanbul ignore if -- defensive: the previous match's trailing `(?=\S|$)`
+      /* istanbul ignore if -- defensive: the previous match's trailing `(?=\S|\r|\n|$)`
          stops at this dash, so `consumedThrough` never reaches past `firstDash`. */
       if (matchStart >= firstDash + 1) return null
       // Validate the lookbehind at matchStart: start of text/line, a boundary
@@ -944,8 +944,8 @@ function convertSpacedDashes(view: ProseView, rendered: string): void {
       let fullRunEnd = firstDash + 1
       while (isDashChar(text[fullRunEnd]) && !v.hasBoundary(fullRunEnd)) fullRunEnd++
       // The dashCore (`-{2,}` greedy, then single `-`) backtracks past the arrow
-      // guard AND the trailing `[ ]*(?=\S|$)`, so try run ends longest-first and
-      // take the first one whose whole tail validates.
+      // guard only; the chosen run end's trailing `[ ]*(?=\S|\r|\n|$)` either
+      // validates or the run does not convert, so no hyphen is stranded.
       const chosen = chooseSpacedDashRun(v, firstDash, fullRunEnd)
       if (chosen === null) return null
       consumedThrough = chosen.consumedEnd
@@ -1004,10 +1004,10 @@ interface SpacedTrailing {
 }
 
 /**
- * The trailing `[ ]*(?:[ ]*)?(?=\S|$)` with one tolerated boundary. The leading
+ * The trailing `[ ]*(?:[ ]*)?(?=\S|\r|\n|$)` with one tolerated boundary. The leading
  * `[ ]*` (before any boundary) is deleted; spaces after a boundary are kept
  * (they belong to the next node) but still consumed. The lookahead then requires
- * a non-space char, a boundary, or end of text. Returns the edit/consumed
+ * a non-space char, a boundary, a line break, or end of text. Returns the edit/consumed
  * offsets, or null on failure.
  */
 function spacedTrailingEnd(view: ProseView, runEnd: number): SpacedTrailing | null {
@@ -1015,8 +1015,8 @@ function spacedTrailingEnd(view: ProseView, runEnd: number): SpacedTrailing | nu
   let editEnd = runEnd
   while (text[editEnd] === " " && !view.hasBoundary(editEnd)) editEnd++
   // The trailing optional group is greedy: try consuming a single boundary and
-  // its kept trailing spaces first, then fall back to no boundary. `(?=\S|$)` is
-  // satisfied by a boundary (non-space), a non-space clean char, or end of text.
+  // its kept trailing spaces first, then fall back to no boundary. The lookahead
+  // is satisfied by a boundary, a non-space clean char, a line break, or end of text.
   if (boundaryCountAt(view, editEnd) === 1) {
     let consumedEnd = editEnd
     while (text[consumedEnd] === " " && (consumedEnd === editEnd || !view.hasBoundary(consumedEnd))) consumedEnd++
