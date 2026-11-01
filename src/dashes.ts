@@ -959,7 +959,7 @@ function convertSpacedDashes(view: ProseView, rendered: string): void {
 /**
  * Picks the dashCore from the maximal dash run [firstDash, fullRunEnd). Tries
  * `[EN EM][-EN EM]*`, then `-{2,}` (greedy), then a single `-`, backtracking past
- * the arrow guard only. A run whose trailing `[ ]*(?=\S|\n|$)` fails stays whole:
+ * the arrow guard only. A run whose trailing `[ ]*(?=\S|\r|\n|$)` fails stays whole:
  * a shorter core would strand the rest of the run as a hyphen. Returns the
  * trailing-spaces end (`scan`) to replace, or null when no branch validates.
  */
@@ -1031,7 +1031,7 @@ function spacedTrailingEnd(view: ProseView, runEnd: number): SpacedTrailing | nu
  * spaced dash the way end of text does), or a non-space clean char.
  */
 function lookaheadNonSpace(view: ProseView, pos: number): boolean {
-  return pos === view.text.length || view.hasBoundary(pos) || !/[^\S\r\n]/.test(view.text[pos])
+  return pos === view.text.length || view.hasBoundary(pos) || /[\S\r\n]/.test(view.text[pos])
 }
 
 /**

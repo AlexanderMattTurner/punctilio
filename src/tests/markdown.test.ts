@@ -28,7 +28,7 @@ describe("transformMarkdown", () => {
     expect(result.trimEnd()).toEqual(`${LDQ}Hello,${RDQ} she said.`)
   })
 
-  it.each(["skipTags", "fragment", "fraction"])(
+  it.each(["skipTags", "fragment", "fraction", "emphasisMarker"])(
     'rejects unknown option key "%s"',
     async (key) => {
       await expect(transformMarkdown("hi", { [key]: true } as never))
@@ -269,6 +269,9 @@ describe("transformMarkdownSync", () => {
     ["a www link", "see www.x.com... ok", `see [www.x.com](http://www.x.com)${ELLIPSIS} ok`],
     ["a URL in a heading", "# see https://x.com -- b", `# see <https://x.com>${EM_DASH}b`],
     ["a www link with a bracket in its text", "see www.x.co[a] -- b", `see [www.x.co\\[a](http://www.x.co[a)]${EM_DASH}b`],
+    ["a www link with a character reference", "see www.x.co/a&amp;b... ok", `see [www.x.co/a\\&amp;b](http://www.x.co/a\\&amp;b)${ELLIPSIS} ok`],
+    // GFM keeps the backslash in a www link's text and URL.
+    ["a www link with a backslash", String.raw`see www.x.co/a\_b... ok`, String.raw`see [www.x.co/a\\\_b](http://www.x.co/a\\_b)` + `${ELLIPSIS} ok`],
     ["only the link beside an edit", "www.x.co... and www.y.co today", `[www.x.co](http://www.x.co)${ELLIPSIS} and www.y.co today`],
     ["only the URL beside an edit", '"x" https://a.co/b "y" https://c.co... z', `${LDQ}x${RDQ} https://a.co/b ${LDQ}y${RDQ} <https://c.co>${ELLIPSIS} z`],
   ])("delimits %s", (_label, input, expected) => {
@@ -293,10 +296,6 @@ describe("transformMarkdownSync", () => {
     expect(transformMarkdownSync('"a"\n\n3*x5*\n\n"b"\n')).toBe(`${LDQ}a${RDQ}\n\n3*x5*\n\n${LDQ}b${RDQ}\n`)
   })
 
-  it("rejects unknown option keys", () => {
-    expect(() => transformMarkdownSync("hi", { emphasisMarker: "_" } as never))
-      .toThrow('Unknown option "emphasisMarker" for transformMarkdown')
-  })
 })
 
 describe("transformMarkdown corpus oracle", () => {

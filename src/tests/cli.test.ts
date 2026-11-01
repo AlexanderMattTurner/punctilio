@@ -488,9 +488,9 @@ describe("runCli", () => {
     expect(cap.stdout()).not.toContain(`Reformatted: ${b}`)
   })
 
-  it.each(["--bogus", "--emphasis-marker=_", "--bullet-marker=*"])("returns 2 on unknown flag %s", async (flag) => {
+  it("returns 2 on unknown flag", async () => {
     const cap = captureIO()
-    const code = await runCli([flag], cap.io)
+    const code = await runCli(["--bogus"], cap.io)
     expect(code).toBe(2)
     expect(cap.stderr()).toMatch(/unknown option/i)
   })

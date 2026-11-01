@@ -63,9 +63,6 @@ function frontmatterLength(input: string): number {
   return 0
 }
 
-/** Matches blank lines that separate front matter from the document body. */
-const LEADING_BLANK_LINES_RE = /^(?:[ \t]*\r?\n)*/
-
 function processMarkdown(input: string, options: MarkdownOptions): string {
   const optionsKey = stableStringify(options)
 
@@ -88,22 +85,13 @@ function processMarkdown(input: string, options: MarkdownOptions): string {
 export function transformMarkdownSync(input: string, options: MarkdownOptions = {}): string {
   assertKnownOptionKeys(options, MARKDOWN_OPTION_KEYS, "transformMarkdown")
   const { bom, body } = splitByteOrderMark(input)
-  return bom + transformWithFrontmatter(body, (text) => processMarkdown(text, options))
+  // Front matter is data (YAML/TOML), not prose; remark would parse it as a
+  // thematic break plus a heading.
+  const frontmatterEnd = frontmatterLength(body)
+  return bom + body.slice(0, frontmatterEnd) + processMarkdown(body.slice(frontmatterEnd), options)
 }
 
 /** Promise-returning form of {@link transformMarkdownSync}. */
 export async function transformMarkdown(input: string, options: MarkdownOptions = {}): Promise<string> {
   return transformMarkdownSync(input, options)
-}
-
-function transformWithFrontmatter(input: string, processBody: (body: string) => string): string {
-  const frontmatterEnd = frontmatterLength(input)
-  if (frontmatterEnd === 0) return processBody(input)
-
-  // Front matter is data (YAML/TOML), not prose; remark would parse it as a
-  // thematic break plus a heading and rewrite it.
-  const body = input.slice(frontmatterEnd)
-  const blankLines = LEADING_BLANK_LINES_RE.exec(body)![0]
-  const transformedBody = processBody(body.slice(blankLines.length))
-  return input.slice(0, frontmatterEnd) + blankLines + transformedBody
 }

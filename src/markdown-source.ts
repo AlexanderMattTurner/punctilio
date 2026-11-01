@@ -230,8 +230,8 @@ function textOf(nodes: readonly RootContent[]): string {
 }
 
 /** Source ranges of the links in a run of siblings without positions, via the run's pieces. */
-function runLinks(run: readonly RootContent[], range: SourceRange, pieces: readonly SourcePiece[], container: Nodes): BareLink[] {
-  const { starts, ends } = mapValueToSource(textOf(run), piecesIn(pieces, range))
+function runLinks(run: readonly RootContent[], runText: string, range: SourceRange, pieces: readonly SourcePiece[], container: Nodes): BareLink[] {
+  const { starts, ends } = mapValueToSource(runText, piecesIn(pieces, range))
   const links: BareLink[] = []
   let offset = 0
   for (const member of run) {
@@ -272,22 +272,26 @@ function locateText(tree: Root, source: string, pieces: readonly SourcePiece[]):
         end: sourceRange(children[i])?.start ?? range.end,
       }
       const run = children.slice(runStart, i)
-      const [first] = trailingPieces(pieces, gap, textOf(run).length)
+      const runText = textOf(run)
+      const [first] = trailingPieces(pieces, gap, runText.length)
       const runRange = { start: first.start, end: gap.end }
       groups.push({ texts: textsIn(run), range: runRange, container })
-      links.push(...runLinks(run, runRange, pieces, container))
+      links.push(...runLinks(run, runText, runRange, pieces, container))
     }
   })
   return { groups: groups.sort((a, b) => a.range.start - b.range.start), links }
 }
 
-const LINK_TEXT_SYNTAX_RE = /[[\\\]]/g
+// Characters that would read as syntax inside `[text](url)`; the URL's
+// destination decodes escapes and character references too.
+const LINK_TEXT_SYNTAX_RE = /[&*<[\\\]_`~]/g
+const LINK_DESTINATION_SYNTAX_RE = /[&()\\]/g
 
 /**
  * Edits that write a bare link in explicit syntax with the same URL and text,
  * so the characters around it cannot extend it: `<url>` for a URL or email,
- * `[text](url)` for a `www.` link, its text rewritten with brackets and
- * backslashes escaped.
+ * `[text](url)` for a `www.` link, its text and URL rewritten with their
+ * syntax characters escaped.
  */
 function delimitLink({ range, url, text }: BareLink): [SourceEdit, SourceEdit] {
   if (url === text || url === `mailto:${text}`) {
@@ -295,7 +299,7 @@ function delimitLink({ range, url, text }: BareLink): [SourceEdit, SourceEdit] {
   }
   return [
     { start: range.start, end: range.end, text: `[${text.replace(LINK_TEXT_SYNTAX_RE, "\\$&")}` },
-    { start: range.end, end: range.end, text: `](${url})` },
+    { start: range.end, end: range.end, text: `](${url.replace(LINK_DESTINATION_SYNTAX_RE, "\\$&")})` },
   ]
 }
 
@@ -331,6 +335,8 @@ function applyEdits(source: string, edits: readonly SourceEdit[]): string {
 interface NodeEntry {
   readonly key: string
   readonly container: Nodes
+  /** Index of the root child holding the node; -1 for the root. */
+  readonly block: number
   readonly text: Text | undefined
   readonly original: string
 }
@@ -344,13 +350,16 @@ const UNKEYED_FIELDS: ReadonlySet<string> = new Set(["children", "position", "da
  */
 function nodeEntries(tree: Root): NodeEntry[] {
   const entries: NodeEntry[] = []
+  let block = -1
   visitParents(tree, (node: Root | RootContent, ancestors: Parents[]) => {
+    if (ancestors.length === 1) block++
     const text = node.type === "text" ? node : undefined
     const fields = JSON.stringify(node, (field: string, value: unknown) =>
       UNKEYED_FIELDS.has(field) || (field === "value" && text !== undefined) ? undefined : value)
     entries.push({
       key: `${ancestors.length} ${fields}`,
       container: containerOf(tree, ancestors, node),
+      block,
       text,
       original: text?.value ?? "",
     })
@@ -378,16 +387,25 @@ export function trimLineEdges(value: string): string {
     .join("\n")
 }
 
+/** The parse of a document, one line per node. @internal */
+export interface Signature {
+  readonly lines: readonly string[]
+  /** The paragraph, heading, or table cell holding each line. */
+  readonly containers: readonly Nodes[]
+  /** The root child holding each line, -1 for the root's. */
+  readonly blocks: readonly number[]
+}
+
 /**
  * One line per node: its key and, for text, its value as a parse would read
  * it: the original value in a `reverted` container, else the current one.
- * Empty text, which a parse never yields, is left out. `containers[i]` is the
- * paragraph, heading, or table cell holding line `i`.
+ * Empty text, which a parse never yields, is left out.
  */
-function signature(entries: readonly NodeEntry[], reverted: ReadonlySet<Nodes>): { lines: string[]; containers: Nodes[] } {
+function signature(entries: readonly NodeEntry[], reverted: ReadonlySet<Nodes>): Signature {
   const lines: string[] = []
   const containers: Nodes[] = []
-  for (const { key, container, text, original } of entries) {
+  const blocks: number[] = []
+  for (const { key, container, block, text, original } of entries) {
     if (text === undefined) {
       lines.push(key)
     } else {
@@ -396,18 +414,19 @@ function signature(entries: readonly NodeEntry[], reverted: ReadonlySet<Nodes>):
       lines.push(`${key} ${trimLineEdges(value)}`)
     }
     containers.push(container)
+    blocks.push(block)
   }
-  return { lines, containers }
+  return { lines, containers, blocks }
 }
 
 /**
- * Lines of `expected` where `actual` departs from it: the first line of each
- * run `actual` lacks, and the line just before each run `actual` adds (the
- * root's line always matches, so one exists).
+ * Lines of `expected` (numbered from `offset`) where `actual` departs from
+ * it: the first line of each run `actual` lacks, and the line just before
+ * each run `actual` adds.
  */
-function mismatches(expected: readonly string[], actual: readonly string[]): number[] {
+function lineDepartures(expected: readonly string[], actual: readonly string[], offset: number): number[] {
   const departures: number[] = []
-  let index = 0
+  let index = offset
   for (const change of diffArrays([...expected], [...actual])) {
     if (change.added) {
       departures.push(index - 1)
@@ -417,6 +436,82 @@ function mismatches(expected: readonly string[], actual: readonly string[]): num
     index += change.count
   }
   return departures
+}
+
+/** Where each block's lines start, then the line count. */
+function blockStarts(blocks: readonly number[]): number[] {
+  const starts = blocks.flatMap((block, index) => (index === 0 || block !== blocks[index - 1] ? [index] : []))
+  return [...starts, blocks.length]
+}
+
+const sameLines = (a: readonly string[], b: readonly string[]): boolean =>
+  a.length === b.length && a.every((line, index) => line === b[index])
+
+/**
+ * Lines of `expected` where `actual` departs from it (see
+ * {@link lineDepartures}). Edits rarely change the number of top-level
+ * blocks, so the lines are diffed block by block, which keeps the diff linear
+ * in the document when many blocks depart; the root's line always matches, so
+ * every departure has a line. @internal
+ */
+export function mismatches(expected: Signature, actual: Signature): number[] {
+  const expectedStarts = blockStarts(expected.blocks)
+  const actualStarts = blockStarts(actual.blocks)
+  if (expectedStarts.length !== actualStarts.length) return lineDepartures(expected.lines, actual.lines, 0)
+  return expectedStarts.slice(1).flatMap((end, index) => {
+    const expectedLines = expected.lines.slice(expectedStarts[index], end)
+    const actualLines = actual.lines.slice(actualStarts[index], actualStarts[index + 1])
+    return sameLines(expectedLines, actualLines) ? [] : lineDepartures(expectedLines, actualLines, expectedStarts[index])
+  })
+}
+
+/**
+ * Order of edits at one offset: a link's closing delimiter right after the
+ * link, then text edits, then a link's opening delimiter right before it.
+ */
+const EDIT_RANK = { closeDelimiter: 0, text: 1, openDelimiter: 2 } as const
+
+const WHITESPACE_RE = /\s/
+
+/**
+ * The bare links an edit could join: one ends where the link starts, or one
+ * starts where the link ends or further along the same run of
+ * non-whitespace. `edits` ascend by start.
+ */
+function linksBesideEdits(source: string, links: readonly BareLink[], edits: readonly SourceEdit[]): BareLink[] {
+  const ends = new Set(edits.map(({ end }) => end))
+  return links.filter(({ range }) => {
+    if (ends.has(range.start)) return true
+    let runEnd = range.end
+    while (runEnd < source.length && !WHITESPACE_RE.test(source[runEnd])) runEnd++
+    let low = 0
+    let high = edits.length
+    while (low < high) {
+      const mid = (low + high) >>> 1
+      if (edits[mid].start < range.end) low = mid + 1
+      else high = mid
+    }
+    return low < edits.length && edits[low].start <= runEnd
+  })
+}
+
+/**
+ * The containers to repair where the parse departs from `containers`' lines
+ * at each of `departures`: for each, the last candidate (a container with
+ * edits still applied) starting at or before it, since every line before it
+ * matched, else the first candidate. `candidates` is non-empty and in
+ * source order.
+ */
+function culpritContainers(candidates: ReadonlySet<Nodes>, containers: readonly Nodes[], departures: readonly number[]): Set<Nodes> {
+  const culprits = new Set<Nodes>()
+  let [latest] = candidates
+  const latestAt: Nodes[] = []
+  for (const container of containers) {
+    if (candidates.has(container)) latest = container
+    latestAt.push(latest)
+  }
+  for (const departure of departures) culprits.add(latestAt[departure])
+  return culprits
 }
 
 /**
@@ -447,7 +542,7 @@ export function spliceTextChanges(
 
   const textEdits = groups.flatMap((group, index) =>
     groupEdits(group, originals[index], pieces).map((edit) => ({ edit, container: group.container, rank: EDIT_RANK.text })))
-  const adjacentLinks = links.filter((link) => textEdits.some(({ edit }) => touchesLink(source, link, edit)))
+  const adjacentLinks = linksBesideEdits(source, links, textEdits.map(({ edit }) => edit))
   const linkEdits = adjacentLinks.flatMap((link) => {
     const [open, close] = delimitLink(link)
     return [
@@ -468,7 +563,7 @@ export function spliceTextChanges(
       .sort((a, b) => a.edit.start - b.edit.start || a.rank - b.rank)
     const output = applyEdits(source, kept.map(({ edit }) => edit))
     const expected = signature(entries, reverted)
-    const departures = mismatches(expected.lines, signature(nodeEntries(parse(output)), new Set()).lines)
+    const departures = mismatches(expected, signature(nodeEntries(parse(output)), new Set()))
     if (departures.length === 0) return output
     const candidates = new Set(kept.map(({ container }) => container))
     /* istanbul ignore if -- defensive: with every container reverted the output is `source`, unless `transformTree` changed more than text values */
@@ -478,40 +573,4 @@ export function spliceTextChanges(
       else reverted.add(culprit)
     }
   }
-}
-
-/**
- * Order of edits at one offset: a link's closing delimiter right after the
- * link, then text edits, then a link's opening delimiter right before it.
- */
-const EDIT_RANK = { closeDelimiter: 0, text: 1, openDelimiter: 2 } as const
-
-/**
- * Whether `edit` could join `link`: it ends where the link starts, or starts
- * where the link ends or further along the same run of non-whitespace.
- */
-function touchesLink(source: string, { range }: BareLink, edit: SourceEdit): boolean {
-  if (edit.end === range.start) return true
-  if (edit.start < range.end) return false
-  for (let offset = range.end; offset < edit.start; offset++) if (/\s/.test(source[offset])) return false
-  return true
-}
-
-/**
- * The containers to repair where the parse departs from `containers`' lines
- * at each of `departures`: for each, the last candidate (a container with
- * edits still applied) starting at or before it, since every line before it
- * matched, else the first candidate. `candidates` is non-empty and in
- * source order.
- */
-function culpritContainers(candidates: ReadonlySet<Nodes>, containers: readonly Nodes[], departures: readonly number[]): Set<Nodes> {
-  const culprits = new Set<Nodes>()
-  let [latest] = candidates
-  const latestAt: Nodes[] = []
-  for (const container of containers) {
-    if (candidates.has(container)) latest = container
-    latestAt.push(latest)
-  }
-  for (const departure of departures) culprits.add(latestAt[departure])
-  return culprits
 }

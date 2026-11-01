@@ -458,7 +458,8 @@ function buildOptions(flags: ParsedFlags): CliOptions {
 
 // The merged options may carry HTML-only keys (e.g. skipTags from one shared
 // config); strip them so the Markdown sink's strict key validation only sees
-// keys it understands.
+// keys it understands. Markdown output keeps the source's bytes, line endings
+// included; HTML output has its line endings restored.
 async function transformContent(
   input: string,
   type: FileType,
@@ -470,24 +471,14 @@ async function transformContent(
     return transformMarkdown(input, omitKeys(opts, HTML_ONLY_OPTION_KEYS) as MarkdownOptions)
   }
   const transformHtml = await loadSinkTransform("html", importPeer)
-  return transformHtml(input, opts as HtmlOptions)
-}
-
-async function formatDocument(
-  original: string,
-  type: FileType,
-  opts: CliOptions,
-  importPeer: PeerImporter | undefined,
-): Promise<string> {
-  const formatted = await transformContent(original, type, opts, importPeer)
-  // Markdown output keeps the source's bytes, line endings included.
-  return type === "md" ? formatted : matchLineEndings(original, formatted)
+  return matchLineEndings(input, await transformHtml(input, opts as HtmlOptions))
 }
 
 // The HTML pipeline emits LF-only output, and a full HTML document may end
 // without a newline (its final newline can be dropped or sit inside <body>).
-// Restore the source's line-ending style and trailing-newline presence so a CRLF file doesn't gain mixed endings (which
-// would make --check report a change forever and --write churn on every run).
+// Restore the source's line-ending style and trailing-newline presence so a
+// CRLF file doesn't gain mixed endings (which would make --check report a
+// change forever and --write churn on every run).
 function matchLineEndings(original: string, formatted: string): string {
   const lineEnding = original.includes("\r\n") ? "\r\n" : "\n"
   const out = lineEnding === "\r\n"
@@ -582,7 +573,7 @@ async function runValidated(
       throw new UsageError("Reading from stdin requires --type md|html or --stdin-filepath <path>.")
     }
     const input = await readStdin(io.stdin)
-    const output = await formatDocument(input, type, opts, io.importPeer)
+    const output = await transformContent(input, type, opts, io.importPeer)
     if (check) return input === output ? 0 : 1
     io.stdout.write(output)
     return 0
@@ -623,7 +614,7 @@ async function runValidated(
       ) continue
     }
 
-    const formatted = await formatDocument(original, type, opts, io.importPeer)
+    const formatted = await transformContent(original, type, opts, io.importPeer)
     if (!write && !check) {
       io.stdout.write(formatted)
       continue

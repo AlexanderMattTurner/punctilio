@@ -1,4 +1,6 @@
-import { clipPiece, mapValueToSource, piecesIn, sourceRange, textNodeEdits, tokenizeSource, trailingPieces } from "../markdown-source.js"
+import type { Root } from "mdast"
+
+import { clipPiece, mapValueToSource, mismatches, piecesIn, sourceRange, textNodeEdits, tokenizeSource, trailingPieces } from "../markdown-source.js"
 
 describe("tokenizeSource", () => {
   it("splits text into literal, escape, reference, and line-ending pieces", () => {
@@ -95,6 +97,7 @@ describe("textNodeEdits", () => {
     ["insertion mid-value", "ab", "aXb", [{ start: 11, end: 11, text: "X" }]],
     ["insertion at end", "ab", "abX", [{ start: 12, end: 12, text: "X" }]],
     ["deletion of a final line break", "a\n", "a", [{ start: 11, end: 12, text: "" }]],
+    ["insertion after a final line break", "a\n", "a\nX", [{ start: 12, end: 12, text: "X" }]],
   ])("produces a %s edit", (_label, original, transformed, expected) => {
     expect(textNodeEdits(identity(original.length), original, transformed)).toEqual(expected)
   })
@@ -109,7 +112,18 @@ describe("textNodeEdits", () => {
     expect(textNodeEdits(quoted, "a\nb", transformed)).toEqual(expected)
   })
 
-  it("inserts after a final line break", () => {
-    expect(textNodeEdits(identity(2), "a\n", "a\nX")).toEqual([{ start: 12, end: 12, text: "X" }])
+})
+
+describe("mismatches", () => {
+  const root: Root = { type: "root", children: [] }
+  const signature = (lines: readonly string[], blocks: readonly number[]) => ({ lines, blocks, containers: lines.map(() => root) })
+  const expected = signature(["root", "p", "a", "p", "b"], [-1, 0, 0, 1, 1])
+  it.each([
+    ["no departure", signature(["root", "p", "a", "p", "b"], [-1, 0, 0, 1, 1]), []],
+    ["a changed line, block by block", signature(["root", "p", "a", "p", "B"], [-1, 0, 0, 1, 1]), [4, 4]],
+    ["an added line, at the line before it", signature(["root", "p", "a", "x", "p", "b"], [-1, 0, 0, 0, 1, 1]), [2]],
+    ["merged blocks, across the document", signature(["root", "p", "a", "b"], [-1, 0, 0, 0]), [3]],
+  ])("finds %s", (_label, actual, departures) => {
+    expect(mismatches(expected, actual)).toEqual(departures)
   })
 })
