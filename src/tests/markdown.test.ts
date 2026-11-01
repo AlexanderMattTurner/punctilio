@@ -1,10 +1,8 @@
 import { readFileSync } from "fs"
 import { resolve } from "path"
 import { fileURLToPath } from "url"
-import { globSync } from "tinyglobby"
 
 import { clearProcessorCache, transformMarkdown, transformMarkdownSync } from "../markdown.js"
-import { markdownTextOracle } from "./markdown-oracle.js"
 import { transform } from "../index.js"
 import { UNICODE_SYMBOLS } from "../constants.js"
 
@@ -299,27 +297,5 @@ describe("transformMarkdownSync", () => {
 
   it("keeps only the paragraph whose edits would change its structure", () => {
     expect(transformMarkdownSync('"a"\n\n3*x5*\n\n"b"\n')).toBe(`${LDQ}a${RDQ}\n\n3*x5*\n\n${LDQ}b${RDQ}\n`)
-  })
-})
-
-describe("transformMarkdown corpus oracle", () => {
-  const FRONTMATTER_RE = /^---\r?\n[\s\S]*?\r?\n---\r?\n/
-  const repoRoot = resolve(__dirname, "../..")
-  const files = globSync("**/*.md", {
-    cwd: repoRoot,
-    dot: true,
-    ignore: ["**/node_modules/**", "dist/**", ".stryker-tmp/**", "reports/**", ".claude/worktrees/**"],
-  })
-
-  it("finds the corpus", () => {
-    expect(files.length).toBeGreaterThan(10)
-  })
-
-  // Re-parsing the output must yield exactly the text remarkPunctilio
-  // produces on the parsed input: every edit was written in place.
-  it.each(files)("%s", (file) => {
-    const input = readFileSync(resolve(repoRoot, file), "utf-8").replace(FRONTMATTER_RE, "")
-    const { transformed, actual } = markdownTextOracle(input, transformMarkdownSync(input))
-    expect(actual).toEqual(transformed)
   })
 })

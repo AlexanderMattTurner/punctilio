@@ -11,7 +11,6 @@
  * `FUZZ_SEED=<seed> FUZZ_PATH=<path> pnpm test fuzz`.
  */
 
-import { diffChars } from "diff"
 import fc from "fast-check"
 
 import {
@@ -322,8 +321,11 @@ describe("fuzz: transformMarkdown", () => {
     )
   }, TIMEOUT_MS)
 
-  // Every character the output drops was text in the source, never syntax.
-  it("deletes only characters of text", () => {
+  // The source's syntax (everything outside its text tokens) survives in the
+  // output, in order. A diff of input and output could not say this: when
+  // several minimal diffs exist, it can attribute a deleted quote to the
+  // delimiter beside it.
+  it("keeps every syntax character", () => {
     const ARB_EDITING_OPTIONS = fc.record({
       punctuationStyle: fc.constantFrom(...PUNCTUATION_STYLES),
       fractions: fc.boolean(),
@@ -333,14 +335,16 @@ describe("fuzz: transformMarkdown", () => {
     fc.assert(
       fc.property(ARB_MARKDOWN, ARB_EDITING_OPTIONS, (text, options) => {
         const textOffsets = new Set(tokenizeSource(text).flatMap(({ start, end }) => Array.from({ length: end - start }, (_, i) => start + i)))
-        const deleted: number[] = []
-        let offset = 0
-        for (const change of diffChars(text, transformMarkdownSync(text, options))) {
-          if (change.added) continue
-          if (change.removed) deleted.push(...Array.from({ length: change.value.length }, (_, i) => offset + i))
-          offset += change.value.length
+        const output = transformMarkdownSync(text, options)
+        let found = 0
+        const missing: number[] = []
+        for (let index = 0; index < text.length; index++) {
+          if (textOffsets.has(index)) continue
+          const at = output.indexOf(text[index], found)
+          if (at === -1) missing.push(index)
+          else found = at + 1
         }
-        expect(deleted.filter((index) => !textOffsets.has(index))).toEqual([])
+        expect(missing).toEqual([])
       }),
       fcParams(1000),
     )

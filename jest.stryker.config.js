@@ -5,9 +5,10 @@ import baseConfig from "./jest.config.js"
 // config's 100% coverageThreshold would fail runs on Stryker-instrumented
 // code. regex-safety.test.ts is excluded because it is a recheck ReDoS
 // analysis gate with a 10-minute budget, not a behavioral test, so running
-// it per-mutant gives no mutation-killing signal. fuzz.test.ts is excluded
-// because each property explores thousands of generated inputs, which is too
-// slow to repeat for every mutant.
+// it per-mutant gives no mutation-killing signal. fuzz.test.ts and
+// markdown-corpus.test.ts are excluded because each explores many inputs (thousands
+// of generated ones, every Markdown file in the repository), which is too slow
+// to repeat for every mutant.
 /** @type {import('jest').Config} */
 export default {
   ...baseConfig,
@@ -23,6 +24,7 @@ export default {
   testPathIgnorePatterns: [
     "/node_modules/",
     "src/tests/fuzz.test.ts",
+    "src/tests/markdown-corpus.test.ts",
     "src/tests/regex-safety.test.ts",
   ],
 }
