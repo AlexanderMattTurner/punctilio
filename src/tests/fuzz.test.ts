@@ -11,6 +11,7 @@
  * `FUZZ_SEED=<seed> FUZZ_PATH=<path> pnpm test fuzz`.
  */
 
+import { diffChars } from "diff"
 import fc from "fast-check"
 
 import {
@@ -24,10 +25,9 @@ import {
 } from "../index.js"
 import { transformHtml } from "../html.js"
 import { transformMarkdown, transformMarkdownSync } from "../markdown.js"
-import { containersOutsideOracle, markdownTextOracle, untransformedContainers } from "./markdown-oracle.js"
 import { tokenizeSource } from "../markdown-source.js"
-import { diffChars } from "diff"
 import { type ProseNode } from "../prose-view.js"
+import { containersOutsideOracle, markdownTextOracle, untransformedContainers } from "./markdown-oracle.js"
 
 // Default seed is verified green across the suite's run counts; override with
 // FUZZ_SEED to explore a different slice.

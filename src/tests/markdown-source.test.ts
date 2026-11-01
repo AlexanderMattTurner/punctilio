@@ -1,4 +1,4 @@
-import type { Root } from "mdast"
+import type { Paragraph, Root } from "mdast"
 
 import { clipPiece, mapValueToSource, mismatches, piecesIn, sourceRange, textNodeEdits, tokenizeSource, trailingPieces } from "../markdown-source.js"
 
@@ -111,18 +111,24 @@ describe("textNodeEdits", () => {
   ])("%s", (_label, transformed, expected) => {
     expect(textNodeEdits(quoted, "a\nb", transformed)).toEqual(expected)
   })
-
 })
 
 describe("mismatches", () => {
   const root: Root = { type: "root", children: [] }
-  const signature = (lines: readonly string[], blocks: readonly number[]) => ({ lines, blocks, containers: lines.map(() => root) })
-  const expected = signature(["root", "p", "a", "p", "b"], [-1, 0, 0, 1, 1])
+  const first: Paragraph = { type: "paragraph", children: [] }
+  const second: Paragraph = { type: "paragraph", children: [] }
+  const containerOf = { r: root, a: first, b: second } as const
+  // Each line is "<container letter>:<content>"; the letter picks its container.
+  const signature = (...lines: string[]) => ({
+    lines,
+    containers: lines.map((line) => containerOf[line[0] as keyof typeof containerOf]),
+  })
+  const expected = signature("r:root", "r:list", "a:p", "a:x", "r:item", "b:p", "b:y")
   it.each([
-    ["no departure", signature(["root", "p", "a", "p", "b"], [-1, 0, 0, 1, 1]), []],
-    ["a changed line, block by block", signature(["root", "p", "a", "p", "B"], [-1, 0, 0, 1, 1]), [4, 4]],
-    ["an added line, at the line before it", signature(["root", "p", "a", "x", "p", "b"], [-1, 0, 0, 0, 1, 1]), [2]],
-    ["merged blocks, across the document", signature(["root", "p", "a", "b"], [-1, 0, 0, 0]), [3]],
+    ["no departure", signature("r:root", "r:list", "a:p", "a:x", "r:item", "b:p", "b:y"), []],
+    ["a changed line, within its container", signature("r:root", "r:list", "a:p", "a:x", "r:item", "b:p", "b:Y"), [6, 6]],
+    ["an added line, at the line before it", signature("r:root", "r:list", "a:p", "a:x", "a:z", "r:item", "b:p", "b:y"), [3]],
+    ["a merged container, across the document", signature("r:root", "r:list", "a:p", "a:x", "a:y"), [4, 6]],
   ])("finds %s", (_label, actual, departures) => {
     expect(mismatches(expected, actual)).toEqual(departures)
   })

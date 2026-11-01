@@ -295,7 +295,6 @@ describe("transformMarkdownSync", () => {
   it("keeps only the paragraph whose edits would change its structure", () => {
     expect(transformMarkdownSync('"a"\n\n3*x5*\n\n"b"\n')).toBe(`${LDQ}a${RDQ}\n\n3*x5*\n\n${LDQ}b${RDQ}\n`)
   })
-
 })
 
 describe("transformMarkdown corpus oracle", () => {

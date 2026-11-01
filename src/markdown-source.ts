@@ -1,6 +1,6 @@
 import type { Nodes, Parents, Root, RootContent, Text } from "mdast"
 
-import { diffArrays, diffChars } from "diff"
+import { type Change, diffArrays, diffChars } from "diff"
 import { parse, postprocess, preprocess } from "micromark"
 import { gfm } from "micromark-extension-gfm"
 import { decodeString } from "micromark-util-decode-string"
@@ -102,13 +102,13 @@ export function clipPiece(piece: SourcePiece, range: SourceRange): SourcePiece {
   return { start, end, text: piece.text.slice(start - piece.start, end - piece.start), literal: true }
 }
 
-/** Index of the first piece ending after `offset`. */
-function firstPieceEndingAfter(pieces: readonly SourcePiece[], offset: number): number {
+/** Index of the first of `items` (ordered so `isBefore` holds for a prefix) for which `isBefore` fails. */
+function lowerBound<T>(items: readonly T[], isBefore: (item: T) => boolean): number {
   let low = 0
-  let high = pieces.length
+  let high = items.length
   while (low < high) {
     const mid = (low + high) >>> 1
-    if (pieces[mid].end <= offset) low = mid + 1
+    if (isBefore(items[mid])) low = mid + 1
     else high = mid
   }
   return low
@@ -117,7 +117,7 @@ function firstPieceEndingAfter(pieces: readonly SourcePiece[], offset: number): 
 /** Pieces overlapping `range`, clipped to it. @internal */
 export function piecesIn(pieces: readonly SourcePiece[], range: SourceRange): SourcePiece[] {
   const inRange: SourcePiece[] = []
-  for (let i = firstPieceEndingAfter(pieces, range.start); i < pieces.length && pieces[i].start < range.end; i++) {
+  for (let i = lowerBound(pieces, (piece) => piece.end <= range.start); i < pieces.length && pieces[i].start < range.end; i++) {
     inRange.push(clipPiece(pieces[i], range))
   }
   return inRange
@@ -152,11 +152,28 @@ export function trailingPieces(pieces: readonly SourcePiece[], range: SourceRang
 
 const LEADING_LINE_BREAK_RE = /^\r?\n/
 
+/** `value`'s lines, each with the line break that ends it. */
+function linesOf(value: string): string[] {
+  return value.split("\n").map((line, index, lines) => (index < lines.length - 1 ? `${line}\n` : line))
+}
+
+/**
+ * The character diff of `original` and `transformed`, line by line when they
+ * have as many lines (as punctilio's edits nearly always leave them), since
+ * diffing a long, densely edited node whole is quadratic.
+ */
+function characterChanges(original: string, transformed: string): Change[] {
+  const originalLines = linesOf(original)
+  const transformedLines = linesOf(transformed)
+  if (originalLines.length !== transformedLines.length) return diffChars(original, transformed)
+  return originalLines.flatMap((line, index) => diffChars(line, transformedLines[index]))
+}
+
 /** Source edits that turn a text value into `transformed`, in ascending order. @internal */
 export function textNodeEdits(map: ValueSourceMap, original: string, transformed: string): SourceEdit[] {
   const { starts, ends } = map
   const edits: SourceEdit[] = []
-  const changes = diffChars(original, transformed)
+  const changes = characterChanges(original, transformed)
   let valueIndex = 0
   for (let i = 0; i < changes.length; i++) {
     const change = changes[i]
@@ -335,8 +352,6 @@ function applyEdits(source: string, edits: readonly SourceEdit[]): string {
 interface NodeEntry {
   readonly key: string
   readonly container: Nodes
-  /** Index of the root child holding the node; -1 for the root. */
-  readonly block: number
   readonly text: Text | undefined
   readonly original: string
 }
@@ -350,16 +365,13 @@ const UNKEYED_FIELDS: ReadonlySet<string> = new Set(["children", "position", "da
  */
 function nodeEntries(tree: Root): NodeEntry[] {
   const entries: NodeEntry[] = []
-  let block = -1
   visitParents(tree, (node: Root | RootContent, ancestors: Parents[]) => {
-    if (ancestors.length === 1) block++
     const text = node.type === "text" ? node : undefined
     const fields = JSON.stringify(node, (field: string, value: unknown) =>
       UNKEYED_FIELDS.has(field) || (field === "value" && text !== undefined) ? undefined : value)
     entries.push({
       key: `${ancestors.length} ${fields}`,
       container: containerOf(tree, ancestors, node),
-      block,
       text,
       original: text?.value ?? "",
     })
@@ -390,10 +402,8 @@ export function trimLineEdges(value: string): string {
 /** The parse of a document, one line per node. @internal */
 export interface Signature {
   readonly lines: readonly string[]
-  /** The paragraph, heading, or table cell holding each line. */
+  /** The paragraph, heading, or table cell holding each line, else the root. */
   readonly containers: readonly Nodes[]
-  /** The root child holding each line, -1 for the root's. */
-  readonly blocks: readonly number[]
 }
 
 /**
@@ -404,8 +414,7 @@ export interface Signature {
 function signature(entries: readonly NodeEntry[], reverted: ReadonlySet<Nodes>): Signature {
   const lines: string[] = []
   const containers: Nodes[] = []
-  const blocks: number[] = []
-  for (const { key, container, block, text, original } of entries) {
+  for (const { key, container, text, original } of entries) {
     if (text === undefined) {
       lines.push(key)
     } else {
@@ -414,9 +423,8 @@ function signature(entries: readonly NodeEntry[], reverted: ReadonlySet<Nodes>):
       lines.push(`${key} ${trimLineEdges(value)}`)
     }
     containers.push(container)
-    blocks.push(block)
   }
-  return { lines, containers, blocks }
+  return { lines, containers }
 }
 
 /**
@@ -438,10 +446,10 @@ function lineDepartures(expected: readonly string[], actual: readonly string[], 
   return departures
 }
 
-/** Where each block's lines start, then the line count. */
-function blockStarts(blocks: readonly number[]): number[] {
-  const starts = blocks.flatMap((block, index) => (index === 0 || block !== blocks[index - 1] ? [index] : []))
-  return [...starts, blocks.length]
+/** Where each segment (a run of lines in one container) starts, then the line count. */
+function segmentStarts(containers: readonly Nodes[]): number[] {
+  const starts = containers.flatMap((container, index) => (index === 0 || container !== containers[index - 1] ? [index] : []))
+  return [...starts, containers.length]
 }
 
 const sameLines = (a: readonly string[], b: readonly string[]): boolean =>
@@ -449,14 +457,14 @@ const sameLines = (a: readonly string[], b: readonly string[]): boolean =>
 
 /**
  * Lines of `expected` where `actual` departs from it (see
- * {@link lineDepartures}). Edits rarely change the number of top-level
- * blocks, so the lines are diffed block by block, which keeps the diff linear
- * in the document when many blocks depart; the root's line always matches, so
- * every departure has a line. @internal
+ * {@link lineDepartures}). Edits rarely change how many paragraphs, headings,
+ * and table cells there are, so the lines are diffed segment by segment, which
+ * keeps the diff linear in the document when many containers depart; the
+ * root's line always matches, so every departure has a line. @internal
  */
 export function mismatches(expected: Signature, actual: Signature): number[] {
-  const expectedStarts = blockStarts(expected.blocks)
-  const actualStarts = blockStarts(actual.blocks)
+  const expectedStarts = segmentStarts(expected.containers)
+  const actualStarts = segmentStarts(actual.containers)
   if (expectedStarts.length !== actualStarts.length) return lineDepartures(expected.lines, actual.lines, 0)
   return expectedStarts.slice(1).flatMap((end, index) => {
     const expectedLines = expected.lines.slice(expectedStarts[index], end)
@@ -484,14 +492,8 @@ function linksBesideEdits(source: string, links: readonly BareLink[], edits: rea
     if (ends.has(range.start)) return true
     let runEnd = range.end
     while (runEnd < source.length && !WHITESPACE_RE.test(source[runEnd])) runEnd++
-    let low = 0
-    let high = edits.length
-    while (low < high) {
-      const mid = (low + high) >>> 1
-      if (edits[mid].start < range.end) low = mid + 1
-      else high = mid
-    }
-    return low < edits.length && edits[low].start <= runEnd
+    const next = lowerBound(edits, (edit) => edit.start < range.end)
+    return next < edits.length && edits[next].start <= runEnd
   })
 }
 
@@ -542,6 +544,7 @@ export function spliceTextChanges(
 
   const textEdits = groups.flatMap((group, index) =>
     groupEdits(group, originals[index], pieces).map((edit) => ({ edit, container: group.container, rank: EDIT_RANK.text })))
+  if (textEdits.length === 0) return source
   const adjacentLinks = linksBesideEdits(source, links, textEdits.map(({ edit }) => edit))
   const linkEdits = adjacentLinks.flatMap((link) => {
     const [open, close] = delimitLink(link)

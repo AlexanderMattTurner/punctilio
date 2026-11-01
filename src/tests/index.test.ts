@@ -908,7 +908,7 @@ describe("transform", () => {
   describe("option key validation", () => {
     it.each([
       "fraction", // typo of "fractions"
-      "emphasisMarker", // a removed Markdown option
+      "emphasisMarker", // not a transform() option
       "skipTags", // HTML-only key
     ])('rejects unknown option key "%s" listing the valid keys', (key) => {
       const callTransform = () => transform("hello", { [key]: true } as never)
