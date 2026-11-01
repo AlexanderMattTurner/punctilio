@@ -288,7 +288,7 @@ describe("transformMarkdownSync", () => {
 })
 
 describe("transformMarkdown corpus oracle", () => {
-  const FRONTMATTER_RE = /^---\n[\s\S]*?\n---\n/
+  const FRONTMATTER_RE = /^---\r?\n[\s\S]*?\r?\n---\r?\n/
   const repoRoot = resolve(__dirname, "../..")
   const files = globSync("**/*.md", {
     cwd: repoRoot,
