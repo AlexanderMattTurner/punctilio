@@ -150,7 +150,6 @@
     "rehype-stringify": "^10.0.0",
     "remark-gfm": "^4.0.0",
     "remark-parse": "^11.0.0",
-    "remark-stringify": "^11.0.0",
     "unified": "^11.0.0"
   },
   "peerDependenciesMeta": {
@@ -171,14 +170,15 @@
     },
     "remark-parse": {
       "optional": true
-    },
-    "remark-stringify": {
-      "optional": true
     }
   },
   "dependencies": {
     "cosmiconfig": "9.0.1",
+    "diff": "9.0.0",
     "ignore": "7.0.5",
+    "micromark": "^4.0.2",
+    "micromark-extension-gfm": "^3.0.0",
+    "micromark-util-decode-string": "^2.0.1",
     "parse5": "7.3.0",
     "quick-lru": "7.3.0",
     "tinyglobby": "0.2.16",

@@ -1,0 +1,162 @@
+import type { Paragraph, Root } from "mdast"
+
+import { clipPiece, mapValueToSource, mismatches, piecesIn, sourceRange, textNodeEdits, tokenizeSource, trailingPieces } from "../markdown-source.js"
+
+describe("tokenizeSource", () => {
+  it("splits text into literal, escape, reference, and line-ending pieces", () => {
+    expect(tokenizeSource("> a\n> \\>= &amp;")).toEqual([
+      { start: 2, end: 3, text: "a", literal: true },
+      { start: 3, end: 4, text: "\n", literal: true },
+      { start: 6, end: 8, text: ">", literal: false },
+      { start: 8, end: 10, text: "= ", literal: true },
+      { start: 10, end: 15, text: "&", literal: false },
+    ])
+  })
+})
+
+describe("sourceRange", () => {
+  const point = (offset?: number) => ({ line: 1, column: 1, offset })
+  it.each([
+    ["no position", {}, undefined],
+    ["a missing end offset", { position: { start: point(0), end: point() } }, undefined],
+    ["both offsets", { position: { start: point(1), end: point(3) } }, { start: 1, end: 3 }],
+  ])("returns the range for %s", (_label, fields, expected) => {
+    expect(sourceRange({ type: "text", value: "", ...fields })).toEqual(expected)
+  })
+
+  it("returns no range for no node", () => {
+    expect(sourceRange(undefined)).toBeUndefined()
+  })
+})
+
+describe("clipPiece", () => {
+  const range = { start: 2, end: 4 }
+  it.each([
+    ["trims a literal piece", { start: 0, end: 6, text: "abcdef", literal: true }, { start: 2, end: 4, text: "cd", literal: true }],
+    ["keeps a contained literal piece", { start: 2, end: 4, text: "cd", literal: true }, { start: 2, end: 4, text: "cd", literal: true }],
+    ["keeps an escape whole", { start: 2, end: 4, text: "[", literal: false }, { start: 2, end: 4, text: "[", literal: false }],
+  ])("%s", (_label, piece, expected) => {
+    expect(clipPiece(piece, range)).toEqual(expected)
+  })
+})
+
+describe("piecesIn", () => {
+  const pieces = [
+    { start: 0, end: 2, text: "ab", literal: true },
+    { start: 2, end: 4, text: "cd", literal: true },
+    { start: 6, end: 8, text: "[", literal: false },
+    { start: 8, end: 10, text: "ef", literal: true },
+  ]
+  it.each([
+    ["clips the pieces at both ends", { start: 1, end: 9 }, ["b", "cd", "[", "e"]],
+    ["skips pieces ending at the range start", { start: 4, end: 10 }, ["[", "ef"]],
+    ["finds nothing past the last piece", { start: 10, end: 12 }, []],
+  ])("%s", (_label, range, expected) => {
+    expect(piecesIn(pieces, range).map((piece) => piece.text)).toEqual(expected)
+  })
+})
+
+describe("trailingPieces", () => {
+  const pieces = [
+    { start: 0, end: 2, text: "ab", literal: true },
+    { start: 2, end: 4, text: "[", literal: false },
+    { start: 4, end: 7, text: "cde", literal: true },
+  ]
+  it.each([
+    ["whole pieces", 4, ["[", "cde"]],
+    ["a literal piece clipped at its start", 5, ["b", "[", "cde"]],
+    ["every piece when the range holds no more", 9, ["ab", "[", "cde"]],
+  ])("takes %s", (_label, length, expected) => {
+    expect(trailingPieces(pieces, { start: 0, end: 7 }, length).map((piece) => piece.text)).toEqual(expected)
+  })
+})
+
+describe("mapValueToSource", () => {
+  it("maps literal units one-to-one and escaped units to their whole token", () => {
+    const pieces = [
+      { start: 0, end: 2, text: "ab", literal: true },
+      { start: 2, end: 8, text: "&", literal: false },
+    ]
+    expect(mapValueToSource("ab&", pieces)).toEqual({ starts: [0, 1, 2], ends: [1, 2, 8] })
+  })
+
+  it("throws when the pieces do not spell the value", () => {
+    expect(() => mapValueToSource("x", [{ start: 0, end: 1, text: "y", literal: true }])).toThrow(/do not match/)
+  })
+})
+
+describe("textNodeEdits", () => {
+  const identity = (length: number) => ({
+    starts: Array.from({ length }, (_, i) => 10 + i),
+    ends: Array.from({ length }, (_, i) => 11 + i),
+  })
+
+  it.each([
+    ["replacement", "a...", "a…", [{ start: 11, end: 14, text: "…" }]],
+    ["deletion", "a  b", "a b", [{ start: 12, end: 13, text: "" }]],
+    ["insertion at the start", "ab", "Xab", [{ start: 10, end: 10, text: "X" }]],
+    ["insertion mid-value", "ab", "aXb", [{ start: 11, end: 11, text: "X" }]],
+    ["insertion at end", "ab", "abX", [{ start: 12, end: 12, text: "X" }]],
+    ["deletion of a final line break", "a\n", "a", [{ start: 11, end: 12, text: "" }]],
+    ["insertion after a final line break", "a\n", "a\nX", [{ start: 12, end: 12, text: "X" }]],
+  ])("produces a %s edit", (_label, original, transformed, expected) => {
+    expect(textNodeEdits(identity(original.length), original, transformed)).toEqual(expected)
+  })
+
+  // A line too long for an exact diff is diffed between paired runs of
+  // letters, digits, and spaces; the padding makes it that long.
+  const PADDING = " word".repeat(500)
+  it.each([
+    [
+      "a rewritten run between paired ones",
+      'the 1st "one"',
+      "the 1\u02E2\u1D57 \u201Cone\u201D",
+      [{ start: 15, end: 17, text: "\u02E2\u1D57" }, { start: 18, end: 19, text: "\u201C" }, { start: 22, end: 23, text: "\u201D" }],
+    ],
+    [
+      "more rewritten runs than the pairing window spans",
+      "a b c d e f g h i j k",
+      "A B C D E F G H I J k",
+      "ABCDEFGHIJ".split("").map((letter, index) => ({ start: 10 + 2 * index, end: 11 + 2 * index, text: letter })),
+    ],
+    // `2x3` becomes `2×3`, splitting one run in two; its "2" is not paired
+    // with the fraction's "2", which follows a different character.
+    ["an equal run out of context", "2x3 a 1/2", "2\u00D73 a \u00BD", [{ start: 11, end: 12, text: "\u00D7" }, { start: 16, end: 19, text: "\u00BD" }]],
+    // The space runs after "aaaaa" and after "aaaa" skip equally many runs;
+    // the one that keeps the offsets aligned wins.
+    ["a tie between equally near pairs", "aaaaa", "aaaa ", [{ start: 14, end: 15, text: "" }, { start: 16, end: 16, text: " " }]],
+  ])("diffs a long line: %s", (_label, original, transformed, expected) => {
+    expect(textNodeEdits(identity(original.length + PADDING.length), original + PADDING, transformed + PADDING)).toEqual(expected)
+  })
+
+  // Source "a \n> b": the parser trims the space and the `> ` prefix from the value "a\nb".
+  const quoted = { starts: [0, 2, 5], ends: [1, 3, 6] }
+  it.each([
+    ["removes the trimmed space and next line's prefix along with a line break", "ab", [{ start: 1, end: 5, text: "" }]],
+    ["inserts before a line break, ahead of the trimmed space", "aX\nb", [{ start: 1, end: 1, text: "X" }]],
+    ["inserts after a line break, behind the next line's prefix", "a\nXb", [{ start: 5, end: 5, text: "X" }]],
+  ])("%s", (_label, transformed, expected) => {
+    expect(textNodeEdits(quoted, "a\nb", transformed)).toEqual(expected)
+  })
+})
+
+describe("mismatches", () => {
+  const root: Root = { type: "root", children: [] }
+  const first: Paragraph = { type: "paragraph", children: [] }
+  const second: Paragraph = { type: "paragraph", children: [] }
+  const containerOf = { r: root, a: first, b: second } as const
+  // Each line is "<container letter>:<content>"; the letter picks its container.
+  const signature = (...lines: string[]) => ({
+    lines,
+    containers: lines.map((line) => containerOf[line[0] as keyof typeof containerOf]),
+  })
+  const expected = signature("r:root", "r:list", "a:p", "a:x", "r:item", "b:p", "b:y")
+  it.each([
+    ["no departure", signature("r:root", "r:list", "a:p", "a:x", "r:item", "b:p", "b:y"), []],
+    ["a changed line, within its container", signature("r:root", "r:list", "a:p", "a:x", "r:item", "b:p", "b:Y"), [6, 6]],
+    ["an added line, at the line before it", signature("r:root", "r:list", "a:p", "a:x", "a:z", "r:item", "b:p", "b:y"), [3]],
+    ["a merged container, across the document", signature("r:root", "r:list", "a:p", "a:x", "a:y"), [4, 6]],
+  ])("finds %s", (_label, actual, departures) => {
+    expect(mismatches(expected, actual)).toEqual(departures)
+  })
+})

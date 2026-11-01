@@ -44,15 +44,13 @@ export function assertKnownOptionKeys(
 const BYTE_ORDER_MARK = "\uFEFF"
 
 /**
- * Runs `transform` on `input` without its leading BOM, which would otherwise
- * be parsed as content, and restores the BOM on the result. @internal
+ * Splits a leading BOM off `input`, since parsers would read it as content;
+ * callers transform `body` and prepend `bom` to the result. @internal
  */
-export async function transformPreservingBom(
-  input: string,
-  transform: (inputWithoutBom: string) => Promise<string>,
-): Promise<string> {
-  if (!input.startsWith(BYTE_ORDER_MARK)) return transform(input)
-  return BYTE_ORDER_MARK + (await transform(input.slice(BYTE_ORDER_MARK.length)))
+export function splitByteOrderMark(input: string): { bom: string; body: string } {
+  return input.startsWith(BYTE_ORDER_MARK)
+    ? { bom: BYTE_ORDER_MARK, body: input.slice(BYTE_ORDER_MARK.length) }
+    : { bom: "", body: input }
 }
 
 /** Returns a copy of `obj` without the listed keys. @internal */

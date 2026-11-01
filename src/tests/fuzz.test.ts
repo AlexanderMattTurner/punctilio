@@ -11,6 +11,7 @@
  * `FUZZ_SEED=<seed> FUZZ_PATH=<path> pnpm test fuzz`.
  */
 
+import { diffChars } from "diff"
 import fc from "fast-check"
 
 import {
@@ -23,8 +24,10 @@ import {
   transformView,
 } from "../index.js"
 import { transformHtml } from "../html.js"
-import { remarkRoundTrip, transformMarkdown } from "../markdown.js"
+import { transformMarkdown, transformMarkdownSync } from "../markdown.js"
+import { tokenizeSource } from "../markdown-source.js"
 import { type ProseNode } from "../prose-view.js"
+import { containersOutsideOracle, markdownTextOracle, untransformedContainers } from "./markdown-oracle.js"
 
 // Default seed is verified green across the suite's run counts; override with
 // FUZZ_SEED to explore a different slice.
@@ -296,16 +299,78 @@ describe("fuzz: transformMarkdown", () => {
     unit: fc.constantFrom(..."\"'-.!?x/()0123456789abz ,;:\n*_`[]#>\u201C\u201D\u2018\u2019\u201E\u201A\u00AB\u00BB\u02BC"),
   })
 
-  // Remark's own parse+stringify is not a fixed point (`_)_*!*)` → `*)**!*)` →
-  // `*)\*\*!*)`), so a second run is held to remark's plain round trip of the
-  // first output; the property targets punctilio's changes, not remark's.
-  it("is idempotent", async () => {
-    await fc.assert(
-      fc.asyncProperty(ARB_MARKDOWN_TEXT, async (text) => {
-        const once = await transformMarkdown(text)
-        expect(await transformMarkdown(once)).toBe(await remarkRoundTrip(once))
+  // Prose characters mixed with Markdown syntax whose meaning depends on its
+  // neighbors: bare URLs, escapes, entities, references, and table pipes.
+  const ARB_MARKDOWN_SYNTAX = fc
+    .array(
+      fc.constantFrom(
+        ..."\"'-.!?x 3\n*_`[]>|~\u201C\u00AB",
+        "https://x.co/a", "www.x.co", "a@b.co", "\\_", "\\[", "&amp;", "&quot;", "[r]", "[r][]", "\n\n[r]: /u\n", "\n|-|\n", "\n- ", "\n> ",
+      ),
+      { maxLength: 25 },
+    )
+    .map((units) => units.join(""))
+  const ARB_MARKDOWN = fc.oneof(ARB_MARKDOWN_TEXT, ARB_MARKDOWN_SYNTAX)
+
+  it("is idempotent", () => {
+    fc.assert(
+      fc.property(ARB_MARKDOWN, (text) => {
+        const once = transformMarkdownSync(text)
+        expect(transformMarkdownSync(once)).toBe(once)
       }),
-      fcParams(300),
+      fcParams(1000),
+    )
+  }, TIMEOUT_MS)
+
+  // Every character the output drops was text in the source, never syntax.
+  it("deletes only characters of text", () => {
+    const ARB_EDITING_OPTIONS = fc.record({
+      punctuationStyle: fc.constantFrom(...PUNCTUATION_STYLES),
+      fractions: fc.boolean(),
+      superscript: fc.boolean(),
+      nbsp: fc.boolean(),
+    })
+    fc.assert(
+      fc.property(ARB_MARKDOWN, ARB_EDITING_OPTIONS, (text, options) => {
+        const textOffsets = new Set(tokenizeSource(text).flatMap(({ start, end }) => Array.from({ length: end - start }, (_, i) => start + i)))
+        const deleted: number[] = []
+        let offset = 0
+        for (const change of diffChars(text, transformMarkdownSync(text, options))) {
+          if (change.added) continue
+          if (change.removed) deleted.push(...Array.from({ length: change.value.length }, (_, i) => offset + i))
+          offset += change.value.length
+        }
+        expect(deleted.filter((index) => !textOffsets.has(index))).toEqual([])
+      }),
+      fcParams(1000),
+    )
+  }, TIMEOUT_MS)
+
+  // Without emphasis delimiters, brackets, or URLs, no edit can change how a
+  // paragraph parses, so none is kept as written.
+  it("writes every edit to prose in place", () => {
+    const ARB_PROSE = fc.string({
+      maxLength: 50,
+      unit: fc.constantFrom(..."\"'-.!?x/()0123456789abz ,;:\n#>\u201C\u201D\u2018\u2019\u201E\u201A\u00AB\u00BB\u02BC"),
+    })
+    fc.assert(
+      fc.property(ARB_PROSE, fc.constantFrom(...PUNCTUATION_STYLES), (text, punctuationStyle) => {
+        const oracle = markdownTextOracle(text, transformMarkdownSync(text, { punctuationStyle }), { punctuationStyle })
+        expect(untransformedContainers(oracle)).toEqual([])
+      }),
+      fcParams(1000),
+    )
+  }, TIMEOUT_MS)
+
+  // Re-parsing the output yields, per paragraph, the text remarkPunctilio
+  // produces on the parsed input or else the text as written.
+  it("changes only what remarkPunctilio changes", () => {
+    fc.assert(
+      fc.property(ARB_MARKDOWN, fc.constantFrom(...PUNCTUATION_STYLES), (text, punctuationStyle) => {
+        const oracle = markdownTextOracle(text, transformMarkdownSync(text, { punctuationStyle }), { punctuationStyle })
+        expect(containersOutsideOracle(oracle)).toEqual([])
+      }),
+      fcParams(1000),
     )
   }, TIMEOUT_MS)
 

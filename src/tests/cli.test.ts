@@ -342,10 +342,6 @@ describe("runCli", () => {
   it.each([
     ["punctuation-style", "german"],
     ["dash-style", "british"],
-    ["emphasis-marker", "_"],
-    ["strong-marker", "_"],
-    ["bullet-marker", "*"],
-    ["rule-marker", "*"],
   ])("accepts valid --%s=%s", async (flag, value) => {
     const path = tmpFile("Hi.\n", "doc.md")
     const cap = captureIO()
@@ -356,10 +352,6 @@ describe("runCli", () => {
   it.each([
     ["punctuation-style", "klingon"],
     ["dash-style", "swedish"],
-    ["emphasis-marker", "$"],
-    ["strong-marker", "$"],
-    ["bullet-marker", "@"],
-    ["rule-marker", "@"],
   ])("rejects invalid --%s=%s", async (flag, value) => {
     const path = tmpFile("x\n", "doc.md")
     const cap = captureIO()
@@ -501,6 +493,13 @@ describe("runCli", () => {
     const code = await runCli(["--bogus"], cap.io)
     expect(code).toBe(2)
     expect(cap.stderr()).toMatch(/unknown option/i)
+  })
+
+  it("--write keeps Markdown syntax and mixed line endings outside changed prose", async () => {
+    const source = '- a_b [x] "c"\r\n\n***\n'
+    const path = tmpFile(source, "doc.md")
+    expect(await runCli(["--write", "--no-cache", path], captureIO().io)).toBe(0)
+    expect(readFileSync(path, "utf8")).toBe(`- a_b [x] ${LDQ}c${RDQ}\r\n\n***\n`)
   })
 
   it("cache writes a cache file and skips unchanged files on the second run", async () => {
@@ -735,10 +734,9 @@ describe("runCli", () => {
     expect(cap.stderr()).toContain("Valid options:")
   })
 
-  it("a config mixing markdown-only and html-only keys formats both file types", async () => {
+  it("a config with html-only keys formats both file types", async () => {
     const configPath = tmpFile(
       JSON.stringify({
-        emphasisMarker: "_", // markdown-only
         skipTags: ["aside"], // html-only
         fragment: true, // html-only
         nbsp: false,
@@ -750,7 +748,7 @@ describe("runCli", () => {
     const cap = captureIO()
     const code = await runCli(["--write", "--config", configPath, md, html], cap.io)
     expect(code).toBe(0)
-    expect(readFileSync(md, "utf8")).toContain(`_hi_ and ${LDQ}quote${RDQ}`)
+    expect(readFileSync(md, "utf8")).toBe(`*hi* and ${LDQ}quote${RDQ}\n`)
     const htmlOut = readFileSync(html, "utf8")
     expect(htmlOut).toContain(`${LDQ}a${RDQ}`)
     expect(htmlOut).toContain('"b"')
@@ -934,9 +932,6 @@ describe("runCli", () => {
     ["skipClasses", ["raw", 1], "an array of strings"],
     ["punctuationStyle", "klingon", `one of ${["american", "british", "german", "french", "none"].join(", ")}`],
     ["dashStyle", true, "one of american, british, none"],
-    ["emphasisMarker", "$", "one of *, _"],
-    ["bulletMarker", "@", "one of -, *, +"],
-    ["ruleMarker", null, "one of -, *, _"],
     ["shouldSkipText", "yes", "a function"],
   ])("rejects a config file whose %s has the wrong type (%p)", async (key, value, expected) => {
     const configPath = tmpFile(JSON.stringify({ [key]: value }), ".punctiliorc.json")

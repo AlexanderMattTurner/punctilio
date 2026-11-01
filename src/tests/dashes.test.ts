@@ -38,6 +38,16 @@ describe("hyphenReplace", () => {
       [`This is an ${EM_DASH} em dash.`, `This is an${EM_DASH}em dash.`],
       [`word ${EM_DASH} word`, `word${EM_DASH}word`],
       ["word ---", `word${EM_DASH}`],
+      // A line break ends a spaced dash the way end of text does.
+      ["a --\nb", `a${EM_DASH}\nb`],
+      ["a ---\nb", `a${EM_DASH}\nb`],
+      ["a -- \nb", `a${EM_DASH}\nb`],
+      ["a -\nb", `a${EM_DASH}\nb`],
+      [`a ${EM_DASH}\nb`, `a${EM_DASH}\nb`],
+      ["a --\r\nb", `a${EM_DASH}\r\nb`],
+      // A run that cannot convert whole stays whole rather than stranding a hyphen.
+      ["a --\tb", "a --\tb"],
+      ["a ---\u00A0b", "a ---\u00A0b"],
       [`word${EM_DASH} word`, `word${EM_DASH}word`],
       [`word ${EM_DASH}word`, `word${EM_DASH}word`],
       ['"I love dogs." - Me', `"I love dogs."${EM_DASH}Me`],
@@ -1093,10 +1103,8 @@ describe("ProseView boundary-tolerance edges", () => {
       // The trailing `(?:${chr} [ ]*)?` consumes one boundary plus its kept
       // post-boundary spaces; the lookahead is then satisfied by the next word.
       ["trailing separator with kept spaces", `a - ${sep} b`, `a${EM_DASH}${sep} b`],
-      // The full "---" run is an em-dash candidate whose trailing `\n` fails the
-      // `(?=\S|$)` lookahead at the longest length; the run backtracks to a
-      // shorter dash core that converts, leaving the final hyphen.
-      ["dash run backtracks past a failing trailing lookahead", `a ---\n`, `a${EM_DASH}-\n`],
+      // A line break ends a spaced dash run the way end of text does.
+      ["dash run before a line break", `a ---\n`, `a${EM_DASH}\n`],
     ])("%s", (_desc, input, expected) => {
       expect(viewTransform(hyphenReplace, input, sep)).toBe(expected)
     })

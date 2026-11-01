@@ -18,7 +18,8 @@ import { assertKnownOptionKeys } from "./utils.js"
  */
 export type RemarkPunctilioOptions = TransformOptions
 
-const PHRASING_CONTAINERS = new Set(["paragraph", "heading", "tableCell"])
+/** Nodes whose phrasing children punctilio transforms as one prose view. @internal */
+export const PHRASING_CONTAINERS: ReadonlySet<string> = new Set(["paragraph", "heading", "tableCell"])
 
 const SKIP_TYPES = new Set(["inlineCode", "html"])
 
@@ -73,6 +74,15 @@ function isUrlTextLink(node: Link, source: string): boolean {
   return stripUrlScheme(node.children[0].value) === stripUrlScheme(node.url)
 }
 
+/**
+ * True for a shortcut (`[label]`) or collapsed (`[label][]`) reference, whose
+ * text is also the identifier that matches its definition, so rewriting the
+ * text would stop it resolving once the tree is printed back to Markdown.
+ */
+function isLabelReference(node: PhrasingContent): boolean {
+  return node.type === "linkReference" && node.referenceType !== "full"
+}
+
 const ignoreToken = (): void => {}
 
 /** Tracks raw-HTML skip-list tags so the text between an open and close tag is skipped. */
@@ -112,7 +122,8 @@ function collectProse(node: PhrasingContent, depth: number, c: ProseCollector): 
     SKIP_TYPES.has(node.type) ||
     OPAQUE_LEAF_TYPES.has(node.type) ||
     c.openSkippedTags.length > 0 ||
-    (node.type === "link" && isUrlTextLink(node, c.source))
+    (node.type === "link" && isUrlTextLink(node, c.source)) ||
+    isLabelReference(node)
   ) {
     c.pendingOpaque = true
     return

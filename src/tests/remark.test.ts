@@ -1,4 +1,4 @@
-import type { Link, Paragraph, Root, Text } from "mdast"
+import type { Link, LinkReference, Paragraph, Root, Text } from "mdast"
 import { unified } from "unified"
 import { visitParents } from "unist-util-visit-parents"
 import remarkParse from "remark-parse"
@@ -274,6 +274,25 @@ describe("remarkPunctilio", () => {
       prepare(link)
       await processor.run(tree, "")
       expect((link.children[0] as Text).value).toEqual(`${LDQ}a${RDQ}${EM_DASH}b`)
+    })
+  })
+
+  describe("reference labels", () => {
+    // A shortcut or collapsed reference's text is also its definition's
+    // identifier, so it stays as written; a full reference's text is free.
+    it.each([
+      ["a shortcut reference", '"[foo--bar]" x', ["foo--bar"]],
+      ["a collapsed reference", '"[foo--bar][]" x', ["foo--bar"]],
+      ["a full reference", '"[foo--bar][r]" x', [`foo${EM_DASH}bar`]],
+    ])("%s", async (_name, paragraph, labelTexts) => {
+      const processor = unified().use(remarkParse).use(remarkPunctilio, { nbsp: false })
+      const source = `${paragraph}\n\n[foo--bar]: /u\n[r]: /r\n`
+      const tree = processor.parse(source)
+      await processor.run(tree, source)
+      const reference = (tree.children[0] as Paragraph).children[1] as LinkReference
+      expect(reference.children.map((child) => (child as Text).value)).toEqual(labelTexts)
+      const outside = (tree.children[0] as Paragraph).children.filter((child) => child.type === "text")
+      expect(outside.map((child) => child.value)).toEqual([LDQ, `${RDQ} x`])
     })
   })
 

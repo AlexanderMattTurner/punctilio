@@ -11,7 +11,7 @@ import { cosmiconfig } from "cosmiconfig"
 import ignore, { type Ignore } from "ignore"
 import { glob } from "tinyglobby"
 
-import { HTML_ONLY_OPTION_KEYS, MARKDOWN_ONLY_OPTION_KEYS } from "./sink-option-keys.js"
+import { HTML_ONLY_OPTION_KEYS } from "./sink-option-keys.js"
 import type { MarkdownOptions } from "./markdown.js"
 import type { HtmlOptions } from "./html.js"
 import { loadSinkTransform, MissingPeerDependencyError, type PeerImporter } from "./peer-dependencies.js"
@@ -33,9 +33,6 @@ interface CliIO {
 class UsageError extends Error {}
 
 const FILE_TYPES = ["md", "html"] as const satisfies readonly FileType[]
-const EMPHASIS_MARKERS = ["*", "_"] as const
-const BULLET_MARKERS = ["-", "*", "+"] as const
-const RULE_MARKERS = ["-", "*", "_"] as const
 
 const MARKDOWN_EXTENSIONS = new Set([".md", ".markdown"])
 const HTML_EXTENSIONS = new Set([".html", ".htm"])
@@ -60,23 +57,17 @@ interface ParsedFlags {
   degrees?: boolean
   superscript?: boolean
   ligatures?: boolean
-  emphasisMarker?: "*" | "_"
-  strongMarker?: "*" | "_"
-  bulletMarker?: "-" | "*" | "+"
-  ruleMarker?: "-" | "*" | "_"
   skipTag?: string[]
   skipClass?: string[]
   fragment?: boolean
 }
 
 const PARSE_ARGS_OPTIONS = {
-  "bullet-marker": { type: "string" },
   "cache-location": { type: "string" },
   check: { type: "boolean" },
   config: { type: "string" },
   "dash-style": { type: "string" },
   degrees: { type: "boolean" },
-  "emphasis-marker": { type: "string" },
   fractions: { type: "boolean" },
   help: { short: "h", type: "boolean" },
   "ignore-path": { type: "string" },
@@ -90,11 +81,9 @@ const PARSE_ARGS_OPTIONS = {
   "no-nbsp": { type: "boolean" },
   "no-symbols": { type: "boolean" },
   "punctuation-style": { type: "string" },
-  "rule-marker": { type: "string" },
   "skip-class": { multiple: true, type: "string" },
   "skip-tag": { multiple: true, type: "string" },
   "stdin-filepath": { type: "string" },
-  "strong-marker": { type: "string" },
   superscript: { type: "boolean" },
   type: { type: "string" },
   version: { short: "V", type: "boolean" },
@@ -130,10 +119,6 @@ Options:
   --degrees                   enable 20 C → 20 °C
   --superscript               enable 1st → 1ˢᵗ
   --ligatures                 enable !? → ⁉
-  --emphasis-marker <char>    markdown emphasis character (choices: ${EMPHASIS_MARKERS.join(", ")})
-  --strong-marker <char>      markdown strong emphasis character (choices: ${EMPHASIS_MARKERS.join(", ")})
-  --bullet-marker <char>      markdown list bullet character (choices: ${BULLET_MARKERS.join(", ")})
-  --rule-marker <char>        markdown thematic break character (choices: ${RULE_MARKERS.join(", ")})
   --skip-tag <tag>            HTML tag whose contents are left alone (repeatable)
   --skip-class <class>        HTML class name whose elements are skipped (repeatable)
   --no-fragment               always parse HTML as a full document (default: a full document is detected from a leading <!doctype> or <html>)
@@ -204,10 +189,6 @@ function buildFlags(values: ParsedValues, tokens: ParsedTokens): ParsedFlags {
     degrees: values.degrees,
     superscript: values.superscript,
     ligatures: values.ligatures,
-    emphasisMarker: parseChoice("--emphasis-marker", values["emphasis-marker"], EMPHASIS_MARKERS),
-    strongMarker: parseChoice("--strong-marker", values["strong-marker"], EMPHASIS_MARKERS),
-    bulletMarker: parseChoice("--bullet-marker", values["bullet-marker"], BULLET_MARKERS),
-    ruleMarker: parseChoice("--rule-marker", values["rule-marker"], RULE_MARKERS),
     skipTag: values["skip-tag"],
     skipClass: values["skip-class"],
     fragment: negated(values["no-fragment"]),
@@ -272,10 +253,6 @@ const CONFIG_VALUE_RULES = {
   transformAllElements: BOOLEAN_RULE,
   punctuationStyle: oneOfRule(PUNCTUATION_STYLES),
   dashStyle: oneOfRule(DASH_STYLES),
-  emphasisMarker: oneOfRule(EMPHASIS_MARKERS),
-  strongMarker: oneOfRule(EMPHASIS_MARKERS),
-  bulletMarker: oneOfRule(BULLET_MARKERS),
-  ruleMarker: oneOfRule(RULE_MARKERS),
   skipTags: STRING_ARRAY_RULE,
   skipClasses: STRING_ARRAY_RULE,
   shouldSkipText: FUNCTION_RULE,
@@ -473,19 +450,16 @@ function buildOptions(flags: ParsedFlags): CliOptions {
   if (flags.degrees) opts.degrees = true
   if (flags.superscript) opts.superscript = true
   if (flags.ligatures) opts.ligatures = true
-  if (flags.emphasisMarker) opts.emphasisMarker = flags.emphasisMarker
-  if (flags.strongMarker) opts.strongMarker = flags.strongMarker
-  if (flags.bulletMarker) opts.bulletMarker = flags.bulletMarker
-  if (flags.ruleMarker) opts.ruleMarker = flags.ruleMarker
   if (flags.skipTag) opts.skipTags = flags.skipTag
   if (flags.skipClass) opts.skipClasses = flags.skipClass
   if (flags.fragment === false) opts.fragment = false
   return opts
 }
 
-// The merged options may carry keys for the other sink (e.g. emphasisMarker
-// alongside skipTags from one shared config); strip the inapplicable ones so
-// each sink's strict key validation only sees keys it understands.
+// The merged options may carry HTML-only keys (e.g. skipTags from one shared
+// config); strip them so the Markdown sink's strict key validation only sees
+// keys it understands. Markdown output keeps the source's bytes, line endings
+// included; HTML output has its line endings restored.
 async function transformContent(
   input: string,
   type: FileType,
@@ -497,23 +471,14 @@ async function transformContent(
     return transformMarkdown(input, omitKeys(opts, HTML_ONLY_OPTION_KEYS) as MarkdownOptions)
   }
   const transformHtml = await loadSinkTransform("html", importPeer)
-  return transformHtml(input, omitKeys(opts, MARKDOWN_ONLY_OPTION_KEYS) as HtmlOptions)
+  return matchLineEndings(input, await transformHtml(input, opts as HtmlOptions))
 }
 
-async function formatDocument(
-  original: string,
-  type: FileType,
-  opts: CliOptions,
-  importPeer: PeerImporter | undefined,
-): Promise<string> {
-  return matchLineEndings(original, await transformContent(original, type, opts, importPeer))
-}
-
-// The unified pipelines emit LF-only output. Markdown always ends in a newline;
-// a full HTML document may end without one (its final newline can be dropped
-// or sit inside <body>). Restore the source's line-ending style and
-// trailing-newline presence so a CRLF file doesn't gain mixed endings (which
-// would make --check report a change forever and --write churn on every run).
+// The HTML pipeline emits LF-only output, and a full HTML document may end
+// without a newline (its final newline can be dropped or sit inside <body>).
+// Restore the source's line-ending style and trailing-newline presence so a
+// CRLF file doesn't gain mixed endings (which would make --check report a
+// change forever and --write churn on every run).
 function matchLineEndings(original: string, formatted: string): string {
   const lineEnding = original.includes("\r\n") ? "\r\n" : "\n"
   const out = lineEnding === "\r\n"
@@ -608,7 +573,7 @@ async function runValidated(
       throw new UsageError("Reading from stdin requires --type md|html or --stdin-filepath <path>.")
     }
     const input = await readStdin(io.stdin)
-    const output = await formatDocument(input, type, opts, io.importPeer)
+    const output = await transformContent(input, type, opts, io.importPeer)
     if (check) return input === output ? 0 : 1
     io.stdout.write(output)
     return 0
@@ -649,7 +614,7 @@ async function runValidated(
       ) continue
     }
 
-    const formatted = await formatDocument(original, type, opts, io.importPeer)
+    const formatted = await transformContent(original, type, opts, io.importPeer)
     if (!write && !check) {
       io.stdout.write(formatted)
       continue
