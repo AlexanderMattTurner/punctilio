@@ -39,11 +39,22 @@ function comparable(values: readonly string[] | undefined): string | undefined {
   return values && trimLineEdges(values.join("\u0000"))
 }
 
-/** Indices of the containers whose `actual` text is neither the transformed nor the original text. */
-export function containersOutsideOracle({ transformed, original, actual }: ReturnType<typeof markdownTextOracle>): number[] {
-  const same = (a: readonly string[] | undefined, b: readonly string[] | undefined) => comparable(a) === comparable(b)
-  const count = Math.max(transformed.length, actual.length)
+type Oracle = ReturnType<typeof markdownTextOracle>
+
+/** Indices of the containers whose `actual` text is not one of `allowed`'s. */
+function containersOutside(oracle: Oracle, allowed: readonly (keyof Oracle)[]): number[] {
+  const count = Math.max(oracle.transformed.length, oracle.actual.length)
   return Array.from({ length: count }, (_, i) => i).filter(
-    (i) => !same(actual[i], transformed[i]) && !same(actual[i], original[i]),
+    (i) => !allowed.some((key) => comparable(oracle.actual[i]) === comparable(oracle[key][i])),
   )
+}
+
+/** Indices of the containers whose `actual` text is neither the transformed nor the original text. */
+export function containersOutsideOracle(oracle: Oracle): number[] {
+  return containersOutside(oracle, ["transformed", "original"])
+}
+
+/** Indices of the containers whose `actual` text is not the transformed text. */
+export function untransformedContainers(oracle: Oracle): number[] {
+  return containersOutside(oracle, ["transformed"])
 }

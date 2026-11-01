@@ -480,13 +480,13 @@ async function formatDocument(
   importPeer: PeerImporter | undefined,
 ): Promise<string> {
   const formatted = await transformContent(original, type, opts, importPeer)
+  // Markdown output keeps the source's bytes, line endings included.
   return type === "md" ? formatted : matchLineEndings(original, formatted)
 }
 
 // The HTML pipeline emits LF-only output, and a full HTML document may end
 // without a newline (its final newline can be dropped or sit inside <body>).
-// Markdown output keeps the source's bytes, line endings included. Restore the source's line-ending style and
-// trailing-newline presence so a CRLF file doesn't gain mixed endings (which
+// Restore the source's line-ending style and trailing-newline presence so a CRLF file doesn't gain mixed endings (which
 // would make --check report a change forever and --write churn on every run).
 function matchLineEndings(original: string, formatted: string): string {
   const lineEnding = original.includes("\r\n") ? "\r\n" : "\n"

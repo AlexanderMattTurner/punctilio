@@ -12,12 +12,11 @@ import { omitKeys } from "./utils.js"
 const upstreamMarkdown = prettierMarkdown.parsers.markdown as Parser<Root>
 const explorer = cosmiconfig("punctilio")
 
-// A config file may be shared with the CLI, so it can carry HTML-only keys.
-// Strip those; unknown keys still fail loudly inside remarkPunctilio.
-
 async function loadPunctilioConfig(searchFrom: string): Promise<RemarkPunctilioOptions> {
   const result = await explorer.search(searchFrom)
   if (!result || result.isEmpty) return {}
+  // A config file shared with the CLI can carry HTML-only keys; unknown keys
+  // still fail loudly inside remarkPunctilio.
   return omitKeys(result.config as RemarkPunctilioOptions, HTML_ONLY_OPTION_KEYS)
 }
 

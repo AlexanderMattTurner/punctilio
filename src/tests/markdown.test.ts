@@ -149,8 +149,8 @@ describe("transformMarkdown", () => {
   })
 
   it("transforms to a fixed point", async () => {
-    const once = await transformMarkdown("_)_*!*)")
-    expect(once).toBe("_)_*!*)")
+    const once = await transformMarkdown('"a" -- *b*...')
+    expect(once).toBe(`${LDQ}a${RDQ}${EM_DASH}*b*${ELLIPSIS}`)
     expect(await transformMarkdown(once)).toBe(once)
   })
 
@@ -223,6 +223,8 @@ describe("transformMarkdownSync", () => {
     ["shortcut references", "[foo--bar]\n\n[foo--bar]: /u"],
     ["collapsed references", "[foo--bar][]\n\n[foo--bar]: /u"],
     ["a missing final newline", "*a*"],
+    ["an empty document", ""],
+    ["a document of only front matter", '---\ntitle: "a"\n---\n'],
   ])("preserves %s verbatim", (_label, input) => {
     expect(transformMarkdownSync(input)).toBe(input)
   })
@@ -251,6 +253,9 @@ describe("transformMarkdownSync", () => {
     ["a task list item with a bare link run", '- [ ] see www.x.co "q"', `- [ ] see www.x.co ${LDQ}q${RDQ}`],
     ["a setext heading after a definition", '[r]: /u\n\nsee www.x.co "q"\n--', `[r]: /u\n\nsee www.x.co ${LDQ}q${RDQ}\n--`],
     ["an ellipsis that empties the text after an emphasis", "_._..", `_${ELLIPSIS}_`],
+    ["a mailto link", '"mailto:a@b.com" -- x', `${LDQ}mailto:a@b.com${RDQ}${EM_DASH}x`],
+    ["escaped characters punctilio rewrites", '\\"hi\\" a \\-\\- b', `${LDQ}hi${RDQ} a${EM_DASH}b`],
+    ["CRLF front matter behind a BOM", '\uFEFF---\r\ntitle: "a"\r\n---\r\n\r\n"b"\r\n', `\uFEFF---\r\ntitle: "a"\r\n---\r\n\r\n${LDQ}b${RDQ}\r\n`],
     ["task list items", '- [ ] "a"\n- [x] b...', `- [ ] ${LDQ}a${RDQ}\n- [x] b${ELLIPSIS}`],
   ])("transforms %s", (_label, input, expected) => {
     expect(transformMarkdownSync(input)).toBe(expected)
@@ -262,8 +267,10 @@ describe("transformMarkdownSync", () => {
     ["a URL before an em dash", "see https://x.com -- it's", `see <https://x.com>${EM_DASH}it${RSQ}s`],
     ["a URL before an ellipsis", "see https://x.com/a... ok", `see <https://x.com/a>${ELLIPSIS} ok`],
     ["a www link", "see www.x.com... ok", `see [www.x.com](http://www.x.com)${ELLIPSIS} ok`],
-    ["a mailto link", '"mailto:a@b.com" -- x', `${LDQ}mailto:a@b.com${RDQ}${EM_DASH}x`],
     ["a URL in a heading", "# see https://x.com -- b", `# see <https://x.com>${EM_DASH}b`],
+    ["a www link with a bracket in its text", "see www.x.co[a] -- b", `see [www.x.co\\[a](http://www.x.co[a)]${EM_DASH}b`],
+    ["only the link beside an edit", "www.x.co... and www.y.co today", `[www.x.co](http://www.x.co)${ELLIPSIS} and www.y.co today`],
+    ["only the URL beside an edit", '"x" https://a.co/b "y" https://c.co... z', `${LDQ}x${RDQ} https://a.co/b ${LDQ}y${RDQ} <https://c.co>${ELLIPSIS} z`],
   ])("delimits %s", (_label, input, expected) => {
     expect(transformMarkdownSync(input)).toBe(expected)
   })

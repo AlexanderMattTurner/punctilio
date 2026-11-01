@@ -22,7 +22,7 @@ describe("sourceRange", () => {
     expect(sourceRange({ type: "text", value: "", ...fields })).toEqual(expected)
   })
 
-  it("returns undefined for no node", () => {
+  it("returns no range for no node", () => {
     expect(sourceRange(undefined)).toBeUndefined()
   })
 })

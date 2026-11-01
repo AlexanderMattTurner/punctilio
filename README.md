@@ -221,9 +221,9 @@ punctilio --check README.md                  # exit 1 if it would change anythin
 echo '"Hi" -- there' | punctilio - --type md
 ```
 
-Markdown files change only where the typography does: escapes, list markers, emphasis delimiters, tables, and link syntax stay as written. One edit needs more: a bare URL directly followed by a character punctilio rewrites, such as a closing quote, becomes `<url>`, so that character doesn’t join the URL. If an edit would still change how the Markdown parses, that paragraph is left as written.
+Markdown files change only where the typography does: list markers, emphasis delimiters, tables, link syntax, and escapes of characters punctilio leaves alone stay as written (an escaped quote is still curled). One edit needs more: a bare URL right next to a character punctilio rewrites, such as a closing quote, becomes `<url>` (or `[www.x.com](http://www.x.com)`), so that character doesn’t join the URL. If an edit would still change how the Markdown parses, that paragraph is left as written.
 
-One caveat before pointing the CLI (or the [pre-commit hook](#pre-commit) below) at an existing repo: non-breaking spaces (U+00A0) are invisible in source files: they render fine, but they aren’t regular spaces, so Ctrl+F and `grep` matches against the source can miss. Markdown files therefore default to `nbsp` off; pass `--nbsp` (or set `nbsp: true` in config) to opt in. HTML files keep the default of `nbsp` on; pass `--no-nbsp` to keep them ASCII-spaced.
+One caveat before pointing the CLI (or the [pre-commit hook](#pre-commit) below) at an existing repo: non-breaking spaces (U+00A0) are invisible in source files. They render fine, but they aren’t regular spaces, so Ctrl+F and `grep` matches against the source can miss. Markdown files therefore default to `nbsp` off; pass `--nbsp` (or set `nbsp: true` in config) to opt in. HTML files keep the default of `nbsp` on; pass `--no-nbsp` to keep them ASCII-spaced.
 
 File handling follows a few rules:
 

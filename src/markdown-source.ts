@@ -150,6 +150,8 @@ export function trailingPieces(pieces: readonly SourcePiece[], range: SourceRang
   return window
 }
 
+const LEADING_LINE_BREAK_RE = /^\r?\n/
+
 /** Source edits that turn a text value into `transformed`, in ascending order. @internal */
 export function textNodeEdits(map: ValueSourceMap, original: string, transformed: string): SourceEdit[] {
   const { starts, ends } = map
@@ -170,7 +172,7 @@ export function textNodeEdits(map: ValueSourceMap, original: string, transformed
       if (next?.added) i++
       // A removed line break takes the trimmed whitespace before it and the
       // next line's container prefix with it.
-      const start = change.value.startsWith("\n") && valueIndex > 0 ? ends[valueIndex - 1] : starts[valueIndex]
+      const start = LEADING_LINE_BREAK_RE.test(change.value) && valueIndex > 0 ? ends[valueIndex - 1] : starts[valueIndex]
       const end = change.value.endsWith("\n") && after < starts.length ? starts[after] : ends[after - 1]
       edits.push({ start, end, text: replacement })
     }
@@ -186,10 +188,10 @@ export function sourceRange(node: Nodes | undefined): SourceRange | undefined {
   return start === undefined || end === undefined ? undefined : { start, end }
 }
 
-/** The innermost paragraph, heading, or table cell in `chain` (root first), else the root. */
-function phrasingContainerOf(chain: readonly [Root, ...Nodes[]]): Nodes {
-  let container: Nodes = chain[0]
-  for (const node of chain) if (PHRASING_CONTAINERS.has(node.type)) container = node
+/** The innermost paragraph, heading, or table cell holding `node` (or `node` itself), else the root. */
+function containerOf(tree: Root, ancestors: readonly Parents[], node: Nodes): Nodes {
+  let container: Nodes = tree
+  for (const candidate of [...ancestors, node]) if (PHRASING_CONTAINERS.has(candidate.type)) container = candidate
   return container
 }
 
@@ -222,18 +224,18 @@ interface BareLink {
   readonly container: Nodes
 }
 
-/** The value of every text node under `node`, concatenated. */
-function textOf(node: RootContent): string {
-  return textsIn([node]).map((text) => text.value).join("")
+/** The values of every text node under `nodes`, concatenated. */
+function textOf(nodes: readonly RootContent[]): string {
+  return textsIn(nodes).map((text) => text.value).join("")
 }
 
 /** Source ranges of the links in a run of siblings without positions, via the run's pieces. */
 function runLinks(run: readonly RootContent[], range: SourceRange, pieces: readonly SourcePiece[], container: Nodes): BareLink[] {
-  const { starts, ends } = mapValueToSource(textsIn(run).map((text) => text.value).join(""), piecesIn(pieces, range))
+  const { starts, ends } = mapValueToSource(textOf(run), piecesIn(pieces, range))
   const links: BareLink[] = []
   let offset = 0
   for (const member of run) {
-    const text = textOf(member)
+    const text = textOf([member])
     if (member.type === "link") {
       links.push({ range: { start: starts[offset], end: ends[offset + text.length - 1] }, url: member.url, text, container })
     }
@@ -254,10 +256,10 @@ function locateText(tree: Root, source: string, pieces: readonly SourcePiece[]):
   visitParents(tree, (node: Root | RootContent, ancestors: Parents[]) => {
     const range = sourceRange(node)
     if (!range) return
-    const container = phrasingContainerOf([tree, ...ancestors.slice(1), node])
+    const container = containerOf(tree, ancestors, node)
     if (node.type === "text") groups.push({ texts: [node], range, container })
     if (node.type === "link" && !"[<".includes(source[range.start])) {
-      links.push({ range, url: node.url, text: textOf(node), container })
+      links.push({ range, url: node.url, text: textOf([node]), container })
     }
     if (!("children" in node)) return
     const children: readonly RootContent[] = (node as Parents).children
@@ -270,24 +272,31 @@ function locateText(tree: Root, source: string, pieces: readonly SourcePiece[]):
         end: sourceRange(children[i])?.start ?? range.end,
       }
       const run = children.slice(runStart, i)
-      const texts = textsIn(run)
-      const [first] = trailingPieces(pieces, gap, texts.reduce((length, text) => length + text.value.length, 0))
+      const [first] = trailingPieces(pieces, gap, textOf(run).length)
       const runRange = { start: first.start, end: gap.end }
-      groups.push({ texts, range: runRange, container })
+      groups.push({ texts: textsIn(run), range: runRange, container })
       links.push(...runLinks(run, runRange, pieces, container))
     }
   })
   return { groups: groups.sort((a, b) => a.range.start - b.range.start), links }
 }
 
+const LINK_TEXT_SYNTAX_RE = /[[\\\]]/g
+
 /**
  * Edits that write a bare link in explicit syntax with the same URL and text,
  * so the characters around it cannot extend it: `<url>` for a URL or email,
- * `[text](url)` for a `www.` link.
+ * `[text](url)` for a `www.` link, its text rewritten with brackets and
+ * backslashes escaped.
  */
 function delimitLink({ range, url, text }: BareLink): [SourceEdit, SourceEdit] {
-  const [open, close] = url === text || url === `mailto:${text}` ? ["<", ">"] : ["[", `](${url})`]
-  return [{ start: range.start, end: range.start, text: open }, { start: range.end, end: range.end, text: close }]
+  if (url === text || url === `mailto:${text}`) {
+    return [{ start: range.start, end: range.start, text: "<" }, { start: range.end, end: range.end, text: ">" }]
+  }
+  return [
+    { start: range.start, end: range.end, text: `[${text.replace(LINK_TEXT_SYNTAX_RE, "\\$&")}` },
+    { start: range.end, end: range.end, text: `](${url})` },
+  ]
 }
 
 /** Edits for every changed text node in `group`, given each node's value before the transform. */
@@ -310,6 +319,8 @@ function applyEdits(source: string, edits: readonly SourceEdit[]): string {
   let result = ""
   let cursor = 0
   for (const edit of edits) {
+    /* istanbul ignore if -- defensive: text groups are disjoint and links are opaque, so edits never overlap */
+    if (edit.start < cursor) throw new Error(`Overlapping Markdown edits at offset ${edit.start}`)
     result += source.slice(cursor, edit.start) + edit.text
     cursor = edit.end
   }
@@ -324,14 +335,22 @@ interface NodeEntry {
   readonly original: string
 }
 
-/** Every node of `tree` in document order, keyed by depth, type, and URL. */
+const UNKEYED_FIELDS: ReadonlySet<string> = new Set(["children", "position", "data"])
+
+/**
+ * Every node of `tree` in document order, keyed by its depth and its fields
+ * (type, URL, heading depth, list kind, code value, …), a text node's value
+ * aside.
+ */
 function nodeEntries(tree: Root): NodeEntry[] {
   const entries: NodeEntry[] = []
   visitParents(tree, (node: Root | RootContent, ancestors: Parents[]) => {
     const text = node.type === "text" ? node : undefined
+    const fields = JSON.stringify(node, (field: string, value: unknown) =>
+      UNKEYED_FIELDS.has(field) || (field === "value" && text !== undefined) ? undefined : value)
     entries.push({
-      key: `${ancestors.length} ${node.type} ${"url" in node ? node.url : ""}`,
-      container: phrasingContainerOf([tree, ...ancestors.slice(1), node]),
+      key: `${ancestors.length} ${fields}`,
+      container: containerOf(tree, ancestors, node),
       text,
       original: text?.value ?? "",
     })
@@ -386,10 +405,10 @@ function signature(entries: readonly NodeEntry[], reverted: ReadonlySet<Nodes>):
  * run `actual` lacks, and the line just before each run `actual` adds (the
  * root's line always matches, so one exists).
  */
-function mismatches(expected: string[], actual: string[]): number[] {
+function mismatches(expected: readonly string[], actual: readonly string[]): number[] {
   const departures: number[] = []
   let index = 0
-  for (const change of diffArrays(expected, actual)) {
+  for (const change of diffArrays([...expected], [...actual])) {
     if (change.added) {
       departures.push(index - 1)
       continue
@@ -426,21 +445,24 @@ export function spliceTextChanges(
   const entries = nodeEntries(tree)
   transformTree(tree)
 
-  // Groups are disjoint and sorted, so their edits ascend without overlapping.
   const textEdits = groups.flatMap((group, index) =>
-    groupEdits(group, originals[index], pieces).map((edit) => ({ edit, container: group.container, rank: 1 })))
-  // A delimiter goes on the link's side of any text edit at the same offset.
-  const linkEdits = links.flatMap((link) => {
+    groupEdits(group, originals[index], pieces).map((edit) => ({ edit, container: group.container, rank: EDIT_RANK.text })))
+  const adjacentLinks = links.filter((link) => textEdits.some(({ edit }) => touchesLink(source, link, edit)))
+  const linkEdits = adjacentLinks.flatMap((link) => {
     const [open, close] = delimitLink(link)
-    return [{ edit: open, container: link.container, rank: 2 }, { edit: close, container: link.container, rank: 0 }]
+    return [
+      { edit: open, container: link.container, rank: EDIT_RANK.openDelimiter },
+      { edit: close, container: link.container, rank: EDIT_RANK.closeDelimiter },
+    ]
   })
-  const linkContainers = new Set(links.map(({ container }) => container))
+  const delimitable = new Set(adjacentLinks.map(({ container }) => container))
   const delimited = new Set<Nodes>()
   const reverted = new Set<Nodes>()
-  // Each pass delimits each culprit's bare links or else keeps it as written.
-  // Reverting every container reproduces `source`, which parses to the
-  // original text, so the loop ends.
+  // Each pass delimits each culprit's bare links beside an edit, or else
+  // keeps the culprit as written. Reverting every container reproduces
+  // `source`, which parses to the original text, so the loop ends.
   for (;;) {
+    // Sorting is stable, so edits at one offset keep their source order.
     const kept = [...textEdits, ...linkEdits.filter(({ container }) => delimited.has(container))]
       .filter(({ container }) => !reverted.has(container))
       .sort((a, b) => a.edit.start - b.edit.start || a.rank - b.rank)
@@ -449,22 +471,47 @@ export function spliceTextChanges(
     const departures = mismatches(expected.lines, signature(nodeEntries(parse(output)), new Set()).lines)
     if (departures.length === 0) return output
     const candidates = new Set(kept.map(({ container }) => container))
+    /* istanbul ignore if -- defensive: with every container reverted the output is `source`, unless `transformTree` changed more than text values */
+    if (candidates.size === 0) throw new Error("punctilio's Markdown edits could not be reconciled with the source")
     for (const culprit of culpritContainers(candidates, expected.containers, departures)) {
-      if (linkContainers.has(culprit) && !delimited.has(culprit)) delimited.add(culprit)
+      if (delimitable.has(culprit) && !delimited.has(culprit)) delimited.add(culprit)
       else reverted.add(culprit)
     }
   }
 }
 
 /**
+ * Order of edits at one offset: a link's closing delimiter right after the
+ * link, then text edits, then a link's opening delimiter right before it.
+ */
+const EDIT_RANK = { closeDelimiter: 0, text: 1, openDelimiter: 2 } as const
+
+/**
+ * Whether `edit` could join `link`: it ends where the link starts, or starts
+ * where the link ends or further along the same run of non-whitespace.
+ */
+function touchesLink(source: string, { range }: BareLink, edit: SourceEdit): boolean {
+  if (edit.end === range.start) return true
+  if (edit.start < range.end) return false
+  for (let offset = range.end; offset < edit.start; offset++) if (/\s/.test(source[offset])) return false
+  return true
+}
+
+/**
  * The containers to repair where the parse departs from `containers`' lines
  * at each of `departures`: for each, the last candidate (a container with
  * edits still applied) starting at or before it, since every line before it
- * matched, else the first candidate. `candidates` is non-empty and in source
- * order.
+ * matched, else the first candidate. `candidates` is non-empty and in
+ * source order.
  */
 function culpritContainers(candidates: ReadonlySet<Nodes>, containers: readonly Nodes[], departures: readonly number[]): Set<Nodes> {
+  const culprits = new Set<Nodes>()
   let [latest] = candidates
-  const latestAt = containers.map((container) => (latest = candidates.has(container) ? container : latest))
-  return new Set(departures.map((departure) => latestAt[departure]))
+  const latestAt: Nodes[] = []
+  for (const container of containers) {
+    if (candidates.has(container)) latest = container
+    latestAt.push(latest)
+  }
+  for (const departure of departures) culprits.add(latestAt[departure])
+  return culprits
 }

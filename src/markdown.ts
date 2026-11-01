@@ -81,9 +81,9 @@ function processMarkdown(input: string, options: MarkdownOptions): string {
 
 /**
  * Apply punctilio to Markdown source, synchronously. The output is the input
- * byte for byte except for punctilio's typographic edits to prose: escapes,
- * list markers, emphasis delimiters, tables, links, and front matter stay as
- * written.
+ * byte for byte except for punctilio's typographic edits to prose: list
+ * markers, emphasis delimiters, tables, links, front matter, and escapes of
+ * characters punctilio leaves alone stay as written.
  */
 export function transformMarkdownSync(input: string, options: MarkdownOptions = {}): string {
   assertKnownOptionKeys(options, MARKDOWN_OPTION_KEYS, "transformMarkdown")

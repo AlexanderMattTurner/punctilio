@@ -30,13 +30,13 @@ importers:
         specifier: 7.0.5
         version: 7.0.5
       micromark:
-        specifier: 4.0.2
+        specifier: ^4.0.2
         version: 4.0.2
       micromark-extension-gfm:
-        specifier: 3.0.0
+        specifier: ^3.0.0
         version: 3.0.0
       micromark-util-decode-string:
-        specifier: 2.0.1
+        specifier: ^2.0.1
         version: 2.0.1
       parse5:
         specifier: 7.3.0

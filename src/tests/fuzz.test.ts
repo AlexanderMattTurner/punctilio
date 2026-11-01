@@ -24,7 +24,9 @@ import {
 } from "../index.js"
 import { transformHtml } from "../html.js"
 import { transformMarkdown, transformMarkdownSync } from "../markdown.js"
-import { containersOutsideOracle, markdownTextOracle } from "./markdown-oracle.js"
+import { containersOutsideOracle, markdownTextOracle, untransformedContainers } from "./markdown-oracle.js"
+import { tokenizeSource } from "../markdown-source.js"
+import { diffChars } from "diff"
 import { type ProseNode } from "../prose-view.js"
 
 // Default seed is verified green across the suite's run counts; override with
@@ -297,18 +299,6 @@ describe("fuzz: transformMarkdown", () => {
     unit: fc.constantFrom(..."\"'-.!?x/()0123456789abz ,;:\n*_`[]#>\u201C\u201D\u2018\u2019\u201E\u201A\u00AB\u00BB\u02BC"),
   })
 
-  it("is idempotent", () => {
-    fc.assert(
-      fc.property(ARB_MARKDOWN_TEXT, (text) => {
-        const once = transformMarkdownSync(text)
-        expect(transformMarkdownSync(once)).toBe(once)
-      }),
-      fcParams(1000),
-    )
-  }, TIMEOUT_MS)
-
-  // Re-parsing the output yields, per paragraph, the text remarkPunctilio
-  // produces on the parsed input or else the text as written.
   // Prose characters mixed with Markdown syntax whose meaning depends on its
   // neighbors: bare URLs, escapes, entities, references, and table pipes.
   const ARB_MARKDOWN_SYNTAX = fc
@@ -320,10 +310,57 @@ describe("fuzz: transformMarkdown", () => {
       { maxLength: 25 },
     )
     .map((units) => units.join(""))
+  const ARB_MARKDOWN = fc.oneof(ARB_MARKDOWN_TEXT, ARB_MARKDOWN_SYNTAX)
 
+  it("is idempotent", () => {
+    fc.assert(
+      fc.property(ARB_MARKDOWN, (text) => {
+        const once = transformMarkdownSync(text)
+        expect(transformMarkdownSync(once)).toBe(once)
+      }),
+      fcParams(1000),
+    )
+  }, TIMEOUT_MS)
+
+  // Every character the output drops was text in the source, never syntax.
+  it("deletes only characters of text", () => {
+    fc.assert(
+      fc.property(ARB_MARKDOWN, fc.constantFrom(...PUNCTUATION_STYLES), (text, punctuationStyle) => {
+        const textOffsets = new Set(tokenizeSource(text).flatMap(({ start, end }) => Array.from({ length: end - start }, (_, i) => start + i)))
+        const deleted: number[] = []
+        let offset = 0
+        for (const change of diffChars(text, transformMarkdownSync(text, { punctuationStyle }))) {
+          if (change.added) continue
+          if (change.removed) deleted.push(...Array.from({ length: change.value.length }, (_, i) => offset + i))
+          offset += change.value.length
+        }
+        expect(deleted.filter((index) => !textOffsets.has(index))).toEqual([])
+      }),
+      fcParams(1000),
+    )
+  }, TIMEOUT_MS)
+
+  // Without emphasis delimiters, brackets, or URLs, no edit can change how a
+  // paragraph parses, so none is kept as written.
+  it("writes every edit to prose in place", () => {
+    const ARB_PROSE = fc.string({
+      maxLength: 50,
+      unit: fc.constantFrom(..."\"'-.!?x/()0123456789abz ,;:\n#>\u201C\u201D\u2018\u2019\u201E\u201A\u00AB\u00BB\u02BC"),
+    })
+    fc.assert(
+      fc.property(ARB_PROSE, fc.constantFrom(...PUNCTUATION_STYLES), (text, punctuationStyle) => {
+        const oracle = markdownTextOracle(text, transformMarkdownSync(text, { punctuationStyle }), { punctuationStyle })
+        expect(untransformedContainers(oracle)).toEqual([])
+      }),
+      fcParams(1000),
+    )
+  }, TIMEOUT_MS)
+
+  // Re-parsing the output yields, per paragraph, the text remarkPunctilio
+  // produces on the parsed input or else the text as written.
   it("changes only what remarkPunctilio changes", () => {
     fc.assert(
-      fc.property(fc.oneof(ARB_MARKDOWN_TEXT, ARB_MARKDOWN_SYNTAX), fc.constantFrom(...PUNCTUATION_STYLES), (text, punctuationStyle) => {
+      fc.property(ARB_MARKDOWN, fc.constantFrom(...PUNCTUATION_STYLES), (text, punctuationStyle) => {
         const oracle = markdownTextOracle(text, transformMarkdownSync(text, { punctuationStyle }), { punctuationStyle })
         expect(containersOutsideOracle(oracle)).toEqual([])
       }),
