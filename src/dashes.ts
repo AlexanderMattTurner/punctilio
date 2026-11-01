@@ -959,8 +959,9 @@ function convertSpacedDashes(view: ProseView, rendered: string): void {
 /**
  * Picks the dashCore from the maximal dash run [firstDash, fullRunEnd). Tries
  * `[EN EM][-EN EM]*`, then `-{2,}` (greedy), then a single `-`, backtracking past
- * the arrow guard and the trailing `[ ]*(?=\S|$)`. Returns the chosen run end and
- * the trailing-spaces end (`scan`) to replace, or null when no branch validates.
+ * the arrow guard only. A run whose trailing `[ ]*(?=\S|\n|$)` fails stays whole:
+ * a shorter core would strand the rest of the run as a hyphen. Returns the
+ * trailing-spaces end (`scan`) to replace, or null when no branch validates.
  */
 function chooseSpacedDashRun(view: ProseView, firstDash: number, fullRunEnd: number): SpacedTrailing | null {
   const text = view.text
@@ -971,8 +972,7 @@ function chooseSpacedDashRun(view: ProseView, firstDash: number, fullRunEnd: num
     // `-` back so the run is just "–" (not an arrow) and converts.
     for (let end = fullRunEnd; end > firstDash; end--) {
       if (spacedArrowAhead(view, end)) continue
-      const trailing = spacedTrailingEnd(view, end)
-      if (trailing !== null) return trailing
+      return spacedTrailingEnd(view, end)
     }
     return null
   }
@@ -991,8 +991,7 @@ function chooseSpacedDashRun(view: ProseView, firstDash: number, fullRunEnd: num
       if (next !== undefined && LATIN_OR_DIGIT_RE.test(next)) return null
     }
     if (spacedArrowAhead(view, end)) continue
-    const trailing = spacedTrailingEnd(view, end)
-    if (trailing !== null) return trailing
+    return spacedTrailingEnd(view, end)
   }
   return null
 }
@@ -1027,9 +1026,12 @@ function spacedTrailingEnd(view: ProseView, runEnd: number): SpacedTrailing | nu
   return null
 }
 
-/** `(?=\S|$)`: end of text, a node boundary, or a non-space clean char. */
+/**
+ * `(?=\S|\r|\n|$)`: end of text, a node boundary, a line break (which ends a
+ * spaced dash the way end of text does), or a non-space clean char.
+ */
 function lookaheadNonSpace(view: ProseView, pos: number): boolean {
-  return pos === view.text.length || view.hasBoundary(pos) || !/\s/.test(view.text[pos])
+  return pos === view.text.length || view.hasBoundary(pos) || !/[^\S\r\n]/.test(view.text[pos])
 }
 
 /**
