@@ -51,8 +51,10 @@ for file in "$@"; do
     continue
   fi
 
-  # Extract frontmatter (between first and second ---), filtering YAML comments
-  frontmatter=$(awk '/^---$/{n++; next} n==1' "$file" | grep -v '^#')
+  # The frontmatter (between the first and second ---) without its YAML comment
+  # lines. awk, not `grep -v '^#'`: grep exits 1 on an all-comment frontmatter,
+  # which `set -e` turns into an abort of the whole linter.
+  frontmatter=$(awk '/^---$/{n++; next} n==1 && !/^#/' "$file")
 
   # Check frontmatter has name field
   if ! grep -q '^name:' <<<"$frontmatter"; then
@@ -66,11 +68,15 @@ for file in "$@"; do
     errors=$((errors + 1))
   fi
 
-  # Check description is multi-sentence (at least 2 periods).
-  # Extract description from frontmatter only (not body content).
-  # `tr -dc` strips everything except '.', so a description with zero periods
-  # still produces an empty (not failing) result — required under `pipefail`.
-  desc_block=$(awk '/^---$/{n++; next} n==1' "$file" | sed -n '/^description:/,/^[a-z]/p')
+  # Check description is multi-sentence (at least 2 periods): its line plus any
+  # continuation lines, stopping BEFORE the next top-level key so that key's
+  # periods are not counted. `tr -dc` strips everything except '.', so a
+  # description with zero periods still produces an empty (not failing) result.
+  desc_block=$(awk '
+    /^description:/ { indesc = 1; print; next }
+    indesc && /^[A-Za-z][A-Za-z0-9_-]*:/ { indesc = 0 }
+    indesc { print }
+  ' <<<"$frontmatter")
   periods=$(printf '%s' "$desc_block" | tr -dc '.')
   if [[ "${#periods}" -lt 2 ]]; then
     echo "ERROR: $file description too short — use 2-3 sentences with specific activation triggers" >&2
