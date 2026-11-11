@@ -687,6 +687,9 @@ describe("decimal multipliers ending in .0", () => {
     ["a 0x10 value", "a 0x10 value"],
     ["value .0x", "value .0x"],
     [".0x", ".0x"],
+    // A decimal operand is a number, never a hex prefix, so it converts like `5x1F` does.
+    ["1.0x86", `1.0${UNICODE_SYMBOLS.MULTIPLICATION}86`],
+    ["3.0x1F", `3.0${UNICODE_SYMBOLS.MULTIPLICATION}1F`],
     ["v1.0x86", "v1.0x86"],
     ["v1.0x", "v1.0x"],
   ])('transforms "%s" to "%s" idempotently', (input, expected) => {
