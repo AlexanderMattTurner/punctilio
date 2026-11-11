@@ -30,7 +30,7 @@ permissions: {}
 jobs:
   sweep:
     name: Clear stranded automated-reviewer holds across open PRs
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
       contents: read # sparse-checkout the trusted approval scripts

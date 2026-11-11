@@ -13,27 +13,21 @@
  * names what it deliberately leaves out.
  */
 import { mkdirSync, readFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname } from "node:path";
 
-import { writeFileNoFollow } from "./lib-hook-io.mjs";
-
-/** Both halves of a marker filename are path segments, so both are validated. */
-const SAFE_NAME_RE = /^[\w-]+$/;
+import {
+  hookStateDir,
+  SAFE_NAME_RE,
+  sessionStatePath,
+  writeFileNoFollow,
+} from "./lib-hook-io.mjs";
 
 /**
- * PROBLEM CLASS — a gate matches a CLI invocation that is only MENTIONED, not
- * run: the words sit inside a quoted argument (`git commit -m "... gh pr create
- * ..."`), a grep pattern, or a heredoc body, and the gate denies a call that
- * creates nothing. Every `gh`-matching gate needs the same anchor, so it is
- * defined once here: the start of the command, or just after a shell separator.
- *
- * A prefix string rather than a RegExp, because each gate appends its own
- * subcommand and compiles the result once at load. The separator class and the
- * run after it do not overlap — `\s*` there would also match the `\n` in the
- * class, which is polynomial-backtracking ReDoS.
+ * The tools that write a file's contents. `NotebookEdit` is deliberately absent:
+ * no gate's path convention names a `.ipynb`, and this repo tracks no notebooks,
+ * so including it would advertise coverage the gates do not have.
  */
-export const GH_AT_COMMAND_POSITION = String.raw`(?:^|[\n;|&()])[ \t]*gh\s+`;
+export const WRITE_TOOLS = new Set(["Write", "Edit"]);
 
 /**
  * This session's marker path for `skill`, or null when either half is not already
@@ -42,13 +36,14 @@ export const GH_AT_COMMAND_POSITION = String.raw`(?:^|[\n;|&()])[ \t]*gh\s+`;
  * the other's.
  * @param {unknown} sessionId @param {string} skill @returns {string|null}
  */
-export function markerPath(sessionId, skill) {
-  if (typeof sessionId !== "string" || !SAFE_NAME_RE.test(sessionId))
-    return null;
+function markerPath(sessionId, skill) {
   if (!SAFE_NAME_RE.test(skill)) return null;
-  const dir = process.env.CLAUDE_SKILL_GATE_DIR || join(tmpdir(), "skill-gate");
   // Per skill, not per session: one gate's invocation must not satisfy another's.
-  return join(dir, `${sessionId}.${skill}.marker`);
+  return sessionStatePath(
+    sessionId,
+    hookStateDir("CLAUDE_SKILL_GATE_DIR", "skill-gate"),
+    `.${skill}.marker`,
+  );
 }
 
 /**
@@ -79,12 +74,13 @@ function markerSays(path, skill) {
  *
  * @param {object} spec
  * @param {string} spec.skill        the skill the gate requires
- * @param {(payload: any) => boolean} spec.triggered  does this payload need it?
+ * @param {(payload: any) => boolean|Promise<boolean>} spec.triggered  does this
+ *   payload need it?
  * @param {(toolName: string) => string} spec.reason  the deny text
- * @returns {(payload: any) => string|null}
+ * @returns {(payload: any) => Promise<string|null>}
  */
 export function createSkillGate({ skill, triggered, reason }) {
-  return function judge(payload) {
+  return async function judge(payload) {
     const path = markerPath(payload?.session_id, skill);
     if (invokesSkill(payload, skill)) {
       // Best-effort: a failed write costs a reminder, not correctness.
@@ -99,7 +95,7 @@ export function createSkillGate({ skill, triggered, reason }) {
         }
       return null;
     }
-    if (!triggered(payload)) return null;
+    if (!(await triggered(payload))) return null;
     // No session key means no way to tell whether the skill ran, and a reminder
     // that can never be satisfied is a wedge with no remedy — worse than a missed
     // one.

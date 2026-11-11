@@ -1,6 +1,8 @@
 #!/bin/bash
-# Pre-push/PR hook: Runs configured checks before pushing or creating PRs
-# Only runs scripts that exist and are properly configured in package.json
+# Runs the configured checks (package.json build/lint/check/test, then ruff) and
+# exits 1 when any fails. push-gate.mjs runs it before a push or a PR create and
+# turns that exit into a deny body: an exit 1 from a PreToolUse hook does NOT
+# block in Claude Code, so this script is never registered as a hook itself.
 
 set -uo pipefail
 
@@ -33,17 +35,10 @@ else
   has_script test && run_check "tests" pnpm test
 fi
 
-# Python checks
+# Python checks. .hooks/ruff.sh runs ruff at the pre-commit pin CI uses; a PATH
+# ruff of another version enables other rules, so it denies a push CI passes.
 if [[ -f pyproject.toml ]] || [[ -f uv.lock ]]; then
-  if [[ -f uv.lock ]] && exists uv; then
-    run_check "ruff" uv run ruff check .
-  elif exists ruff; then
-    run_check "ruff" ruff check .
-  else
-    echo "=== ruff FAILED ===" >&2
-    echo "Neither ruff nor uv (with uv.lock) is available to run Python checks." >&2
-    FAILED=1
-  fi
+  run_check "ruff" "$BASH" "$HOOK_DIR/../../.hooks/ruff.sh" check .
 fi
 
-exit $FAILED
+exit "$FAILED"

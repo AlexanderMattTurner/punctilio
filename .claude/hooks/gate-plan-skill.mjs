@@ -11,7 +11,8 @@
  * omission: a plan in a file whose name does not say "plan", a plan pasted into
  * chat or a PR body, an editor outside the session, and a `TodoWrite` checklist.
  */
-import { createSkillGate, GH_AT_COMMAND_POSITION } from "./lib-skill-gate.mjs";
+import { createSkillGate, WRITE_TOOLS } from "./lib-skill-gate.mjs";
+import { bashCommand, runsGh } from "./lib-shell-intent.mjs";
 
 /** The skill whose invocation this reminder requires. */
 export const REQUIRED_SKILL = "explore-plan";
@@ -23,16 +24,8 @@ export const REQUIRED_SKILL = "explore-plan";
  */
 const PLAN_EXTENSIONS = new Set(["", "md", "markdown", "txt"]);
 
-/** The tools that write a file's contents. */
-const WRITE_TOOLS = new Set(["Write", "Edit"]);
-
 /** Suffix-matched: the same tool arrives under any mount point the server takes. */
 const ISSUE_MCP_TOOL_RE = /^mcp__.*(?:issue_write|create_issue)$/;
-
-/** The CLI spelling of the same issue. The anchor keeps a quoted MENTION out. */
-const GH_ISSUE_CREATE_RE = new RegExp(
-  GH_AT_COMMAND_POSITION + String.raw`issue\s+create\b`,
-);
 
 /**
  * Does this text carry "plan" as a WORD? Split rather than substring-searched,
@@ -68,20 +61,15 @@ export function isPlanFile(filePath) {
  * takes the CLI route and a web session the MCP route, so covering one moves the
  * session to the other.
  *
- * Only `create`: an issue that already exists already passed the gate. The CLI arm reads the whole
- * command rather than the `--title` argument, which needs no shell parser and
- * errs toward the reminder rather than the miss.
- * @param {any} payload @returns {boolean}
+ * Only `create`: an issue that already exists already passed the gate. The CLI
+ * arm looks for "plan" in the whole command rather than in the `--title`
+ * argument, which errs toward the reminder rather than the miss.
+ * @param {any} payload @returns {Promise<boolean>}
  */
-function createsPlanIssue(payload) {
-  if (payload.tool_name === "Bash") {
-    const command = payload.tool_input?.command;
-    return (
-      typeof command === "string" &&
-      GH_ISSUE_CREATE_RE.test(command) &&
-      namesAPlan(command)
-    );
-  }
+async function createsPlanIssue(payload) {
+  const command = bashCommand(payload);
+  if (command !== null)
+    return namesAPlan(command) && runsGh(command, "issue", "create");
   if (!ISSUE_MCP_TOOL_RE.test(payload.tool_name)) return false;
   const { method, title } = payload.tool_input ?? {};
   if (typeof method === "string" && method !== "create") return false;
@@ -90,9 +78,9 @@ function createsPlanIssue(payload) {
 
 /**
  * Does this payload write a formal plan, by any covered route?
- * @param {any} payload @returns {boolean}
+ * @param {any} payload @returns {Promise<boolean>}
  */
-export function writesFormalPlan(payload) {
+export async function writesFormalPlan(payload) {
   if (typeof payload?.tool_name !== "string") return false;
   if (WRITE_TOOLS.has(payload.tool_name))
     return isPlanFile(payload?.tool_input?.file_path);

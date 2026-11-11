@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
 # kcov-exclude: a behavioral suite runs it as `bash <script>`, so no run is traced.
 # Sync template files into the current repo, producing outputs consumed by
-# .github/workflows/template-sync.yaml.
+# .github/workflows/template-sync-reusable.yaml.
 #
 # Inputs (env):
-#   SYNC_PATHS        Space-separated paths to sync from the template (no spaces in a path name)
 #   EXCLUDE_PATHS     Space-separated paths to exclude. An entry names one file
 #                     or one directory, which covers every file under it.
 #   OPT_IN_PATHS      Space-separated paths the template only UPDATES, never INTRODUCES:
@@ -12,16 +11,19 @@
 #   GITHUB_OUTPUT     Path to GitHub Actions output file
 #
 # Assumes a sibling `_template/` directory holding a checkout of the template repository at the
-# desired ref. Reads `.template-version` for the previously synced SHA and overwrites it.
+# desired ref. Reads the paths to sync from that checkout's own template-sync.yaml (`env.SYNC_PATHS`),
+# and `.template-version` for the previously synced SHA, which it overwrites. The checkout outlives
+# this script, because the reusable workflow runs every later step's tooling from it, so main()
+# registers it in this repo's info/exclude rather than deleting it.
 #
 # Side effects: creates/updates files in this repo, writes the report files main() names under
 # WORK_DIR, and appends key=value lines to $GITHUB_OUTPUT.
 #
-# SELF-MODIFICATION SAFETY: this script lives under a synced path, so a run rewrites the very file
-# bash is executing, and bash re-reads a script between top-level commands. Two things prevent the
-# syntax error that would follow: every executable statement lives inside main(), so bash parses
-# main()'s whole body from the original bytes before the call rewrites the file; and main() exits
-# the shell FROM WITHIN.
+# SELF-MODIFICATION SAFETY: this script lives under a synced path, so a run of a consumer's own
+# copy rewrites the very file bash is executing, and bash re-reads a script between top-level
+# commands. Two things prevent the syntax error that would follow: every executable statement lives
+# inside main(), so bash parses main()'s whole body from the original bytes before the call
+# rewrites the file; and main() exits the shell FROM WITHIN.
 
 set -euo pipefail
 
@@ -70,13 +72,12 @@ emit_attributed_changelog() {
   attributed="$WORK_DIR/attributed.txt"
   # `sed`, not `grep -v`: an all-filtered list makes grep exit 1 and `set -e`
   # would kill the run. main() rewrites `.template-version` before it calls this
-  # and the template ships none, so no commit can ever explain it; `_template` is
-  # this script's own untracked checkout, which `--others` reports and main()
-  # removes next. Both would land in the unexplained list on every single sync.
+  # and the template ships none, so no commit can ever explain it, and it would
+  # land in the unexplained list on every single sync.
   {
     git diff --name-only
     git ls-files --others --exclude-standard
-  } | sed -e '/^\.template-version$/d' -e '\#^_template/\?$#d' | sort -u >"$changed"
+  } | sed -e '/^\.template-version$/d' | sort -u >"$changed"
   [[ -s "$changed" ]] || return 0
   local changed_list
   changed_list="$(tr '\n' ' ' <"$changed")"
@@ -307,6 +308,54 @@ merge_file_clean() {
   ((rc == 0))
 }
 
+# template_sync_paths — SYNC_PATHS as the TEMPLATE's own workflow declares it.
+# PROBLEM CLASS — the list of synced paths read from the child's copy of the workflow lags every
+# rename by a whole sync cycle: the child names the old path until a sync delivers the new list, so
+# the first sync after a rename ships a reader without the data file it reads. The template is the
+# only side that knows which paths it ships now. A repo narrows the set with EXCLUDE_PATHS.
+template_sync_paths() {
+  bash "$(dirname "${BASH_SOURCE[0]}")/run-with-pyyaml.sh" - "_template/.github/workflows/template-sync.yaml" <<'PY'
+import sys
+
+import yaml
+
+with open(sys.argv[1], encoding="utf-8") as workflow:
+    print(yaml.safe_load(workflow)["env"]["SYNC_PATHS"])
+PY
+}
+
+# json_merge_problem FILE — why the merged JSON document FILE must not replace the local file, or
+# nothing when it may. RFC 8259 leaves a duplicate member name to the parser, and jq, Python and
+# JavaScript all keep the LAST one, so a clean line merge where both sides added one key silently
+# drops one side's block. A clean merge can also yield text json.load refuses: a JSONC comment, or a
+# comma one side's edit left dangling. Both keep the local file, and the caller reports the reason.
+json_merge_problem() {
+  python3 - "$1" <<'PY'
+import json
+import sys
+
+
+class Duplicate(Exception):
+    pass
+
+
+def refuse_duplicates(pairs):
+    names = [name for name, _ in pairs]
+    if len(set(names)) != len(names):
+        raise Duplicate
+    return dict(pairs)
+
+
+with open(sys.argv[1], encoding="utf-8") as document:
+    try:
+        json.load(document, object_pairs_hook=refuse_duplicates)
+    except Duplicate:
+        print("duplicate")
+    except json.JSONDecodeError as err:
+        print(f"invalid: {err}")
+PY
+}
+
 # Resolve a single file's sync outcome using a 3-way merge of the file at PREV_SHA
 # (base), the current local file, and the template's HEAD. Decision tree:
 #   1. File is new in template → copy it in.
@@ -315,7 +364,8 @@ merge_file_clean() {
 #   4. Template is unchanged since base → local diverged alone; keep local.
 #   5. Local is unchanged since base → template advanced alone; adopt template.
 #   6. Both sides changed → attempt a 3-way merge:
-#      a. Clean merge → write merged result.
+#      a. Clean merge → write merged result, unless a JSON result repeats a member name or does
+#         not parse: that keeps local and is reported as a conflict no marker can show.
 #      b. Conflict → write conflict markers, so both sides reach the reviewer.
 process_file() {
   local rel_path="$1"
@@ -401,6 +451,29 @@ process_file() {
   cp "$rel_path" "$merge_result"
 
   if merge_file_clean "$merge_result" "$base_file" "$template_file"; then
+    local json_problem=""
+    # An `if`, not `&&`: errexit skips an `&&` list, so a crashed parser would read as "no problem".
+    if [[ "$rel_path" == *.json ]]; then
+      json_problem=$(json_merge_problem "$merge_result")
+    fi
+    if [[ "$json_problem" == duplicate ]]; then
+      echo "CONFLICT (clean merge repeats a JSON member, local kept): $rel_path"
+      record_markerless_conflict "$rel_path" "$template_file" \
+        "**The template change is NOT applied.** The line merge was clean, but its result repeats a
+JSON member name. Most parsers keep only the LAST copy, so one side's block would silently stop
+taking effect. The sync keeps the local file unchanged. Port the template's change by hand."
+      rm -f "$base_file" "$merge_result"
+      return
+    fi
+    if [[ -n "$json_problem" ]]; then
+      echo "CONFLICT (clean merge is not valid JSON, local kept): $rel_path"
+      record_markerless_conflict "$rel_path" "$template_file" \
+        "**The template change is NOT applied.** The line merge was clean, but its result is
+not valid JSON (${json_problem#invalid: }). A JSONC comment or a comma one side left behind does
+this. The sync keeps the local file unchanged. Port the template's change by hand."
+      rm -f "$base_file" "$merge_result"
+      return
+    fi
     # Measured against the pre-sync local, which $rel_path still holds.
     local dropped
     dropped=$(count_dropped_lines "$rel_path" "$merge_result")
@@ -485,11 +558,16 @@ Resolve them: keep local customizations, adopt template improvements."
 # NOT safe: bash reads the next line off disk and hits the rewritten bytes. `main "$@"; exit` on one
 # line would work too, but shfmt splits it back onto two, reintroducing the unsafe trailing read.
 main() {
-  # Read space-separated env strings into arrays so loop sites can use "${arr[@]}".
-  read -ra SYNC_PATHS <<<"${SYNC_PATHS:-}"
+  # Read space-separated strings into arrays so loop sites can use "${arr[@]}".
   read -ra EXCLUDE_PATHS <<<"${EXCLUDE_PATHS:-}"
   read -ra OPT_IN_PATHS <<<"${OPT_IN_PATHS:-}"
   : "${GITHUB_OUTPUT:?GITHUB_OUTPUT must be set}"
+  # This registration is what keeps the template checkout out of every changed-file list below and
+  # out of the commit create-pull-request makes, which stages with `git add -A`.
+  printf '/_template/\n' >>"$(git rev-parse --git-path info/exclude)"
+  local declared_sync_paths
+  declared_sync_paths="$(template_sync_paths)"
+  read -ra SYNC_PATHS <<<"$declared_sync_paths"
 
   # Allow tests to point at alternative temp dirs.
   WORK_DIR="${TEMPLATE_SYNC_WORK_DIR:-/tmp}"
@@ -585,7 +663,6 @@ main() {
 
   report_inert_entries
   emit_attributed_changelog
-  rm -rf _template
 
   #############################################
   # Set outputs
