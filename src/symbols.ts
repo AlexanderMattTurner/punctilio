@@ -309,7 +309,6 @@ function runHasInteriorBoundary(view: ProseView, operandStart: number, operandEn
   return false
 }
 
-
 /**
  * True when a character following an operator/unit is word-like and so should
  * block conversion: an ASCII word char (`\w`, keeping digit/`_` coverage) or an
