@@ -221,13 +221,30 @@ function chainGuardOk(view: ProseView, operandStart: number): boolean {
   return prior === undefined || !(LATIN_LETTER_RE.test(prior) || /\d/.test(prior))
 }
 
+const ASCII_DIGIT_RE = /\d/
+
+/**
+ * True when the operand at `operandStart` is the fractional part of a decimal
+ * number (`<digit>.` directly before it, as in `1.0x`). A node boundary at the
+ * operand or between the `.` and the digit leaves the operand standalone, and an
+ * integer part that fails the leading guard (`v1.0x86`) is an identifier, not a
+ * number.
+ */
+function followsDecimalPoint(view: ProseView, operandStart: number): boolean {
+  const pointOffset = operandStart - 1
+  if (view.hasBoundary(operandStart) || view.hasBoundary(pointOffset)) return false
+  if (view.text[pointOffset] !== "." || !ASCII_DIGIT_RE.test(view.text[pointOffset - 1])) return false
+  return chainGuardOk(view, leftDigitRunStart(view, view.text, pointOffset, 0))
+}
+
 /**
  * The hex skip `firstNum === "0" && /^x/i.test(rest)`: a `0` operand directly
  * followed (no boundary) by `x`/`X` skips the whole matched chain without
- * re-anchoring.
+ * re-anchoring. A hex prefix never follows `<digit>.`, so the `0` of a decimal
+ * multiplier (`1.0x`) is not hex.
  */
 function chainHexBlocked(view: ProseView, operandStart: number, operandText: string): boolean {
-  if (operandText !== "0") return false
+  if (operandText !== "0" || followsDecimalPoint(view, operandStart)) return false
   const after = operandStart + operandText.length
   // Hex requires `x`/`X` directly after the `0` (a unit between them is not hex).
   // `after` always indexes the operator/unit reached by the match, so it is in
@@ -292,7 +309,6 @@ function runHasInteriorBoundary(view: ProseView, operandStart: number, operandEn
   return false
 }
 
-const ASCII_DIGIT_RE = /\d/
 
 /**
  * True when a character following an operator/unit is word-like and so should

@@ -677,6 +677,30 @@ describe("hexadecimal preservation", () => {
   })
 })
 
+describe("decimal multipliers ending in .0", () => {
+  it.each([
+    ["1.0x speed", `1.0${UNICODE_SYMBOLS.MULTIPLICATION} speed`],
+    ["at 2.0x.", `at 2.0${UNICODE_SYMBOLS.MULTIPLICATION}.`],
+    ["1.0x2", `1.0${UNICODE_SYMBOLS.MULTIPLICATION}2`],
+    ["10.0x faster", `10.0${UNICODE_SYMBOLS.MULTIPLICATION} faster`],
+    ["0x5F", "0x5F"],
+    ["a 0x10 value", "a 0x10 value"],
+    ["value .0x", "value .0x"],
+    [".0x", ".0x"],
+    ["v1.0x86", "v1.0x86"],
+    ["v1.0x", "v1.0x"],
+  ])('transforms "%s" to "%s" idempotently', (input, expected) => {
+    const once = multiplication(input)
+    expect(once).toBe(expected)
+    expect(multiplication(once)).toBe(once)
+  })
+
+  // A node boundary at the operand or between the `.` and its digit keeps the hex skip.
+  it.each([`1.${DEFAULT_SEPARATOR}0x speed`, `1${DEFAULT_SEPARATOR}.0x speed`])("preserves %j", (input) => {
+    expect(viewTransform(multiplication, input)).toBe(input)
+  })
+})
+
 describe("model name / identifier preservation", () => {
   it.each([
     "Surface5x3",
