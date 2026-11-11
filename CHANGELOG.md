@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## [5.6.2] - 2026-11-11
+
+### Fixed
+
+- Decimal multipliers with fractional parts (e.g., `1.0x`) are now correctly converted.
+
 ## [5.6.1] - 2026-11-01
 
 ### Changed
