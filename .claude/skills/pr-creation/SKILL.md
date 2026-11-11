@@ -111,9 +111,9 @@ Each pass:
 1. Launch a critique sub-agent using the Task tool:
    - `subagent_type`: “general-purpose”
    - `description`: “Critique code changes”
-   - `prompt`: Include the full diff (`git diff $CLAUDE_CODE_BASE_REF...HEAD`) and the critique prompt from the resource file
+   - `prompt`: Include the full diff (`git diff $CLAUDE_CODE_BASE_REF...HEAD`), the change's threat model, and the critique prompt from the resource file
    - `model`: `"opus"` — this is an adversarial review, per `CLAUDE.md` → Delegation's tiering. When the session model that wrote the diff was not Opus, add one line to the prompt: a weaker or cheaper model wrote the diff, so scrutinize it harder than a routine pass.
-2. For each issue raised, assess validity, then take the easy wins first:
+2. For each issue raised, assess validity and check it against the threat model. Name an out-of-scope finding in the PR and leave it. Then take the easy wins first:
    - **Compress**—delete dead code, unused imports, commented-out blocks, WHAT-comments, backwards-compat shims, premature abstractions
    - **Readability**—tighter names, un-nest conditionals, combine related checks, guard-clause early returns
    - **Code reuse**—extract duplicated logic into helpers; search for existing utilities before adding new ones
@@ -123,7 +123,7 @@ Each pass:
 3. Commit the fixes (Conventional Commits format, per `CLAUDE.md`)
 4. Start a fresh critique pass—the previous output is now stale
 
-**Stop** when a full pass returns no actionable issues. Cap at ~5 passes; if issues are still being found at pass 5, stop, summarize what’s left, and ask the user how to proceed rather than looping silently.
+**Stop** when a full pass returns no actionable issues. Cap at ~5 passes; if issues are still being found at pass 5, stop, name what’s left in the PR body, and proceed (`CLAUDE.md` → Self-Critique Loop).
 
 **Skip the loop** for trivial changes (typo fixes, single-line config tweaks, pure docs edits)—say so explicitly when you skip.
 

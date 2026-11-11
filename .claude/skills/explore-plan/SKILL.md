@@ -50,6 +50,8 @@ pass finds nothing, capped at ~3 passes—the same fixed-point discipline as `CL
 Self-Critique Loop, applied to the plan instead of the code. A plan that hasn't survived its own
 critique wastes the reviewer's pass on defects you could have caught yourself.
 
+The plan states its threat model: what the change defends against, and what it leaves out. A finding outside it goes into the plan's out-of-scope list and does not restart the critique.
+
 ## 4. Review (fresh, unbiased)
 
 Have the plan—and later the diff—reviewed with no implementation bias. Use the `peer-review`

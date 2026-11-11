@@ -21,9 +21,21 @@ if [[ -n "$EXISTING_BRANCH" ]]; then
   echo "Found existing security PR branch: $EXISTING_BRANCH"
   timeout --kill-after=10 60 git fetch origin "$EXISTING_BRANCH"
   git checkout "$EXISTING_BRANCH"
-  if ! git merge "origin/$DEFAULT_BRANCH" --no-edit; then
-    echo "::error::Merge conflict with default branch. Aborting merge."
-    git merge --abort
+  # actions/checkout clones at depth 1, which leaves the default branch with no
+  # parents and so no merge base with the rollup branch.
+  if [[ "$(git rev-parse --is-shallow-repository)" == true ]]; then
+    timeout --kill-after=10 120 git fetch --unshallow origin "$DEFAULT_BRANCH"
+  fi
+  # The runner has no git identity, and a non-fast-forward merge must commit.
+  if ! git -c user.name="github-actions[bot]" \
+    -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+    merge "origin/$DEFAULT_BRANCH" --no-edit; then
+    echo "::error::Merging origin/$DEFAULT_BRANCH into $EXISTING_BRANCH failed (see git's message above)."
+    # A refused merge (e.g. unrelated histories in a shallow clone) starts no
+    # merge, and an unconditional abort would exit 128 over the real error.
+    if git rev-parse -q --verify MERGE_HEAD >/dev/null; then
+      git merge --abort
+    fi
     exit 1
   fi
   {

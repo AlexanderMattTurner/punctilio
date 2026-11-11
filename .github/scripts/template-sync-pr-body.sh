@@ -103,7 +103,7 @@ EOF
   fi
 
   if [[ -n "${INERT_ENTRIES:-}" ]]; then
-    printf '\n## Inert EXCLUDE_PATHS / OPT_IN_PATHS entries\n\nThese name nothing in the template, so they exclude nothing. Correct the spelling, or delete the entry.\n\n%s\n' \
+    printf '\n## Inert exclude-paths / opt-in-paths entries\n\nThese name nothing in the template, so they exclude nothing. Correct the spelling, or delete the entry.\n\n%s\n' \
       "$(bullets "$INERT_ENTRIES")"
   fi
 

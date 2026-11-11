@@ -85,7 +85,7 @@ if [[ "$npm_rc" -ne 0 ]] &&
     exit 1
   fi
   log "'$PACKAGE_NAME' is not published to npm and package.json declares no \"publishConfig\": this repo is not an npm publisher, so the release canary does not apply."
-  log "Disable this check: exclude .github/workflows/release-canary.yaml (and release-canary.sh, npm-max-stable.mjs) via EXCLUDE_PATHS in template-sync.yaml, or set \"private\": true if the package should never publish."
+  log "Disable this check: exclude .github/workflows/release-canary.yaml (and release-canary.sh, npm-max-stable.mjs) via exclude-paths in template-sync.yaml, or set \"private\": true if the package should never publish."
   exit 0
 fi
 

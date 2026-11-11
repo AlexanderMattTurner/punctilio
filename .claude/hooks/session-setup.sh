@@ -75,9 +75,9 @@ webi_install_if_missing() {
 #######################################
 
 # A hook script with a syntax error (e.g. unresolved merge conflict markers)
-# exits non-zero before any logic runs, which Claude Code treats as a block.
-# Surface broken hooks at session start so they can be fixed before the first
-# tool call dies with no explanation.
+# fails before any logic runs: a bash one exits 2, which Claude Code treats as a
+# block, and a python one exits 1, which lets the tool call through unchecked.
+# Surface broken hooks at session start so they are fixed before either happens.
 _check_hook_syntax() {
   local dir file out
   for dir in "$PROJECT_DIR/.claude/hooks" "$PROJECT_DIR/.hooks"; do
