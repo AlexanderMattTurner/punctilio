@@ -1,4 +1,4 @@
-import { cachedRegExp, FRACTION_GLYPHS, LATIN_LETTER_RE, LATIN_OR_DIGIT, MAX_BOUNDARY_SEPARATORS, OPERATOR_SPACE, SPACE_CHAR_RE, UNICODE_SYMBOLS, WORD_RE } from "./constants.js"
+import { cachedRegExp, DIGIT_RE, FRACTION_GLYPHS, LATIN_LETTER_RE, LATIN_OR_DIGIT, MAX_BOUNDARY_SEPARATORS, OPERATOR_SPACE, SPACE_CHAR_RE, UNICODE_SYMBOLS, WORD_RE } from "./constants.js"
 import { boundaryCountAt, exceedsSingleBoundary, firstInteriorBoundary, interiorBoundariesWithin, makeProsePass, overInput, type ProseView, replaceAllInView } from "./prose-view.js"
 import { isDashChar } from "./dashes.js"
 import { convertPrimeMarks } from "./quote-classifier.js"
@@ -218,7 +218,7 @@ function operatorSlotClean(view: ProseView, slotStart: number, slotEnd: number):
 function chainGuardOk(view: ProseView, operandStart: number): boolean {
   if (view.hasBoundary(operandStart)) return true
   const prior = view.text[operandStart - 1]
-  return prior === undefined || !(LATIN_LETTER_RE.test(prior) || /\d/.test(prior))
+  return prior === undefined || !(LATIN_LETTER_RE.test(prior) || DIGIT_RE.test(prior))
 }
 
 /**
@@ -231,7 +231,7 @@ function chainGuardOk(view: ProseView, operandStart: number): boolean {
 function followsDecimalPoint(view: ProseView, operandStart: number): boolean {
   const pointOffset = operandStart - 1
   if (view.hasBoundary(operandStart) || view.hasBoundary(pointOffset)) return false
-  if (view.text[pointOffset] !== "." || !ASCII_DIGIT_RE.test(view.text[pointOffset - 1])) return false
+  if (view.text[pointOffset] !== "." || !DIGIT_RE.test(view.text[pointOffset - 1])) return false
   return chainGuardOk(view, leftDigitRunStart(view, view.text, pointOffset, 0))
 }
 
@@ -260,7 +260,7 @@ function leftDigitRunStart(view: ProseView, text: string, digitsEnd: number, low
   let start = digitsEnd
   // A boundary at `digitsEnd` sits between the last digit and the operator and
   // does not split the run; only boundaries strictly inside the digits do.
-  while (start > lowerBound && /\d/.test(text[start - 1]) && (start === digitsEnd || !view.hasBoundary(start))) start--
+  while (start > lowerBound && DIGIT_RE.test(text[start - 1]) && (start === digitsEnd || !view.hasBoundary(start))) start--
   return start
 }
 
@@ -271,7 +271,7 @@ function leftDigitRunStart(view: ProseView, text: string, digitsEnd: number, low
  */
 function leftDigitsEnd(text: string, slotStart: number): number {
   let i = slotStart
-  while (i > 0 && !/\d/.test(text[i - 1])) i--
+  while (i > 0 && !DIGIT_RE.test(text[i - 1])) i--
   return i
 }
 
@@ -300,14 +300,13 @@ function leftSuffixUnsplit(view: ProseView, text: string, digitsEnd: number, slo
 function runHasInteriorBoundary(view: ProseView, operandStart: number, operandEnd: number): boolean {
   const text = view.text
   let i = operandStart + 1
-  while (i < operandEnd && /\d/.test(text[i])) {
+  while (i < operandEnd && DIGIT_RE.test(text[i])) {
     if (view.hasBoundary(i)) return true
     i++
   }
   return false
 }
 
-const ASCII_DIGIT_RE = /\d/
 
 /**
  * True when a character following an operator/unit is word-like and so should
@@ -332,8 +331,8 @@ function isWordLikeFollower(ch: string | undefined): boolean {
  */
 function nextDigitAnchorAfterMiss(text: string, scan: number): number {
   let next = scan
-  while (next < text.length && ASCII_DIGIT_RE.test(text[next])) next++
-  while (next < text.length && !ASCII_DIGIT_RE.test(text[next])) next++
+  while (next < text.length && DIGIT_RE.test(text[next])) next++
+  while (next < text.length && !DIGIT_RE.test(text[next])) next++
   return next
 }
 
@@ -727,7 +726,7 @@ function arrowsOverView(view: ProseView): void {
  */
 function degreeLeadingGuardOk(text: string, view: ProseView, digitIndex: number): boolean {
   let start = digitIndex
-  while (start > 0 && /\d/.test(text[start - 1]) && !view.hasBoundary(start)) start--
+  while (start > 0 && DIGIT_RE.test(text[start - 1]) && !view.hasBoundary(start)) start--
   if (view.hasBoundary(start)) return true
   const prior = text[start - 1]
   return prior === undefined || (!LATIN_LETTER_RE.test(prior) && prior !== "%")
@@ -877,7 +876,7 @@ function fractionLookaheadOk(text: string, view: ProseView, end: number): boolea
   if (/[/\d]/.test(next)) return false
   // `\.\d`: a dot directly followed by a digit (a node boundary between them
   // breaks the pair, so re-test for the boundary).
-  if (next === "." && !view.hasBoundary(end + 1) && /\d/.test(text[end + 1] ?? "")) return false
+  if (next === "." && !view.hasBoundary(end + 1) && DIGIT_RE.test(text[end + 1] ?? "")) return false
   return true
 }
 
