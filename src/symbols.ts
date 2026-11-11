@@ -221,8 +221,6 @@ function chainGuardOk(view: ProseView, operandStart: number): boolean {
   return prior === undefined || !(LATIN_LETTER_RE.test(prior) || /\d/.test(prior))
 }
 
-const ASCII_DIGIT_RE = /\d/
-
 /**
  * True when the operand at `operandStart` is the fractional part of a decimal
  * number (`<digit>.` directly before it, as in `1.0x`). A node boundary at the
@@ -308,6 +306,8 @@ function runHasInteriorBoundary(view: ProseView, operandStart: number, operandEn
   }
   return false
 }
+
+const ASCII_DIGIT_RE = /\d/
 
 /**
  * True when a character following an operator/unit is word-like and so should
