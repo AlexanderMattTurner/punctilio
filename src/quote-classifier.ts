@@ -1,4 +1,4 @@
-import { CLOSING_BRACKETS, FOLDED_TERMINALS, FOLDED_WORD_CHARS, FRACTION_GLYPHS, LATIN_LETTER_RE, OPENING_BRACKETS, QUOTE_GLYPHS, SPACE_CHAR_RE, TERMINAL_PUNCTUATION, UNICODE_SYMBOLS, WORD_RE } from "./constants.js"
+import { CLOSING_BRACKETS, DIGIT_RE, FOLDED_TERMINALS, FOLDED_WORD_CHARS, FRACTION_GLYPHS, LATIN_LETTER_RE, OPENING_BRACKETS, QUOTE_GLYPHS, SPACE_CHAR_RE, TERMINAL_PUNCTUATION, UNICODE_SYMBOLS, WORD_RE } from "./constants.js"
 import type { ProseView } from "./prose-view.js"
 
 const {
@@ -109,7 +109,6 @@ interface Item {
 
 const SPACE_RE = /\s/
 const FRACTION_GLYPH_SET: ReadonlySet<string> = new Set(FRACTION_GLYPHS)
-const DIGIT_RE = /\d/
 
 /** Fast path: text without any quote-like character is returned untouched. */
 const QUOTE_CANDIDATE_RE = new RegExp(`[${QUOTE_GLYPHS}]`)

@@ -1,4 +1,4 @@
-import { asCharClassContent, cachedRegExp, FOLDED_TERMINALS, FOLDED_WORD_CHARS, FRACTION_GLYPHS, isWordLike, LATIN_LETTER_RE, LATIN_LETTERS, LATIN_OR_DIGIT, LATIN_OR_DIGIT_RE, MAX_BOUNDARY_SEPARATORS, NBSP_CHARS, OPENING_BRACKETS, OPERATOR_SPACE, QUOTE_GLYPHS, SPACE_CHAR_RE, UNICODE_SYMBOLS } from "./constants.js"
+import { asCharClassContent, cachedRegExp, DIGIT_RE, FOLDED_TERMINALS, FOLDED_WORD_CHARS, FRACTION_GLYPHS, isWordLike, LATIN_LETTER_RE, LATIN_LETTERS, LATIN_OR_DIGIT, LATIN_OR_DIGIT_RE, MAX_BOUNDARY_SEPARATORS, NBSP_CHARS, OPENING_BRACKETS, OPERATOR_SPACE, QUOTE_GLYPHS, SPACE_CHAR_RE, UNICODE_SYMBOLS } from "./constants.js"
 import { boundaryCountAt, exceedsSingleBoundary, firstInteriorBoundary, lastBoundaryBefore, makeProsePass, overInput, type ProseView, replaceAllInView, type ReplaceAllOptions } from "./prose-view.js"
 
 export const DASH_STYLES = ["american", "british", "none"] as const
@@ -219,7 +219,7 @@ const RANGE_START_CHAR_RE = /[\dp(]/
  */
 function failedRangeStartSkip(view: ProseView, i: number): number {
   const text = view.text
-  if (!/\d/.test(text[i])) return i + 1
+  if (!DIGIT_RE.test(text[i])) return i + 1
   if (!wordBoundaryStartOk(view, i) || !notAfterDashOk(view, i)) return i + 1
   let runEnd = i + 1
   while (/[\d.,]/.test(text[runEnd] ?? "") && !view.hasBoundary(runEnd)) runEnd++
@@ -343,7 +343,7 @@ function readStartRun(view: ProseView, pos: number): { length: number } | null {
   }
   // `\d` is required after the optional `p\.?` prefix. The prefix chars are
   // never digits, so a missing digit here means no start run begins.
-  if (!/\d/.test(text[i] ?? "")) return null
+  if (!DIGIT_RE.test(text[i] ?? "")) return null
   i++
   while (/[\d.,]/.test(text[i] ?? "") && !view.hasBoundary(i)) i++
   return { length: i - pos }
@@ -365,7 +365,7 @@ function readEndRun(view: ProseView, pos: number): EndRun | null {
     if (view.hasBoundary(i + 1)) return null
     i++
   }
-  if (!/\d/.test(text[i] ?? "")) return null
+  if (!DIGIT_RE.test(text[i] ?? "")) return null
   const firstDigitStart = i
   i++
   while (/[\d.,]/.test(text[i] ?? "") && !view.hasBoundary(i)) i++
@@ -438,7 +438,7 @@ function matchNegativeRangeAt(view: ProseView, i: number): number | null {
 
   // start = `${MINUS}\d[\d.,]*`: the digits after MINUS must not cross a
   // boundary (the `start` body has no interior slot before its trailing one).
-  if (!/\d/.test(text[i + 1] ?? "")) return null
+  if (!DIGIT_RE.test(text[i + 1] ?? "")) return null
   let startEnd = i + 1
   while (/[\d.,]/.test(text[startEnd] ?? "") && !view.hasBoundary(startEnd)) startEnd++
   // One slot between start and the dash tolerates a single boundary there.
@@ -482,7 +482,7 @@ interface NegEndRun {
 /** The negative `end` body `\d[\d.,]*` starting at `pos`, boundary-truncated. */
 function readNegEndRun(view: ProseView, pos: number): NegEndRun | null {
   const text = view.text
-  if (!/\d/.test(text[pos] ?? "")) return null
+  if (!DIGIT_RE.test(text[pos] ?? "")) return null
   let i = pos + 1
   while (/[\d.,]/.test(text[i] ?? "") && !view.hasBoundary(i)) i++
   return { firstDigitStart: pos, length: i - pos }
@@ -503,9 +503,9 @@ function followingCandidates(view: ProseView, endSpanEnd: number, allowMinus: bo
     if (dashCh !== "-" && !(allowMinus && dashCh === MINUS)) break
     const digitStart = pos + 1
     if (exceedsSingleBoundary(view, digitStart)) break
-    if (!/\d/.test(view.text[digitStart] ?? "")) break
+    if (!DIGIT_RE.test(view.text[digitStart] ?? "")) break
     let end = digitStart + 1
-    while (/\d/.test(view.text[end] ?? "") && !view.hasBoundary(end)) end++
+    while (DIGIT_RE.test(view.text[end] ?? "") && !view.hasBoundary(end)) end++
     pos = end
     candidates.push(pos)
   }

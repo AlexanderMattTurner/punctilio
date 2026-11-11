@@ -212,6 +212,9 @@ export const LATIN_OR_DIGIT_RE = new RegExp(`[${LATIN_OR_DIGIT}]`, "u")
 /** Single `\w` word-character matcher shared across passes. */
 export const WORD_RE = /\w/
 
+/** Single ASCII-digit matcher shared across passes. */
+export const DIGIT_RE = /\d/
+
 /** Matches a single {@link SPACE_CHARS} character (space, tab, NBSP, NNBSP). */
 export const SPACE_CHAR_RE = new RegExp(`[${SPACE_CHARS}]`)
 
