@@ -13,9 +13,10 @@
 # Approves ONLY when the reviewer's LATEST review is CHANGES_REQUESTED or
 # COMMENTED (any other latest state means nothing to clear: APPROVED already
 # through, DISMISSED, or "" it never reviewed this PR; the allowlist is stricter
-# than "!= APPROVED" on purpose), AND the reviewer opened at least one thread
-# with none still unresolved. A hold whose concern lived only in the review body
-# opens no thread, so it clears on the reviewer's own re-review instead.
+# than "!= APPROVED" on purpose), AND that hold's cycle (after the review before
+# it) opened at least one thread, AND no reviewer thread is still unresolved. A hold whose
+# concern lived only in the review body opens no thread, so it clears on the
+# reviewer's own re-review instead, even after an earlier round's threads close.
 #
 # Env: the GH_TOKEN_* ladder rungs (see lib/github-token-ladder.bash), GH_REPO
 # (owner/name), PR; REVIEWER_LOGIN optional.
@@ -62,23 +63,31 @@ reviews_query='query($owner: String!, $name: String!, $pr: Int!, $endCursor: Str
     pullRequest(number: $pr) {
       reviews(first: 100, after: $endCursor) {
         pageInfo { hasNextPage endCursor }
-        nodes { databaseId author { login } state submittedAt }
+        nodes { databaseId author { login } state body submittedAt }
       }
     }
   }
 }'
+# A body-less review is not one: GitHub synthesizes it around every standalone
+# review comment, which is how a hold thread is opened and how a reply is posted.
 reviewer_reviews="$(gh api graphql --paginate \
   -f query="$reviews_query" -f owner="$owner" -f name="$name" -F pr="$PR" \
   --jq ".data.repository.pullRequest.reviews.nodes[]
         | ${REVIEWER_MATCH_AUTHOR}
+        | select((.body // \"\") != \"\")
         | {databaseId, state, submittedAt}")"
 
 # Paginated: a long-lived PR can accrue >100 reviews, and an unpaginated
 # first:100 returns the OLDEST 100 and would pick a stale state. Each slurp below
-# therefore sorts by submittedAt across every page.
-latest_state="$(jq -rs \
-  'if length == 0 then "" else (sort_by(.submittedAt) | last | .state) end' \
+# therefore sorts by submittedAt across every page. cycleStart is the review
+# before the latest, which opens the latest hold's cycle.
+latest_review="$(jq -cs \
+  'sort_by(.submittedAt) as $r
+   | if ($r | length) == 0 then {state: "", submittedAt: "", cycleStart: ""}
+     else $r[-1] + {cycleStart: (if ($r | length) > 1 then $r[-2].submittedAt else "" end)}
+     end' \
   <<<"$reviewer_reviews")"
+latest_state="$(jq -r '.state' <<<"$latest_review")"
 
 # The most recent CHANGES_REQUESTED specifically, NOT the latest review: a
 # CHANGES_REQUESTED keeps blocking until dismissed or superseded by an APPROVED
@@ -93,46 +102,66 @@ if [[ "$latest_state" != "CHANGES_REQUESTED" && "$latest_state" != "COMMENTED" ]
   exit 0
 fi
 
+# HOLD_SINCE names the latest hold. CYCLE_START, the review before it, scopes the
+# in_hold count below to that hold's cycle. jq reads it from the environment, so
+# it is exported rather than shell-local.
+HOLD_SINCE="$(jq -r '.submittedAt // ""' <<<"$latest_review")"
+CYCLE_START="$(jq -r '.cycleStart // ""' <<<"$latest_review")"
+export CYCLE_START
+if [[ -z "$HOLD_SINCE" ]]; then
+  echo "the reviewer's ${latest_state} review carries no submittedAt, so no thread can be scoped to it; the hold stays in place." >&2
+  exit 1
+fi
+
 # Count the reviewer's threads two ways. Paginated: a PR can accrue >100 threads,
 # and an unpaginated first:100 would miss a thread on a later page. The per-page
-# --jq emits one {total, unresolved} object; the trailing reduce sums them.
+# --jq emits one {in_hold, unresolved} object; the trailing reduce sums them.
 # shellcheck disable=SC2016 # GraphQL query + jq program are literal, not shell
 remaining_query='query($owner: String!, $name: String!, $pr: Int!, $endCursor: String) {
   repository(owner: $owner, name: $name) {
     pullRequest(number: $pr) {
       reviewThreads(first: 100, after: $endCursor) {
         pageInfo { hasNextPage endCursor }
-        nodes { isResolved comments(first: 1) { nodes { author { login } } } }
+        nodes {
+          isResolved
+          comments(first: 1) { nodes { author { login } pullRequestReview { submittedAt } } }
+        }
       }
     }
   }
 }'
-# A thread hold is "demonstrably cleared" only when the reviewer opened at least
-# one thread AND none remain unresolved. A CHANGES_REQUESTED / COMMENTED review
-# that opened ZERO threads carries no thread resolution signal, so the `total`
-# guard below exits on it: auto-clearing a thread-less hold on "unresolved == 0"
-# (trivially true with no threads) would merge the reviewer's concern unaddressed.
+# `unresolved` spans the whole PR: a thread still open from any round blocks.
+# `in_hold` counts only the threads the latest hold opened, so an earlier round's
+# resolved threads cannot vouch for a newer hold. A thread belongs to the hold
+# when the review holding its root comment came AFTER the previous real review.
+# Comparing with the hold itself is wrong: the oversized and degraded paths open
+# their hold thread first and post the review after it, so that thread is older
+# than its own hold. The root comment's createdAt cannot answer either: a comment
+# drafted into a pending review is created BEFORE that review is submitted.
+thread_in_hold='((.comments.nodes[0].pullRequestReview.submittedAt // "") > env.CYCLE_START)'
 # shellcheck disable=SC2016 # jq program is literal, not shell ($p is a jq var)
 counts="$(gh api graphql --paginate \
   -f query="$remaining_query" -f owner="$owner" -f name="$name" -F pr="$PR" \
   --jq "[.data.repository.pullRequest.reviewThreads.nodes[]
          | ${REVIEWER_MATCH_THREAD_ROOT}]
-        | {total: length, unresolved: (map(select(.isResolved == false)) | length)}" |
-  jq -s 'reduce .[] as $p ({total: 0, unresolved: 0};
-           {total: (.total + $p.total), unresolved: (.unresolved + $p.unresolved)})')"
+        | {in_hold: (map(select(${thread_in_hold})) | length),
+           unresolved: (map(select(.isResolved == false)) | length)}" |
+  jq -s 'reduce .[] as $p ({in_hold: 0, unresolved: 0};
+           {in_hold: (.in_hold + $p.in_hold), unresolved: (.unresolved + $p.unresolved)})')"
 unresolved="$(jq -r '.unresolved' <<<"$counts")"
-total="$(jq -r '.total' <<<"$counts")"
+in_hold="$(jq -r '.in_hold' <<<"$counts")"
 
 if [[ "${unresolved:-0}" -ne 0 ]]; then
   echo "${unresolved} reviewer thread(s) still open; not approving" >&2
   exit 0
 fi
 
-# INVARIANT — an approval needs a RESOLVED thread to rest on. A hold whose
-# concern lived only in the review body opens no thread, so nothing here can
-# clear it: the reviewer's own re-check on the next push supersedes that verdict.
-if [[ "${total:-0}" -eq 0 ]]; then
-  echo "reviewer opened no thread, so no resolution signal exists; a thread-less hold clears on the reviewer's own re-review" >&2
+# INVARIANT — an approval needs a resolved thread FROM THE LATEST HOLD to rest
+# on. A hold whose concern lived only in the review body opens no thread, so
+# nothing here can clear it, however many earlier-round threads were resolved:
+# the reviewer's own re-check on the next push supersedes that verdict.
+if [[ "${in_hold:-0}" -eq 0 ]]; then
+  echo "the reviewer's latest hold (${latest_state} at ${HOLD_SINCE}) opened no thread, so no resolution signal exists; a thread-less hold clears on the reviewer's own re-review" >&2
   exit 0
 fi
 

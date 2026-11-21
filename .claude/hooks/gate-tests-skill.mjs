@@ -16,7 +16,7 @@
  * and this is a nudge at the moment of writing rather than a wall around the
  * files. The deny text claims only what it covers.
  */
-import { createSkillGate } from "./lib-skill-gate.mjs";
+import { createSkillGate, WRITE_TOOLS } from "./lib-skill-gate.mjs";
 
 /** The skill whose invocation this reminder requires. */
 export const REQUIRED_SKILL = "writing-tests";
@@ -41,13 +41,6 @@ export const TEST_FILE_PATTERNS = Object.freeze([
   // test file does.
   { name: "test harness module", re: /(?:^|\/)tests\/_[^/]*\.py$/ },
 ]);
-
-/**
- * The tools that write a file's contents. `NotebookEdit` is deliberately absent:
- * no convention above names a `.ipynb`, and this repo tracks no notebooks, so
- * including it would advertise coverage the gate does not have.
- */
-const WRITE_TOOLS = new Set(["Write", "Edit"]);
 
 /**
  * Is this path one of the repo's test files?
