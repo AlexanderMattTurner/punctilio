@@ -2,9 +2,16 @@
 
 ## Unreleased
 
+## [5.7.0] - 2026-11-21
+
 ### Added
 
 - `nbsp` accepts `{ lastWord?: boolean, shortWords?: boolean }` to turn off the widow and short-word glue while keeping the other non-breaking spaces. `nbspTransform` takes the same object as an optional second argument.
+- `NbspRules` type is now exported from the package entry point.
+
+### Fixed
+
+- Export the `NbspRules` type from the package entry point.
 
 ## [5.6.2] - 2026-11-11
 
