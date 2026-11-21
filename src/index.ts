@@ -11,7 +11,7 @@ export {
   dashWordJoiner,
   hyphenReplace,
 } from "./dashes.js"
-export { nbspTransform } from "./nbsp.js"
+export { type NbspRules, nbspTransform } from "./nbsp.js"
 export {
   buildProseView,
   definePass,
