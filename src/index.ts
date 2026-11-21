@@ -84,7 +84,10 @@ const PIPELINE: readonly PipelinePass[] = [
   // bind through single spaces, so runs must be collapsed before
   // non-breaking spaces are inserted.
   { enabled: (options) => options.collapseSpaces, run: (view) => collapseSpacesTransform(view) },
-  { enabled: (options) => options.nbsp, run: (view) => nbspTransformFn(view) },
+  {
+    enabled: (options) => options.nbsp !== false,
+    run: (view, options) => nbspTransformFn(view, typeof options.nbsp === "object" ? options.nbsp : {}),
+  },
 ]
 
 /**

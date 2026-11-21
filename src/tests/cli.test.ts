@@ -22,7 +22,7 @@ import { UNICODE_SYMBOLS } from "../constants.js"
 import { clearProcessorCache as clearMarkdownCache } from "../markdown.js"
 import { clearProcessorCache as clearHtmlCache } from "../html.js"
 
-const { LEFT_DOUBLE_QUOTE: LDQ, RIGHT_DOUBLE_QUOTE: RDQ, EM_DASH } = UNICODE_SYMBOLS
+const { LEFT_DOUBLE_QUOTE: LDQ, RIGHT_DOUBLE_QUOTE: RDQ, EM_DASH, NBSP } = UNICODE_SYMBOLS
 
 const createdDirs: string[] = []
 
@@ -926,7 +926,8 @@ describe("runCli", () => {
   })
 
   it.each([
-    ["nbsp", "false", "a boolean"],
+    ["nbsp", "false", "a boolean or an object of boolean rule switches (lastWord, shortWords)"],
+    ["nbsp", { widows: false }, "a boolean or an object of boolean rule switches (lastWord, shortWords)"],
     ["fragment", 0, "a boolean"],
     ["skipTags", "code", "an array of strings"],
     ["skipClasses", ["raw", 1], "an array of strings"],
@@ -942,6 +943,13 @@ describe("runCli", () => {
       `Error: Invalid value for "${key}" in config file ${configPath}: expected ${expected}, got ${JSON.stringify(value)}.\n`,
     )
     expect(cap.stdout()).toBe("")
+  })
+
+  it("applies nbsp rule switches from a config file", async () => {
+    const configPath = tmpFile(JSON.stringify({ nbsp: { lastWord: false } }), ".punctiliorc.json")
+    const cap = captureIO("<p>Dr. Smith went home</p>")
+    expect(await runCli(["-", "--type", "html", "--config", configPath], cap.io)).toBe(0)
+    expect(cap.stdout()).toBe(`<p>Dr.${NBSP}Smith went home</p>`)
   })
 
   it("treats a config key set to undefined as unset", async () => {

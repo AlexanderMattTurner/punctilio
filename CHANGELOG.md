@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Added
+
+- `nbsp` accepts `{ lastWord?: boolean, shortWords?: boolean }` to turn off the widow and short-word glue while keeping the other non-breaking spaces. `nbspTransform` takes the same object as an optional second argument.
+
 ## [5.6.2] - 2026-11-11
 
 ### Fixed

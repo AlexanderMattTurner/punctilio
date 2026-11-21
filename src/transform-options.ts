@@ -1,4 +1,5 @@
 import { DASH_STYLES, type DashStyle } from "./dashes.js"
+import { NBSP_RULE_KEYS, type NbspRules } from "./nbsp.js"
 import { PUNCTUATION_STYLES, type PunctuationStyle } from "./quotes.js"
 import { assertKnownOptionKeys, filterUndefined } from "./utils.js"
 
@@ -96,9 +97,27 @@ export interface TransformOptions {
    * Whether to insert non-breaking spaces in typographically appropriate
    * locations (after short words, between numbers and units, before
    * last words to prevent widows, after honorifics, etc.).
+   *
+   * - `true` (default): every rule
+   * - `false`: none
+   * - An object turns off individual word-gluing rules, keeping the rest:
+   *   `{ lastWord: false, shortWords: false }` keeps only the glue between
+   *   numbers and units, after honorifics, between initials, and so on.
+   *
    * Default: true
    */
-  nbsp?: boolean
+  nbsp?: boolean | NbspRules
+}
+
+/** True for a valid `nbsp` option value: a boolean or an {@link NbspRules}. */
+export function isNbspOption(value: unknown): value is boolean | NbspRules {
+  if (typeof value === "boolean") return true
+  if (value === null || typeof value !== "object" || Array.isArray(value)) return false
+  return Object.entries(value).every(
+    ([key, rule]) =>
+      (NBSP_RULE_KEYS as readonly string[]).includes(key) &&
+      (rule === undefined || typeof rule === "boolean")
+  )
 }
 
 const defaultOpts: Required<TransformOptions> = {
@@ -145,6 +164,13 @@ export function resolveTransformOptions(options: TransformOptions): ResolvedTran
     throw new Error(
       `Invalid dashStyle: "${dashStyle}". ` +
       `Must be one of: ${DASH_STYLES.join(", ")}.`
+    )
+  }
+
+  if (options.nbsp !== undefined && !isNbspOption(options.nbsp)) {
+    throw new TypeError(
+      `Invalid nbsp: ${JSON.stringify(options.nbsp)}. Must be a boolean or an object ` +
+      `with optional boolean keys: ${NBSP_RULE_KEYS.join(", ")}.`
     )
   }
 

@@ -432,9 +432,26 @@ const NBSP_TRANSFORMS: ((view: ProseView) => void)[] = [
   nbspBetweenNumberAndUnitOverView,
 ]
 
-export function nbspTransform(input: string): string
-export function nbspTransform(input: ProseView): void
-export function nbspTransform(input: string | ProseView): string | void {
+/**
+ * Switches for the line-breaking rules that glue ordinary words together. Each
+ * defaults to on. The rules for units, honorifics, initials, reference
+ * abbreviations, and legal symbols always run.
+ */
+export interface NbspRules {
+  /** Bind the last word of a paragraph to the word before it (no widows). */
+  lastWord?: boolean
+  /** Bind a one- or two-letter word to the word after it. */
+  shortWords?: boolean
+}
+
+export const NBSP_RULE_KEYS: readonly (keyof NbspRules)[] = ["lastWord", "shortWords"]
+
+const NO_GLUE: ReadonlySet<number> = new Set()
+
+export function nbspTransform(input: string, rules?: NbspRules): string
+export function nbspTransform(input: ProseView, rules?: NbspRules): void
+export function nbspTransform(input: string | ProseView, rules: NbspRules = {}): string | void {
+  const { lastWord = true, shortWords = true } = rules
   return overInput(input, (view) => {
     // All nbsp patterns require a space, tab, or existing nbsp to match.
     // Short-circuit if the text contains none of these.
@@ -443,7 +460,7 @@ export function nbspTransform(input: string | ProseView): string | void {
     for (const fn of NBSP_TRANSFORMS) {
       fn(view)
     }
-    const insertedShortWordGlue = nbspAfterShortWordsOverView(view)
-    nbspBeforeLastWordOverView(view, insertedShortWordGlue)
+    const insertedShortWordGlue = shortWords ? nbspAfterShortWordsOverView(view) : NO_GLUE
+    if (lastWord) nbspBeforeLastWordOverView(view, insertedShortWordGlue)
   })
 }

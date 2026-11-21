@@ -153,6 +153,15 @@ transform(text, {
 });
 ```
 
+`nbsp` also takes an object that turns off the rules gluing ordinary words, which can leave long unbreakable runs in a narrow column. The other non-breaking spaces (units, honorifics, initials, reference abbreviations, § and ©) stay:
+
+```typescript
+transform(text, { nbsp: { lastWord: false, shortWords: false } });
+```
+
+- `lastWord`: binds a paragraph's last word to the word before it, preventing a one-word last line. CSS `text-wrap: pretty` does this in modern browsers.
+- `shortWords`: binds a one- or two-letter word to the word after it.
+
 Markdown sinks (`remarkPunctilio`, `transformMarkdown`, the Prettier plugin, and the CLI for Markdown files) default `nbsp` to `false` instead, because invisible U+00A0 characters in Markdown source files break `grep` and Ctrl+F. Pass `nbsp: true` (or the `--nbsp` CLI flag) to opt in.
 
 The `rehype` plugin accepts additional options. Elements matching a default skip tag (`code`, `pre`, `script`, `style`, `kbd`, `var`, `samp`, `template`, `math`, `svg`, `iframe`), any `skipTags` tag name, or any `skipClasses` class are left untransformed, as are `<textarea>` and any `<option>` without a `value` attribute (its text is the submitted value). `skipTags` extends the default skip tags rather than replacing them, and `skipClasses` defaults to `[]`; the values shown are common opt-ins (add `no-formatting` yourself to skip elements marked with it):

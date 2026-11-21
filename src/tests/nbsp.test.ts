@@ -309,6 +309,19 @@ describe("nbspTransform", () => {
     expect(nbspTransform("Hello world")).toBe(`Hello${NBSP}world`)
   })
 
+  describe("rule switches", () => {
+    const sentence = "Dr. Smith is at the shop with 5 kg of grain today"
+    it.each([
+      [{}, `Dr.${NBSP}Smith is${NBSP}at the shop with 5${NBSP}kg of grain${NBSP}today`],
+      [{ lastWord: false }, `Dr.${NBSP}Smith is${NBSP}at the shop with 5${NBSP}kg of${NBSP}grain today`],
+      [{ shortWords: false }, `Dr.${NBSP}Smith is at the shop with 5${NBSP}kg of grain${NBSP}today`],
+      [{ lastWord: false, shortWords: false }, `Dr.${NBSP}Smith is at the shop with 5${NBSP}kg of grain today`],
+    ])("with %j yields %j over a string and a view", (rules, expected) => {
+      expect(nbspTransform(sentence, rules)).toBe(expected)
+      expect(viewTransform((view) => nbspTransform(view, rules), sentence)).toBe(expected)
+    })
+  })
+
   it("applies all rules over a multi-node view", () => {
     expect(viewTransform(nbspTransform, `Dr.${SEP} Smith`))
       .toBe(`Dr.${SEP}${NBSP}Smith`)
