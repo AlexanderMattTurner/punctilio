@@ -48,3 +48,11 @@ git_auth_header() {
   GIT_CONFIG_VALUE_0="$(_git_auth_header_value "$1")"
   export GIT_CONFIG_VALUE_0
 }
+
+# git_bot_identity — author this repository's next commits as GITHUB_TOKEN's own bot. GitHub
+# credits a commit to the account its email names, and 41898282 is github-actions[bot]'s user id.
+# Every CI script that commits calls this, so the bot's spelling lives in one place.
+git_bot_identity() {
+  git config user.name "github-actions[bot]"
+  git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+}

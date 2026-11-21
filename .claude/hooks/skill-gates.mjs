@@ -20,12 +20,12 @@
 import { judgePlanSkill } from "./gate-plan-skill.mjs";
 import { judgePrSkill } from "./gate-pr-skill.mjs";
 import { judgeTestsSkill } from "./gate-tests-skill.mjs";
-import { isMain, readStdinJson } from "./lib-hook-io.mjs";
+import { denyToolCall, isMain, readStdinJson } from "./lib-hook-io.mjs";
 
 /**
  * Every gate, in the order a reason is taken from. A payload triggers at most one
  * in practice, since their predicates name disjoint tools and paths.
- * @type {ReadonlyArray<(payload: any) => string|null>}
+ * @type {ReadonlyArray<(payload: any) => Promise<string|null>>}
  */
 export const GATES = Object.freeze([
   judgePrSkill,
@@ -37,12 +37,12 @@ export const GATES = Object.freeze([
  * The first deny reason any gate returns, or null to allow. Every gate runs even
  * once one has denied, because a gate also RECORDS the skill invocation it sees —
  * stopping early would drop the marker for the others.
- * @param {any} payload @returns {string|null}
+ * @param {any} payload @returns {Promise<string|null>}
  */
-export function judge(payload) {
+export async function judge(payload) {
   let denial = null;
   for (const gate of GATES) {
-    const reason = gate(payload);
+    const reason = await gate(payload);
     if (reason !== null && denial === null) denial = reason;
   }
   return denial;
@@ -51,23 +51,16 @@ export function judge(payload) {
 /**
  * The hook response for a payload: a deny decision, or nothing at all when the
  * call is allowed.
- * @param {any} payload @returns {string}
+ * @param {any} payload @returns {Promise<string>}
  */
-export function response(payload) {
-  const reason = judge(payload);
-  if (reason === null) return "";
-  return JSON.stringify({
-    hookSpecificOutput: {
-      hookEventName: "PreToolUse",
-      permissionDecision: "deny",
-      permissionDecisionReason: reason,
-    },
-  });
+export async function response(payload) {
+  const reason = await judge(payload);
+  return reason === null ? "" : JSON.stringify(denyToolCall(reason));
 }
 
 if (isMain(import.meta.url)) {
   try {
-    const out = response(await readStdinJson());
+    const out = await response(await readStdinJson());
     if (out) process.stdout.write(out);
   } catch {
     // See the fail-open note in the header: an unreadable payload costs the

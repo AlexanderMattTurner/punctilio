@@ -4,16 +4,21 @@
 To decide where to spend CI-iteration-time budget, maintainers need to know
 WHICH checks fail most often (and therefore cost the most re-runs). Today that
 distribution can only be reverse-engineered by mining commit messages. This
-reporter samples recent completed workflow-run jobs on `main` (the last 5000 runs
-by default; override with $CI_FAILURE_RATES_MAX_RUNS), aggregates each job NAME's
-failure rate over the window, and emits a Markdown table sorted by failure count
-— posted to the run's job summary, not committed (no churn).
+reporter samples recent completed workflow-run jobs on the repository's DEFAULT
+BRANCH (the last 5000 runs by default; override with $CI_FAILURE_RATES_MAX_RUNS),
+aggregates each job NAME's failure rate over the window, and emits a Markdown
+table sorted by failure count — posted to the run's job summary, not committed.
+
+Every ATTEMPT of a run counts (`filter=all` on the jobs endpoint). The default,
+`filter=latest`, returns only the last attempt, so a check that failed and then
+went green on a re-run would read as never failing — and a re-run is exactly the
+cost this report exists to price.
 
 Sampling 5000 runs is one jobs-API call per run, so the window is paged and the
 per-run job fetches run concurrently. GitHub caps the runs listing at 1000
 results per query, so deeper history is reached by sliding a `created:<=` upper
-bound (see _run_ids) — not just paging. Note the fan-out: many workflows run per
-push to main, so 5000 runs spans only ~100-odd pushes, not 5000. Two rate limits
+bound (see _run_summaries) — not just paging. Note the fan-out: many workflows run per
+push to the default branch, so 5000 runs spans only ~100-odd pushes, not 5000. Two rate limits
 bound the sweep: the PRIMARY hourly budget (GITHUB_TOKEN gets only ~1000/hour per
 repo, so a full 5000-run sweep in CI needs a PAT; the workflow lowers its window
 to fit GITHUB_TOKEN), and the SECONDARY abuse limit on bursty concurrency — hence
@@ -21,13 +26,18 @@ a small worker pool and Retry-After backoff rather than more parallelism.
 
 Counting rule (documented so the number means something):
   - denominator ("runs") counts only jobs that actually ran to a verdict:
-    conclusions `success`, `failure`, `timed_out`.
-  - numerator ("failures") counts `failure` and `timed_out`.
+    conclusions `success`, `failure`, `timed_out`, `action_required`,
+    `startup_failure`.
+  - numerator ("failures") counts every counted conclusion except `success`.
   - `cancelled` and `skipped` are EXCLUDED from both — a cancelled job is almost
     always supersession noise (a newer push cancelling an older run, per the
     repo's concurrency rules), and a skipped job is a decide-gate no-op; neither
     is evidence the check is flaky or slow, so folding them in would dilute the
     signal this report exists to surface.
+  - a run that dies with `startup_failure` lists NO jobs, so it is counted once
+    under `<workflow name> (workflow startup)` (see fetch_job_records). Without
+    that, the run that never started reads as zero failures — a workflow broken
+    at startup is the one this report most needs to name.
 
 The aggregator (`build_report`) is PURE — it takes an already-fetched list of
 job records (plain dicts with `name` and `conclusion`) and returns the Markdown
@@ -73,7 +83,7 @@ MAX_BACKOFF_SECONDS = 120
 # The runs listing is ALSO hard-capped at 1000 results per query (page 11 of 100
 # returns empty) regardless of total_count. To sample deeper history we slide a
 # `created:<=` upper bound: once a query fills all 1000, we re-query for runs at
-# or before the oldest one seen and dedupe by id. See _run_ids.
+# or before the oldest one seen and dedupe by id. See _run_summaries.
 API_MAX_PAGE = 10
 LISTING_CAP = API_MAX_PAGE * PER_PAGE
 
@@ -205,8 +215,8 @@ def _get_json_retry(url: str, token: str, *, attempts: int = 6) -> dict:
     raise SystemExit(f"unreachable: exhausted retries for {url}")  # pragma: no cover
 
 
-def _run_ids(repo: str, get: Getter, *, max_runs: int) -> list[int]:
-    """Up to MAX_RUNS most-recent completed-main run ids, sliding past the 1000 cap.
+def _run_summaries(repo: str, get: Getter, *, branch: str, max_runs: int) -> list[dict]:
+    """Up to MAX_RUNS most-recent completed BRANCH runs, sliding past the 1000 cap.
 
     GitHub returns at most 1000 runs per query, so a request for more history is
     served as a sequence of `created:<=<oldest-seen>` windows: page a window up to
@@ -215,17 +225,18 @@ def _run_ids(repo: str, get: Getter, *, max_runs: int) -> list[int]:
     the ceiling is the end of history — stop. A window that adds no new id (all
     duplicates) also stops, so a cluster of same-timestamp runs can't loop.
     """
-    ids: list[int] = []
+    summaries: list[dict] = []
     seen: set[int] = set()
     before: str | None = None
-    while len(ids) < max_runs:
-        start = len(ids)
+    while len(summaries) < max_runs:
+        start = len(summaries)
         oldest: str | None = None
         fetched = 0
         for page in range(1, API_MAX_PAGE + 1):
             url = (
                 f"{API_ROOT}/repos/{repo}/actions/runs"
-                f"?branch=main&status=completed&per_page={PER_PAGE}&page={page}"
+                f"?branch={quote(branch, safe='')}&status=completed"
+                f"&per_page={PER_PAGE}&page={page}"
             )
             if before is not None:
                 url += f"&created={quote(f'<={before}', safe='')}"
@@ -234,21 +245,32 @@ def _run_ids(repo: str, get: Getter, *, max_runs: int) -> list[int]:
             for run in runs:
                 if run["id"] not in seen:
                     seen.add(run["id"])
-                    ids.append(run["id"])
+                    summaries.append(run)
                 oldest = run["created_at"]
-            if len(runs) < PER_PAGE or len(ids) >= max_runs:
+            if len(runs) < PER_PAGE or len(summaries) >= max_runs:
                 break
         # End of history (window under the cap), or no forward progress → done.
-        if oldest is None or fetched < LISTING_CAP or len(ids) == start:
+        if oldest is None or fetched < LISTING_CAP or len(summaries) == start:
             break
         before = oldest
-    return ids[:max_runs]
+    return summaries[:max_runs]
+
+
+def default_branch(repo: str, get: Getter) -> str:
+    """The repository's default branch, which is the branch the report samples."""
+    return get(f"{API_ROOT}/repos/{repo}")["default_branch"]
 
 
 def fetch_job_records(
-    repo: str, token: str, *, max_runs: int, get_json: Getter | None = None
+    repo: str,
+    token: str,
+    *,
+    branch: str,
+    max_runs: int,
+    get_json: Getter | None = None,
 ) -> list[dict]:
-    """Fetch job {name, conclusion} records from up to MAX_RUNS recent main runs.
+    """Fetch job {name, conclusion} records from up to MAX_RUNS recent BRANCH runs,
+    one record per job per attempt.
 
     Pages the run listing, then fetches each run's jobs concurrently. GET_JSON is
     injectable (a ``url -> dict`` callable) so tests drive pagination and
@@ -266,7 +288,25 @@ def fetch_job_records(
 
         fetch = _default_fetch
 
-    ids = _run_ids(repo, fetch, max_runs=max_runs)
+    runs = _run_summaries(repo, fetch, branch=branch, max_runs=max_runs)
+    # A run that dies before any job starts — a caller granting fewer permissions
+    # than the reusable workflow it calls, an unresolvable `uses:`, invalid YAML —
+    # reports `startup_failure` and lists ZERO jobs. Aggregating by job name alone
+    # therefore drops it, and a workflow that never starts reads as no failures at
+    # all. Count the run itself, and skip the jobs call that can only come back
+    # empty. The key is the WORKFLOW name plus a suffix, because every other row
+    # is keyed by JOB name: a successful run of the same workflow contributes
+    # `hook-lifecycle`, never `Hook lifecycle`, so keying on the bare workflow
+    # name would build a denominator that no success can ever reach.
+    startup_failures = [
+        {
+            "name": f"{run.get('name', '')} (workflow startup)",
+            "conclusion": "startup_failure",
+        }
+        for run in runs
+        if run.get("conclusion") == "startup_failure"
+    ]
+    ids = [run["id"] for run in runs if run.get("conclusion") != "startup_failure"]
 
     def jobs_for(run_id: int) -> list[dict]:
         # The jobs endpoint is also per_page-capped at 100, and this repo's runs
@@ -274,7 +314,10 @@ def fetch_job_records(
         # page until GitHub's reported total_count is reached (or a short page
         # signals the end). The total default of len(collected) makes a getter
         # that returns everything in one page (no total_count) stop after page 1.
-        base = f"{API_ROOT}/repos/{repo}/actions/runs/{run_id}/jobs?per_page={PER_PAGE}"
+        base = (
+            f"{API_ROOT}/repos/{repo}/actions/runs/{run_id}/jobs"
+            f"?filter=all&per_page={PER_PAGE}"
+        )
         collected: list[dict] = []
         page = 1
         while True:
@@ -290,7 +333,7 @@ def fetch_job_records(
             for job in collected
         ]
 
-    records: list[dict] = []
+    records: list[dict] = list(startup_failures)
     with ThreadPoolExecutor(max_workers=JOB_FETCH_WORKERS) as pool:
         for run_records in pool.map(jobs_for, ids):
             records.extend(run_records)
@@ -304,9 +347,12 @@ def main() -> None:
     max_runs = int(os.environ.get("CI_FAILURE_RATES_MAX_RUNS", "5000"))
     token = os.environ.get("GH_TOKEN", "")
 
-    records = fetch_job_records(repo, token, max_runs=max_runs)
+    if not token:
+        raise SystemExit("GH_TOKEN is required to fetch CI data")
+    branch = default_branch(repo, lambda url: _get_json_retry(url, token))
+    records = fetch_job_records(repo, token, branch=branch, max_runs=max_runs)
     window_desc = (
-        f"last {len(records)} job runs sampled from up to {max_runs} main runs"
+        f"{len(records)} job attempts sampled from up to {max_runs} runs on `{branch}`"
     )
     print(build_report(records, repo=repo, window_desc=window_desc))
 

@@ -31,7 +31,7 @@ jobs:
     # one string in two places, and a rename in either one alone silently leaves
     # every PR waiting on a context nothing reports.
     name: Automated review posted # required-check: true
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
       contents: read # sparse-checkout the trusted gate script

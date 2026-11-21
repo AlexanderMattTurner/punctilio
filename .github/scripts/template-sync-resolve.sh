@@ -89,15 +89,22 @@ if [[ ${#remaining[@]} -gt 0 ]]; then
     echo "template-sync-resolve: no CLAUDE_CODE_OAUTH_TOKEN — leaving ${#remaining[@]} conflict(s) for a human."
   else
     echo "Handing ${#remaining[@]} conflict(s) to the model: ${remaining[*]}"
-    # fanout owns the per-file prompt, the concurrency bound and the actor gate.
-    # A file the model failed on must be reported unresolved rather than
-    # collapsing the whole sync.
-    # echo-fallback-ok: the marker sweep below is the real verdict, not this exit status
-    CONFLICT_LIST="${remaining[*]}" \
-      MODIFY_DELETE_PATHS="" \
-      PR_NUMBER="$PR_NUMBER" \
-      python3 "${RESOLVER_DIR}/auto-resolve/fanout.py" ||
-      echo "template-sync-resolve: the model tier exited non-zero; the marker sweep below decides." >&2
+    # fanout shells out to `claude`. Installing it here, only once this tier is
+    # reached, means a registry failure costs this tier alone: the structural
+    # results above still reach the branch.
+    if bash "${SCRIPT_DIR}/install-claude-cli.sh"; then
+      # fanout owns the per-file prompt, the concurrency bound and the actor gate.
+      # A file the model failed on must be reported unresolved rather than
+      # collapsing the whole sync.
+      # echo-fallback-ok: the marker sweep below is the real verdict, not this exit status
+      CONFLICT_LIST="${remaining[*]}" \
+        MODIFY_DELETE_PATHS="" \
+        PR_NUMBER="$PR_NUMBER" \
+        python3 "${RESOLVER_DIR}/auto-resolve/fanout.py" ||
+        echo "template-sync-resolve: the model tier exited non-zero; the marker sweep below decides." >&2
+    else
+      echo "template-sync-resolve: installing the claude CLI failed; the marker sweep below decides." >&2
+    fi
     by_model=("${remaining[@]}")
   fi
 fi

@@ -29,3 +29,8 @@ PRE_COMMIT_VERSION=4.6.1
 # the release being the one we reviewed.
 MERGIRAF_VERSION=v0.18.0
 MERGIRAF_SHA256_linux_amd64=4de0986ff9155411dd105958b94362056d0055025db75369eddd3ecd25334cd2
+
+# PyYAML for the workflow Python that reads YAML (resolver-ref.py, template-sync.sh's SYNC_PATHS
+# reader). run-with-pyyaml.sh installs it through uv at this pin, so no step relies on the runner
+# image shipping it.
+PYYAML_VERSION=6.0.3

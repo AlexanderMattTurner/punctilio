@@ -18,11 +18,8 @@ git_root=$(git rev-parse --show-toplevel)
 # shellcheck source=.hooks/lib-gate.sh
 source "$git_root/.hooks/lib-gate.sh"
 
-# Git hooks run in a bare shell and don't inherit session PATH edits; surface
-# the venv's tools plus uv/uvx and cargo installs.
-if [[ -d "$git_root/.venv/bin" ]]; then
-  export PATH="$git_root/.venv/bin:$PATH"
-fi
+# Also surface uv/uvx and cargo installs, which pre-commit is fetched through.
+gate_path_add_venv "$git_root"
 export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
 
 # Mirror CI's invocation: pre-commit.yaml runs `uvx pre-commit==<pin>`, and that
@@ -92,7 +89,19 @@ while read -r -u 3 _local_ref local_sha _remote_ref remote_sha; do
   # Redirect stdin from /dev/null: git feeds this loop the ref list on stdin,
   # and pre-commit (and the tools it drives) would otherwise inherit and consume
   # it, so a multi-ref push would check only the first range.
-  "${precommit_cmd[@]}" run --from-ref "$from_ref" --to-ref "$local_tip" --show-diff-on-failure </dev/null
+  #
+  # Drop GIT_DIR/GIT_WORK_TREE for the hooks pre-commit drives. git exports both
+  # to its hooks, and from a WORKTREE GIT_DIR is absolute, so a hook that runs git
+  # inside its own cached clone (lychee reads its rev that way) reads THIS repo
+  # instead. Keep them when they are the only way to find the repository, as with
+  # `git --git-dir=… --work-tree=…` run from outside it. `unset` in a subshell,
+  # not `env -u`: the hook PATH may hold no `env`.
+  (
+    if (unset GIT_DIR GIT_WORK_TREE && git rev-parse --git-dir >/dev/null 2>&1); then
+      unset GIT_DIR GIT_WORK_TREE
+    fi
+    "${precommit_cmd[@]}" run --from-ref "$from_ref" --to-ref "$local_tip" --show-diff-on-failure
+  ) </dev/null
 done
 
 # Portable-symlink check: rejects a tracked symlink with an absolute target
