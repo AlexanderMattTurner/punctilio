@@ -854,6 +854,25 @@ describe("transform", () => {
     })
 
     it.each([
+      [{ lastWord: false, shortWords: false }, `Dr.${UNICODE_SYMBOLS.NBSP}Smith went home`],
+      [{ lastWord: undefined }, `Dr.${UNICODE_SYMBOLS.NBSP}Smith went${UNICODE_SYMBOLS.NBSP}home`],
+    ])("accepts nbsp rule switches %j", (nbsp, expected) => {
+      expect(transform("Dr. Smith went home", { nbsp })).toBe(expected)
+    })
+
+    it.each([
+      "yes",
+      null,
+      [],
+      { widows: false },
+      { lastWord: "no" },
+    ])("rejects invalid nbsp: %j", (nbsp) => {
+      expect(() => transform("hello", { nbsp: nbsp as never })).toThrow(
+        "Must be a boolean or an object with optional boolean keys: lastWord, shortWords."
+      )
+    })
+
+    it.each([
       "American",
       "BRITISH",
       "typo",

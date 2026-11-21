@@ -17,6 +17,7 @@ import type { HtmlOptions } from "./html.js"
 import { loadSinkTransform, MissingPeerDependencyError, type PeerImporter } from "./peer-dependencies.js"
 import { PUNCTUATION_STYLES, type PunctuationStyle } from "./quotes.js"
 import { DASH_STYLES, type DashStyle } from "./dashes.js"
+import { isNbspOption } from "./transform-options.js"
 import { assertKnownOptionKeys, omitKeys, stableStringify } from "./utils.js"
 
 type CliOptions = MarkdownOptions & HtmlOptions
@@ -248,7 +249,10 @@ const CONFIG_VALUE_RULES = {
   degrees: BOOLEAN_RULE,
   superscript: BOOLEAN_RULE,
   ligatures: BOOLEAN_RULE,
-  nbsp: BOOLEAN_RULE,
+  nbsp: {
+    expected: "a boolean or an object of boolean rule switches (lastWord, shortWords)",
+    isValid: isNbspOption,
+  },
   fragment: BOOLEAN_RULE,
   transformAllElements: BOOLEAN_RULE,
   punctuationStyle: oneOfRule(PUNCTUATION_STYLES),

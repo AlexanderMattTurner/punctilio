@@ -149,7 +149,7 @@ transform(text, {
   degrees: false, // 20 C → 20 °C
   superscript: false, // 1st → 1ˢᵗ
   ligatures: false, // ??? → ⁇, ?! → ⁈, !? → ⁉, !!! → !
-  nbsp: true, // non-breaking spaces (after honorifics, between numbers and units, etc.)
+  nbsp: true, // non-breaking spaces (after honorifics, between numbers and units, etc.); { lastWord: false, shortWords: false } drops the widow and short-word glue
 });
 ```
 
